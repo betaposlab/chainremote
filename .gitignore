@@ -55,4 +55,14 @@ examples/**/target/
 vcpkg_installed
 flutter/lib/generated_plugin_registrant.dart
 libsciter.dylib
-flutter/web/
+.nas-db-password
+
+# Business planning docs (keep local)
+ChainRemote_기획서.md
+
+# Local backups
+flutter/macos/Runner/AppIcon.icns.bak
+src/lang/*.bak
+
+# Admin panel sub-project (separate folder anyway, not in this repo)
+chainremote-admin/
