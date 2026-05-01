@@ -34,28 +34,40 @@
 - **테스트 서버 우선**: 모든 배포는 테스트 → 본서버/GitHub push는 Chang 지시 시에만.
 - **결과만 보고**: 코드 덤프 X, 간결한 완료 보고만.
 
-## 현재 단계 (2026-04-30 종료)
+## 현재 단계 (2026-05-01 종료)
 
 ### 완료된 것
 - ✅ Step 1 Mac: 빌드 환경 + 첫 빌드 + 윈컴 원격 테스트
 - ✅ Step 2 부분: UI 텍스트/아이콘/색상 (ChainRemote 가시화)
 - ❌ Step 4 웹클라: 검증 결과 폐기 (옵션 C로 전환)
-- ✅ NAS 인프라: PostgreSQL 16 가동, SSH/docker 자동화
+- ✅ Step 3 시그널링/릴레이: NAS Docker로 hbbs/hbbr 가동 (`sepani.synology.me`, 포트 21115-21118 외부 노출 검증)
 - ✅ Step 5 골격: Next.js 관리 패널, 멀티테넌시 DB 스키마, 거래처 목록
 - ✅ **End-to-end 1-클릭 원격**: 관리 패널 → rustdesk:// URL → Mac 앱 → 윈컴 연결
+- ✅ **무인 접속 모드**: 윈컴 영구 비번 + 부팅 자동 시작 + approve-mode=password → Mac 0클릭, 거래처 0클릭
 
-### Chang의 꿈의 워크플로우 (2026-04-30 100% 검증)
+### Chang의 꿈의 워크플로우 (2026-05-01 풀 자동 검증)
 ```
-거래처 전화 → 관리 패널에서 거래처 클릭 → "거래처 수락 대기..." → 거래처 수락 클릭 → 연결
+거래처 전화 → 관리 패널에서 거래처 클릭 → 비번 자동 → 즉시 연결 (윈컴 클릭 0)
 ```
-- 비번 0번 입력
-- 코이노 4단계(다운→실행→세션번호→확인) → **1단계(수락)**로 축소 ★ 핵심 차별화 달성
-- 검증 환경: Mac(ChainRemote) ↔ Win(공식 RustDesk 정식 설치) via 공개 RustDesk 서버
+- 코이노 4단계 → **0단계** ★ 진짜 무인 달성
+- 검증 환경: Mac(ChainRemote) ↔ Win(ChainRemote-v3) via 자체 NAS hbbs/hbbr
+- 외부망 검증: yougetsignal 으로 21115/21116/21117/21118 모두 외부에서 open 확인
 
-### 핵심 RustDesk 설정 (Win 거래처 PC 측)
-- 정식 설치 (portable 모드 X) — Settings > Security 활성화 위해
-- Settings > Security > **"클릭을 통해 세션 수락"** 선택 ★
-- 이 설정이 핵심. 거래처마다 한 번씩 셋업 필요.
+### NAS 시그널링 인프라 (2026-05-01 가동)
+- **DDNS**: `sepani.synology.me` (Synology 무료, 자동 갱신)
+- **공인 IP**: `112.186.209.131` (KT)
+- **공개키**: `C2bqeqG0Nb0EQgmtomhzcykw69gRvbSLKfm019r1C8Y=`
+- **컨테이너**: `chainremote-hbbs`, `chainremote-hbbr` (rustdesk-server:latest)
+- **포트 포워딩** (TP-Link Deco): 21115/21116(TCP+UDP)/21117/21118 → 192.168.68.103
+- 하드코딩 → 클라이언트 toml은 `deploy/win/RustDesk2.toml` 참조
+
+### 윈컴 무인 접속 셋업 (검증된 절차, `deploy/win/`)
+1. ChainRemote.exe 설치 (어느 경로든 OK — setup.ps1이 자동 검색)
+2. Mac에서 임시 HTTP 서버: `cd deploy/win && python3 -m http.server 8765`
+3. 윈컴 PowerShell: `iex (irm http://<Mac LAN IP>:8765/setup.ps1)`
+4. 윈컴 ChainRemote → 설정 → 보안 → "영구 비밀번호 설정" 1회 (UI 필수, --password 플래그 미작동)
+5. Mac에서 ID로 접속 → 비번 입력 → 윈컴 0클릭 자동 연결
+- ⚠️ 비번은 **영문 입력 모드** 필수 (RustDesk Flutter 다이얼로그가 IME 그대로 받음 — 거래처 운영 영향 0, Chang만 주의)
 
 ### Mac 측 디스플레이 권장 (4K 거래처 대응)
 - `~/Library/Preferences/com.carriez.RustDesk/peers/<ID>.toml`
@@ -63,14 +75,14 @@
   - `image_quality = 'low'` (속도 우선, 4K 부드러움)
 
 ### 다음 단계 (다음 세션)
-1. **Step 1 윈컴 빌드** — Chang 옆 윈컴에 Rust+Flutter 환경 구축, ChainRemote.exe 생성
-   - 거래처용 빌드 (옵션 C 핵심 아티팩트)
-   - Chang 본인용 윈컴 빌드도 같이
-2. **고정 비번(Unattended Access) 셋업** — 거래처 PC에 한 번만 설정 → 비번 입력 단계 제거
-3. **Step 3 한국 빠른 서버** — NAS 또는 VPS 결정 + hbbs/hbbr 배포
-4. **Step 6 채팅** — Mac/Win 앱 안 채팅 + DB 기록
-5. **Step 7 본 출시 준비** — 정식 브랜딩, 인증서 서명, 거래처 점진 전환
-6. **Step 8 사업화**
+1. **Step C 거래처 배포 패키지** — `deploy/win/`을 거래처가 쓰기 좋은 형태로 패키징
+   - 임시 Mac HTTP → 공개 CDN(S3/R2/Vercel) 호스팅으로 전환
+   - 비번 거래처별 자동 생성 + 관리 패널 DB 저장
+   - ChainRemote.exe + 자동 설정 통합 인스톨러(.msi 또는 자체 .exe wrapper)
+2. **Step 1 윈컴 빌드** — Chang 옆 윈컴에 Rust+Flutter 환경 구축 (Chang 본인용)
+3. **Step 6 채팅** — Mac/Win 앱 안 채팅 + DB 기록
+4. **Step 7 본 출시 준비** — 정식 브랜딩, 인증서 서명, 거래처 점진 전환
+5. **Step 8 사업화**
 
 ### 관리 패널 코드 위치
 - `/Users/changsmac/내작업/chainremote-admin/` (별도 폴더, Next.js)

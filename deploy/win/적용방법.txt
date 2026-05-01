@@ -1,0 +1,17 @@
+=== 윈컴에 ChainRemote 서버 설정 적용 ===
+
+1. 작업 관리자로 ChainRemote.exe / RustDesk.exe 모두 종료
+   (트레이 아이콘도 우클릭 → 종료)
+
+2. 파일 탐색기 주소창에 입력:
+      %APPDATA%\RustDesk\config
+
+3. 그 폴더의 RustDesk2.toml 을 이 폴더의 RustDesk2.toml 로 덮어쓰기
+   (원본 백업하고 싶으면 RustDesk2.toml.bak 으로 이름 바꾸기)
+
+4. ChainRemote.exe (또는 RustDesk.exe) 재실행
+
+5. 메뉴바/설정에서 ID 부여되고 서버 연결 표시(초록) 확인
+
+6. Settings > Security 에서 "클릭을 통해 세션 수락" 체크 확인
+   (approve-mode = 'click' 이미 들어있으니 자동 적용될 가능성 높음)
