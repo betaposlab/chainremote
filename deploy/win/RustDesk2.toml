@@ -1,0 +1,14 @@
+rendezvous_server = 'sepani.synology.me:21116'
+nat_type = 2
+serial = 0
+unlock_pin = ''
+trusted_devices = ''
+
+[options]
+av1-test = 'Y'
+custom-rendezvous-server = 'sepani.synology.me'
+relay-server = 'sepani.synology.me'
+key = 'C2bqeqG0Nb0EQgmtomhzcykw69gRvbSLKfm019r1C8Y='
+api-server = ''
+approve-mode = 'password'
+verification-method = 'use-permanent-password'
