@@ -25,6 +25,22 @@ final peerCardUiType = PeerUiType.grid.obs;
 
 bool? hideUsernameOnCard;
 
+// ChainRemote: 플랫폼별 브랜드 색 배경 (해시 색상 폐기 — 거래처가 헷갈림).
+Color _platformBgColor(String platform) {
+  switch (platform) {
+    case kPeerPlatformWindows:
+      return const Color(0xFF0078D4); // Windows 공식 블루
+    case kPeerPlatformMacOS:
+      return const Color(0xFF1D1D1F); // macOS 다크
+    case kPeerPlatformLinux:
+      return const Color(0xFFE95420); // Ubuntu 오렌지
+    case kPeerPlatformAndroid:
+      return const Color(0xFF3DDC84); // Android 그린
+    default:
+      return const Color(0xFF6B7280); // 알 수 없음 = 중성 회색
+  }
+}
+
 class _PeerCard extends StatefulWidget {
   final Peer peer;
   final PeerTabIndex tab;
@@ -132,9 +148,9 @@ class _PeerCardState extends State<_PeerCard>
   }
 
   makeChild(bool isPortrait, Peer peer) {
-    final name = hideUsernameOnCard == true
-        ? peer.hostname
-        : '${peer.username}${peer.username.isNotEmpty && peer.hostname.isNotEmpty ? '@' : ''}${peer.hostname}';
+    // ChainRemote: 거래처 운영용 — 별칭이 주인공, 부제는 9자리 ID.
+    // 별칭이 비어 있으면 상단이 이미 ID이므로 부제 숨김(중복 방지).
+    final name = peer.alias.isEmpty ? '' : formatID(peer.id);
     final greyStyle = TextStyle(
         fontSize: 11,
         color: Theme.of(context).textTheme.titleLarge?.color?.withOpacity(0.6));
@@ -145,7 +161,7 @@ class _PeerCardState extends State<_PeerCard>
       children: [
         Container(
             decoration: BoxDecoration(
-              color: str2color('${peer.id}${peer.platform}', 0x7f),
+              color: _platformBgColor(peer.platform),
               borderRadius: isPortrait
                   ? BorderRadius.circular(_tileRadius)
                   : BorderRadius.only(
@@ -191,8 +207,10 @@ class _PeerCardState extends State<_PeerCard>
                           style: Theme.of(context).textTheme.titleSmall,
                         )),
                       ]).marginOnly(top: isPortrait ? 0 : 2),
+                      if (name.isNotEmpty || showNote)
                       Row(
                         children: [
+                          if (name.isNotEmpty)
                           Flexible(
                             child: Tooltip(
                               message: name,
@@ -282,9 +300,8 @@ class _PeerCardState extends State<_PeerCard>
       BuildContext context, Peer peer, Rx<BoxDecoration?> deco) {
     hideUsernameOnCard ??=
         bind.mainGetBuildinOption(key: kHideUsernameOnCard) == 'Y';
-    final name = hideUsernameOnCard == true
-        ? peer.hostname
-        : '${peer.username}${peer.username.isNotEmpty && peer.hostname.isNotEmpty ? '@' : ''}${peer.hostname}';
+    // ChainRemote: 그리드 카드도 부제 = 9자리 ID. 별칭 없으면 부제 비움.
+    final name = peer.alias.isEmpty ? '' : formatID(peer.id);
     final child = Card(
       color: Colors.transparent,
       elevation: 0,
@@ -303,7 +320,7 @@ class _PeerCardState extends State<_PeerCard>
               children: [
                 Expanded(
                   child: Container(
-                    color: str2color('${peer.id}${peer.platform}', 0x7f),
+                    color: _platformBgColor(peer.platform),
                     child: Row(
                       children: [
                         Expanded(
@@ -435,7 +452,11 @@ class _PeerCardState extends State<_PeerCard>
     } else {
       return InkWell(
           child: const Padding(
-              padding: EdgeInsets.all(12), child: Icon(Icons.more_vert)),
+              padding: EdgeInsets.all(12),
+              child: Tooltip(
+                message: '메뉴 (이름 바꾸기 · 비밀번호 · 삭제 등)',
+                child: Icon(Icons.settings_outlined),
+              )),
           onTapDown: (e) {
             final x = e.globalPosition.dx;
             final y = e.globalPosition.dy;
@@ -1489,15 +1510,17 @@ Widget build_more(BuildContext context, {bool invert = false}) {
               : (invert
                   ? Theme.of(context).scaffoldBackgroundColor
                   : Theme.of(context).colorScheme.background),
-          child: Icon(Icons.more_vert,
-              size: 18,
-              color: hover.value
-                  ? Theme.of(context).textTheme.titleLarge?.color
-                  : Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.color
-                      ?.withOpacity(0.5)))));
+          child: Tooltip(
+            message: '메뉴 (이름 바꾸기 · 비밀번호 · 삭제 등)',
+            child: Icon(Icons.settings_outlined,
+                size: 18,
+                color: hover.value
+                    ? Theme.of(context).textTheme.titleLarge?.color
+                    : Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.color
+                        ?.withOpacity(0.5))))));
 }
 
 class TagPainter extends CustomPainter {
