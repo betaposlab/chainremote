@@ -67,3 +67,8 @@ src/lang/*.bak
 # Admin panel sub-project (separate folder anyway, not in this repo)
 chainremote-admin/
 .nas-hbbs-pubkey
+
+# Distribution artifacts (binary payloads / built installers)
+deploy/win-binary/*.exe
+deploy/win-installer/rustdesk-*.exe
+deploy/win-installer/ChainRemote_Setup.exe
