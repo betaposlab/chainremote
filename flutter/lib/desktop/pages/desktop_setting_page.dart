@@ -63,6 +63,7 @@ enum SettingsTabKey {
 
 class DesktopSettingPage extends StatefulWidget {
   final SettingsTabKey initialTabkey;
+  // ChainRemote: 거래처 운영에 불필요한 탭들(계정/플러그인/프린터) 비활성화.
   static final List<SettingsTabKey> tabKeys = [
     SettingsTabKey.general,
     if (!isWeb &&
@@ -74,12 +75,6 @@ class DesktopSettingPage extends StatefulWidget {
         bind.mainGetBuildinOption(key: kOptionHideNetworkSetting) != 'Y')
       SettingsTabKey.network,
     if (!bind.isIncomingOnly()) SettingsTabKey.display,
-    if (!isWeb && !bind.isIncomingOnly() && bind.pluginFeatureIsEnabled())
-      SettingsTabKey.plugin,
-    if (!bind.isDisableAccount()) SettingsTabKey.account,
-    if (isWindows &&
-        bind.mainGetBuildinOption(key: kOptionHideRemotePrinterSetting) != 'Y')
-      SettingsTabKey.printer,
     SettingsTabKey.about,
   ];
 
@@ -273,36 +268,164 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     });
   }
 
+  // ChainRemote: 사이드바 폐기 → 브랜드 헤더 + 가로 칩 탭 + 본문 스타일.
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: const Color(0xFFF6F8FB),
       body: _buildBlock(
         children: <Widget>[
-          SizedBox(
-            width: _kTabWidth,
+          Expanded(
             child: Column(
               children: [
-                _header(context),
-                Flexible(child: _listView(tabs: _settingTabs())),
+                _brandHeader(context),
+                _topTabStrip(context),
+                Expanded(
+                  child: Container(
+                    color: const Color(0xFFF6F8FB),
+                    child: PageView(
+                      controller: controller,
+                      physics: NeverScrollableScrollPhysics(),
+                      children: _children(),
+                    ),
+                  ),
+                ),
               ],
-            ),
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(
-            child: Container(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              child: PageView(
-                controller: controller,
-                physics: NeverScrollableScrollPhysics(),
-                children: _children(),
-              ),
             ),
           )
         ],
       ),
     );
+  }
+
+  // ChainRemote 브랜드 헤더 — 그라디언트 + 로고 + 부제
+  Widget _brandHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(28, 22, 28, 18),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1E5BFF), Color(0xFF00B894)],
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.tune_rounded,
+                color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Text('환경설정',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800)),
+              SizedBox(height: 2),
+              Text('ChainRemote 운영 환경 정의',
+                  style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500)),
+            ],
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  // 가로 칩 탭 — 사이드바 대체
+  Widget _topTabStrip(BuildContext context) {
+    final tabs = _settingTabs();
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: tabs.map((tab) => _topTabChip(tab)).toList(),
+      ),
+    );
+  }
+
+  Widget _topTabChip(_TabInfo tab) {
+    return Obx(() {
+      final selected = tab.key == selectedTab.value;
+      const brandBlue = Color(0xFF1E5BFF);
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              if (selectedTab.value != tab.key) {
+                int index = DesktopSettingPage.tabKeys.indexOf(tab.key);
+                if (index == -1) return;
+                controller.jumpToPage(index);
+              }
+              selectedTab.value = tab.key;
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: selected ? brandBlue : const Color(0xFFEEF1F5),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: brandBlue.withOpacity(0.30),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        )
+                      ]
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(selected ? tab.selected : tab.unselected,
+                      size: 17,
+                      color:
+                          selected ? Colors.white : const Color(0xFF4A5568)),
+                  const SizedBox(width: 8),
+                  Text(
+                    translate(tab.label),
+                    style: TextStyle(
+                      color:
+                          selected ? Colors.white : const Color(0xFF4A5568),
+                      fontWeight:
+                          selected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   Widget _header(BuildContext context) {
@@ -434,7 +557,7 @@ class _GeneralState extends State<_General> {
     }
 
     final isOptFixed = isOptionFixed(kCommConfKeyTheme);
-    return _Card(title: 'Theme', children: [
+    return _Card(title: 'Theme', hint: '본사·거래처 모두 밝은 모드 권장 — 매장 시인성 좋음.', children: [
       _Radio<String>(context,
           value: 'light',
           groupValue: current,
@@ -466,7 +589,7 @@ class _GeneralState extends State<_General> {
         return const Offstage();
       }
 
-      return _Card(title: 'Service', children: [
+      return _Card(title: 'Service', hint: '거래처 PC는 항상 실행(연결 수신 상태) 권장. 중지하면 본사가 접속 불가.', children: [
         _Button(serviceStop.value ? 'Start' : 'Stop', () {
           () async {
             serviceBtnEnabled.value = false;
@@ -699,7 +822,7 @@ class _GeneralState extends State<_General> {
       String root_dir = map['root_dir']!;
       bool root_dir_exists = map['root_dir_exists']!;
       bool user_dir_exists = map['user_dir_exists']!;
-      return _Card(title: 'Recording', children: [
+      return _Card(title: 'Recording', hint: '분쟁 시 증거가 됩니다. 거래처 운영용으로 자동 녹화(수신) 권장.', children: [
         if (!bind.isOutgoingOnly())
           _OptionCheckBox(context, 'Automatically record incoming sessions',
               kOptionAllowAutoRecordIncoming),
@@ -843,9 +966,9 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
               child: Column(children: [
                 permissions(context),
                 password(context),
-                _Card(title: '2FA', children: [tfa()]),
+                _Card(title: '2FA', hint: 'RustDesk 클라우드 계정용. 우리는 안 씁니다 — 끔(OFF) 권장.', children: [tfa()]),
                 if (!isChangeIdDisabled())
-                  _Card(title: 'ID', children: [changeId()]),
+                  _Card(title: 'ID', hint: '⚠️ ID 변경 금지. 머신 UUID 기반으로 자동 발급됨. 변경 시 거래처 재등록 필요.', children: [changeId()]),
                 more(context),
               ]),
             ),
@@ -1011,7 +1134,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           break;
       }
 
-      return _Card(title: 'Permissions', children: [
+      return _Card(title: 'Permissions', hint: '본사가 거래처 PC에 접속했을 때 허용할 동작들. 거래처 운영은 모두 켬.', children: [
         ComboBox(
             keys: [
               defaultOptionAccessMode,
@@ -1199,7 +1322,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           final usePassword = model.approveMode != 'click';
 
           final isApproveModeFixed = isOptionFixed(kOptionApproveMode);
-          return _Card(title: 'Password', children: [
+          return _Card(title: 'Password', hint: '거래처 운영 정공 = "영구 비밀번호 사용". 한번 설정하면 본사가 0클릭 무인 접속.', children: [
             ComboBox(
               enabled: !locked && !isApproveModeFixed,
               keys: modeKeys,
@@ -1232,7 +1355,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
 
   Widget more(BuildContext context) {
     bool enabled = !locked;
-    return _Card(title: 'Security', children: [
+    return _Card(title: 'Security', hint: '거래처 운영 권장 = "수신 세션 중 화면 켜짐 유지" 만 ON, 나머지 OFF.', children: [
       shareRdp(context, enabled),
       _OptionCheckBox(context, 'Deny LAN discovery', 'enable-lan-discovery',
           reverse: true, enabled: enabled),
@@ -1652,6 +1775,7 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
     final divider = const Divider(height: 1, indent: 16, endIndent: 16);
     return _Card(
       title: 'Network',
+      hint: '⚠️ ID/릴레이 서버는 인스톨러가 자동 설정 (sepani.synology.me). 절대 손대지 마세요. 나머지(프록시·웹소켓·TLS·UDP)는 거래처 운영에서 거의 안 씁니다.',
       children: [
         Container(
           child: Column(
@@ -1759,7 +1883,7 @@ class _DisplayState extends State<_Display> {
     }
 
     final groupValue = bind.mainGetUserDefaultOption(key: kOptionViewStyle);
-    return _Card(title: 'Default View Style', children: [
+    return _Card(title: 'Default View Style', hint: '거래처 운영 권장: "크기 조정 가능". 4K 거래처 PC도 본사 창 크기에 맞춤.', children: [
       _Radio(context,
           value: kRemoteViewStyleOriginal,
           groupValue: groupValue,
@@ -1829,7 +1953,7 @@ class _DisplayState extends State<_Display> {
 
     final isOptFixed = isOptionFixed(kOptionImageQuality);
     final groupValue = bind.mainGetUserDefaultOption(key: kOptionImageQuality);
-    return _Card(title: 'Default Image Quality', children: [
+    return _Card(title: 'Default Image Quality', hint: '거래처 운영 권장: "반응 시간 최적화". 살짝 흐려도 끊김 없이 빠르게.', children: [
       _Radio(context,
           value: kRemoteImageQualityBest,
           groupValue: groupValue,
@@ -1909,7 +2033,7 @@ class _DisplayState extends State<_Display> {
     } catch (e) {
       debugPrint("failed to parse supported hwdecodings, err=$e");
     }
-    return _Card(title: 'Default Codec', children: [
+    return _Card(title: 'Default Codec', hint: 'Auto 권장. 본사·거래처 환경 따라 자동으로 최선 선택.', children: [
       _Radio(context,
           value: 'auto',
           groupValue: groupValue,
@@ -2468,35 +2592,92 @@ class _AboutState extends State<_About> {
 //#region components
 
 // ignore: non_constant_identifier_names
+// ChainRemote: 카드 = 좌측 브랜드 블루 강조선 + 옅은 헤더 + 옵션 힌트.
 Widget _Card(
     {required String title,
     required List<Widget> children,
-    List<Widget>? title_suffix}) {
+    List<Widget>? title_suffix,
+    String? hint}) {
+  const brandBlue = Color(0xFF1E5BFF);
   return Row(
     children: [
       Flexible(
         child: SizedBox(
           width: _kCardFixedWidth,
           child: Card(
+            elevation: 0.5,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(
+                  color: const Color(0xFFE2E8F0), width: 0.5),
+            ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                        child: Text(
-                      translate(title),
-                      textAlign: TextAlign.start,
-                      style: const TextStyle(
-                        fontSize: _kTitleFontSize,
+                // 헤더: 좌측 4px 브랜드 블루 막대 + 제목
+                IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        decoration: const BoxDecoration(
+                          color: brandBlue,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(10),
+                          ),
+                        ),
                       ),
-                    )),
-                    ...?title_suffix
-                  ],
-                ).marginOnly(left: _kContentHMargin, top: 10, bottom: 10),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                  child: Text(
+                                translate(title),
+                                textAlign: TextAlign.start,
+                                style: const TextStyle(
+                                  fontSize: _kTitleFontSize,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              )),
+                              ...?title_suffix
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // ChainRemote 운영 힌트 (있을 때만)
+                if (hint != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline_rounded,
+                            size: 14, color: brandBlue),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            hint,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF4A5568),
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ...children
                     .map((e) => e.marginOnly(top: 4, right: _kContentHMargin)),
+                const SizedBox(height: 10),
               ],
-            ).marginOnly(bottom: 10),
+            ),
           ).marginOnly(left: _kCardLeftMargin, top: 15),
         ),
       ),

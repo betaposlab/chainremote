@@ -314,8 +314,10 @@ class _ConnectionPageState extends State<ConnectionPage>
                 Flexible(child: _buildRemoteIDTextField(context)),
               ],
             ).marginOnly(top: 22),
-            SizedBox(height: 12),
-            Divider().paddingOnly(right: 12),
+            // ChainRemote: 세련된 페이드 그라디언트 분리선 + 영역 라벨
+            const SizedBox(height: 18),
+            const _FadeSectionDivider(label: '거래처 목록'),
+            const SizedBox(height: 6),
             Expanded(child: PeerTabPage()),
           ],
         ).paddingOnly(left: 12.0)),
@@ -341,16 +343,13 @@ class _ConnectionPageState extends State<ConnectionPage>
   /// UI for the remote ID TextField.
   /// Search for a peer.
   Widget _buildRemoteIDTextField(BuildContext context) {
+    // ChainRemote: 외곽 박스/제목 제거 — 미니멀 단일 행
     var w = Container(
       width: 320 + 20 * 2,
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
-      decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(13)),
-          border: Border.all(color: Theme.of(context).colorScheme.background)),
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
       child: Ink(
         child: Column(
           children: [
-            getConnectionPageTitle(context, false).marginOnly(bottom: 15),
             Row(
               children: [
                 Expanded(
@@ -510,24 +509,29 @@ class _ConnectionPageState extends State<ConnectionPage>
                     );
                   },
                 )),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 13.0),
-              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                // ChainRemote: 연결 버튼을 ID 입력란 우측으로 이동
+                const SizedBox(width: 10),
                 SizedBox(
-                  height: 28.0,
+                  height: 48.0,
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                     onPressed: () {
                       onConnect();
                     },
-                    child: Text(translate("Connect")),
+                    child: Text(translate("Connect"),
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w700)),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Container(
-                  height: 28.0,
-                  width: 28.0,
+                  height: 48.0,
+                  width: 36.0,
                   decoration: BoxDecoration(
                     border: Border.all(color: Theme.of(context).dividerColor),
                     borderRadius: BorderRadius.circular(8),
@@ -603,7 +607,7 @@ class _ConnectionPageState extends State<ConnectionPage>
                     ),
                   ),
                 ),
-              ]),
+              ],
             ),
           ],
         ),
@@ -611,5 +615,74 @@ class _ConnectionPageState extends State<ConnectionPage>
     );
     return Container(
         constraints: const BoxConstraints(maxWidth: 600), child: w);
+  }
+}
+
+// ChainRemote: 페이드 그라디언트 분리선 + 가운데 라벨 칩.
+//   - 창 좌우 가장자리에서 28px 여백 유지 (창 크기와 무관)
+//   - 가장자리 쪽: 페이드 / 가운데 칩 쪽: 진한 브랜드 블루
+class _FadeSectionDivider extends StatelessWidget {
+  final String label;
+  const _FadeSectionDivider({Key? key, required this.label}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    const brandBlue = Color(0xFF1E5BFF);
+    final lineSolid = brandBlue.withOpacity(0.45);
+    final lineFade = brandBlue.withOpacity(0.05);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 28),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [lineFade, lineSolid],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: brandBlue.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: brandBlue.withOpacity(0.30), width: 0.8),
+              ),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: brandBlue,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [lineSolid, lineFade],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
