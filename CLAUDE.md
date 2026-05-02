@@ -34,7 +34,7 @@
 - **테스트 서버 우선**: 모든 배포는 테스트 → 본서버/GitHub push는 Chang 지시 시에만.
 - **결과만 보고**: 코드 덤프 X, 간결한 완료 보고만.
 
-## 현재 단계 (2026-05-01 종료)
+## 현재 단계 (2026-05-02 종료)
 
 ### 완료된 것
 - ✅ Step 1 Mac: 빌드 환경 + 첫 빌드 + 윈컴 원격 테스트
@@ -42,16 +42,43 @@
 - ❌ Step 4 웹클라: 검증 결과 폐기 (옵션 C로 전환)
 - ✅ Step 3 시그널링/릴레이: NAS Docker로 hbbs/hbbr 가동 (`sepani.synology.me`, 포트 21115-21118 외부 노출 검증)
 - ✅ Step 5 골격: Next.js 관리 패널, 멀티테넌시 DB 스키마, 거래처 목록
-- ✅ **End-to-end 1-클릭 원격**: 관리 패널 → rustdesk:// URL → Mac 앱 → 윈컴 연결
-- ✅ **무인 접속 모드**: 윈컴 영구 비번 + 부팅 자동 시작 + approve-mode=password → Mac 0클릭, 거래처 0클릭
+- ✅ End-to-end 1-클릭 원격: 관리 패널 → rustdesk:// URL → Mac 앱 → 윈컴 연결
+- ✅ 무인 접속 모드: 영구 비번 + 부팅 자동 시작 + approve-mode=password
+- ✅ **Step C 거래처 배포 인스톨러**: Inno Setup 으로 `ChainRemote_Setup.exe` 단일 파일 (2026-05-02)
+- ✅ **첫 ChainRemote 자체 개선**: 원격 세션 툴바에 파일 전송 버튼 (Mac 빌드 검증) (2026-05-02)
 
-### Chang의 꿈의 워크플로우 (2026-05-01 풀 자동 검증)
+### 거래처 배포 인스톨러 (Step C 정석, `deploy/win-installer/`, 2026-05-02 완성)
+**결과물**: `ChainRemote_Setup.exe` (~25MB) — 거래처가 더블클릭만으로 원격 셋업 완료.
+
+**파이프라인** (윈컴에서 빌드, 30초):
+```powershell
+cd C:\src\ChainRemote\deploy\win-installer
+Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/rustdesk-1.4.6-x86_64.exe" -OutFile rustdesk-1.4.6-x86_64.exe
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 ```
-거래처 전화 → 관리 패널에서 거래처 클릭 → 비번 자동 → 즉시 연결 (윈컴 클릭 0)
-```
-- 코이노 4단계 → **0단계** ★ 진짜 무인 달성
-- 검증 환경: Mac(ChainRemote) ↔ Win(ChainRemote-v3) via 자체 NAS hbbs/hbbr
-- 외부망 검증: yougetsignal 으로 21115/21116/21117/21118 모두 외부에서 open 확인
+
+**인스톨러 동작** (거래처 PC):
+1. 공식 RustDesk 1.4.6 인스톨러를 임시 풀고 `--silent-install` (코드 서명 그대로 유지)
+2. `RustDesk2.toml` (NAS 서버 + 공개키)을 `%APPDATA%\RustDesk\config\`에 자동 배치
+3. RustDesk 가 만든 `RustDesk.lnk` 단축아이콘들을 **`ChainRemote.lnk`로 atomic rename** (바탕화면, 시작 메뉴)
+4. 자동시작 reg `RustDesk` → `ChainRemote`
+5. 첫 실행 → ID 발급 → 우리 NAS에 자동 등록
+
+**우회한 함정들** (이 길로 가다가 실패한 것들):
+- ❌ 파일명 `host=,key=` 인코딩 — 동작은 하지만 거래처 보기 흉함
+- ❌ Mac 빌드 NSIS — `makensis` macOS Tahoe std::bad_alloc 크래시
+- ❌ Mac 7-Zip SFX — 매니페스트 인젝션은 됐으나 SFX 모듈이 RunProgram 미지원 (7z.sfx vs 7zS.sfx)
+- ❌ `--silent-install` 권한 부재 → portable 모드로 떨어짐
+- ❌ `ChainRemote.exe` 별도 폴더 복사 → Flutter plugin DLL 못 찾음 (desktop_drop_plugin.dll 등)
+- ✅ Inno Setup (Chang 윈컴에 이미 설치) → atomic rename → 깨끗하게 동작
+
+### 첫 ChainRemote 자체 개선 — 원격 세션 파일 전송 버튼 (2026-05-02)
+- 변경 파일: `flutter/lib/desktop/widgets/remote_toolbar.dart` (+25줄)
+- `_FileTransferMenu` 신규 위젯 → 모니터/키보드 사이 툴바에 아이콘 추가
+- 한 번 클릭 → `connect(context, id, isFileTransfer: true)` → 새 파일 전송 창
+- 기존: 메인 창 가서 우클릭 → 파일 전송 (2단계). 이제 0이동, 1클릭.
+- Mac 빌드 검증 완료 (`/Applications/ChainRemote.app` 갱신됨)
+- ⚠️ 윈도우 적용은 진짜 ChainRemote 브랜딩 빌드 시점에 같이 (`deploy/win-build/` 환경)
 
 ### NAS 시그널링 인프라 (2026-05-01 가동)
 - **DDNS**: `sepani.synology.me` (Synology 무료, 자동 갱신)
@@ -59,30 +86,37 @@
 - **공개키**: `C2bqeqG0Nb0EQgmtomhzcykw69gRvbSLKfm019r1C8Y=`
 - **컨테이너**: `chainremote-hbbs`, `chainremote-hbbr` (rustdesk-server:latest)
 - **포트 포워딩** (TP-Link Deco): 21115/21116(TCP+UDP)/21117/21118 → 192.168.68.103
-- 하드코딩 → 클라이언트 toml은 `deploy/win/RustDesk2.toml` 참조
+- 하드코딩 → 클라이언트 toml은 `deploy/win-installer/RustDesk2.toml` 참조
 
-### 윈컴 무인 접속 셋업 (검증된 절차, `deploy/win/`)
-1. ChainRemote.exe 설치 (어느 경로든 OK — setup.ps1이 자동 검색)
-2. Mac에서 임시 HTTP 서버: `cd deploy/win && python3 -m http.server 8765`
-3. 윈컴 PowerShell: `iex (irm http://<Mac LAN IP>:8765/setup.ps1)`
-4. 윈컴 ChainRemote → 설정 → 보안 → "영구 비밀번호 설정" 1회 (UI 필수, --password 플래그 미작동)
-5. Mac에서 ID로 접속 → 비번 입력 → 윈컴 0클릭 자동 연결
-- ⚠️ 비번은 **영문 입력 모드** 필수 (RustDesk Flutter 다이얼로그가 IME 그대로 받음 — 거래처 운영 영향 0, Chang만 주의)
+### 거래처 운영 워크플로우 (검증됨)
+1. **본사**: `ChainRemote_Setup.exe` 카톡/USB로 거래처 전달
+2. **거래처**: 더블클릭 → UAC 예 → 자동 설치 (RustDesk silent + 우리 config + 단축아이콘 rename)
+3. **거래처**: ChainRemote 자동 실행 → 화면 ID 본사에 알림
+4. **본사**: 관리 패널에 거래처 정보 + ID 등록 + 영구 비번 발급
+5. **거래처**: 받은 비번을 [설정 > 보안 > 영구 비밀번호 설정] 에 1회 입력
+6. **그 후 영원히**: 거래처 PC 켜져 있으면 본사가 0클릭 무인 접속
+
+### ID 시스템 — 머신 고정
+- ID는 머신 UUID 기반 deterministic 생성 (`hbb_common::machine_uid`)
+- 같은 PC 재설치 → 같은 ID (피어 등록 안정성)
+- 다른 PC → 자동으로 다른 ID (충돌 0)
+- 메인보드/펌웨어 변경 시에만 ID 변경
 
 ### Mac 측 디스플레이 권장 (4K 거래처 대응)
-- `~/Library/Preferences/com.carriez.RustDesk/peers/<ID>.toml`
-  - `view_style = 'adaptive'` (창에 맞춤, 1:1 panning 방지)
-  - `image_quality = 'low'` (속도 우선, 4K 부드러움)
+- ChainRemote 메인 창 → 설정 → 디스플레이 (전역 기본값)
+  - 기본 보기 스타일 = "크기 조정 가능"
+  - 기본 이미지 품질 = "반응 시간 최적화"
+- 또는 `~/Library/Preferences/com.carriez.RustDesk/peers/<ID>.toml` 직접 편집
+  - `view_style = 'adaptive'`, `image_quality = 'low'`
 
 ### 다음 단계 (다음 세션)
-1. **Step C 거래처 배포 패키지** — `deploy/win/`을 거래처가 쓰기 좋은 형태로 패키징
-   - 임시 Mac HTTP → 공개 CDN(S3/R2/Vercel) 호스팅으로 전환
-   - 비번 거래처별 자동 생성 + 관리 패널 DB 저장
-   - ChainRemote.exe + 자동 설정 통합 인스톨러(.msi 또는 자체 .exe wrapper)
-2. **Step 1 윈컴 빌드** — Chang 옆 윈컴에 Rust+Flutter 환경 구축 (Chang 본인용)
-3. **Step 6 채팅** — Mac/Win 앱 안 채팅 + DB 기록
-4. **Step 7 본 출시 준비** — 정식 브랜딩, 인증서 서명, 거래처 점진 전환
-5. **Step 8 사업화**
+1. **첫 거래처 실전 시도** — 가장 가까운 1곳 (코이노 대체 또는 신규)
+2. **거래처별 비번 자동 생성 + 관리 패널 DB 저장** (운영 정석화)
+3. **직원 윈컴 셋업** — 같은 ChainRemote_Setup.exe 설치, 관리 패널 LAN/NAS 호스팅 결정
+4. **관리 패널 호스팅 결정** — Mac 로컬 → NAS Container Manager 이전 (직원/외출 시 접근)
+5. **Windows 빌드 환경 부활** (`deploy/win-build/`) — 진짜 ChainRemote 브랜드 윈도우 빌드 (창 제목/서비스명까지)
+6. **파일 전송 UX 개선** — 더블클릭=전송, 드래그앤드롭, OS→원격창 직접 드롭
+7. **코드 서명 인증서** ($300/년) — SmartScreen 경고 제거 (사업화 단계)
 
 ### 관리 패널 코드 위치
 - `/Users/changsmac/내작업/chainremote-admin/` (별도 폴더, Next.js)
