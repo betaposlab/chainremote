@@ -37,6 +37,10 @@ korean.PostInstallNote=설치가 완료되었습니다.%n%n다음 단계:%n1. Ch
 english.WelcomeBody=This will install ChainRemote with a pre-configured remote support server.%n%nAfter installation, please tell BetaposLab the ID shown in ChainRemote.
 english.PostInstallNote=Installation finished.
 
+[Dirs]
+; ChainRemote 설치 폴더 강제 생성 (이게 없으면 다음 [Run] 의 copy 단계가 폴더 부재로 실패)
+Name: "{app}"
+
 [Files]
 ; RustDesk 공식 인스톨러를 임시 폴더에 풀고 사일런트 설치 실행
 Source: "{#INNER_INSTALLER}"; DestDir: "{tmp}"; Flags: deleteafterinstall
@@ -45,13 +49,13 @@ Source: "{#INNER_INSTALLER}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 Source: "RustDesk2.toml"; DestDir: "{userappdata}\RustDesk\config"; Flags: ignoreversion
 
 [Run]
-; 1. RustDesk 공식 코어 사일런트 설치
-Filename: "{tmp}\{#INNER_INSTALLER}"; Parameters: "--silent-install"; StatusMsg: "RustDesk 코어 설치 중..."; Flags: runhidden
+; 1. RustDesk 공식 코어 사일런트 설치 (waituntilterminated 으로 끝까지 대기)
+Filename: "{tmp}\{#INNER_INSTALLER}"; Parameters: "--silent-install"; StatusMsg: "RustDesk 코어 설치 중..."; Flags: runhidden waituntilterminated
 
-; 2. 설치된 rustdesk.exe 를 ChainRemote.exe 로 복사 (UI 상 친숙성)
-Filename: "{cmd}"; Parameters: "/c copy /Y ""{commonpf}\RustDesk\rustdesk.exe"" ""{app}\ChainRemote.exe"""; Flags: runhidden
+; 2. 설치된 rustdesk.exe 를 ChainRemote.exe 로 복사 (synchronous)
+Filename: "{cmd}"; Parameters: "/c copy /Y ""{commonpf}\RustDesk\rustdesk.exe"" ""{app}\ChainRemote.exe"""; Flags: runhidden waituntilterminated
 
-; 3. (선택) 설치 직후 ChainRemote 실행
+; 3. (선택) 설치 직후 ChainRemote 실행 — 위 2번이 끝나야 파일 존재함
 Filename: "{app}\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
 
 [Icons]
