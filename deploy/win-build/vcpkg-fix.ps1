@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 Write-Host "=== vcpkg 핀 커밋 정렬 + 라이브러리 재설치 ===" -ForegroundColor Cyan
 Write-Host ""
 

@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 Write-Host "=== ChainRemote 윈컴 무인접속 자동 셋업 ===" -ForegroundColor Cyan
 
 # 1. 실행 중인 ChainRemote/RustDesk 모두 종료

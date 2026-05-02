@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Continue"
+﻿$ErrorActionPreference = "Continue"
 Write-Host "=== LLVM 15.0.6 직접 설치 + LIBCLANG_PATH + cargo 캐시 정리 ===" -ForegroundColor Cyan
 Write-Host ""
 
