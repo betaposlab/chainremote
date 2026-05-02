@@ -76,12 +76,18 @@ if (Test-Path $bindingFile) {
 }
 
 # 7. vcpkg + 의존성 라이브러리 (vpx, yuv, opus, aom)
+# RustDesk CI가 핀해둔 vcpkg 커밋 사용 (AOM API 호환성 — config.rs:159-160 변경과 무관)
 Write-Host "[7/8] vcpkg 설치 및 의존성 라이브러리 빌드 (시간 오래 걸림)..." -ForegroundColor Yellow
 $vcpkgDir = "C:\src\vcpkg"
+$vcpkgPinnedCommit = "120deac3062162151622ca4860575a33844ba10b"  # RustDesk CI flutter-build.yml 기준
 if (-not (Test-Path $vcpkgDir)) {
     git clone https://github.com/microsoft/vcpkg "$vcpkgDir"
-    & "$vcpkgDir\bootstrap-vcpkg.bat"
 }
+Push-Location $vcpkgDir
+git fetch origin
+git checkout $vcpkgPinnedCommit
+& "$vcpkgDir\bootstrap-vcpkg.bat" -disableMetrics
+Pop-Location
 [System.Environment]::SetEnvironmentVariable("VCPKG_ROOT", $vcpkgDir, "User")
 $env:VCPKG_ROOT = $vcpkgDir
 & "$vcpkgDir\vcpkg.exe" install libvpx:x64-windows-static libyuv:x64-windows-static opus:x64-windows-static aom:x64-windows-static
