@@ -395,6 +395,12 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       state: widget.state,
       setFullscreen: _setFullscreen,
     ));
+    // ChainRemote: in-session file transfer button (opens a new file transfer
+    // session to the same peer). Only for default remote-control sessions and
+    // not on web (web has no file transfer support).
+    if (widget.ffi.connType == ConnType.defaultConn && !isWeb) {
+      toolbarItems.add(_FileTransferMenu(id: widget.id));
+    }
     // Do not show keyboard for camera connection type.
     if (widget.ffi.connType == ConnType.defaultConn) {
       toolbarItems.add(_KeyboardMenu(id: widget.id, ffi: widget.ffi));
@@ -486,6 +492,25 @@ class _PinMenu extends StatelessWidget {
             ? _ToolbarTheme.hoverBlueColor
             : _ToolbarTheme.hoverInactiveColor,
       ),
+    );
+  }
+}
+
+// ChainRemote: in-session file transfer launcher.
+// Reuses connect(..., isFileTransfer: true) which spawns a new file
+// transfer window to the same peer.
+class _FileTransferMenu extends StatelessWidget {
+  final String id;
+  const _FileTransferMenu({Key? key, required this.id}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return _IconMenuButton(
+      assetName: 'assets/file_transfer.svg',
+      tooltip: 'Transfer file',
+      onPressed: () => connect(context, id, isFileTransfer: true),
+      color: _ToolbarTheme.inactiveColor,
+      hoverColor: _ToolbarTheme.hoverInactiveColor,
     );
   }
 }
