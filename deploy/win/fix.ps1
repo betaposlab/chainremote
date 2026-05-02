@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 Write-Host "=== ChainRemote 무인접속 수정 ===" -ForegroundColor Cyan
 
 # 1. 프로세스 종료

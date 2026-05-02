@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 Write-Host "=== ChainRemote_Setup.exe 인스톨러 빌드 (Inno Setup) ===" -ForegroundColor Cyan
 
 $dir = $PSScriptRoot

@@ -1,4 +1,4 @@
-# 빌드 로그에서 에러 섹션만 추출 + 클립보드 복사
+﻿# 빌드 로그에서 에러 섹션만 추출 + 클립보드 복사
 $log = "$env:TEMP\chainremote-build.log"
 if (-not (Test-Path $log)) {
   Write-Host "❌ 로그 파일 없음: $log" -ForegroundColor Red

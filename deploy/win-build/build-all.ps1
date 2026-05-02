@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 Write-Host "=== ChainRemote 풀 빌드 자동 실행 ===" -ForegroundColor Cyan
 Write-Host ""
 

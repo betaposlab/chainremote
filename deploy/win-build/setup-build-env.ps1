@@ -1,4 +1,4 @@
-# ChainRemote 윈컴 빌드 환경 자동 구축
+﻿# ChainRemote 윈컴 빌드 환경 자동 구축
 # 관리자 권한 PowerShell 에서 실행
 # 약 30~60분 소요 (다운로드 시간)
 
