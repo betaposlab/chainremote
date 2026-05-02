@@ -67,6 +67,62 @@ RxList<RxString> get obslist => [peerSearchText, peerSort].obs;
 final peerSearchTextController =
     TextEditingController(text: peerSearchText.value);
 
+// ChainRemote: 거래처 그룹화 (별칭 prefix 기반).
+// 운영 컨벤션: 별칭 = "거래처상호-기기명" (예: "ABC식당-메인", "ABC식당-오더1").
+// '-' 앞 부분이 같은 peer 들이 한 그룹으로 묶임. 그룹별 펼침/접힘 상태는 전역 RxMap.
+// 단일 peer (그룹원 1명) 은 그룹 헤더 없이 평면으로 노출.
+final peerGroupExpanded = <String, bool>{}.obs;
+
+String? _groupKeyOf(Peer peer) {
+  final name = peer.alias.isNotEmpty ? peer.alias : peer.hostname;
+  if (name.isEmpty) return null;
+  final dashIdx = name.indexOf('-');
+  if (dashIdx <= 0) return null;
+  final prefix = name.substring(0, dashIdx).trim();
+  if (prefix.isEmpty) return null;
+  return prefix;
+}
+
+class _PeerGroupHeader {
+  final String prefix;
+  final int count;
+  _PeerGroupHeader(this.prefix, this.count);
+}
+
+// Groups peers by prefix. Returns flattened list of (_PeerGroupHeader | Peer)
+// that respects ordering and current expand/collapse state.
+List<Object> buildGroupedPeerItems(List<Peer> peers) {
+  final groups = <String, List<Peer>>{};
+  final ungrouped = <Peer>[];
+  final order = <String>[]; // group keys in first-seen order
+  for (final p in peers) {
+    final k = _groupKeyOf(p);
+    if (k == null) {
+      ungrouped.add(p);
+      continue;
+    }
+    if (!groups.containsKey(k)) {
+      groups[k] = [];
+      order.add(k);
+    }
+    groups[k]!.add(p);
+  }
+  final result = <Object>[];
+  for (final k in order) {
+    final list = groups[k]!;
+    if (list.length == 1) {
+      // Single-member group → show flat (no header).
+      result.add(list.first);
+      continue;
+    }
+    result.add(_PeerGroupHeader(k, list.length));
+    final expanded = peerGroupExpanded[k] ?? true;
+    if (expanded) result.addAll(list);
+  }
+  result.addAll(ungrouped);
+  return result;
+}
+
 class _PeersView extends StatefulWidget {
   final Peers peers;
   final PeerFilter? peerFilter;
@@ -228,6 +284,74 @@ class _PeersViewState extends State<_PeersView>
   String _cardId(String id) => widget.peers.name + id;
   String _peerId(String cardId) => cardId.replaceAll(widget.peers.name, '');
 
+  // ChainRemote: 거래처 그룹 헤더 (펼침/접힘).
+  Widget _buildGroupHeader(_PeerGroupHeader item) {
+    final expanded = peerGroupExpanded[item.prefix] ?? true;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          peerGroupExpanded[item.prefix] = !expanded;
+          peerGroupExpanded.refresh();
+        },
+        child: Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F4F8),
+            borderRadius: BorderRadius.circular(8),
+            border: Border(
+                left: BorderSide(
+                    color: const Color(0xFF1E5BFF), width: 3)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                expanded
+                    ? Icons.keyboard_arrow_down_rounded
+                    : Icons.keyboard_arrow_right_rounded,
+                size: 22,
+                color: const Color(0xFF1E5BFF),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.business_rounded,
+                  size: 16, color: const Color(0xFF1E5BFF)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  item.prefix,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E2B45),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E5BFF).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${item.count}대',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E5BFF),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPeersView(Peers peers) {
     final updateEvent = peers.event;
     final body = ObxValue<RxList>((filters) {
@@ -272,16 +396,40 @@ class _PeersViewState extends State<_PeersView>
                     },
                   )
                 : peerCardUiType.value == PeerUiType.list
-                    ? ListView.builder(
-                        controller: _scrollController,
-                        itemCount: peers.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          return buildOnePeer(peers[index], false).marginOnly(
-                              right: space,
-                              top: index == 0 ? 0 : space / 2,
-                              bottom: space / 2);
-                        },
-                      )
+                    // ChainRemote: list view 에서만 그룹화 적용.
+                    ? Obx(() {
+                        // peerGroupExpanded 변경 시 재빌드.
+                        peerGroupExpanded.length;
+                        final items = buildGroupedPeerItems(peers);
+                        return ListView.builder(
+                          controller: _scrollController,
+                          itemCount: items.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            final item = items[index];
+                            if (item is _PeerGroupHeader) {
+                              return _buildGroupHeader(item).marginOnly(
+                                  right: space,
+                                  top: index == 0 ? 0 : space / 2,
+                                  bottom: space / 2);
+                            }
+                            return buildOnePeer(item as Peer, false).marginOnly(
+                                left: _groupKeyOf(item) != null &&
+                                        (peerGroupExpanded[_groupKeyOf(item)!] ??
+                                                true) &&
+                                        peers
+                                                .where((p) =>
+                                                    _groupKeyOf(p) ==
+                                                    _groupKeyOf(item))
+                                                .length >
+                                            1
+                                    ? 16
+                                    : 0,
+                                right: space,
+                                top: index == 0 ? 0 : space / 2,
+                                bottom: space / 2);
+                          },
+                        );
+                      })
                     : DynamicGridView.builder(
                         gridDelegate: SliverGridDelegateWithWrapping(
                             mainAxisSpacing: space / 2,

@@ -60,15 +60,100 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget build(BuildContext context) {
     super.build(context);
     final isIncomingOnly = bind.isIncomingOnly();
+    if (isIncomingOnly) {
+      // Server-only build keeps the original layout.
+      return _buildBlock(child: buildLeftPane(context));
+    }
+    // ChainRemote — single-pane layout: top brand bar + connection page.
     return _buildBlock(
+      child: ChangeNotifierProvider.value(
+        value: gFFI.serverModel,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            buildChainRemoteTopBar(context),
+            const Divider(height: 1, thickness: 1),
+            Expanded(child: buildRightPane(context)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildChainRemoteTopBar(BuildContext context) {
+    return Consumer<ServerModel>(builder: (context, model, child) {
+      return Container(
+        height: 72,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        color: Theme.of(context).colorScheme.background,
         child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        buildLeftPane(context),
-        if (!isIncomingOnly) const VerticalDivider(width: 1),
-        if (!isIncomingOnly) Expanded(child: buildRightPane(context)),
-      ],
-    ));
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // ChainRemote logo (left)
+            Container(
+              constraints: const BoxConstraints(maxWidth: 220, maxHeight: 56),
+              child: Image.asset('assets/chainremote_logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const SizedBox(width: 200)),
+            ),
+            const SizedBox(width: 28),
+            // My ID block
+            Expanded(
+              child: GestureDetector(
+                onDoubleTap: () {
+                  Clipboard.setData(ClipboardData(text: model.serverId.text));
+                  showToast(translate('Copied'));
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '내 ID',
+                      style: TextStyle(
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                          color: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.color
+                              ?.withOpacity(0.55)),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      model.serverId.text.isEmpty ? '-' : model.serverId.text,
+                      style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: MyTheme.brandBlue,
+                          letterSpacing: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: translate('ID') + ' 복사',
+              icon: const Icon(Icons.copy_outlined, size: 20),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: model.serverId.text));
+                showToast(translate('Copied'));
+              },
+            ),
+            IconButton(
+              tooltip: translate('Settings'),
+              icon: const Icon(Icons.settings_outlined, size: 22),
+              onPressed: () {
+                if (DesktopSettingPage.tabKeys.isNotEmpty) {
+                  DesktopSettingPage.switch2page(
+                      DesktopSettingPage.tabKeys[0]);
+                }
+              },
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildBlock({required Widget child}) {

@@ -136,52 +136,50 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget _createSwitchBar(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
-    var counter = -1;
-    return ReorderableListView(
-        buildDefaultDragHandles: false,
-        onReorder: model.reorder,
-        scrollDirection: Axis.horizontal,
-        physics: NeverScrollableScrollPhysics(),
+    // ChainRemote: 탭 = 단순 GestureDetector 칩 (Material/InkWell 다 빼버림 — 렌더 안 되던 원인).
+    final brandBlue = const Color(0xFF1E5BFF);
+    return Row(
+        mainAxisSize: MainAxisSize.min,
         children: model.visibleEnabledOrderedIndexs.map((t) {
           final selected = model.currentTab == t;
-          final color = selected
-              ? MyTheme.tabbar(context).selectedTextColor
-              : MyTheme.tabbar(context).unSelectedTextColor
-            ?..withOpacity(0.5);
-          final hover = false.obs;
-          final deco = BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
-              borderRadius: BorderRadius.circular(6));
-          final decoBorder = BoxDecoration(
-              border: Border(
-            bottom: BorderSide(width: 2, color: color!),
-          ));
-          counter += 1;
-          return ReorderableDragStartListener(
-              key: ValueKey(t),
-              index: counter,
-              child: Obx(() => Tooltip(
-                    preferBelow: false,
-                    message: model.tabTooltip(t),
-                    onTriggered: isMobile ? mobileShowTabVisibilityMenu : null,
-                    child: InkWell(
-                      child: Container(
-                        decoration: (hover.value
-                            ? (selected ? decoBorder : deco)
-                            : (selected ? decoBorder : null)),
-                        child: Icon(model.tabIcon(t), color: color)
-                            .paddingSymmetric(horizontal: 4),
-                      ).paddingSymmetric(horizontal: 4),
-                      onTap: isOptionFixed(kOptionPeerTabIndex)
-                          ? null
-                          : () async {
-                              await handleTabSelection(t);
-                              await bind.setLocalFlutterOption(
-                                  k: kOptionPeerTabIndex, v: t.toString());
-                            },
-                      onHover: (value) => hover.value = value,
+          final fg = selected ? Colors.white : const Color(0xFF4A5568);
+          return GestureDetector(
+            key: ValueKey(t),
+            behavior: HitTestBehavior.opaque,
+            onTap: isOptionFixed(kOptionPeerTabIndex)
+                ? null
+                : () async {
+                    await handleTabSelection(t);
+                    await bind.setLocalFlutterOption(
+                        k: kOptionPeerTabIndex, v: t.toString());
+                  },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected ? brandBlue : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(model.tabIcon(t), color: fg, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    model.tabTooltip(t),
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 13,
+                      fontWeight:
+                          selected ? FontWeight.w700 : FontWeight.w500,
                     ),
-                  )));
+                  ),
+                ],
+              ),
+            ),
+          );
         }).toList());
   }
 
@@ -551,24 +549,14 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   List<Widget> _landscapeRightActions(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
+    // ChainRemote: 주소록/장치 비활성화 → 새로고침/태그/다중선택 모두 제거.
+    // 남는 것: 검색 / 보기 / 정렬.
     return [
       const PeerSearchBar().marginOnly(right: 13),
-      _createRefresh(
-          index: PeerTabIndex.ab, loading: gFFI.abModel.currentAbLoading),
-      _createRefresh(
-          index: PeerTabIndex.group, loading: gFFI.groupModel.groupLoading),
-      Offstage(
-        offstage: model.currentTabCachedPeers.isEmpty,
-        child: _createMultiSelection(),
-      ),
       _createPeerViewTypeSwitch(context),
       Offstage(
         offstage: model.currentTab == PeerTabIndex.recent.index,
         child: PeerSortDropdown(),
-      ),
-      Offstage(
-        offstage: model.currentTab != PeerTabIndex.ab.index,
-        child: _toggleTags(),
       ),
     ];
   }
@@ -627,10 +615,9 @@ class _PeerTabPageState extends State<PeerTabPage>
         _createRefresh(
             index: PeerTabIndex.group, loading: gFFI.groupModel.groupLoading),
     ];
+    // ChainRemote: 다중선택/태그토글 제거 — 거래처 운영에 불필요.
     final List<Widget> dynamicActions = [
-      if (model.currentTabCachedPeers.isNotEmpty) _createMultiSelection(),
       if (model.currentTab != PeerTabIndex.recent.index) PeerSortDropdown(),
-      if (model.currentTab == PeerTabIndex.ab.index) _toggleTags()
     ];
     final rightWidth = availableWidth -
         searchWidth -
@@ -679,10 +666,15 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
                 drawer = true;
               });
             },
-            child: Icon(
-              Icons.search_rounded,
-              color: Theme.of(context).hintColor,
-            ));
+            // ChainRemote: 아이콘 + "검색" 라벨
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.search_rounded,
+                  size: 18, color: Theme.of(context).hintColor),
+              const SizedBox(width: 4),
+              Text('검색',
+                  style: TextStyle(
+                      fontSize: 12, color: Theme.of(context).hintColor)),
+            ]));
   }
 
   Widget _buildSearchBar() {
@@ -797,20 +789,29 @@ class _PeerViewDropdownState extends State<PeerViewDropdown> {
                 child: SizedBox(
                   height: 36,
                   child: getRadio<PeerUiType>(
-                      Tooltip(
-                          message: translate(types.indexOf(e) == 0
-                              ? 'Big tiles'
-                              : types.indexOf(e) == 1
-                                  ? 'Small tiles'
-                                  : 'List'),
-                          child: Icon(
+                      // ChainRemote: 아이콘 + 한글 라벨 (직관적)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
                             e == PeerUiType.grid
                                 ? Icons.grid_view_rounded
                                 : e == PeerUiType.list
                                     ? Icons.view_list_rounded
                                     : Icons.view_agenda_rounded,
                             size: 18,
-                          )),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            e == PeerUiType.grid
+                                ? '큰 카드'
+                                : e == PeerUiType.tile
+                                    ? '작은 카드'
+                                    : '리스트 (그룹화 가능)',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ],
+                      ),
                       e,
                       peerCardUiType.value,
                       dense: true,
@@ -837,14 +838,19 @@ class _PeerViewDropdownState extends State<PeerViewDropdown> {
     return _hoverAction(
         context: context,
         toolTip: translate('Change view'),
-        child: Icon(
-          peerCardUiType.value == PeerUiType.grid
-              ? Icons.grid_view_rounded
-              : peerCardUiType.value == PeerUiType.list
-                  ? Icons.view_list_rounded
-                  : Icons.view_agenda_rounded,
-          size: 18,
-        ),
+        // ChainRemote: 아이콘 + "보기" 라벨
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(
+            peerCardUiType.value == PeerUiType.grid
+                ? Icons.grid_view_rounded
+                : peerCardUiType.value == PeerUiType.list
+                    ? Icons.view_list_rounded
+                    : Icons.view_agenda_rounded,
+            size: 18,
+          ),
+          const SizedBox(width: 4),
+          const Text('보기', style: TextStyle(fontSize: 12)),
+        ]),
         onTapDown: (details) {
           final x = details.globalPosition.dx;
           final y = details.globalPosition.dy;
@@ -917,10 +923,12 @@ class _PeerSortDropdownState extends State<PeerSortDropdown> {
     return _hoverAction(
       context: context,
       toolTip: translate('Sort by'),
-      child: Icon(
-        Icons.sort_rounded,
-        size: 18,
-      ),
+      // ChainRemote: 아이콘 + "정렬" 라벨
+      child: Row(mainAxisSize: MainAxisSize.min, children: const [
+        Icon(Icons.sort_rounded, size: 18),
+        SizedBox(width: 4),
+        Text('정렬', style: TextStyle(fontSize: 12)),
+      ]),
       onTapDown: (details) {
         final x = details.globalPosition.dx;
         final y = details.globalPosition.dy;

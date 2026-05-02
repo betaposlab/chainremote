@@ -171,16 +171,44 @@ class _FileManagerPageState extends State<FileManagerPage>
                     flex: 3,
                     child: dropArea(FileManagerView(
                         model.localController, _ffi, _mouseFocusScope))),
+              if (!isWeb) _panelDivider(),
               Flexible(
                   flex: 3,
                   child: dropArea(FileManagerView(
                       model.remoteController, _ffi, _mouseFocusScope))),
+              _panelDivider(),
               Flexible(flex: 2, child: statusList())
             ],
           ),
         ));
       })
     ]);
+  }
+
+  // ChainRemote: 로컬↔원격 패널 사이 세련된 세로 구분선.
+  // 1.5px 라인 + 위/아래로 페이드아웃 그라디언트 + 좌우 여백.
+  Widget _panelDivider() {
+    return Container(
+      width: 17,
+      alignment: Alignment.center,
+      child: Container(
+        width: 1.5,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              const Color(0xFF1E5BFF).withOpacity(0.18),
+              const Color(0xFF1E5BFF).withOpacity(0.28),
+              const Color(0xFF1E5BFF).withOpacity(0.18),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.12, 0.5, 0.88, 1.0],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget dropArea(FileManagerView fileView) {
@@ -722,7 +750,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                       child: SvgPicture.asset(
                         "assets/home.svg",
                         colorFilter:
-                            svgColor(Theme.of(context).tabBarTheme.labelColor),
+                            svgColor(const Color(0xFF2962FF)), // 홈 = 파랑
                       ),
                       color: Theme.of(context).cardColor,
                       hoverColor: Theme.of(context).hoverColor,
@@ -808,7 +836,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                       child: SvgPicture.asset(
                         "assets/folder_new.svg",
                         colorFilter:
-                            svgColor(Theme.of(context).tabBarTheme.labelColor),
+                            svgColor(const Color(0xFFFFC107)), // 새 폴더 = 노랑
                       ),
                       color: Theme.of(context).cardColor,
                       hoverColor: Theme.of(context).hoverColor,
@@ -824,8 +852,8 @@ class _FileManagerViewState extends State<FileManagerView> {
                               : null,
                           child: SvgPicture.asset(
                             "assets/trash.svg",
-                            colorFilter: svgColor(
-                                Theme.of(context).tabBarTheme.labelColor),
+                            colorFilter:
+                                svgColor(const Color(0xFFE53935)), // 휴지통 = 빨강
                           ),
                           color: Theme.of(context).cardColor,
                           hoverColor: Theme.of(context).hoverColor,
@@ -1029,7 +1057,8 @@ class _FileManagerViewState extends State<FileManagerView> {
         ),
         child: SvgPicture.asset(
           "assets/dots.svg",
-          colorFilter: svgColor(Theme.of(context).tabBarTheme.labelColor),
+          colorFilter:
+              svgColor(const Color(0xFF607D8B)), // 더보기 = 청회색
         ),
         color: Theme.of(context).cardColor,
         hoverColor: Theme.of(context).hoverColor,
@@ -1191,14 +1220,17 @@ class _FileManagerViewState extends State<FileManagerView> {
                                                         .color
                                                         ?.withOpacity(0.7))
                                                 .paddingAll(4)
-                                            : SvgPicture.asset(
-                                                entry.isFile
-                                                    ? "assets/file.svg"
-                                                    : "assets/folder.svg",
-                                                colorFilter: svgColor(
-                                                    Theme.of(context)
-                                                        .tabBarTheme
-                                                        .labelColor),
+                                            : Padding(
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 4, vertical: 2),
+                                                child: Icon(
+                                                  _fileIconFor(entry.name,
+                                                      isFile: entry.isFile),
+                                                  size: 20,
+                                                  color: _fileIconColor(
+                                                      entry.name,
+                                                      isFile: entry.isFile),
+                                                ),
                                               ),
                                         Expanded(
                                             child: Text(entry.name.nonBreaking,
@@ -1691,4 +1723,203 @@ Widget buildWindowsThisPC(BuildContext context, [TextStyle? textStyle]) {
     SizedBox(width: 10),
     Text(translate('This PC'), style: textStyle)
   ]);
+}
+
+// ChainRemote: 윈도우 탐색기풍 컬러 아이콘.
+IconData _fileIconFor(String name, {required bool isFile}) {
+  if (!isFile) return Icons.folder_rounded;
+  final ext = name.contains('.')
+      ? name.substring(name.lastIndexOf('.') + 1).toLowerCase()
+      : '';
+  switch (ext) {
+    case 'pdf':
+      return Icons.picture_as_pdf_rounded;
+    case 'doc':
+    case 'docx':
+    case 'rtf':
+    case 'odt':
+      return Icons.description_rounded;
+    case 'xls':
+    case 'xlsx':
+    case 'csv':
+    case 'ods':
+      return Icons.table_chart_rounded;
+    case 'ppt':
+    case 'pptx':
+    case 'odp':
+      return Icons.slideshow_rounded;
+    case 'zip':
+    case 'rar':
+    case '7z':
+    case 'tar':
+    case 'gz':
+    case 'bz2':
+      return Icons.folder_zip_rounded;
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'bmp':
+    case 'webp':
+    case 'svg':
+    case 'tiff':
+    case 'ico':
+      return Icons.image_rounded;
+    case 'mp4':
+    case 'mkv':
+    case 'avi':
+    case 'mov':
+    case 'wmv':
+    case 'flv':
+    case 'webm':
+      return Icons.movie_rounded;
+    case 'mp3':
+    case 'wav':
+    case 'flac':
+    case 'aac':
+    case 'ogg':
+    case 'm4a':
+      return Icons.audio_file_rounded;
+    case 'exe':
+    case 'msi':
+    case 'bat':
+    case 'cmd':
+    case 'sh':
+      return Icons.settings_applications_rounded;
+    case 'txt':
+    case 'md':
+    case 'log':
+    case 'ini':
+    case 'cfg':
+    case 'conf':
+    case 'toml':
+    case 'yaml':
+    case 'yml':
+      return Icons.article_rounded;
+    case 'py':
+    case 'js':
+    case 'ts':
+    case 'html':
+    case 'css':
+    case 'java':
+    case 'c':
+    case 'cpp':
+    case 'h':
+    case 'cs':
+    case 'rs':
+    case 'go':
+    case 'rb':
+    case 'php':
+    case 'swift':
+    case 'kt':
+    case 'dart':
+    case 'json':
+    case 'xml':
+      return Icons.code_rounded;
+    case 'iso':
+    case 'img':
+    case 'dmg':
+      return Icons.album_rounded;
+    default:
+      return Icons.insert_drive_file_rounded;
+  }
+}
+
+Color _fileIconColor(String name, {required bool isFile}) {
+  if (!isFile) return const Color(0xFFFFC107); // 폴더 = 윈도우식 노란색
+  final ext = name.contains('.')
+      ? name.substring(name.lastIndexOf('.') + 1).toLowerCase()
+      : '';
+  switch (ext) {
+    case 'pdf':
+      return const Color(0xFFE53935); // 빨강
+    case 'doc':
+    case 'docx':
+    case 'rtf':
+    case 'odt':
+      return const Color(0xFF2962FF); // Word 블루
+    case 'xls':
+    case 'xlsx':
+    case 'csv':
+    case 'ods':
+      return const Color(0xFF2E7D32); // Excel 그린
+    case 'ppt':
+    case 'pptx':
+    case 'odp':
+      return const Color(0xFFEF6C00); // PPT 오렌지
+    case 'zip':
+    case 'rar':
+    case '7z':
+    case 'tar':
+    case 'gz':
+    case 'bz2':
+      return const Color(0xFF6D4C41); // 압축 = 갈색
+    case 'jpg':
+    case 'jpeg':
+    case 'png':
+    case 'gif':
+    case 'bmp':
+    case 'webp':
+    case 'svg':
+    case 'tiff':
+    case 'ico':
+      return const Color(0xFF8E24AA); // 이미지 = 보라
+    case 'mp4':
+    case 'mkv':
+    case 'avi':
+    case 'mov':
+    case 'wmv':
+    case 'flv':
+    case 'webm':
+      return const Color(0xFF5E35B1); // 영상 = 진보라
+    case 'mp3':
+    case 'wav':
+    case 'flac':
+    case 'aac':
+    case 'ogg':
+    case 'm4a':
+      return const Color(0xFFD81B60); // 오디오 = 핑크
+    case 'exe':
+    case 'msi':
+    case 'bat':
+    case 'cmd':
+    case 'sh':
+      return const Color(0xFF455A64); // 실행파일 = 청회색
+    case 'txt':
+    case 'md':
+    case 'log':
+    case 'ini':
+    case 'cfg':
+    case 'conf':
+    case 'toml':
+    case 'yaml':
+    case 'yml':
+      return const Color(0xFF607D8B); // 텍스트 = 회색
+    case 'py':
+    case 'js':
+    case 'ts':
+    case 'html':
+    case 'css':
+    case 'java':
+    case 'c':
+    case 'cpp':
+    case 'h':
+    case 'cs':
+    case 'rs':
+    case 'go':
+    case 'rb':
+    case 'php':
+    case 'swift':
+    case 'kt':
+    case 'dart':
+    case 'json':
+    case 'xml':
+      return const Color(0xFF3949AB); // 코드 = 인디고
+    case 'iso':
+    case 'img':
+    case 'dmg':
+      return const Color(0xFF00838F); // 디스크 이미지 = 청록
+    default:
+      return const Color(0xFF78909C); // 일반 = 옅은 청회색
+  }
 }

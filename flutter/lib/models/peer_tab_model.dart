@@ -40,9 +40,9 @@ class PeerTabModel with ChangeNotifier {
   List<bool> isEnabled = List.from([
     true,
     true,
-    !isWeb && bind.mainGetLocalOption(key: "disable-discovery-panel") != "Y",
-    !(bind.isDisableAb() || bind.isDisableAccount()),
-    !(bind.isDisableGroupPanel() || bind.isDisableAccount()),
+    false, // ChainRemote: 발견됨(LAN) 탭 비활성화 — 거래처 운영에 의미 없음
+    false, // ChainRemote: 주소록 비활성화 — 별도 Next.js 관리 패널이 그 역할
+    false, // ChainRemote: 엑세스 가능한 장치 비활성화 — 클라우드 계정 서버 안 돌림
   ]);
   final List<bool> _isVisible = List.filled(maxTabCount, true, growable: false);
   List<bool> get isVisibleEnabled => () {

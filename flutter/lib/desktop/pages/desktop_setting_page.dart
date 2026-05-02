@@ -2370,66 +2370,91 @@ class _AboutState extends State<_About> {
       final scrollController = ScrollController();
       return SingleChildScrollView(
         controller: scrollController,
-        child: _Card(title: translate('About RustDesk'), children: [
+        child: _Card(title: 'ChainRemote 정보', children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(
-                height: 8.0,
-              ),
+              const SizedBox(height: 8.0),
+              // ChainRemote 브랜드 헤더
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    vertical: 16, horizontal: 12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF1E5BFF), Color(0xFF00B894)],
+                  ),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const SelectionArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ChainRemote',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '체인리모트 — 베타포스랩 자체 원격지원 솔루션',
+                        style: TextStyle(
+                            color: Colors.white, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ).marginSymmetric(vertical: 6.0),
+              const SizedBox(height: 12),
               SelectionArea(
-                  child: Text('${translate('Version')}: $version')
+                  child: Text('버전: $version')
                       .marginSymmetric(vertical: 4.0)),
               SelectionArea(
-                  child: Text('${translate('Build Date')}: $buildDate')
+                  child: Text('빌드 날짜: $buildDate')
                       .marginSymmetric(vertical: 4.0)),
               if (!isWeb)
                 SelectionArea(
-                    child: Text('${translate('Fingerprint')}: $fingerprint')
+                    child: Text('지문: $fingerprint')
                         .marginSymmetric(vertical: 4.0)),
-              InkWell(
-                  onTap: () {
-                    launchUrlString('https://rustdesk.com/privacy.html');
-                  },
-                  child: Text(
-                    translate('Privacy Statement'),
-                    style: linkStyle,
-                  ).marginSymmetric(vertical: 4.0)),
+              SelectionArea(
+                  child: const Text(
+                          '회사: 베타포스랩 (BetaPosLab)\n홈페이지: betaposlab.com\n관리 패널: admin.betaposlab.com\n기술지원: zentars004@gmail.com')
+                      .marginSymmetric(vertical: 6.0)),
+              const SizedBox(height: 8),
+              const Divider(),
+              // 원본 RustDesk 크레딧 (AGPL 라이선스 의무 표기)
+              const Text(
+                '오픈소스 기반',
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w700),
+              ).marginSymmetric(vertical: 4.0),
+              SelectionArea(
+                child: Text(
+                  'ChainRemote 는 RustDesk (AGPL v3) 의 포크입니다.\n원본 저작권: Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Ltd.\n$license',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ).marginSymmetric(vertical: 4.0),
               InkWell(
                   onTap: () {
                     launchUrlString('https://rustdesk.com');
                   },
                   child: Text(
-                    translate('Website'),
-                    style: linkStyle,
+                    'RustDesk 원본 웹사이트',
+                    style:
+                        linkStyle.copyWith(fontSize: 11, color: Colors.grey),
                   ).marginSymmetric(vertical: 4.0)),
-              Container(
-                decoration: const BoxDecoration(color: Color(0xFF2c8cff)),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
-                child: SelectionArea(
-                    child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Ltd.\n$license',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          Text(
-                            translate('Slogan_tip'),
-                            style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white),
-                          )
-                        ],
-                      ),
-                    ),
-                  ],
-                )),
-              ).marginSymmetric(vertical: 4.0)
+              InkWell(
+                  onTap: () {
+                    launchUrlString('https://rustdesk.com/privacy.html');
+                  },
+                  child: Text(
+                    'RustDesk 개인정보 보호정책',
+                    style:
+                        linkStyle.copyWith(fontSize: 11, color: Colors.grey),
+                  ).marginSymmetric(vertical: 4.0)),
             ],
           ).marginOnly(left: _kContentHMargin)
         ]),
