@@ -47,26 +47,21 @@ Source: "{#INNER_INSTALLER}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 Source: "RustDesk2.toml"; DestDir: "{userappdata}\RustDesk\config"; Flags: ignoreversion
 
 [Run]
-; 1. RustDesk 공식 코어 사일런트 설치 (rustdesk.exe + DLL 들 모두 정상 배치)
+; 1. RustDesk 공식 코어 사일런트 설치 (RustDesk.lnk 단축아이콘 + Start Menu\RustDesk 자동 생성)
 Filename: "{tmp}\{#INNER_INSTALLER}"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
-; 2. RustDesk 공식 인스톨러가 만든 중복 단축아이콘/자동시작 항목 제거 (ChainRemote 만 남기기)
-Filename: "{cmd}"; Parameters: "/c del /Q ""{commondesktop}\RustDesk.lnk"" 2>nul"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c del /Q ""{userdesktop}\RustDesk.lnk"" 2>nul"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c rmdir /S /Q ""{commonprograms}\RustDesk"" 2>nul"; Flags: runhidden
+; 2. RustDesk 가 만든 단축아이콘을 ChainRemote 로 RENAME (atomic move — 안정적)
+Filename: "{cmd}"; Parameters: "/c if exist ""%PUBLIC%\Desktop\RustDesk.lnk"" (del /F /Q ""%PUBLIC%\Desktop\ChainRemote.lnk"" 2>nul & move /Y ""%PUBLIC%\Desktop\RustDesk.lnk"" ""%PUBLIC%\Desktop\ChainRemote.lnk"")"; Flags: runhidden waituntilterminated
+Filename: "{cmd}"; Parameters: "/c if exist ""%USERPROFILE%\Desktop\RustDesk.lnk"" (del /F /Q ""%USERPROFILE%\Desktop\ChainRemote.lnk"" 2>nul & move /Y ""%USERPROFILE%\Desktop\RustDesk.lnk"" ""%USERPROFILE%\Desktop\ChainRemote.lnk"")"; Flags: runhidden waituntilterminated
+
+; 3. Start Menu RustDesk 폴더 → ChainRemote 폴더 RENAME
+Filename: "{cmd}"; Parameters: "/c if exist ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\RustDesk"" (rmdir /S /Q ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\ChainRemote"" 2>nul & move /Y ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\RustDesk"" ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\ChainRemote"")"; Flags: runhidden waituntilterminated
+
+; 4. RustDesk 자동시작 reg 항목 제거 (우리 [Registry] 에서 ChainRemote 로 별도 등록함)
 Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\CurrentVersion\Run"" /v RustDesk /f 2>nul"; Flags: runhidden
 
-; 3. 설치 직후 ChainRemote 실행
+; 5. 설치 직후 ChainRemote 실행
 Filename: "{app}\rustdesk.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
-
-[Icons]
-; 모든 단축아이콘은 "ChainRemote" 라벨, 실행은 rustdesk.exe
-Name: "{group}\{#APP_NAME}";          Filename: "{app}\rustdesk.exe"; IconFilename: "{app}\rustdesk.exe"
-Name: "{group}\{#APP_NAME} 제거";     Filename: "{uninstallexe}"
-Name: "{commondesktop}\{#APP_NAME}";  Filename: "{app}\rustdesk.exe"; IconFilename: "{app}\rustdesk.exe"; Tasks: desktopicon
-
-[Tasks]
-Name: "desktopicon"; Description: "바탕화면 단축아이콘 만들기"; GroupDescription: "추가 단축아이콘:"
 
 [Registry]
 ; 부팅 시 자동 시작 — "ChainRemote" 키 이름으로 등록, 실행 대상은 rustdesk.exe
