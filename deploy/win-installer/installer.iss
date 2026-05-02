@@ -47,10 +47,16 @@ Source: "{#INNER_INSTALLER}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 Source: "RustDesk2.toml"; DestDir: "{userappdata}\RustDesk\config"; Flags: ignoreversion
 
 [Run]
-; RustDesk 공식 코어 사일런트 설치 (rustdesk.exe + DLL 들 모두 정상 배치)
+; 1. RustDesk 공식 코어 사일런트 설치 (rustdesk.exe + DLL 들 모두 정상 배치)
 Filename: "{tmp}\{#INNER_INSTALLER}"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
-; 설치 직후 RustDesk(=ChainRemote) 실행
+; 2. RustDesk 공식 인스톨러가 만든 중복 단축아이콘/자동시작 항목 제거 (ChainRemote 만 남기기)
+Filename: "{cmd}"; Parameters: "/c del /Q ""{commondesktop}\RustDesk.lnk"" 2>nul"; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c del /Q ""{userdesktop}\RustDesk.lnk"" 2>nul"; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c rmdir /S /Q ""{commonprograms}\RustDesk"" 2>nul"; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\CurrentVersion\Run"" /v RustDesk /f 2>nul"; Flags: runhidden
+
+; 3. 설치 직후 ChainRemote 실행
 Filename: "{app}\rustdesk.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
 
 [Icons]
