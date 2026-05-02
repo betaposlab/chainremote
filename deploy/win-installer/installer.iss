@@ -32,8 +32,9 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
-UninstallDisplayIcon={app}\rustdesk.exe
+UninstallDisplayIcon={app}\chainremote.ico
 UninstallDisplayName={#APP_NAME}
+SetupIconFile=chainremote.ico
 
 [Languages]
 Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
@@ -45,6 +46,9 @@ Source: "{#INNER_INSTALLER}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 ; 우리 NAS 서버 설정 파일을 사용자 AppData 에 배치
 Source: "RustDesk2.toml"; DestDir: "{userappdata}\RustDesk\config"; Flags: ignoreversion
+
+; ChainRemote 단축아이콘에 쓸 .ico (Program Files 안에 영구 보관)
+Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
 ; 1. RustDesk 공식 코어 사일런트 설치 (RustDesk.lnk 단축아이콘 + Start Menu\RustDesk 자동 생성)
@@ -60,7 +64,10 @@ Filename: "{cmd}"; Parameters: "/c if exist ""%PROGRAMDATA%\Microsoft\Windows\St
 ; 4. RustDesk 자동시작 reg 항목 제거 (우리 [Registry] 에서 ChainRemote 로 별도 등록함)
 Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\CurrentVersion\Run"" /v RustDesk /f 2>nul"; Flags: runhidden
 
-; 5. 설치 직후 ChainRemote 실행
+; 5. 단축아이콘들의 IconLocation 을 ChainRemote 아이콘으로 갱신
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) { $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) { $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() } }"""; Flags: runhidden waituntilterminated
+
+; 6. 설치 직후 ChainRemote 실행
 Filename: "{app}\rustdesk.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
 
 [Registry]

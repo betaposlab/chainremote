@@ -250,17 +250,23 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
 class MyTheme {
   MyTheme._();
 
+  // ChainRemote brand palette (extracted from chainremote_logo.png).
+  // chain = blue, remote = green, accent = orange (checkmark).
+  static const Color brandBlue = Color(0xFF0044B0);
+  static const Color brandGreen = Color(0xFF399826);
+  static const Color brandOrange = Color(0xFFF48901);
+
   static const Color grayBg = Color(0xFFEFEFF2);
-  static const Color accent = Color(0xFF00A0E5);
-  static const Color accent50 = Color(0x7700A0E5);
-  static const Color accent80 = Color(0xAA00A0E5);
+  static const Color accent = brandBlue;            // primary accent → ChainRemote blue
+  static const Color accent50 = Color(0x770044B0);  // 50% blue
+  static const Color accent80 = Color(0xAA0044B0);  // 80% blue
   static const Color canvasColor = Color(0xFF212121);
   static const Color border = Color(0xFFCCCCCC);
-  static const Color idColor = Color(0xFF00B6F0);
+  static const Color idColor = brandBlue;           // ID number color → blue
   static const Color darkGray = Color.fromARGB(255, 148, 148, 148);
-  static const Color cmIdColor = Color(0xFF21790B);
+  static const Color cmIdColor = brandGreen;        // connecting peer ID → green
   static const Color dark = Colors.black87;
-  static const Color button = Color(0xFF22B0E8);
+  static const Color button = brandBlue;            // primary button → blue
   static const Color hoverBorder = Color(0xFF999999);
 
   // ListTile
