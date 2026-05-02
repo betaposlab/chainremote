@@ -14,8 +14,10 @@ AppName={#APP_NAME}
 AppVersion={#APP_VERSION}
 AppPublisher={#APP_PUBLISHER}
 AppPublisherURL={#APP_URL}
-DefaultDirName={autopf}\{#APP_NAME}
+; RustDesk 폴더 안에 ChainRemote.exe 두기 (DLL 들과 같은 폴더 — 안 그러면 desktop_drop_plugin.dll 등 못 찾음)
+DefaultDirName={commonpf}\RustDesk
 DefaultGroupName={#APP_NAME}
+DisableDirPage=yes
 OutputDir=.
 OutputBaseFilename=ChainRemote_Setup
 Compression=lzma2
@@ -36,10 +38,6 @@ korean.PostInstallNote=설치가 완료되었습니다.%n%n다음 단계:%n1. Ch
 
 english.WelcomeBody=This will install ChainRemote with a pre-configured remote support server.%n%nAfter installation, please tell BetaposLab the ID shown in ChainRemote.
 english.PostInstallNote=Installation finished.
-
-[Dirs]
-; ChainRemote 설치 폴더 강제 생성 (이게 없으면 다음 [Run] 의 copy 단계가 폴더 부재로 실패)
-Name: "{app}"
 
 [Files]
 ; RustDesk 공식 인스톨러를 임시 폴더에 풀고 사일런트 설치 실행
