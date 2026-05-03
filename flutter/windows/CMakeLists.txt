@@ -4,7 +4,12 @@ project(rustdesk LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "ChainRemote")
+# ChainRemote: 바이너리 이름은 "rustdesk" 유지 (RustDesk core 의 install_me() 가
+# {path}\{app_name}.exe = {path}\RustDesk.exe 를 가정함). 이름을 ChainRemote 로 바꾸면
+# install_me 의 단축아이콘/서비스/레지스트리 모두 RustDesk.exe 를 가리키지만 실제
+# 파일은 ChainRemote.exe 가 되어 미스매치 발생. 사용자 노출 브랜딩(단축아이콘 라벨,
+# 창 제목, 트레이 툴팁)은 다른 곳에서 처리.
+set(BINARY_NAME "rustdesk")
 
 # Explicitly opt into modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
