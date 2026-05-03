@@ -3,11 +3,14 @@
 #
 # 동작:
 #   1. 실행 중인 ChainRemote/RustDesk 프로세스 종료
-#   2. /Applications/ChainRemote.app + 빌드 폴더의 ChainRemote.app 양쪽 갱신
-#   3. ad-hoc codesign
-#   4. macOS TCC 권한 리셋 (ad-hoc 서명은 빌드마다 cdhash 가 바뀌어 TCC 가 silently invalidate)
-#      → 다음 실행 시 macOS 가 권한 팝업 다시 띄움 → 사용자가 한 번 ON 해주면 됨
+#   2. /Applications/ChainRemote.app 갱신 (빌드 폴더의 RustDesk.app 을 복사)
+#   3. ad-hoc codesign — 순서 중요 (아래 주석 참조)
+#   4. macOS TCC 권한 리셋 (ad-hoc 서명은 빌드마다 cdhash 가 바뀌어 silently invalidate)
 #   5. 새 빌드 실행
+#
+# 운영 정책: ChainRemote.app 은 /Applications 에서만 실행한다.
+#   - 빌드 폴더의 RustDesk.app 은 그대로 두지만 별도 ChainRemote.app 사본은 만들지 않음.
+#   - 다른 path 에 동시에 두면 macOS 가 다른 앱으로 인식 → Dock 아이콘 중복 + TCC 권한 분리.
 #
 # 사용:
 #   ./deploy/mac/redeploy.sh
@@ -17,7 +20,6 @@ set -e
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="$REPO/flutter/build/macos/Build/Products/Release/RustDesk.app"
-DOCK="$REPO/flutter/build/macos/Build/Products/Release/ChainRemote.app"
 APPS="/Applications/ChainRemote.app"
 BUNDLE_ID="com.carriez.rustdesk"
 
@@ -32,19 +34,26 @@ pkill -x RustDesk 2>/dev/null || true
 pkill -x ChainRemote 2>/dev/null || true
 sleep 1
 
-echo "[2/5] 새 빌드 양쪽 경로 동기화..."
-rm -rf "$DOCK" "$APPS"
-cp -R "$SRC" "$DOCK"
+echo "[2/5] /Applications/ChainRemote.app 갱신..."
+# 빌드 폴더에 stale ChainRemote.app 이 남아 있으면 제거 (Dock 중복 원인).
+rm -rf "$REPO/flutter/build/macos/Build/Products/Release/ChainRemote.app"
+rm -rf "$APPS"
 cp -R "$SRC" "$APPS"
 
-echo "[3/5] ad-hoc codesign..."
+echo "[3/5] ad-hoc codesign — 정확한 순서: deep → service identifier 변경 → bundle 재봉인 (deep 없이)..."
+# 함정 1: --deep 은 raw executable 의 --identifier 를 보존 안 함 (파일명 기반으로 재생성).
+#         → 그래서 (1) deep 전체 서명 → (2) service 만 com.carriez.rustdesk 로 단독 재서명 → (3) bundle re-seal (deep 없이).
+# 함정 2: 순서가 (1)→(3)→(2) 가 되면 bundle seal 이 옛 service hash 로 굳어 → Gatekeeper reject (앱 실행 거부).
+# 함정 3: service identifier 가 service-XXX 로 남으면 main UI 와 분리돼 TCC 손쉬운 사용 권한이 service 에 적용 안 됨.
 codesign --force --deep --sign - "$APPS" 2>&1 | tail -1
-codesign --force --deep --sign - "$DOCK" 2>&1 | tail -1
+codesign --force --sign - --identifier "$BUNDLE_ID" "$APPS/Contents/MacOS/service" 2>&1 | tail -1
+codesign --force --sign - "$APPS" 2>&1 | tail -1
+codesign --verify --deep --strict "$APPS" && echo "  ✓ verify OK"
 
-echo "[4/5] TCC 권한 리셋 (ScreenCapture / Accessibility / ListenEvent)..."
-tccutil reset ScreenCapture "$BUNDLE_ID" 2>&1 | grep -v "^Successfully" | head -1 || true
-tccutil reset Accessibility "$BUNDLE_ID" 2>&1 | grep -v "^Successfully" | head -1 || true
-tccutil reset ListenEvent "$BUNDLE_ID" 2>&1 | grep -v "^Successfully" | head -1 || true
+echo "[4/5] TCC 권한 전부 리셋 (ad-hoc 재서명 → cdhash 변경 → 기존 권한 silently invalidate 됨)..."
+# 'All' 로 한 방에 — 개별 service 키는 macOS 버전마다 다르고, PostEvent 같은 핵심 키는 별도 이름이 필요함.
+# tccd 로그 증거: "Failed to match existing code requirement for subject com.carriez.rustdesk and service kTCCServicePostEvent"
+tccutil reset All "$BUNDLE_ID" 2>&1 | tail -1
 
 echo "[5/5] 새 빌드 실행..."
 open "$APPS"
