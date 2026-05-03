@@ -55,6 +55,13 @@ class _DesktopServerPageState extends State<DesktopServerPage>
 
   @override
   void onWindowClose() {
+    // ChainRemote 변경: 활성 연결이 하나라도 있으면 X 버튼은 종료가 아니라 트레이로 숨김.
+    // 거래처/직원이 X 잘못 눌러 세션 끊는 사고 방지.
+    // 연결을 진짜로 끊으려면 각 탭의 "연결 해제" 버튼을 사용해야 함.
+    if (gFFI.serverModel.clients.isNotEmpty) {
+      windowManager.hide();
+      return;
+    }
     Future.wait([gFFI.serverModel.closeAll(), gFFI.close()]).then((_) {
       if (isMacOS) {
         RdPlatformChannel.instance.terminate();
