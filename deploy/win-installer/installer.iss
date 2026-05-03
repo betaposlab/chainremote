@@ -53,15 +53,8 @@ Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\RustDesk\ 로 모든 파일 복사
-;    install_me 는 원본 파일명(ChainRemote.exe)을 그대로 보존함 → rename 안 함, 모든 참조 ChainRemote.exe 로 통일
-Filename: "{tmp}\chainremote_payload\ChainRemote.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
-
-; 1-1. install_me 가 만든 RustDesk.lnk 단축아이콘들을 ChainRemote.exe 가리키도록 수정
-;      (install_me 는 단축아이콘 TargetPath 를 rustdesk.exe 로 가정해서 만들었을 수 있음 — 다시 우리 .exe 로 fix)
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; foreach($p in @('$env:PUBLIC\Desktop\RustDesk.lnk','$env:USERPROFILE\Desktop\RustDesk.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\RustDesk\RustDesk.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.TargetPath='{app}\ChainRemote.exe'; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
-
-; 1-2. 서비스 등록 (ChainRemote.exe 로)
-Filename: "{app}\ChainRemote.exe"; Parameters: "--install-service"; StatusMsg: "서비스 등록 중..."; Flags: runhidden waituntilterminated
+;    BINARY_NAME=rustdesk 로 빌드해서 install_me 의 RustDesk.exe 가정과 호환됨
+Filename: "{tmp}\chainremote_payload\rustdesk.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
 ; 2. install_me() 가 만든 RustDesk 단축아이콘들을 ChainRemote 로 RENAME
 Filename: "{cmd}"; Parameters: "/c if exist ""%PUBLIC%\Desktop\RustDesk.lnk"" (del /F /Q ""%PUBLIC%\Desktop\ChainRemote.lnk"" 2>nul & move /Y ""%PUBLIC%\Desktop\RustDesk.lnk"" ""%PUBLIC%\Desktop\ChainRemote.lnk"")"; Flags: runhidden waituntilterminated
@@ -78,11 +71,11 @@ Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
 ; 6. 설치 직후 ChainRemote 실행
-Filename: "{app}\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\rustdesk.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
 
 [Registry]
-; 부팅 시 자동 시작 — ChainRemote 키 이름 + ChainRemote.exe 직접 가리킴
+; 부팅 시 자동 시작 — ChainRemote 키 이름 (실행파일은 rustdesk.exe)
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
   ValueType: string; ValueName: "{#APP_NAME}"; \
-  ValueData: """{app}\ChainRemote.exe"" --tray"; \
+  ValueData: """{app}\rustdesk.exe"" --tray"; \
   Flags: uninsdeletevalue
