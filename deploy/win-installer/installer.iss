@@ -66,7 +66,8 @@ Filename: "{cmd}"; Parameters: "/c if exist ""%PROGRAMDATA%\Microsoft\Windows\St
 Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\CurrentVersion\Run"" /v RustDesk /f 2>nul"; Flags: runhidden
 
 ; 5. 단축아이콘들의 IconLocation 을 ChainRemote .ico 로 갱신
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) { $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) { $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() } }"""; Flags: runhidden waituntilterminated
+;    Inno Setup constant 충돌 회피: PowerShell 의 { 들은 모두 {{ 로 이스케이프
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
 ; 6. 설치 직후 ChainRemote 실행
 Filename: "{app}\rustdesk.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
