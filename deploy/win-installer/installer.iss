@@ -52,8 +52,16 @@ Source: "RustDesk2.toml"; DestDir: "{userappdata}\RustDesk\config"; Flags: ignor
 Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
-; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\RustDesk\ 로 모든 파일 복사 + 서비스 등록
+; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\RustDesk\ 로 모든 파일 복사
 Filename: "{tmp}\chainremote_payload\ChainRemote.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
+
+; 1-1. install_me 가 ChainRemote.exe 이름 그대로 복사함 → rustdesk.exe 로 rename
+;      (자동시작 reg / 단축아이콘 / 서비스 모두 rustdesk.exe 가정이라 통일)
+Filename: "{cmd}"; Parameters: "/c if exist ""{app}\ChainRemote.exe"" if not exist ""{app}\rustdesk.exe"" rename ""{app}\ChainRemote.exe"" rustdesk.exe"; Flags: runhidden waituntilterminated
+Filename: "{cmd}"; Parameters: "/c if exist ""{app}\RuntimeBroker_ChainRemote.exe"" if not exist ""{app}\RuntimeBroker_rustdesk.exe"" rename ""{app}\RuntimeBroker_ChainRemote.exe"" RuntimeBroker_rustdesk.exe"; Flags: runhidden waituntilterminated
+
+; 1-2. 서비스 등록 (rename 한 rustdesk.exe 로)
+Filename: "{app}\rustdesk.exe"; Parameters: "--install-service"; StatusMsg: "서비스 등록 중..."; Flags: runhidden waituntilterminated
 
 ; 2. install_me() 가 만든 RustDesk 단축아이콘들을 ChainRemote 로 RENAME
 Filename: "{cmd}"; Parameters: "/c if exist ""%PUBLIC%\Desktop\RustDesk.lnk"" (del /F /Q ""%PUBLIC%\Desktop\ChainRemote.lnk"" 2>nul & move /Y ""%PUBLIC%\Desktop\RustDesk.lnk"" ""%PUBLIC%\Desktop\ChainRemote.lnk"")"; Flags: runhidden waituntilterminated
