@@ -72,3 +72,6 @@ chainremote-admin/
 deploy/win-binary/*.exe
 deploy/win-installer/rustdesk-*.exe
 deploy/win-installer/ChainRemote_Setup.exe
+
+# 빌드 산출물 (윈컴에서 넘어온 setup.exe 등)
+dist/

@@ -61,9 +61,9 @@ echo "  - Released   : $RELEASED_AT"
 echo "  - Remote URL : $PUBLIC_BASE_URL/$REMOTE_FILENAME"
 echo
 
-# 1. 인스톨러 업로드 (versioned filename) — 같은 이름으로 덮어쓰지 않도록 -n 옵션은 일부러 빼서 강제 덮어쓰기 가능
-echo "[1/3] Uploading installer to NAS..."
-scp "$SETUP_EXE" "$NAS_HOST:$NAS_WEB_DIR/$REMOTE_FILENAME"
+# 1. 인스톨러 업로드 — Synology SFTP 가 사용자를 home dir 에 chroot 시키므로 SCP 대신 ssh stream 사용
+echo "[1/3] Uploading installer to NAS (via ssh stream)..."
+ssh "$NAS_HOST" "cat > $NAS_WEB_DIR/$REMOTE_FILENAME && chmod 644 $NAS_WEB_DIR/$REMOTE_FILENAME" < "$SETUP_EXE"
 
 # 2. latest.json 갱신 (atomic — 임시 파일에 쓰고 mv)
 echo "[2/3] Updating latest.json..."
