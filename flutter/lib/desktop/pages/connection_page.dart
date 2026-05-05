@@ -304,25 +304,44 @@ class _ConnectionPageState extends State<ConnectionPage>
   @override
   Widget build(BuildContext context) {
     final isOutgoingOnly = bind.isOutgoingOnly();
-    return Column(
+    return Stack(
       children: [
-        Expanded(
-            child: Column(
+        Column(
           children: [
-            Row(
+            Expanded(
+                child: Column(
               children: [
-                Flexible(child: _buildRemoteIDTextField(context)),
+                Row(
+                  children: [
+                    Flexible(child: _buildRemoteIDTextField(context)),
+                  ],
+                ).marginOnly(top: 22),
+                // ChainRemote: 세련된 페이드 그라디언트 분리선 + 영역 라벨
+                const SizedBox(height: 18),
+                const _FadeSectionDivider(label: '거래처 목록'),
+                const SizedBox(height: 6),
+                Expanded(child: PeerTabPage()),
               ],
-            ).marginOnly(top: 22),
-            // ChainRemote: 세련된 페이드 그라디언트 분리선 + 영역 라벨
-            const SizedBox(height: 18),
-            const _FadeSectionDivider(label: '거래처 목록'),
-            const SizedBox(height: 6),
-            Expanded(child: PeerTabPage()),
+            ).paddingOnly(left: 12.0)),
+            if (!isOutgoingOnly) const Divider(height: 1),
+            if (!isOutgoingOnly) OnlineStatusWidget()
           ],
-        ).paddingOnly(left: 12.0)),
-        if (!isOutgoingOnly) const Divider(height: 1),
-        if (!isOutgoingOnly) OnlineStatusWidget()
+        ),
+        // 우하단 ChainRemote 버전 라벨 — 사용자가 한눈에 현재 버전 확인
+        Positioned(
+          right: 8,
+          bottom: 4,
+          child: IgnorePointer(
+            child: Text(
+              'v$chainRemoteVersion',
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFF9E9E9E),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

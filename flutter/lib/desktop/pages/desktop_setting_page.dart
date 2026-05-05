@@ -2534,7 +2534,7 @@ class _AboutState extends State<_About> {
               ).marginSymmetric(vertical: 6.0),
               const SizedBox(height: 12),
               SelectionArea(
-                  child: Text('버전: $version')
+                  child: Text('버전: $chainRemoteVersion (코어 $version 기반)')
                       .marginSymmetric(vertical: 4.0)),
               SelectionArea(
                   child: Text('빌드 날짜: $buildDate')

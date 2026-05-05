@@ -62,7 +62,10 @@ final isWebOnWindows = isWebOnWindows_;
 final isWebOnLinux = isWebOnLinux_;
 final isWebOnMacOs = isWebOnMacOS_;
 var isMobile = isAndroid || isIOS;
-var version = '';
+var version = ''; // RustDesk 코어 버전 (bind.mainGetVersion)
+// ChainRemote 자체 버전. src/version.rs 의 CHAINREMOTE_VERSION + installer.iss 의 APP_VERSION 과 동기화.
+// release.sh 가 새 릴리즈 푸시 시 세 곳 모두 sed 로 갱신.
+const chainRemoteVersion = '1.2.0';
 int androidVersion = 0;
 
 // Only used on Linux.
