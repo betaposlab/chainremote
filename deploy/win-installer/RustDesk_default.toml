@@ -1,0 +1,7 @@
+[options]
+view_style = 'adaptive'
+image_quality = 'low'
+show_remote_cursor = 'Y'
+follow_remote_cursor = 'Y'
+disable_audio = 'Y'
+enable-file-copy-paste = 'Y'
