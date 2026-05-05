@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common/chainremote_update_check.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -2539,6 +2540,9 @@ class _AboutState extends State<_About> {
               SelectionArea(
                   child: Text('빌드 날짜: $buildDate')
                       .marginSymmetric(vertical: 4.0)),
+              const SizedBox(height: 4),
+              const ChainRemoteUpdateCheckRow(),
+              const SizedBox(height: 4),
               if (!isWeb)
                 SelectionArea(
                     child: Text('지문: $fingerprint')
