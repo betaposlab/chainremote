@@ -62,6 +62,10 @@ mod whiteboard;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod updater;
 
+// ChainRemote 자체 업데이트 (NAS latest.json 폴링 — 윈도우만)
+#[cfg(target_os = "windows")]
+mod chainremote_updater;
+
 mod ui_cm_interface;
 mod ui_interface;
 mod ui_session_interface;
