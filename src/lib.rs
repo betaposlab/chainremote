@@ -30,6 +30,9 @@ pub mod ipc;
 pub mod ui;
 mod version;
 pub use version::*;
+// ChainRemote 자체 버전 (별도 파일 — version.rs 는 빌드 자동 생성이라 .gitignore)
+mod chainremote_version;
+pub use chainremote_version::*;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 mod bridge_generated;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]

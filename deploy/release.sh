@@ -30,16 +30,16 @@ fi
 # ChainRemote 버전 상수 3개를 모두 입력값과 동기화 (다음 빌드부터 새 버전으로 표시)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 echo "[0/3] Syncing CHAINREMOTE_VERSION = $VERSION across source ..."
-# Rust 측
+# Rust 측 (별도 파일 — version.rs 는 빌드 자동 생성이라 .gitignore)
 sed -i.bak "s/^pub const CHAINREMOTE_VERSION: &str = .*/pub const CHAINREMOTE_VERSION: \&str = \"$VERSION\";/" \
-  "$SCRIPT_DIR/src/version.rs"
+  "$SCRIPT_DIR/src/chainremote_version.rs"
 # Flutter 측
 sed -i.bak "s/^const chainRemoteVersion = .*/const chainRemoteVersion = '$VERSION';/" \
   "$SCRIPT_DIR/flutter/lib/common.dart"
 # Inno Setup 측
 sed -i.bak "s/^#define APP_VERSION    .*/#define APP_VERSION    \"$VERSION\"/" \
   "$SCRIPT_DIR/deploy/win-installer/installer.iss"
-rm -f "$SCRIPT_DIR/src/version.rs.bak" \
+rm -f "$SCRIPT_DIR/src/chainremote_version.rs.bak" \
       "$SCRIPT_DIR/flutter/lib/common.dart.bak" \
       "$SCRIPT_DIR/deploy/win-installer/installer.iss.bak"
 echo "  → 다음 빌드부터 v$VERSION 표시. 변경 사항 commit 잊지 말 것."
