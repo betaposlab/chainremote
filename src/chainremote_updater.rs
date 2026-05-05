@@ -88,10 +88,10 @@ fn check_and_apply_once() -> ResultType<CycleResult> {
     let latest = fetch_latest()?;
     log::info!("chainremote_updater: latest.json → version={}, url={}", latest.version, latest.url);
 
-    let current = parse_version(crate::VERSION)?;
+    let current = parse_version(crate::CHAINREMOTE_VERSION)?;
     let new_v = parse_version(&latest.version)?;
     if !is_newer(new_v, current) {
-        log::debug!("chainremote_updater: already on latest ({} >= {})", crate::VERSION, latest.version);
+        log::debug!("chainremote_updater: already on latest ({} >= {})", crate::CHAINREMOTE_VERSION, latest.version);
         return Ok(CycleResult::AlreadyLatest);
     }
 
@@ -99,7 +99,7 @@ fn check_and_apply_once() -> ResultType<CycleResult> {
     ensure_pending_dir(&pending_path)?;
     // 이전 사이클에서 이미 받아둔 파일이 그대로면 재다운 스킵 (세션 중이라 보류된 상황 등)
     if !(pending_path.exists() && verify_sha256(&pending_path, &latest.sha256).is_ok()) {
-        log::info!("chainremote_updater: new version {} > {}, downloading...", latest.version, crate::VERSION);
+        log::info!("chainremote_updater: new version {} > {}, downloading...", latest.version, crate::CHAINREMOTE_VERSION);
         download_to(&latest.url, &pending_path)?;
         verify_sha256(&pending_path, &latest.sha256)?;
         log::info!("chainremote_updater: download verified");
