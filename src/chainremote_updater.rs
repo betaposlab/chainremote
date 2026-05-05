@@ -2,10 +2,13 @@
 //!
 //! 설계 (CLAUDE.md "옵션 B" 결정사항):
 //!   - 호스팅: Chang 댁 NAS Web Station (`https://sepani.synology.me/chainremote/`)
-//!   - 트리거: 자동 24h 주기 + (B-2 단계에서 push.json 폴링 추가 예정)
+//!   - 트리거 채널 2개:
+//!     (a) latest.json — 24h 정기 폴링 (수동 갱신 없이 자연스러운 배포)
+//!     (b) push.json   — 5분 폴링, 본사가 timestamp 갱신 시 즉시 적용 사이클 발동
 //!   - 적용 시점: 다운로드 완료 후 즉시 (서비스가 LocalSystem 권한으로 setup.exe 사일런트 실행)
 //!     → Inno Setup 의 CloseApplications=yes 가 ChainRemote.exe 자동 종료/재시작 처리
 //!     → install_me() 가 서비스 stop/start 처리
+//!   - 활성 원격 세션 중에는 어느 채널이든 적용 보류 (거래처 작업 보호)
 //!
 //! 권한:
 //!   - 모든 로직이 Windows 서비스(LocalSystem) 컨텍스트에서 실행됨 → UAC 없음
@@ -20,13 +23,16 @@
 
 use hbb_common::{bail, log, ResultType};
 use sha2::{Digest, Sha256};
-use std::{path::PathBuf, time::Duration};
+use std::{
+    path::PathBuf,
+    time::{Duration, Instant},
+};
 
 const LATEST_JSON_URL: &str = "https://sepani.synology.me/chainremote/latest.json";
-const CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 24h
+const PUSH_JSON_URL: &str = "https://sepani.synology.me/chainremote/push.json";
+const FULL_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 24h — latest.json 정기 체크
+const PUSH_POLL_INTERVAL: Duration = Duration::from_secs(60 * 5); // 5분 — push.json 즉시 알림 채널
 const FIRST_CHECK_DELAY: Duration = Duration::from_secs(60 * 5); // 부팅 후 5분 — 네트워크 안정 대기
-const RETRY_INTERVAL: Duration = Duration::from_secs(60 * 30); // 실패 시 30분 후 재시도
-const SESSION_BUSY_INTERVAL: Duration = Duration::from_secs(60 * 15); // 세션 중일 때 15분 후 재시도
 const PENDING_DIR: &str = r"C:\ProgramData\ChainRemote\pending";
 const PENDING_FILE: &str = "ChainRemote_Setup.exe";
 const HTTP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -48,39 +54,100 @@ struct LatestRelease {
     notes: String,
 }
 
-/// 서비스(LocalSystem)에서 호출. 부팅 시 1회 + 24h 주기로 백그라운드 체크.
-/// `run_service()` 의 진입부에서 한 번만 호출.
+/// 본사가 latest.json 외에 별도로 박는 "지금 즉시 폴링하라" 신호.
+/// `timestamp` 가 갱신될 때마다 클라이언트가 새 푸시로 인식. (값 자체는 ISO8601 권장이지만 비교는 동등성 only)
+/// 파일이 없거나 비어 있으면 클라이언트는 무시 (24h 정기 채널만 동작).
+#[derive(serde::Deserialize, Debug, Default)]
+struct PushSignal {
+    #[serde(default)]
+    version: String,
+    #[serde(default)]
+    timestamp: String,
+    #[serde(default)]
+    #[allow(dead_code)]
+    notes: String,
+}
+
+/// 서비스(LocalSystem)에서 호출. 부팅 후 5분 → 그 다음 5분 주기로 push.json 폴링,
+/// 24h 마다 latest.json 정기 체크. `run_service()` 의 진입부에서 한 번만 호출.
 pub fn start_in_service() {
     std::thread::spawn(|| {
-        log::info!("chainremote_updater: thread started, first check in {:?}", FIRST_CHECK_DELAY);
+        log::info!(
+            "chainremote_updater: thread started, first check in {:?}, push poll {:?}, full check {:?}",
+            FIRST_CHECK_DELAY, PUSH_POLL_INTERVAL, FULL_CHECK_INTERVAL
+        );
         std::thread::sleep(FIRST_CHECK_DELAY);
-        let mut interval = CHECK_INTERVAL;
+
+        let mut last_full_check: Option<Instant> = None;
+        let mut last_push_timestamp: Option<String> = None;
+
         loop {
-            match check_and_apply_once() {
-                Ok(CycleResult::Applied) => {
-                    log::info!("chainremote_updater: setup.exe launched, exiting loop (service will be replaced)");
-                    return;
-                }
-                Ok(CycleResult::AlreadyLatest) => {
-                    interval = CHECK_INTERVAL;
-                }
-                Ok(CycleResult::Deferred) => {
-                    interval = SESSION_BUSY_INTERVAL;
-                }
-                Err(e) => {
-                    log::warn!("chainremote_updater: check failed ({}), retry in {:?}", e, RETRY_INTERVAL);
-                    interval = RETRY_INTERVAL;
+            // (a) 본사 강제 푸시 채널 — 5분마다, timestamp 갱신 시 즉시 적용 사이클
+            if let Some(push) = try_fetch_push() {
+                if !push.timestamp.is_empty()
+                    && !push.version.is_empty()
+                    && last_push_timestamp.as_deref() != Some(&push.timestamp)
+                {
+                    last_push_timestamp = Some(push.timestamp.clone());
+                    log::info!(
+                        "chainremote_updater: push signal received ts={}, target v{}",
+                        push.timestamp, push.version
+                    );
+                    match check_and_apply_once() {
+                        Ok(CycleResult::Applied) => {
+                            log::info!("chainremote_updater: push-triggered apply launched, exiting loop");
+                            return;
+                        }
+                        Ok(other) => log::info!("chainremote_updater: push cycle → {:?}", other),
+                        Err(e) => log::warn!("chainremote_updater: push cycle failed: {}", e),
+                    }
                 }
             }
-            std::thread::sleep(interval);
+
+            // (b) latest.json 정기 채널 — 24h 경과 시 1회
+            let need_full = last_full_check
+                .map(|t| t.elapsed() >= FULL_CHECK_INTERVAL)
+                .unwrap_or(true);
+            if need_full {
+                match check_and_apply_once() {
+                    Ok(CycleResult::Applied) => {
+                        log::info!("chainremote_updater: scheduled apply launched, exiting loop");
+                        return;
+                    }
+                    Ok(other) => {
+                        log::debug!("chainremote_updater: scheduled cycle → {:?}", other);
+                        last_full_check = Some(Instant::now());
+                    }
+                    Err(e) => {
+                        log::warn!("chainremote_updater: scheduled check failed: {}", e);
+                        // 실패 시 last_full_check 갱신 안 함 → 다음 5분 사이클에 재시도
+                    }
+                }
+            }
+
+            std::thread::sleep(PUSH_POLL_INTERVAL);
         }
     });
 }
 
+#[derive(Debug)]
 enum CycleResult {
     Applied,
     AlreadyLatest,
     Deferred,
+}
+
+/// push.json 은 본사가 안 박았을 수도 (404 OK). 실패는 조용히 None.
+fn try_fetch_push() -> Option<PushSignal> {
+    let client = reqwest::blocking::Client::builder()
+        .timeout(HTTP_TIMEOUT)
+        .build()
+        .ok()?;
+    let resp = client.get(PUSH_JSON_URL).send().ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
+    resp.json::<PushSignal>().ok()
 }
 
 /// 한 사이클: latest.json 가져오기 → 버전 비교 → 다운 → SHA256 검증 → setup.exe 사일런트 실행.
