@@ -34,6 +34,26 @@
 - **테스트 서버 우선**: 모든 배포는 테스트 → 본서버/GitHub push는 Chang 지시 시에만.
 - **결과만 보고**: 코드 덤프 X, 간결한 완료 보고만.
 
+## 미해결 이슈 (2026-05-04 발견 — 해결 진행 중)
+
+### 이슈 1: 인스톨러가 toml 을 잘못된 경로에 배치 (LICENSE_MISMATCH 의 root cause)
+- **증상**: `ChainRemote_Setup.exe` 로 깐 PC 가 ChainRemote UI 의 ID/릴레이/Key 필드 모두 비어 있음. 수동 입력해도 POS→Mac 시도 시 "키가 일치하지 않습니다" 에러.
+- **분석** ([client.rs:498-499](src/client.rs:498)): hbbs 서버가 LICENSE_MISMATCH 응답 → 클라이언트 키가 서버 공개키와 불일치. user 가 toml 수정해도 무효.
+- **근본 원인** ([config.rs:484-485](libs/hbb_common/src/config.rs:484)): RustDesk 가 **서비스 모드** 로 구동되면 `C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\` 를 읽음. 인스톨러는 `%APPDATA%\RustDesk\config\` (사용자 폴더) 에만 박음 → 서비스가 빈 key 로 서버에 등록 시도.
+- **왜 LAN 에선 Mac→POS 가 됐나**: P2P punch hole 로 직결되어 서버 키 검증 우회. POS→Mac 방향에서야 POS 가 요청자가 되며 키 검증 → 실패.
+- **임시 해결** (이미 배포된 PC): cmd 관리자 권한으로 LocalService 경로에 toml 직접 박고 서비스 재시작.
+- **영구 해결** (다음 인스톨러 빌드): `installer.iss` 의 `[Files]` 에 LocalService 경로 추가 + `[Run]` 에서 `--silent-install` 전후로 서비스 stop/start.
+
+### 이슈 2: 사무실/외출 시 관리 패널 DB 도달 불가
+- **증상**: Mac 을 사무실로 가져가면 `localhost:3000/customers` 에서 `connect ETIMEDOUT 192.168.68.103:15432`.
+- **원인**: 관리 패널 .env.local 이 NAS 의 LAN IP `192.168.68.103:15432` 직접 사용. 외부 네트워크에서 도달 불가.
+- **추가**: 클라이언트들의 `21114/api/sysinfo` heartbeat 도 외부에서 timeout (포트 포워딩 없음, 21115-21118 만 노출). 신규 POS 가 콘솔에 자동 등록 안 되는 이유.
+- **해결 방향**: Tailscale (mesh VPN) 로 Mac↔NAS 묶음. DB 는 인터넷 노출 금지. 21114 는 별도로 포트 포워딩 추가 (RustDesk hbbs API 는 공개 노출 전제 설계, 위험도 낮음).
+
+### 이슈 3: 어제 풀린 줄 알았던 Mac TCC 도 LAN P2P 덕에 부분만 검증된 가능성
+- 어젯밤 윈컴↔Mac 동작 확인했지만 둘 다 같은 LAN 이라 P2P 직결. 외부 네트워크에서 검증 안 됨.
+- 위 두 이슈 풀린 후 외부망에서 재검증 필요.
+
 ## 현재 단계 (2026-05-02 종료)
 
 ### 완료된 것
@@ -46,6 +66,8 @@
 - ✅ 무인 접속 모드: 영구 비번 + 부팅 자동 시작 + approve-mode=password
 - ✅ **Step C 거래처 배포 인스톨러**: Inno Setup 으로 `ChainRemote_Setup.exe` 단일 파일 (2026-05-02)
 - ✅ **첫 ChainRemote 자체 개선**: 원격 세션 툴바에 파일 전송 버튼 (Mac 빌드 검증) (2026-05-02)
+- ✅ **인스톨러 v1.2.0 — 자동 기본 설정 + LICENSE_MISMATCH 근본 픽스** (2026-05-06): toml 3종(`RustDesk.toml`+`RustDesk2.toml`+`RustDesk_default.toml`)을 사용자/LocalService 두 경로 동시 배치, `access-mode=full`, 영구비번(`Ch042558~` 평문→자동해싱), 디스플레이/원격커서/음소거/파일복사 기본값 적용, 인스톨 중 `sc stop`→toml 복사→`sc start` 순서. 윈컴 빌드 대기 중.
+- ✅ **자동 업데이트 시스템 B-1** (2026-05-06): `src/chainremote_updater.rs` 신규 — 서비스(LocalSystem)에서 24h 주기로 NAS `latest.json` 폴링, SHA256 검증 후 `C:\ProgramData\ChainRemote\pending\` 에 다운로드, 활성 세션 없을 때 setup.exe 사일런트 적용. 본사 측 `deploy/release.sh` 로 NAS 에 새 버전 푸시. UI/푸시 채널은 B-2 에서.
 
 ### 거래처 배포 인스톨러 (Step C 정석, `deploy/win-installer/`, 2026-05-02 완성)
 **결과물**: `ChainRemote_Setup.exe` (~25MB) — 거래처가 더블클릭만으로 원격 셋업 완료.
@@ -108,6 +130,22 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
   - 기본 이미지 품질 = "반응 시간 최적화"
 - 또는 `~/Library/Preferences/com.carriez.RustDesk/peers/<ID>.toml` 직접 편집
   - `view_style = 'adaptive'`, `image_quality = 'low'`
+
+### B-2 (다음 세션) — 자동 업데이트 시스템 마무리
+- Flutter "업데이트 확인" 버튼 + 현재/최신 버전 표시 (설정 페이지 "정보" 탭)
+- IPC 로 UI → 서비스 "지금 체크" 메시지
+- 본사 강제 푸시 채널 (`push.json` 별도 5~10분 폴링) + 관리 패널의 "긴급 업데이트 푸시" 버튼
+- B-1 만 가지고도 핵심은 동작 — 거래처 PC 부팅 → 24h 안에 새 버전 자동 설치
+
+### NAS Web Station 셋업 (B-1 동작 전제, Chang 1회 작업)
+1. DSM → 패키지 센터 → **Web Station** 설치 (없으면)
+2. SSH 로 디렉터리 생성: `mkdir -p /volume1/web/chainremote && chmod 755 /volume1/web/chainremote`
+3. Web Station → 가상 호스트 → `sepani.synology.me` (HTTPS, Let's Encrypt 무료 인증서)
+4. 라우팅 검증: `curl -I https://sepani.synology.me/chainremote/` → 200 (디렉터리 인덱스 또는 빈 응답)
+5. 첫 릴리즈 푸시 (윈컴에서 v1.2.0 인스톨러 빌드 후):
+   ```bash
+   ./deploy/release.sh ~/Downloads/ChainRemote_Setup.exe 1.2.0 "기본 설정 자동 적용"
+   ```
 
 ### 다음 단계 (다음 세션)
 1. **첫 거래처 실전 시도** — 가장 가까운 1곳 (코이노 대체 또는 신규)
