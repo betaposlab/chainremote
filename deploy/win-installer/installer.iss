@@ -27,7 +27,9 @@ DefaultGroupName={#APP_NAME}
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 OutputDir=.
-OutputBaseFilename=ChainRemote_Setup
+; 파일명에 버전 박기 — 매 빌드마다 ChainRemote_Setup_v{버전}.exe 생성 (예: v1.2.3)
+; 이름이 매번 달라 옛 빌드 / 새 빌드 헷갈림 방지 + NAS URL 캐시 무관
+OutputBaseFilename=ChainRemote_Setup_v{#APP_VERSION}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
