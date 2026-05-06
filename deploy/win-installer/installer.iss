@@ -64,8 +64,11 @@ Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 ;    BINARY_NAME=rustdesk 로 빌드해서 install_me 의 RustDesk.exe 가정과 호환됨
 Filename: "{tmp}\chainremote_payload\rustdesk.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
-; 2. ★ 서비스 정지 — toml 박기 전 필수 (서비스가 빈 config 로 이미 떠 있으므로 멈춰야 새 config 가 적용됨)
-Filename: "{cmd}"; Parameters: "/c sc stop RustDesk >nul 2>&1 & timeout /t 2 /nobreak >nul"; Flags: runhidden waituntilterminated
+; 2. ★ 서비스 + UI/서비스 잔여 프로세스 강제 정지 — toml 박기 전 필수
+;    원인: sc stop 만으론 STOP_PENDING 상태에서 file lock 유지 → 다음 cmd copy 가 실패하던 문제
+;    해결: sc stop → 8초 wait → taskkill /F (rustdesk.exe 트리 전체) → 2초 wait
+;    (이 패치 없이는 새로 깔린 PC 의 toml [options] 가 빈 채로 남음 — 직원 PC 에서 검증된 버그)
+Filename: "{cmd}"; Parameters: "/c sc stop RustDesk >nul 2>&1 & timeout /t 8 /nobreak >nul & taskkill /F /IM rustdesk.exe /T >nul 2>&1 & timeout /t 2 /nobreak >nul"; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
 
 ; 3. ★ toml 3종을 두 경로에 동시 배치 (LICENSE_MISMATCH 근본 해결)
 ;    - 사용자 폴더 : %APPDATA%\RustDesk\config\           (RustDesk 가 user 모드일 때 읽음)
