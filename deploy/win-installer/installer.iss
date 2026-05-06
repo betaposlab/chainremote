@@ -10,7 +10,7 @@
 ;   4. NAS 설정(RustDesk2.toml) + 우리 .ico 배치 + 단축아이콘 IconLocation 갱신
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.2.2"
+#define APP_VERSION    "1.2.3"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; 윈컴에서 빌드한 ChainRemote.exe 가 들어있는 폴더
