@@ -10,7 +10,7 @@
 ;   4. NAS 설정(RustDesk2.toml) + 우리 .ico 배치 + 단축아이콘 IconLocation 갱신
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.2.3"
+#define APP_VERSION    "1.2.4"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; 윈컴에서 빌드한 ChainRemote.exe 가 들어있는 폴더
@@ -66,11 +66,11 @@ Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 ;    BINARY_NAME=rustdesk 로 빌드해서 install_me 의 RustDesk.exe 가정과 호환됨
 Filename: "{tmp}\chainremote_payload\rustdesk.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
-; 2. ★ 서비스 + UI/서비스 잔여 프로세스 강제 정지 (PowerShell wait-loop 으로 robust 화) — toml 박기 전 필수
-;    원인: sc stop 만으론 STOP_PENDING 상태에서 file lock 유지 → 다음 cmd copy 가 실패하던 문제
-;    이전 fix (8초 timeout + taskkill) 가 진희씨 PC 환경에서는 부족 → 더 강한 보장 필요.
-;    개선: sc stop → STOPPED 될 때까지 폴링 (최대 30초) → taskkill /F (잔여 프로세스 전체) → 1초 wait
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""sc.exe stop RustDesk *>$null; for ($i=0; $i -lt 30; $i++) {{ if ((sc.exe query RustDesk 2>$null) -match 'STOPPED') {{ break }}; Start-Sleep -Seconds 1 }}; taskkill /F /IM rustdesk.exe /T *>$null; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
+; 2. ★ 서비스 + UI/서비스 잔여 프로세스 강제 정지 — toml 박기 전 필수
+;    원인: sc stop 만으론 STOP_PENDING 상태에서 file lock 유지 → 다음 copy 실패.
+;    개선 (v1.2.4): Get-Service 의 .NET Status enum 비교 (한국어 Windows 의 sc.exe query 출력 "중지됨" 으로 인한
+;                  "STOPPED" 문자열 미스매치 버그 수정). 최대 30초 폴링 → taskkill /F → 1초 wait.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service RustDesk -Force -ErrorAction SilentlyContinue }} catch {{}}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service RustDesk -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }}; Start-Sleep -Seconds 1 }}; taskkill /F /IM rustdesk.exe /T *>$null; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
 
 ; 3. ★ toml 3종을 두 경로에 동시 배치 (LICENSE_MISMATCH 근본 해결, copy 실패 시 자동 재시도)
 ;    - 사용자 폴더 : %APPDATA%\RustDesk\config\           (RustDesk 가 user 모드일 때 읽음)
