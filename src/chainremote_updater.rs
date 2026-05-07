@@ -24,6 +24,7 @@
 use hbb_common::{bail, log, ResultType};
 use sha2::{Digest, Sha256};
 use std::{
+    io::Write,
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -32,11 +33,28 @@ const LATEST_JSON_URL: &str = "https://sepani.synology.me/chainremote/latest.jso
 const PUSH_JSON_URL: &str = "https://sepani.synology.me/chainremote/push.json";
 const FULL_CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 24h — latest.json 정기 체크
 const PUSH_POLL_INTERVAL: Duration = Duration::from_secs(60 * 5); // 5분 — push.json 즉시 알림 채널
+const DEFERRED_RETRY_INTERVAL: Duration = Duration::from_secs(60 * 15); // 15분 — Deferred 후 다시 alive_conns 체크
 const FIRST_CHECK_DELAY: Duration = Duration::from_secs(60 * 5); // 부팅 후 5분 — 네트워크 안정 대기
 const PENDING_DIR: &str = r"C:\ProgramData\ChainRemote\pending";
 const PENDING_FILE: &str = "ChainRemote_Setup.exe";
+const UPDATER_LOG_PATH: &str = r"C:\ProgramData\ChainRemote\updater.log";
 const HTTP_TIMEOUT: Duration = Duration::from_secs(60);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 10); // 인스톨러 ~30MB
+
+/// updater 전용 로그 파일에 한 줄 append. hbb_common::log 와 별도로 디스크에 영구 보존 — 다음 디버깅 즉시.
+/// 실패해도 무시 (디스크 가득 등 예외 상황에서 메인 동작 막지 않음).
+fn flog(msg: &str) {
+    let _ = std::fs::create_dir_all(r"C:\ProgramData\ChainRemote");
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(UPDATER_LOG_PATH)
+    {
+        let ts = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+        let _ = writeln!(f, "{} v{} {}", ts, crate::CHAINREMOTE_VERSION, msg);
+    }
+    log::info!("chainremote_updater: {}", msg);
+}
 
 #[derive(serde::Deserialize, Debug)]
 struct LatestRelease {
@@ -69,16 +87,18 @@ struct PushSignal {
 }
 
 /// 서비스(LocalSystem)에서 호출. 부팅 후 5분 → 그 다음 5분 주기로 push.json 폴링,
-/// 24h 마다 latest.json 정기 체크. `run_service()` 의 진입부에서 한 번만 호출.
+/// 24h 마다 latest.json 정기 체크 (단 Deferred 시 15분 후 재시도). `run_service()` 의 진입부에서 한 번만 호출.
 pub fn start_in_service() {
     std::thread::spawn(|| {
-        log::info!(
-            "chainremote_updater: thread started, first check in {:?}, push poll {:?}, full check {:?}",
-            FIRST_CHECK_DELAY, PUSH_POLL_INTERVAL, FULL_CHECK_INTERVAL
-        );
+        flog(&format!(
+            "thread started, first_check_delay={:?}, push_poll={:?}, full_check={:?}, deferred_retry={:?}",
+            FIRST_CHECK_DELAY, PUSH_POLL_INTERVAL, FULL_CHECK_INTERVAL, DEFERRED_RETRY_INTERVAL
+        ));
         std::thread::sleep(FIRST_CHECK_DELAY);
 
+        // last_full_check: AlreadyLatest / Err 시에만 갱신. Deferred 는 별도 변수로 추적해 짧은 주기로 재시도.
         let mut last_full_check: Option<Instant> = None;
+        let mut last_deferred_retry: Option<Instant> = None;
         let mut last_push_timestamp: Option<String> = None;
 
         loop {
@@ -89,38 +109,47 @@ pub fn start_in_service() {
                     && last_push_timestamp.as_deref() != Some(&push.timestamp)
                 {
                     last_push_timestamp = Some(push.timestamp.clone());
-                    log::info!(
-                        "chainremote_updater: push signal received ts={}, target v{}",
-                        push.timestamp, push.version
-                    );
+                    flog(&format!(
+                        "push signal received ts={}, target v{}", push.timestamp, push.version
+                    ));
                     match check_and_apply_once() {
                         Ok(CycleResult::Applied) => {
-                            log::info!("chainremote_updater: push-triggered apply launched, exiting loop");
+                            flog("push-triggered apply launched, exiting loop");
                             return;
                         }
-                        Ok(other) => log::info!("chainremote_updater: push cycle → {:?}", other),
-                        Err(e) => log::warn!("chainremote_updater: push cycle failed: {}", e),
+                        Ok(other) => flog(&format!("push cycle → {:?}", other)),
+                        Err(e) => flog(&format!("push cycle failed: {}", e)),
                     }
                 }
             }
 
-            // (b) latest.json 정기 채널 — 24h 경과 시 1회
+            // (b) 정기/재시도 채널 — 둘 중 하나라도 만료면 사이클 1회
             let need_full = last_full_check
                 .map(|t| t.elapsed() >= FULL_CHECK_INTERVAL)
                 .unwrap_or(true);
-            if need_full {
+            let need_deferred_retry = last_deferred_retry
+                .map(|t| t.elapsed() >= DEFERRED_RETRY_INTERVAL)
+                .unwrap_or(false);
+            if need_full || need_deferred_retry {
                 match check_and_apply_once() {
                     Ok(CycleResult::Applied) => {
-                        log::info!("chainremote_updater: scheduled apply launched, exiting loop");
+                        flog("scheduled apply launched, exiting loop");
                         return;
                     }
-                    Ok(other) => {
-                        log::debug!("chainremote_updater: scheduled cycle → {:?}", other);
+                    Ok(CycleResult::AlreadyLatest) => {
+                        flog("scheduled cycle → AlreadyLatest");
                         last_full_check = Some(Instant::now());
+                        last_deferred_retry = None;
+                    }
+                    Ok(CycleResult::Deferred) => {
+                        // ★ 결함 1 fix: Deferred 는 last_full_check 를 갱신하지 않음.
+                        // 대신 last_deferred_retry 만 갱신 → 15분 후 재시도. alive_conns 풀리면 즉시 적용.
+                        flog("scheduled cycle → Deferred (active session, will retry in 15m)");
+                        last_deferred_retry = Some(Instant::now());
                     }
                     Err(e) => {
-                        log::warn!("chainremote_updater: scheduled check failed: {}", e);
-                        // 실패 시 last_full_check 갱신 안 함 → 다음 5분 사이클에 재시도
+                        flog(&format!("scheduled check failed: {}", e));
+                        // 실패 시 어떤 변수도 갱신 안 함 → 다음 5분 사이클에 재시도
                     }
                 }
             }
@@ -153,12 +182,11 @@ fn try_fetch_push() -> Option<PushSignal> {
 /// 한 사이클: latest.json 가져오기 → 버전 비교 → 다운 → SHA256 검증 → setup.exe 사일런트 실행.
 fn check_and_apply_once() -> ResultType<CycleResult> {
     let latest = fetch_latest()?;
-    log::info!("chainremote_updater: latest.json → version={}, url={}", latest.version, latest.url);
+    flog(&format!("latest.json → version={}, url={}", latest.version, latest.url));
 
     let current = parse_version(crate::CHAINREMOTE_VERSION)?;
     let new_v = parse_version(&latest.version)?;
     if !is_newer(new_v, current) {
-        log::debug!("chainremote_updater: already on latest ({} >= {})", crate::CHAINREMOTE_VERSION, latest.version);
         return Ok(CycleResult::AlreadyLatest);
     }
 
@@ -166,22 +194,24 @@ fn check_and_apply_once() -> ResultType<CycleResult> {
     ensure_pending_dir(&pending_path)?;
     // 이전 사이클에서 이미 받아둔 파일이 그대로면 재다운 스킵 (세션 중이라 보류된 상황 등)
     if !(pending_path.exists() && verify_sha256(&pending_path, &latest.sha256).is_ok()) {
-        log::info!("chainremote_updater: new version {} > {}, downloading...", latest.version, crate::CHAINREMOTE_VERSION);
+        flog(&format!("new version {} > {}, downloading...", latest.version, crate::CHAINREMOTE_VERSION));
         download_to(&latest.url, &pending_path)?;
         verify_sha256(&pending_path, &latest.sha256)?;
-        log::info!("chainremote_updater: download verified");
+        flog("download verified");
     } else {
-        log::info!("chainremote_updater: pending file already valid, reusing");
+        flog("pending file already valid, reusing");
     }
 
-    // 진행 중인 원격 세션 중에는 적용 보류 — pending 파일은 그대로 두고 SESSION_BUSY_INTERVAL 후 재시도
-    if !crate::Connection::alive_conns().is_empty() {
-        log::info!("chainremote_updater: active sessions present, deferring install");
+    // 진행 중인 원격 세션 중에는 적용 보류 — pending 파일은 그대로 두고 다음 사이클에서 재시도
+    let alive = crate::Connection::alive_conns();
+    if !alive.is_empty() {
+        flog(&format!("active sessions ({} conn) → deferring install", alive.len()));
         return Ok(CycleResult::Deferred);
     }
 
-    log::info!("chainremote_updater: launching silent install");
+    flog("launching silent install");
     spawn_silent_install(&pending_path)?;
+    flog("silent install spawned successfully");
     Ok(CycleResult::Applied)
 }
 
@@ -281,6 +311,9 @@ fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
     const DETACHED_PROCESS: u32 = 0x00000008;
     const CREATE_NO_WINDOW: u32 = 0x08000000;
     const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
+    // ★ defensive: 우리 서비스가 setup 의 [Run] 단계에서 sc stop 으로 종료될 때
+    // setup.exe 가 우리 job 에 묶여 있으면 동반 사살 가능. JOB 에서 빠져나간 채 띄움.
+    const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x01000000;
 
     // 5초 지연 후 실행 — 우리(서비스) 가 SCM 에 다음 cycle sleep 진입할 시간 확보
     let setup_str = setup_path.to_string_lossy().to_string();
@@ -290,7 +323,12 @@ fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
     );
     std::process::Command::new("cmd.exe")
         .args(&["/c", &cmd])
-        .creation_flags(DETACHED_PROCESS | CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP)
+        .creation_flags(
+            DETACHED_PROCESS
+                | CREATE_NO_WINDOW
+                | CREATE_NEW_PROCESS_GROUP
+                | CREATE_BREAKAWAY_FROM_JOB,
+        )
         .spawn()?;
     Ok(())
 }
