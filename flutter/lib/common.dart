@@ -65,7 +65,7 @@ var isMobile = isAndroid || isIOS;
 var version = ''; // RustDesk 코어 버전 (bind.mainGetVersion)
 // ChainRemote 자체 버전. src/version.rs 의 CHAINREMOTE_VERSION + installer.iss 의 APP_VERSION 과 동기화.
 // release.sh 가 새 릴리즈 푸시 시 세 곳 모두 sed 로 갱신.
-const chainRemoteVersion = '1.2.4';
+const chainRemoteVersion = '1.2.5';
 int androidVersion = 0;
 
 // Only used on Linux.
@@ -3725,7 +3725,9 @@ Widget loadLogo() {
 }
 
 Widget loadIcon(double size) {
-  return Image.asset('assets/icon.png',
+  // v1.2.5: 탭바 / 트레이 작은 마크. ChainRemote 브랜드 마크 사용 (chainremote_mark.png).
+  // assets/icon.svg (RustDesk 기본 로고) 는 fallback 으로 보존.
+  return Image.asset('assets/chainremote_mark.png',
       width: size,
       height: size,
       errorBuilder: (ctx, error, stackTrace) => SvgPicture.asset(

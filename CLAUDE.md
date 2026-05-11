@@ -147,6 +147,9 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
    ./deploy/release.sh ~/Downloads/ChainRemote_Setup.exe 1.2.0 "기본 설정 자동 적용"
    ```
 
+### v1.2.5+ 보류 항목 (다음 버전 묶을 때 같이)
+- **창/트레이/Alt+Tab 아이콘 RustDesk → ChainRemote 교체** (2026-05-07 발견): `flutter/windows/runner/resources/app_icon.ico` 가 RustDesk 기본값. `deploy/win-installer/chainremote.ico` 로 덮어쓰기 + 재빌드면 끝. 동작 무관 cosmetic — 재성이 PC v1.2.4 검증 후 다른 픽스 모일 때 묶어서 진행.
+
 ### 다음 단계 (다음 세션)
 1. **첫 거래처 실전 시도** — 가장 가까운 1곳 (코이노 대체 또는 신규)
 2. **거래처별 비번 자동 생성 + 관리 패널 DB 저장** (운영 정석화)
