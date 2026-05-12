@@ -1,128 +1,53 @@
-# hwcodec C++ 소스 자동 패치 — ffmpeg 8.x 호환 만들기.
-#
-# 배경: rustdesk-org/hwcodec 0.7.1 (commit 398e5a8) 의 C++ 가 ffmpeg 5/6 API 가정.
-# vcpkg ffmpeg 8.x 에서:
-#   - AVFrame.key_frame 필드 제거 → AV_FRAME_FLAG_KEY 사용
-#   - FF_PROFILE_* 상수 → AV_PROFILE_*
-#   - 빌드 옵션 swresample 라이브러리 링크 누락
-#
-# Mac 에서 같은 패치 적용 검증됨 (2026-05-12). 동일 패치를 윈컴 cargo git checkout 에도 박는다.
-# 이 스크립트는 idempotent — 이미 패치돼 있으면 skip.
+# hwcodec C++ 소스 자동 패치 — ffmpeg 7.x/8.x 호환.
+# 적용 위치: cargo 의 git checkout 폴더 (cargo build 한 번 돌린 후 존재).
+# Mac 측 동일 패치 검증됨 (2026-05-12).
+# Idempotent — 마커 문자열로 중복 적용 방지.
 
 $ErrorActionPreference = "Stop"
-Write-Host "=== hwcodec C++ ffmpeg 8.x 호환 패치 ===" -ForegroundColor Cyan
+Write-Host "=== hwcodec C++ ffmpeg 호환 패치 ===" -ForegroundColor Cyan
 
-# 1. hwcodec 소스 경로 찾기 — cargo git checkout 폴더
 $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { "$env:USERPROFILE\.cargo" }
-$checkoutsBase = Join-Path $cargoHome "git\checkouts"
-if (-not (Test-Path $checkoutsBase)) {
-    Write-Host "❌ cargo git checkout 폴더 없음: $checkoutsBase" -ForegroundColor Red
-    Write-Host "   먼저 cargo build 한 번 돌려서 hwcodec 받아오게 해야 함" -ForegroundColor Yellow
+$base = Join-Path $cargoHome "git\checkouts"
+if (-not (Test-Path $base)) {
+    Write-Host "cargo git checkout 없음: $base" -ForegroundColor Red
     exit 1
 }
-
-$hwcodecDir = Get-ChildItem -Path $checkoutsBase -Directory -Filter "hwcodec-*" -ErrorAction SilentlyContinue |
-              Select-Object -First 1
-if (-not $hwcodecDir) {
-    Write-Host "❌ hwcodec 폴더 없음 — 먼저 cargo build 실행 필요" -ForegroundColor Red
-    exit 1
-}
-
-# 386e5a8 같은 commit hash sub-folder
-$commitDir = Get-ChildItem -Path $hwcodecDir.FullName -Directory | Select-Object -First 1
-if (-not $commitDir) {
-    Write-Host "❌ hwcodec commit 폴더 없음" -ForegroundColor Red
-    exit 1
-}
+$hwcodecDir = Get-ChildItem $base -Directory -Filter "hwcodec-*" -EA SilentlyContinue | Select -First 1
+if (-not $hwcodecDir) { Write-Host "hwcodec 폴더 없음" -ForegroundColor Red; exit 1 }
+$commitDir = Get-ChildItem $hwcodecDir.FullName -Directory | Select -First 1
+if (-not $commitDir) { Write-Host "commit 폴더 없음" -ForegroundColor Red; exit 1 }
 $root = $commitDir.FullName
-Write-Host "  hwcodec 소스: $root" -ForegroundColor Gray
+Write-Host "소스 위치: $root" -ForegroundColor Gray
 
-# === Patch 1: ffmpeg_ram_decode.cpp — key_frame → flags & AV_FRAME_FLAG_KEY ===
+function Apply-Patch {
+    param([string]$File, [string]$Marker, [string]$Pattern, [string]$Replacement, [string]$Label)
+    if (-not (Test-Path $File)) { Write-Host "  $Label : 파일 없음 ($File)" -ForegroundColor Yellow; return }
+    $content = [System.IO.File]::ReadAllText($File)
+    if ($content.Contains($Marker)) { Write-Host "  $Label : 이미 패치됨" -ForegroundColor Gray; return }
+    if (-not ($content -match [regex]::Escape($Pattern))) {
+        Write-Host "  $Label : 패턴 못 찾음" -ForegroundColor Yellow
+        return
+    }
+    $new = $content.Replace($Pattern, $Replacement)
+    [System.IO.File]::WriteAllText($File, $new)
+    Write-Host "  $Label : 패치 완료" -ForegroundColor Green
+}
+
+# Patch 1: ffmpeg_ram_decode.cpp — key_frame 필드 제거 대응
 $f1 = Join-Path $root "cpp\ffmpeg_ram\ffmpeg_ram_decode.cpp"
-if (Test-Path $f1) {
-    $content = Get-Content $f1 -Raw
-    if ($content -match "PATCHED-2026-05-12-keyframe") {
-        Write-Host "  [1/3] ffmpeg_ram_decode.cpp 이미 패치됨" -ForegroundColor Gray
-    } else {
-        $old = @"
-#if FF_API_FRAME_KEY
-      int key_frame = frame_->flags & AV_FRAME_FLAG_KEY;
-#else
-      int key_frame = frame_->key_frame;
-#endif
-"@
-        $new = @"
-// PATCHED-2026-05-12-keyframe : ffmpeg 8.x 에선 key_frame 필드 제거. 분기 거꾸로된 원본 무력화.
-      int key_frame = frame_->flags & AV_FRAME_FLAG_KEY;
-"@
-        if ($content.Contains($old)) {
-            $content = $content.Replace($old, $new)
-            Set-Content -Path $f1 -Value $content -NoNewline
-            Write-Host "  [1/3] ffmpeg_ram_decode.cpp 패치 완료" -ForegroundColor Green
-        } else {
-            Write-Host "  [1/3] ffmpeg_ram_decode.cpp — 예상 패턴 못 찾음. 수동 확인 필요" -ForegroundColor Yellow
-        }
-    }
-} else {
-    Write-Host "  [1/3] ffmpeg_ram_decode.cpp 파일 없음" -ForegroundColor Yellow
-}
+$p1Pattern = "#if FF_API_FRAME_KEY`n      int key_frame = frame_->flags & AV_FRAME_FLAG_KEY;`n#else`n      int key_frame = frame_->key_frame;`n#endif"
+$p1Replace = "// PATCHED-keyframe`n      int key_frame = frame_->flags & AV_FRAME_FLAG_KEY;"
+Apply-Patch -File $f1 -Marker "PATCHED-keyframe" -Pattern $p1Pattern -Replacement $p1Replace -Label "[1/3] ffmpeg_ram_decode.cpp"
 
-# === Patch 2: util.cpp — FF_PROFILE_* → AV_PROFILE_* ===
+# Patch 2: util.cpp — FF_PROFILE_* → AV_PROFILE_*
 $f2 = Join-Path $root "cpp\common\util.cpp"
-if (Test-Path $f2) {
-    $content = Get-Content $f2 -Raw
-    if ($content -match "PATCHED-2026-05-12-profile") {
-        Write-Host "  [2/3] util.cpp 이미 패치됨" -ForegroundColor Gray
-    } else {
-        $old = @"
-  if (name.find("h264") != std::string::npos) {
-    c->profile = FF_PROFILE_H264_HIGH;
-  } else if (name.find("hevc") != std::string::npos) {
-    c->profile = FF_PROFILE_HEVC_MAIN;
-  }
-"@
-        $new = @"
-  // PATCHED-2026-05-12-profile : FF_PROFILE_* → AV_PROFILE_* (ffmpeg 7+)
-  if (name.find("h264") != std::string::npos) {
-    c->profile = AV_PROFILE_H264_HIGH;
-  } else if (name.find("hevc") != std::string::npos) {
-    c->profile = AV_PROFILE_HEVC_MAIN;
-  }
-"@
-        if ($content.Contains($old)) {
-            $content = $content.Replace($old, $new)
-            Set-Content -Path $f2 -Value $content -NoNewline
-            Write-Host "  [2/3] util.cpp 패치 완료" -ForegroundColor Green
-        } else {
-            Write-Host "  [2/3] util.cpp — 예상 패턴 못 찾음. 수동 확인 필요" -ForegroundColor Yellow
-        }
-    }
-} else {
-    Write-Host "  [2/3] util.cpp 파일 없음" -ForegroundColor Yellow
-}
+Apply-Patch -File $f2 -Marker "AV_PROFILE_H264_HIGH" -Pattern "FF_PROFILE_H264_HIGH" -Replacement "AV_PROFILE_H264_HIGH" -Label "[2a/3] util.cpp H264_HIGH"
+Apply-Patch -File $f2 -Marker "AV_PROFILE_HEVC_MAIN" -Pattern "FF_PROFILE_HEVC_MAIN" -Replacement "AV_PROFILE_HEVC_MAIN" -Label "[2b/3] util.cpp HEVC_MAIN"
 
-# === Patch 3: build.rs — swresample + swscale 정적 링크 추가 ===
+# Patch 3: build.rs — swresample + swscale 정적 링크 추가
 $f3 = Join-Path $root "build.rs"
-if (Test-Path $f3) {
-    $content = Get-Content $f3 -Raw
-    if ($content -match "PATCHED-2026-05-12-swresample") {
-        Write-Host "  [3/3] build.rs 이미 패치됨" -ForegroundColor Gray
-    } else {
-        $old = 'let mut static_libs = vec!["avcodec", "avutil", "avformat"];'
-        $new = @"
-// PATCHED-2026-05-12-swresample : opus 디코더가 swr_* 호출 → swresample 추가 링크 필수
-            let mut static_libs = vec!["avcodec", "avutil", "avformat", "swresample", "swscale"];
-"@
-        if ($content.Contains($old)) {
-            $content = $content.Replace($old, $new)
-            Set-Content -Path $f3 -Value $content -NoNewline
-            Write-Host "  [3/3] build.rs 패치 완료" -ForegroundColor Green
-        } else {
-            Write-Host "  [3/3] build.rs — 예상 패턴 못 찾음. 수동 확인 필요" -ForegroundColor Yellow
-        }
-    }
-} else {
-    Write-Host "  [3/3] build.rs 파일 없음" -ForegroundColor Yellow
-}
+$p3Pattern = 'let mut static_libs = vec!["avcodec", "avutil", "avformat"];'
+$p3Replace = 'let mut static_libs = vec!["avcodec", "avutil", "avformat", "swresample", "swscale"]; // PATCHED-swresample'
+Apply-Patch -File $f3 -Marker "PATCHED-swresample" -Pattern $p3Pattern -Replacement $p3Replace -Label "[3/3] build.rs"
 
 Write-Host "=== 패치 종료 ===" -ForegroundColor Cyan
