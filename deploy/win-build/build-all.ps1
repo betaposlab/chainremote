@@ -115,8 +115,30 @@ if (Test-Path $buildLog) { Remove-Item $buildLog -Force }
 
 $prevEAP = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
-cmd /c "python build.py --flutter --portable > `"$buildLog`" 2>&1"
+
+# v1.2.7+: --hwcodec 추가 — H.264/H.265 HW 인코더 활성 (Mac 측 HW 디코더와 페어).
+# 사전 조건: vcpkg 에 ffmpeg 깔려있어야 함 (`vcpkg install ffmpeg` 1회).
+# 첫 빌드는 hwcodec C++ 소스의 ffmpeg 8.x 비호환 (key_frame / FF_PROFILE / swresample) 으로 실패함.
+# 그래서 첫 빌드 후 자동으로 patch-hwcodec.ps1 실행 → 재빌드. 패치 적용된 후엔 재실행 시 그대로 성공.
+$buildArgs = "--flutter --hwcodec --portable"
+cmd /c "python build.py $buildArgs > `"$buildLog`" 2>&1"
 $buildExitCode = $LASTEXITCODE
+
+if ($buildExitCode -ne 0) {
+  Write-Host "    [4.5/5] 첫 빌드 실패 → hwcodec C++ 자동 패치 시도..." -ForegroundColor Yellow
+  $patchScript = Join-Path $PSScriptRoot "..\win-installer\..\win-build\patch-hwcodec.ps1"
+  if (-not (Test-Path $patchScript)) {
+    $patchScript = "$repoDir\deploy\win-build\patch-hwcodec.ps1"
+  }
+  if (Test-Path $patchScript) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $patchScript
+    Write-Host "    재빌드..." -ForegroundColor Yellow
+    cmd /c "python build.py $buildArgs > `"$buildLog`" 2>&1"
+    $buildExitCode = $LASTEXITCODE
+  } else {
+    Write-Host "❌ patch-hwcodec.ps1 못 찾음: $patchScript" -ForegroundColor Red
+  }
+}
 $ErrorActionPreference = $prevEAP
 
 if ($buildExitCode -ne 0) {
