@@ -302,33 +302,80 @@ fn verify_sha256(path: &PathBuf, expected_hex: &str) -> ResultType<()> {
     Ok(())
 }
 
-/// LocalSystem 권한으로 setup.exe 사일런트 실행. UAC 없음.
-/// `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` — UI 0, 메시지박스 0, 자동재부팅 X
-/// Inno Setup 의 `CloseApplications=yes` 가 기존 ChainRemote.exe 종료 처리.
-/// 인스톨러의 `[Run] sc stop` 이 서비스(우리) 정지 → 새 파일 복사 → `sc start` 재시작.
+/// Windows Task Scheduler 를 통해 setup.exe 를 SYSTEM 권한으로 실행.
+///
+/// v1.2.5 까지: `cmd.exe /c ping & setup.exe` 를 `CreateProcess` 로 직접 띄움.
+/// 문제: 우리 서비스가 LocalSystem 세션 0 에서 spawn 한 Inno Setup 인스톨러가
+///   session-aware 한 단계에서 hang/silent fail. setup log 도 안 남기고 죽음.
+///   (검증 2026-05-12: manual /SILENT 는 user 세션에서 정상, service spawn 만 실패)
+///
+/// 픽스: schtasks 로 일회성 작업 등록 + 즉시 실행. OS 가 task host 통해 별도 세션에서 띄움.
+/// `/SILENT` 사용 (`/VERYSILENT` 가 일부 환경에서 GUI 초기화 막아 hang 유발).
 fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
     use std::os::windows::process::CommandExt;
-    const DETACHED_PROCESS: u32 = 0x00000008;
     const CREATE_NO_WINDOW: u32 = 0x08000000;
-    const CREATE_NEW_PROCESS_GROUP: u32 = 0x00000200;
-    // ★ defensive: 우리 서비스가 setup 의 [Run] 단계에서 sc stop 으로 종료될 때
-    // setup.exe 가 우리 job 에 묶여 있으면 동반 사살 가능. JOB 에서 빠져나간 채 띄움.
-    const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x01000000;
 
-    // 5초 지연 후 실행 — 우리(서비스) 가 SCM 에 다음 cycle sleep 진입할 시간 확보
     let setup_str = setup_path.to_string_lossy().to_string();
-    let cmd = format!(
-        "ping 127.0.0.1 -n 6 >nul & \"{}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
-        setup_str
+    let log_path = std::path::Path::new(&setup_str)
+        .parent()
+        .map(|p| p.join("installer.log").to_string_lossy().to_string())
+        .unwrap_or_else(|| "C:\\ProgramData\\ChainRemote\\pending\\installer.log".to_string());
+
+    // schtasks /TR 의 인용 규칙: 외부 큰 따옴표로 감싸고 내부 큰 따옴표는 \" 로 이스케이프.
+    // setup.exe 경로에 공백 가능하므로 인용 필수.
+    let tr_arg = format!(
+        "\\\"{}\\\" /SILENT /SUPPRESSMSGBOXES /NORESTART /LOG=\\\"{}\\\"",
+        setup_str, log_path
     );
-    std::process::Command::new("cmd.exe")
-        .args(&["/c", &cmd])
-        .creation_flags(
-            DETACHED_PROCESS
-                | CREATE_NO_WINDOW
-                | CREATE_NEW_PROCESS_GROUP
-                | CREATE_BREAKAWAY_FROM_JOB,
-        )
-        .spawn()?;
+
+    let task_name = "ChainRemoteOneShotUpdate";
+
+    // 1) 기존 잔재 작업 삭제 (있어도 무시)
+    let _ = std::process::Command::new("schtasks.exe")
+        .args(&["/Delete", "/TN", task_name, "/F"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output();
+
+    // 2) 신규 작업 등록 — SYSTEM, /HIGHEST, ONSTART (즉시 실행 가능, 향후 boot 트리거 안 됨)
+    //    /ST 23:59 + ONCE 로 두면 자정 직전에만 동작 — 우리는 /Run 으로 즉시 트리거할 거.
+    //    /RL HIGHEST 로 admin 권한 보장.
+    let create = std::process::Command::new("schtasks.exe")
+        .args(&[
+            "/Create",
+            "/TN",
+            task_name,
+            "/TR",
+            &tr_arg,
+            "/SC",
+            "ONCE",
+            "/ST",
+            "23:59",
+            "/RU",
+            "SYSTEM",
+            "/RL",
+            "HIGHEST",
+            "/F",
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()?;
+    if !create.status.success() {
+        bail!(
+            "schtasks /Create failed: {}",
+            String::from_utf8_lossy(&create.stderr)
+        );
+    }
+
+    // 3) 즉시 트리거
+    let run = std::process::Command::new("schtasks.exe")
+        .args(&["/Run", "/TN", task_name])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()?;
+    if !run.status.success() {
+        bail!(
+            "schtasks /Run failed: {}",
+            String::from_utf8_lossy(&run.stderr)
+        );
+    }
+
     Ok(())
 }
