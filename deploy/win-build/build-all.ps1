@@ -126,17 +126,14 @@ $buildExitCode = $LASTEXITCODE
 
 if ($buildExitCode -ne 0) {
   Write-Host "    [4.5/5] 첫 빌드 실패 → hwcodec C++ 자동 패치 시도..." -ForegroundColor Yellow
-  $patchScript = Join-Path $PSScriptRoot "..\win-installer\..\win-build\patch-hwcodec.ps1"
-  if (-not (Test-Path $patchScript)) {
-    $patchScript = "$repoDir\deploy\win-build\patch-hwcodec.ps1"
-  }
+  $patchScript = "$repoDir\deploy\win-build\patch-hwcodec.py"
   if (Test-Path $patchScript) {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $patchScript
+    python $patchScript
     Write-Host "    재빌드..." -ForegroundColor Yellow
     cmd /c "python build.py $buildArgs > `"$buildLog`" 2>&1"
     $buildExitCode = $LASTEXITCODE
   } else {
-    Write-Host "❌ patch-hwcodec.ps1 못 찾음: $patchScript" -ForegroundColor Red
+    Write-Host "❌ patch-hwcodec.py 못 찾음: $patchScript" -ForegroundColor Red
   }
 }
 $ErrorActionPreference = $prevEAP
