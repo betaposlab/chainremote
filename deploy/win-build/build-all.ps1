@@ -105,6 +105,26 @@ if (-not (Test-Path "src\bridge_generated.rs")) {
 }
 Write-Host "    OK: src\bridge_generated.rs 및 .io.rs 생성됨" -ForegroundColor Gray
 
+# 3.8. vcpkg 의존성 (manifest 모드 — vcpkg.json + res/vcpkg 오버레이 포트 자동 사용)
+# - 정석: ChainRemote 루트(vcpkg.json 위치)에서 vcpkg install → aom/mfx-dispatch/ffmpeg 패치본 설치
+# - idempotent: 이미 설치된 항목은 hash 일치 시 skip. ffmpeg 첫 빌드는 30~60분.
+# - 과거 classic 모드 잔재(C:\src\vcpkg\installed)는 aom 구버전이라 manifest install 이 재빌드함.
+Write-Host "[3.8/5] vcpkg manifest install (의존성 동기화)..." -ForegroundColor Yellow
+if (-not $env:VCPKG_ROOT) { $env:VCPKG_ROOT = "C:\src\vcpkg" }
+if (-not (Test-Path "$env:VCPKG_ROOT\vcpkg.exe")) {
+  Write-Host "❌ vcpkg 미설치. setup-build-env.ps1 먼저 실행하세요." -ForegroundColor Red
+  Pop-Location; exit 1
+}
+$vcpkgLog = "$env:TEMP\chainremote-vcpkg.log"
+$vcpkgInstallRoot = "$env:VCPKG_ROOT\installed"
+cmd /c "`"$env:VCPKG_ROOT\vcpkg.exe`" install --triplet x64-windows-static --x-install-root=`"$vcpkgInstallRoot`" > `"$vcpkgLog`" 2>&1"
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "❌ vcpkg manifest install 실패. 로그: $vcpkgLog" -ForegroundColor Red
+  Get-Content $vcpkgLog -Tail 30 | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+  Pop-Location; exit 1
+}
+Write-Host "    OK: 의존성 동기화 완료" -ForegroundColor Gray
+
 # 4. 빌드 (Rust + Flutter + portable installer)
 # PowerShell의 stderr-as-error 처리를 우회하기 위해 cmd.exe로 위임
 Write-Host "[4/5] 빌드 시작 (30~60분 소요)..." -ForegroundColor Yellow
