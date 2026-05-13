@@ -117,7 +117,9 @@ if (-not (Test-Path "$env:VCPKG_ROOT\vcpkg.exe")) {
 }
 $vcpkgLog = "$env:TEMP\chainremote-vcpkg.log"
 $vcpkgInstallRoot = "$env:VCPKG_ROOT\installed"
-cmd /c "`"$env:VCPKG_ROOT\vcpkg.exe`" install --triplet x64-windows-static --x-install-root=`"$vcpkgInstallRoot`" > `"$vcpkgLog`" 2>&1"
+# --host-triplet 도 x64-windows-static 으로 강제: vcpkg.json 의 ffmpeg 가 host=true 로 박혀있어
+# 기본 host-triplet (x64-windows) 으로 설치되면 target 빌드에서 avcodec.lib 못 찾음.
+cmd /c "`"$env:VCPKG_ROOT\vcpkg.exe`" install --triplet x64-windows-static --host-triplet x64-windows-static --x-install-root=`"$vcpkgInstallRoot`" > `"$vcpkgLog`" 2>&1"
 if ($LASTEXITCODE -ne 0) {
   Write-Host "❌ vcpkg manifest install 실패. 로그: $vcpkgLog" -ForegroundColor Red
   Get-Content $vcpkgLog -Tail 30 | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
