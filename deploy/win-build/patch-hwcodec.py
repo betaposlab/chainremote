@@ -14,6 +14,7 @@ Idempotent — 마커 문자열로 중복 적용 방지.
 import os
 import sys
 import glob
+import platform
 
 
 def patch_file(path, marker, find, replace, label):
@@ -88,14 +89,22 @@ def main():
         "[2b/3] util.cpp HEVC_MAIN",
     )
 
-    # ---- Patch 3: build.rs ----
-    f3 = os.path.join(root, "build.rs")
-    find3 = 'let mut static_libs = vec!["avcodec", "avutil", "avformat"];'
-    replace3 = (
-        'let mut static_libs = vec!["avcodec", "avutil", "avformat", '
-        '"swresample", "swscale"]; // PATCHED-swresample'
-    )
-    patch_file(f3, "PATCHED-swresample", find3, replace3, "[3/3] build.rs")
+    # ---- Patch 3: build.rs (Mac 전용) ----
+    # Windows: RustDesk 의 res/vcpkg/ffmpeg/portfile.cmake 가 swresample/swscale 명시적
+    #   비활성 (--disable-swresample/swscale) → swresample.lib 자체가 없음. 원본 hwcodec
+    #   build.rs 가 avcodec/avutil/avformat 만 링크하는 게 그 ffmpeg 구성과 정확히 맞음.
+    # Mac:    homebrew/vcpkg ffmpeg 가 swresample 포함, opus 디코더가 swr_* 호출 →
+    #   링크 필요.
+    if platform.system() == "Darwin":
+        f3 = os.path.join(root, "build.rs")
+        find3 = 'let mut static_libs = vec!["avcodec", "avutil", "avformat"];'
+        replace3 = (
+            'let mut static_libs = vec!["avcodec", "avutil", "avformat", '
+            '"swresample", "swscale"]; // PATCHED-swresample'
+        )
+        patch_file(f3, "PATCHED-swresample", find3, replace3, "[3/3] build.rs")
+    else:
+        print("  [3/3] build.rs : Windows — swresample 패치 skip (ffmpeg overlay 와 맞음)")
 
     print("=== 패치 종료 ===")
 
