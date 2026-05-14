@@ -39,6 +39,10 @@ def get_deb_extra_depends() -> str:
     return ""
 
 def system2(cmd):
+    # Windows: python3 명령이 종종 Microsoft Store stub (실제 인터프리터 부재) 라
+    # 호출 시 무음 종료됨 → 현재 프로세스의 sys.executable 로 치환.
+    if sys.platform == 'win32' and cmd.startswith('python3 '):
+        cmd = f'"{sys.executable}" ' + cmd[len('python3 '):]
     exit_code = os.system(cmd)
     if exit_code != 0:
         sys.stderr.write(f"Error occurred when executing: `{cmd}`. Exiting.\n")
