@@ -39,7 +39,10 @@ rustup default 1.81
 
 # 3. Git, Python, CMake, LLVM, NASM
 Write-Host "[3/8] Git/Python/CMake/LLVM/NASM 설치..." -ForegroundColor Yellow
-choco install -y git python cmake llvm nasm 7zip pkgconfiglite
+# LLVM 은 18.1.8 LTS 로 핀: 22.x 같은 dev/최신 빌드는 bindgen 의 libclang API 와
+# 호환 깨져서 aom 구조체를 opaque 로 잘못 생성함 (필드 다 사라짐). 18.1.8 검증됨.
+choco install -y git python cmake nasm 7zip pkgconfiglite
+choco install -y llvm --version=18.1.8 --allow-downgrade
 
 # 4. Flutter 3.24.5 (RustDesk 호환 버전)
 Write-Host "[4/8] Flutter 3.24.5 설치..." -ForegroundColor Yellow
