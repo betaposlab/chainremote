@@ -446,8 +446,12 @@ def build_flutter_windows(version, features, skip_portable_pack):
         return
     os.chdir('libs/portable')
     system2('pip3 install -r requirements.txt')
+    # NOTE: flutter/windows/CMakeLists.txt 가 BINARY_NAME="rustdesk" 로 박혀있어
+    # (RustDesk core install_me() 가 RustDesk.exe 를 가정해서 의도적으로 유지).
+    # 따라서 flutter build 산출물은 rustdesk.exe. ChainRemote 브랜딩은 인스톨러
+    # 단계에서 단축아이콘/레지스트리 키로 처리됨 (deploy/win-installer/installer.iss).
     system2(
-        f'python3 ./generate.py -f ../../{flutter_build_dir_2} -o . -e ../../{flutter_build_dir_2}/ChainRemote.exe')
+        f'python3 ./generate.py -f ../../{flutter_build_dir_2} -o . -e ../../{flutter_build_dir_2}/rustdesk.exe')
     os.chdir('../..')
     if os.path.exists('./rustdesk_portable.exe'):
         os.replace('./target/release/rustdesk-portable-packer.exe',
