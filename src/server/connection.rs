@@ -3959,6 +3959,11 @@ impl Connection {
                 self.follow_remote_cursor = q == BoolOption::Yes;
             }
         }
+        // ChainRemote: virtual_display — 호스트 측 가상 다운스케일 요청.
+        // OptionMessage.virtual_display = Resolution{width, height}. (0,0) = 비활성.
+        if let Some(vd) = o.virtual_display.as_ref() {
+            video_service::set_virtual_display(vd.width.max(0) as usize, vd.height.max(0) as usize);
+        }
         if let Ok(q) = o.follow_remote_window.enum_value() {
             if q != BoolOption::NotSet {
                 self.follow_remote_window = q == BoolOption::Yes;
