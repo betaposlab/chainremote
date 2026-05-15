@@ -460,8 +460,10 @@ pub trait GoogleImage {
                         self.height() as _,
                     );
                 }
+                // ChainRemote: J 변형 (BT.601 full range) — 인코더가 ARGBToJ420 으로 보낸 데이터와 짝
+                // 결과: 명암 보존 ("환하게" 보이던 현상 해소), 글자 가독성 ↑
                 (Chroma::I420, ImageFormat::ARGB) => {
-                    super::I420ToARGB(
+                    super::J420ToARGB(
                         planes[0],
                         stride[0],
                         planes[1],
@@ -475,7 +477,7 @@ pub trait GoogleImage {
                     );
                 }
                 (Chroma::I420, ImageFormat::ABGR) => {
-                    super::I420ToABGR(
+                    super::J420ToABGR(
                         planes[0],
                         stride[0],
                         planes[1],
@@ -489,7 +491,7 @@ pub trait GoogleImage {
                     );
                 }
                 (Chroma::I444, ImageFormat::ARGB) => {
-                    super::I444ToARGB(
+                    super::J444ToARGB(
                         planes[0],
                         stride[0],
                         planes[1],
@@ -503,7 +505,7 @@ pub trait GoogleImage {
                     );
                 }
                 (Chroma::I444, ImageFormat::ABGR) => {
-                    super::I444ToABGR(
+                    super::J444ToABGR(
                         planes[0],
                         stride[0],
                         planes[1],

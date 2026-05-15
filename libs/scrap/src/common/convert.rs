@@ -90,10 +90,15 @@ pub fn convert_to_yuv_raw(
             let dst_y = dst.as_mut_ptr();
             let dst_u = dst[dst_fmt.u..].as_mut_ptr();
             let dst_v = dst[dst_fmt.v..].as_mut_ptr();
+            // ChainRemote: 스크린 캡처는 sRGB full range (0-255) 이므로 J 변형 사용.
+            //   I 변형 (BT.601 limited 16-235) = full→limited 매핑에서 명암 약화 ("환하게" 보임)
+            //   J 변형 (BT.601 full 0-255) = 명암 보존
+            // SW 코덱 (VP8/VP9/AV1) 의 디코더는 색공간 메타데이터를 따라 RGB 복원하므로
+            // 인코더가 full range YUV 보내면 자연스럽게 처리됨.
             let f = match src_pixfmt {
-                crate::Pixfmt::BGRA => ARGBToI420,
-                crate::Pixfmt::RGBA => ABGRToI420,
-                crate::Pixfmt::RGB565LE => RGB565ToI420,
+                crate::Pixfmt::BGRA => ARGBToJ420,
+                crate::Pixfmt::RGBA => ABGRToJ420,
+                crate::Pixfmt::RGB565LE => RGB565ToI420, // RGB565 J 변형 없음, 폴백
                 _ => bail!(unsupported),
             };
             call_yuv!(f(
@@ -199,7 +204,9 @@ pub fn convert_to_yuv_raw(
                 _ => bail!(unsupported),
             };
 
-            call_yuv!(ARGBToI444(
+            // ChainRemote: I444 (트루컬러 4:4:4) 도 J 변형 (full range) 으로 — i444 의 핵심 효과인
+            // 글자 가독성 보존을 위해 full range 명암 유지 필수.
+            call_yuv!(ARGBToJ444(
                 input,
                 input_stride as _,
                 dst_y,
