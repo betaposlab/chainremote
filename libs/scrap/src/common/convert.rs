@@ -204,9 +204,10 @@ pub fn convert_to_yuv_raw(
                 _ => bail!(unsupported),
             };
 
-            // ChainRemote: I444 (트루컬러 4:4:4) 도 J 변형 (full range) 으로 — i444 의 핵심 효과인
-            // 글자 가독성 보존을 위해 full range 명암 유지 필수.
-            call_yuv!(ARGBToJ444(
+            // ChainRemote: I444 경로는 I 변형 유지. Windows 핀 libyuv 1857 에 ARGBToJ444
+            // (4:4:4 JPEG full-range) 가 없음 (1916+ 에만 존재). I420 경로의 J420 으로
+            // 색공간 개선의 핵심은 이미 커버됨. I444 는 i444='Y' + VP9/AV1 한정 희귀 경로.
+            call_yuv!(ARGBToI444(
                 input,
                 input_stride as _,
                 dst_y,
