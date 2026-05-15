@@ -1664,13 +1664,24 @@ fn get_before_uninstall(kill_self: bool) -> String {
     } else {
         format!(" /FI \"PID ne {}\"", get_current_pid())
     };
+    // ChainRemote 수정: `sc stop` 은 비동기라 서비스가 STOP_PENDING 상태로 exe 파일 핸들을
+    // 수 초간 유지함. 바로 뒤따라오는 rd/XCOPY 가 잠긴 exe 를 못 덮어써서 "설치했는데 옛 버전"
+    // 버그가 매 업데이트마다 재발했음 (v1.0.1~). 정지 후 실제 Stopped 까지 폴링 + 핸들 해제
+    // grace 를 박는다. 한국어 Windows 의 `sc query | find "STOPPED"` 미스매치를 피하려고
+    // PowerShell 의 .NET ServiceController.Status enum 으로 비교 (installer.iss 검증된 패턴).
+    let wait_stopped = format!(
+        "powershell -NoProfile -ExecutionPolicy Bypass -Command \"for($i=0;$i -lt 30;$i++){{ $s=Get-Service '{app_name}' -ErrorAction SilentlyContinue; if($null -eq $s -or $s.Status -eq 'Stopped'){{break}}; Start-Sleep -Seconds 1 }}\"",
+        app_name = crate::get_app_name(),
+    );
     format!(
         "
     chcp 65001
     sc stop {app_name}
+    {wait_stopped}
     sc delete {app_name}
     taskkill /F /IM {broker_exe}
     taskkill /F /IM {app_name}.exe{filter}
+    powershell -NoProfile -ExecutionPolicy Bypass -Command \"Start-Sleep -Seconds 2\"
     reg delete HKEY_CLASSES_ROOT\\.{ext} /f
     reg delete HKEY_CLASSES_ROOT\\{ext} /f
     netsh advfirewall firewall delete rule name=\"{app_name} Service\"
@@ -3174,11 +3185,19 @@ reg add {subkey} /f /v EstimatedSize /t REG_DWORD /d {size}
     // while I cannot find them by `tasklist` or the methods above.
     // There's should be 4 processes running: service, server, tray and main window.
     // But only 2 processes are shown in the tasklist.
+    // ChainRemote 수정: get_before_uninstall 과 동일 — sc stop 비동기로 인한 file lock →
+    // copy_exe 실패 → 옛 버전 잔존 버그. 실제 Stopped 폴링 + grace.
+    let wait_stopped = format!(
+        "powershell -NoProfile -ExecutionPolicy Bypass -Command \"for($i=0;$i -lt 30;$i++){{ $s=Get-Service '{app_name}' -ErrorAction SilentlyContinue; if($null -eq $s -or $s.Status -eq 'Stopped'){{break}}; Start-Sleep -Seconds 1 }}\"",
+        app_name = app_name,
+    );
     let cmds = format!(
         "
 chcp 65001
 sc stop {app_name}
+{wait_stopped}
 taskkill /F /IM {app_name}.exe{filter}
+powershell -NoProfile -ExecutionPolicy Bypass -Command \"Start-Sleep -Seconds 2\"
 {reg_cmd}
 {copy_exe}
 {rename_exe}
