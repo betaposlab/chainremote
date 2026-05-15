@@ -417,9 +417,10 @@ impl HwRamDecoderImage<'_> {
                         width,
                         height,
                     ));
+                    // ChainRemote: J 변형 (full range) — 인코더가 ARGBToJ420 으로 보낸 데이터와 짝
                     let f = match rgb.fmt() {
-                        ImageFormat::ARGB => I420ToARGB,
-                        ImageFormat::ABGR => I420ToABGR,
+                        ImageFormat::ARGB => J420ToARGB,
+                        ImageFormat::ABGR => J420ToABGR,
                         _ => bail!("unsupported format: {:?} -> {:?}", frame.pixfmt, rgb.fmt()),
                     };
                     call_yuv!(f(
@@ -435,6 +436,8 @@ impl HwRamDecoderImage<'_> {
                         height,
                     ));
                 } else {
+                    // NV12 (HW H264/H265 경로) — libyuv 에 J-NV12 변형 없음, BT.601 limited 유지.
+                    // HW 코덱은 비트스트림 VUI 메타데이터로 range 처리하므로 픽셀 자체엔 영향 없음.
                     let f = match rgb.fmt() {
                         ImageFormat::ARGB => NV12ToARGB,
                         ImageFormat::ABGR => NV12ToABGR,
@@ -453,9 +456,10 @@ impl HwRamDecoderImage<'_> {
                 }
             }
             AVPixelFormat::AV_PIX_FMT_YUV420P => {
+                // ChainRemote: J 변형 (full range) — 인코더 짝
                 let f = match rgb.fmt() {
-                    ImageFormat::ARGB => I420ToARGB,
-                    ImageFormat::ABGR => I420ToABGR,
+                    ImageFormat::ARGB => J420ToARGB,
+                    ImageFormat::ABGR => J420ToABGR,
                     _ => bail!("unsupported format: {:?} -> {:?}", frame.pixfmt, rgb.fmt()),
                 };
                 call_yuv!(f(
