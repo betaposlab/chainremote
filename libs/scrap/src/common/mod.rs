@@ -490,8 +490,9 @@ pub trait GoogleImage {
                         self.height() as _,
                     );
                 }
+                // I444 디코더 경로도 I 변형 유지 (Windows libyuv 1857 에 J444ToARGB 없음)
                 (Chroma::I444, ImageFormat::ARGB) => {
-                    super::J444ToARGB(
+                    super::I444ToARGB(
                         planes[0],
                         stride[0],
                         planes[1],
@@ -505,7 +506,7 @@ pub trait GoogleImage {
                     );
                 }
                 (Chroma::I444, ImageFormat::ABGR) => {
-                    super::J444ToABGR(
+                    super::I444ToABGR(
                         planes[0],
                         stride[0],
                         planes[1],
