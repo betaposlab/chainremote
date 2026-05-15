@@ -45,12 +45,15 @@ if ($code -ne 0) {
   exit 1
 }
 
-$out = "$dir\ChainRemote_Setup.exe"
-if (Test-Path $out) {
-  $sizeMB = [Math]::Round((Get-Item $out).Length/1MB,1)
+# installer.iss 가 OutputBaseFilename=ChainRemote_Setup_v{version} 으로 박아서
+# 매 빌드마다 버전 박힌 파일명으로 산출. 가장 최근 산출물 골라 보고.
+$out = Get-ChildItem -Path $dir -Filter "ChainRemote_Setup_v*.exe" -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($out) {
+  $sizeMB = [Math]::Round($out.Length/1MB,1)
   Write-Host "`n=== 완료 ===" -ForegroundColor Green
-  Write-Host "  결과물: $out ($sizeMB MB)" -ForegroundColor White
+  Write-Host "  결과물: $($out.FullName) ($sizeMB MB)" -ForegroundColor White
   Write-Host "`n  검증: 다른 윈컴(또는 VM)에서 더블클릭 → 자동 설치 → ChainRemote 자동 실행 → ID 확인" -ForegroundColor Cyan
 } else {
-  Write-Host "❌ ChainRemote_Setup.exe 생성 안 됨" -ForegroundColor Red
+  Write-Host "❌ ChainRemote_Setup_v*.exe 생성 안 됨" -ForegroundColor Red
 }

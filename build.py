@@ -39,6 +39,10 @@ def get_deb_extra_depends() -> str:
     return ""
 
 def system2(cmd):
+    # Windows: python3 명령이 종종 Microsoft Store stub (실제 인터프리터 부재) 라
+    # 호출 시 무음 종료됨 → 현재 프로세스의 sys.executable 로 치환.
+    if sys.platform == 'win32' and cmd.startswith('python3 '):
+        cmd = f'"{sys.executable}" ' + cmd[len('python3 '):]
     exit_code = os.system(cmd)
     if exit_code != 0:
         sys.stderr.write(f"Error occurred when executing: `{cmd}`. Exiting.\n")
@@ -446,8 +450,12 @@ def build_flutter_windows(version, features, skip_portable_pack):
         return
     os.chdir('libs/portable')
     system2('pip3 install -r requirements.txt')
+    # NOTE: flutter/windows/CMakeLists.txt 가 BINARY_NAME="rustdesk" 로 박혀있어
+    # (RustDesk core install_me() 가 RustDesk.exe 를 가정해서 의도적으로 유지).
+    # 따라서 flutter build 산출물은 rustdesk.exe. ChainRemote 브랜딩은 인스톨러
+    # 단계에서 단축아이콘/레지스트리 키로 처리됨 (deploy/win-installer/installer.iss).
     system2(
-        f'python3 ./generate.py -f ../../{flutter_build_dir_2} -o . -e ../../{flutter_build_dir_2}/ChainRemote.exe')
+        f'python3 ./generate.py -f ../../{flutter_build_dir_2} -o . -e ../../{flutter_build_dir_2}/rustdesk.exe')
     os.chdir('../..')
     if os.path.exists('./rustdesk_portable.exe'):
         os.replace('./target/release/rustdesk-portable-packer.exe',
