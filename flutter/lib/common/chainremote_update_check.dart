@@ -5,9 +5,16 @@
 // 자동 적용 일정 (다음 부팅 시) 을 안내하는 용도.
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../common.dart';
+
+// ChainRemote: UI(user 세션) 가 "지금 설치" 클릭 시 이 플래그 파일을 만든다.
+// Windows 서비스(LocalSystem)의 chainremote_updater 루프가 ≤15초 내 감지 →
+// 즉시 다운로드+사일런트 설치. 부팅 대기 불필요.
+// 경로/로직은 src/chainremote_updater.rs 의 MANUAL_TRIGGER_FLAG 와 반드시 일치.
+const _kManualTriggerFlag = r'C:\ProgramData\ChainRemote\update_now.flag';
 
 const _kUpdateChannelUrl =
     'https://sepani.synology.me/chainremote/latest.json';
@@ -80,6 +87,9 @@ class _ChainRemoteUpdateCheckRowState extends State<ChainRemoteUpdateCheckRow> {
   bool _checking = false;
   String? _statusText;
   Color _statusColor = Colors.grey;
+  // 새 버전 발견 시 채워짐 → "지금 설치" 버튼 노출
+  String? _availableVersion;
+  bool _triggering = false;
 
   Future<void> _runCheck() async {
     setState(() {
@@ -101,15 +111,51 @@ class _ChainRemoteUpdateCheckRowState extends State<ChainRemoteUpdateCheckRow> {
       final notes = latest.notes.isNotEmpty ? '\n${latest.notes}' : '';
       setState(() {
         _checking = false;
-        _statusText =
-            '새 버전 v${latest.version} 사용 가능 — 다음 PC 부팅 시 자동 적용됩니다.$notes';
+        _availableVersion = latest.version;
+        _statusText = '새 버전 v${latest.version} 사용 가능.$notes';
         _statusColor = const Color(0xFFE67E22);
       });
     } else {
       setState(() {
         _checking = false;
+        _availableVersion = null;
         _statusText = '최신 버전을 사용 중입니다 (v$chainRemoteVersion)';
         _statusColor = const Color(0xFF27AE60);
+      });
+    }
+  }
+
+  /// "지금 설치" — 수동 트리거 플래그 파일 생성. 서비스가 ≤15초 내 적용.
+  Future<void> _triggerInstallNow() async {
+    if (!Platform.isWindows) {
+      setState(() {
+        _statusText = '즉시 설치는 Windows 에서만 지원됩니다.';
+        _statusColor = const Color(0xFFE74C3C);
+      });
+      return;
+    }
+    setState(() => _triggering = true);
+    try {
+      final f = File(_kManualTriggerFlag);
+      await f.parent.create(recursive: true);
+      await f.writeAsString(
+        '${_availableVersion ?? ""}\n${DateTime.now().toIso8601String()}\n',
+        flush: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _triggering = false;
+        _availableVersion = null;
+        _statusText =
+            '설치 예약됨 — 곧 자동 적용됩니다 (최대 15초). 완료 시 ChainRemote 가 자동 재시작됩니다.';
+        _statusColor = const Color(0xFF2980B9);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _triggering = false;
+        _statusText = '설치 예약 실패: $e';
+        _statusColor = const Color(0xFFE74C3C);
       });
     }
   }
@@ -132,6 +178,20 @@ class _ChainRemoteUpdateCheckRowState extends State<ChainRemoteUpdateCheckRow> {
             label: const Text('업데이트 확인'),
             onPressed: _checking ? null : _runCheck,
           ),
+          if (_availableVersion != null) ...[
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              icon: _triggering
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.system_update_alt, size: 18),
+              label: Text('v$_availableVersion 지금 설치'),
+              onPressed: _triggering ? null : _triggerInstallNow,
+            ),
+          ],
           const SizedBox(width: 12),
           if (_statusText != null)
             Expanded(

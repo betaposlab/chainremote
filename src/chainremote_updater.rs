@@ -38,6 +38,12 @@ const FIRST_CHECK_DELAY: Duration = Duration::from_secs(60 * 5); // 부팅 후 5
 const PENDING_DIR: &str = r"C:\ProgramData\ChainRemote\pending";
 const PENDING_FILE: &str = "ChainRemote_Setup.exe";
 const UPDATER_LOG_PATH: &str = r"C:\ProgramData\ChainRemote\updater.log";
+// ChainRemote: 사용자가 "업데이트 확인 → 지금 설치" 누르면 UI(user 세션)가 이 플래그
+// 파일을 만든다. 서비스 루프가 짧은 주기로 감시 → 즉시 check_and_apply_once.
+// ProgramData\ChainRemote 는 기본 ACL 이라 user 세션이 파일 생성 가능, SYSTEM 이 읽고 지움.
+const MANUAL_TRIGGER_FLAG: &str = r"C:\ProgramData\ChainRemote\update_now.flag";
+// 루프가 manual flag 를 감시하는 짧은 주기. 이 단위로 자며 매번 flag 확인.
+const TICK_INTERVAL: Duration = Duration::from_secs(15);
 const HTTP_TIMEOUT: Duration = Duration::from_secs(60);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 10); // 인스톨러 ~30MB
 
@@ -100,10 +106,40 @@ pub fn start_in_service() {
         let mut last_full_check: Option<Instant> = None;
         let mut last_deferred_retry: Option<Instant> = None;
         let mut last_push_timestamp: Option<String> = None;
+        // push.json 폴링은 5분 주기 유지 (루프는 15s tick 이지만 NAS 를 매 tick hammer 하지 않도록 게이트)
+        let mut last_push_poll: Option<Instant> = None;
 
         loop {
-            // (a) 본사 강제 푸시 채널 — 5분마다, timestamp 갱신 시 즉시 적용 사이클
-            if let Some(push) = try_fetch_push() {
+            // (0) ★ 수동 트리거 — 사용자가 "지금 설치" 누름. 최우선, 즉시 적용 시도.
+            //     ProgramData ACL 상 user 세션이 만든 플래그 파일. SYSTEM 이 읽고 삭제.
+            if std::path::Path::new(MANUAL_TRIGGER_FLAG).exists() {
+                let _ = std::fs::remove_file(MANUAL_TRIGGER_FLAG);
+                flog("manual trigger flag detected → applying now");
+                match check_and_apply_once() {
+                    Ok(CycleResult::Applied) => {
+                        flog("manual apply launched, exiting loop");
+                        return;
+                    }
+                    Ok(CycleResult::AlreadyLatest) => {
+                        flog("manual trigger → already latest (nothing to do)");
+                        last_full_check = Some(Instant::now());
+                    }
+                    Ok(CycleResult::Deferred) => {
+                        // 이 PC 가 원격 제어 당하는 중 → 즉시 못 함. 15분 후 재시도 큐.
+                        flog("manual trigger → Deferred (active incoming session)");
+                        last_deferred_retry = Some(Instant::now());
+                    }
+                    Err(e) => flog(&format!("manual trigger cycle failed: {}", e)),
+                }
+            }
+
+            // (a) 본사 강제 푸시 채널 — 5분 게이트. timestamp 갱신 시 즉시 적용 사이클
+            let need_push_poll = last_push_poll
+                .map(|t| t.elapsed() >= PUSH_POLL_INTERVAL)
+                .unwrap_or(true);
+            if need_push_poll {
+                last_push_poll = Some(Instant::now());
+                if let Some(push) = try_fetch_push() {
                 if !push.timestamp.is_empty()
                     && !push.version.is_empty()
                     && last_push_timestamp.as_deref() != Some(&push.timestamp)
@@ -120,6 +156,7 @@ pub fn start_in_service() {
                         Ok(other) => flog(&format!("push cycle → {:?}", other)),
                         Err(e) => flog(&format!("push cycle failed: {}", e)),
                     }
+                }
                 }
             }
 
@@ -154,7 +191,8 @@ pub fn start_in_service() {
                 }
             }
 
-            std::thread::sleep(PUSH_POLL_INTERVAL);
+            // 짧은 tick — 수동 트리거 플래그를 ≤15s 안에 감지. push/full 폴링은 위에서 elapsed 게이트.
+            std::thread::sleep(TICK_INTERVAL);
         }
     });
 }
