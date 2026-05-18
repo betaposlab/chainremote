@@ -6,15 +6,17 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../common.dart';
 
-// ChainRemote: "지금 설치" 는 UI 가 그 자리에서 직접 인스톨러를 받아
-// UAC 승격으로 즉시 실행한다 (Chrome/Slack 방식). 서비스·플래그파일·폴링
-// 의존 없음 → 지체 0, 서비스가 죽어 있어도 동작. 무인 배경 업데이트(24h/
-// push.json)만 서비스(chainremote_updater.rs)가 담당.
+// ChainRemote "지금 설치" 동작:
+//   비권한 UI 는 winlogon 토큰이 없어 권한설치를 직접 못 한다. 그래서 버튼은
+//   트리거 파일 1개만 만들고, SYSTEM 서비스(chainremote_updater.rs)가 ≤2초 안에
+//   감지 → 다운로드+검증+launch_privileged_process 로 우리 Inno 인스톨러를
+//   사일런트 권한실행 → ChainRemote 자동 재시작. (서비스측 MANUAL_TRIGGER_FLAG
+//   경로와 반드시 일치)
+const _kManualTriggerFlag = r'C:\ProgramData\ChainRemote\update_now.flag';
 
 const _kUpdateChannelUrl =
     'https://sepani.synology.me/chainremote/latest.json';
@@ -89,7 +91,6 @@ class _ChainRemoteUpdateCheckRowState extends State<ChainRemoteUpdateCheckRow> {
   Color _statusColor = Colors.grey;
   // 새 버전 발견 시 채워짐 → "지금 설치" 버튼 노출
   String? _availableVersion;
-  ChainRemoteRelease? _availableRelease;
   bool _triggering = false;
 
   Future<void> _runCheck() async {
@@ -113,7 +114,6 @@ class _ChainRemoteUpdateCheckRowState extends State<ChainRemoteUpdateCheckRow> {
       setState(() {
         _checking = false;
         _availableVersion = latest.version;
-        _availableRelease = latest;
         _statusText = '새 버전 v${latest.version} 사용 가능.$notes';
         _statusColor = const Color(0xFFE67E22);
       });
@@ -121,7 +121,6 @@ class _ChainRemoteUpdateCheckRowState extends State<ChainRemoteUpdateCheckRow> {
       setState(() {
         _checking = false;
         _availableVersion = null;
-        _availableRelease = null;
         _statusText = '최신 버전을 사용 중입니다 (v$chainRemoteVersion)';
         _statusColor = const Color(0xFF27AE60);
       });
@@ -136,68 +135,35 @@ class _ChainRemoteUpdateCheckRowState extends State<ChainRemoteUpdateCheckRow> {
     });
   }
 
-  /// "지금 설치" — UI 가 직접 인스톨러를 받아 즉시 UAC 승격 실행.
-  /// 서비스/플래그/폴링 없음 → 지체 0, 서비스가 죽어 있어도 동작.
+  /// "지금 설치" — 비권한 UI 는 권한설치 불가하므로 트리거 파일만 만든다.
+  /// SYSTEM 서비스(chainremote_updater)가 ≤2초 안에 감지 → 다운로드+검증+
+  /// launch_privileged_process 로 우리 Inno 인스톨러 사일런트 권한실행 →
+  /// ChainRemote 자동 재시작. 부팅/UAC/15초 폴링 없음.
   Future<void> _triggerInstallNow() async {
     if (!Platform.isWindows) {
       _setStatus('즉시 설치는 Windows 에서만 지원됩니다.', const Color(0xFFE74C3C));
       return;
     }
-    final rel = _availableRelease;
-    if (rel == null || rel.url.isEmpty) {
-      _setStatus('설치 정보가 없습니다. 먼저 "업데이트 확인" 을 눌러주세요.',
-          const Color(0xFFE74C3C));
-      return;
-    }
     setState(() => _triggering = true);
     try {
-      _setStatus('새 버전 v${rel.version} 다운로드 중...', const Color(0xFF2980B9));
-      final resp = await http
-          .get(Uri.parse(rel.url))
-          .timeout(const Duration(minutes: 10));
-      if (resp.statusCode != 200) {
-        throw '다운로드 실패 (HTTP ${resp.statusCode})';
-      }
-      final bytes = resp.bodyBytes;
-      if (bytes.isEmpty) throw '다운로드 파일이 비어 있습니다';
-
-      // 무결성 검증 — 변조/손상된 인스톨러 실행 방지
-      if (rel.sha256.isNotEmpty) {
-        final got = sha256.convert(bytes).toString().toLowerCase();
-        if (got != rel.sha256.trim().toLowerCase()) {
-          throw 'SHA256 불일치 — 손상된 파일, 설치 중단';
-        }
-      }
-
-      final dest = File(
-          '${Directory.systemTemp.path}\\ChainRemote_Setup_v${rel.version}.exe');
-      await dest.writeAsBytes(bytes, flush: true);
-
-      _setStatus('설치 시작 — UAC 창에서 "예" 를 누르면 자동 설치 후 ChainRemote 가 재시작됩니다.',
-          const Color(0xFF2980B9));
-
-      // UAC 승격 + 사일런트 설치. Inno 의 CloseApplications/RestartApplications 가
-      // 실행 중 ChainRemote 종료/재시작 처리. detached — 우리가 종료돼도 설치 계속.
-      final psCmd =
-          "Start-Process -FilePath '${dest.path}' -ArgumentList '/SILENT','/SUPPRESSMSGBOXES','/NORESTART' -Verb RunAs";
-      await Process.start(
-        'powershell',
-        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd],
-        mode: ProcessStartMode.detached,
+      final f = File(_kManualTriggerFlag);
+      await f.parent.create(recursive: true);
+      await f.writeAsString(
+        '${_availableVersion ?? ""}\n${DateTime.now().toIso8601String()}\n',
+        flush: true,
       );
-
       if (!mounted) return;
       setState(() {
         _triggering = false;
         _statusText =
-            'v${rel.version} 설치 진행 중 — 완료되면 ChainRemote 가 자동 재시작됩니다.';
+            '설치 시작됨 — 곧 자동 설치 후 ChainRemote 가 재시작됩니다 (잠시만요).';
         _statusColor = const Color(0xFF27AE60);
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _triggering = false;
-        _statusText = '업데이트 실패: $e';
+        _statusText = '설치 시작 실패: $e';
         _statusColor = const Color(0xFFE74C3C);
       });
     }

@@ -38,11 +38,16 @@ const FIRST_CHECK_DELAY: Duration = Duration::from_secs(60 * 5); // 부팅 후 5
 const PENDING_DIR: &str = r"C:\ProgramData\ChainRemote\pending";
 const PENDING_FILE: &str = "ChainRemote_Setup.exe";
 const UPDATER_LOG_PATH: &str = r"C:\ProgramData\ChainRemote\updater.log";
-// 루프 granularity — push(5분)/full(24h) 게이트를 이 주기로 확인하며 잔다.
-// (구버전의 "지금 설치" 플래그파일 폴링은 v1.2.13 에서 제거됨: UI 가 직접
-//  다운로드+UAC 승격 실행하므로 서비스측 수동 트리거가 불필요해짐.
-//  서비스는 이제 무인 배경 업데이트(push/full)만 담당.)
-const TICK_INTERVAL: Duration = Duration::from_secs(60);
+// 수동 "지금 설치" 트리거 파일. 비권한 UI(트레이)가 이 파일을 만들면
+// SYSTEM 서비스가 ≤TICK_INTERVAL 안에 감지 → 즉시 적용(다운로드+권한설치).
+// UI 는 직접 설치 불가(winlogon 토큰 없음)라 서비스에 신호만 보낸다.
+// ProgramData\ChainRemote ACL: Users 에 파일생성 권한 있음(검증됨) → UI 가 쓰고
+// SYSTEM 이 읽고 지움.
+const MANUAL_TRIGGER_FLAG: &str = r"C:\ProgramData\ChainRemote\update_now.flag";
+// 루프 granularity — 수동 트리거를 "지체없이"(≤2초) 잡기 위한 짧은 주기.
+// push(5분)/full(24h) 은 elapsed 게이트라 NAS 를 매 tick hammer 하지 않음.
+// 매 tick 비용은 사실상 파일 존재 확인 1회 — 무시 가능.
+const TICK_INTERVAL: Duration = Duration::from_secs(2);
 const HTTP_TIMEOUT: Duration = Duration::from_secs(60);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 10); // 인스톨러 ~30MB
 
@@ -109,6 +114,29 @@ pub fn start_in_service() {
         let mut last_push_poll: Option<Instant> = None;
 
         loop {
+            // (0) ★ 수동 "지금 설치" — 최우선, 즉시 적용. 비권한 UI 가 만든 플래그를
+            //     SYSTEM 이 감지·삭제 후 check_and_apply_once (다운로드+검증+
+            //     launch_privileged_process 로 우리 Inno 인스톨러 사일런트 실행).
+            if std::path::Path::new(MANUAL_TRIGGER_FLAG).exists() {
+                let _ = std::fs::remove_file(MANUAL_TRIGGER_FLAG);
+                flog("manual trigger detected -> applying now");
+                match check_and_apply_once() {
+                    Ok(CycleResult::Applied) => {
+                        flog("manual apply launched, exiting loop");
+                        return;
+                    }
+                    Ok(CycleResult::AlreadyLatest) => {
+                        flog("manual trigger -> already latest");
+                        last_full_check = Some(Instant::now());
+                    }
+                    Ok(CycleResult::Deferred) => {
+                        flog("manual trigger -> deferred (active session); will retry");
+                        last_deferred_retry = Some(Instant::now());
+                    }
+                    Err(e) => flog(&format!("manual trigger cycle failed: {}", e)),
+                }
+            }
+
             // (a) 본사 강제 푸시 채널 — 5분 게이트. timestamp 갱신 시 즉시 적용 사이클
             let need_push_poll = last_push_poll
                 .map(|t| t.elapsed() >= PUSH_POLL_INTERVAL)
