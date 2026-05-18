@@ -1,0 +1,19 @@
+# Docker 이미지 빌드 시 불필요한 파일 제외 — context 작게 + 보안.
+node_modules
+.next
+.git
+.gitignore
+.env*.local
+.env.local
+README.md
+CLAUDE.md
+AGENTS.md
+*.log
+npm-debug.log*
+.DS_Store
+._*
+.vscode
+.idea
+Dockerfile
+.dockerignore
+docker-compose*.yml

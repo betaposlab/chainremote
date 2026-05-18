@@ -1,0 +1,47 @@
+// NextAuth v5 — Node runtime (server actions, API routes, RSC).
+// Credentials provider 가 DB 와 bcrypt 를 쓰므로 Edge 에서 import 불가.
+
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
+import { authConfig } from "./auth.config";
+import { db } from "./lib/db";
+import { users } from "./lib/schema";
+import { and, eq } from "drizzle-orm";
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
+  providers: [
+    Credentials({
+      name: "ChainRemote",
+      credentials: {
+        username: { label: "아이디", type: "text" },
+        password: { label: "비밀번호", type: "password" },
+      },
+      async authorize(credentials) {
+        const username = (credentials?.username ?? "").toString().trim();
+        const password = (credentials?.password ?? "").toString();
+        if (!username || !password) return null;
+
+        const rows = await db
+          .select()
+          .from(users)
+          .where(and(eq(users.email, username), eq(users.isActive, true)))
+          .limit(1);
+        if (rows.length === 0) return null;
+
+        const u = rows[0];
+        const ok = bcrypt.compareSync(password, u.passwordHash);
+        if (!ok) return null;
+
+        return {
+          id: u.id,
+          email: u.email,
+          displayName: u.displayName,
+          role: u.role,
+          tenantId: u.tenantId,
+        };
+      },
+    }),
+  ],
+});
