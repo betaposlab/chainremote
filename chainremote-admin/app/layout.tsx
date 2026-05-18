@@ -43,7 +43,6 @@ export default async function RootLayout({
             <NavItem href="/customers">거래처</NavItem>
             <NavItem href="/sessions">지원기록</NavItem>
             {user.role === "owner" && <NavItem href="/users">사용자</NavItem>}
-            <NavItem href="/settings">설정</NavItem>
           </nav>
           {/* 사이드바 하단 — 현재 사용자 정보 + 로그아웃 */}
           <div className="border-t border-slate-200 p-3 pb-6 text-sm">
