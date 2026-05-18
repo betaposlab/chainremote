@@ -316,80 +316,49 @@ fn verify_sha256(path: &PathBuf, expected_hex: &str) -> ResultType<()> {
     Ok(())
 }
 
-/// Windows Task Scheduler 를 통해 setup.exe 를 SYSTEM 권한으로 실행.
+/// pending Inno 인스톨러를 활성 사용자 세션에 권한승격으로 사일런트 실행.
 ///
-/// v1.2.5 까지: `cmd.exe /c ping & setup.exe` 를 `CreateProcess` 로 직접 띄움.
-/// 문제: 우리 서비스가 LocalSystem 세션 0 에서 spawn 한 Inno Setup 인스톨러가
-///   session-aware 한 단계에서 hang/silent fail. setup log 도 안 남기고 죽음.
-///   (검증 2026-05-12: manual /SILENT 는 user 세션에서 정상, service spawn 만 실패)
+/// 이력: v1.2.5 직접 CreateProcess → 세션0 hang. ~v1.2.14 schtasks 우회 →
+///   동작 불안정(거짓 unhealthy/미적용 사고의 한 갈래). 두 방식 다
+///   "서비스(세션0) → 사용자세션 권한실행" 을 자력으로 흉내내다 실패.
 ///
-/// 픽스: schtasks 로 일회성 작업 등록 + 즉시 실행. OS 가 task host 통해 별도 세션에서 띄움.
-/// `/SILENT` 사용 (`/VERYSILENT` 가 일부 환경에서 GUI 초기화 막아 hang 유발).
+/// 정석(2026-05-18): RustDesk 가 자체 자가업데이트에 쓰는 검증된 프리미티브
+///   `launch_privileged_process(session_id, cmd)` (platform/windows.rs) 를
+///   그대로 사용. updater.rs 의 네이티브 경로와 동일 메커니즘.
+///   - 세션: `get_current_session_id(false)` = WTS 활성 콘솔(로그인 사용자) 세션.
+///     무인(로그인 사용자 없음)이면 0xFFFFFFFF → 서비스 자기 세션으로 폴백
+///     (/SILENT 라 UI 불필요, SYSTEM 토큰이라 UAC 도 불필요).
+///   - 네이티브 `--update` 자가교체는 안 씀: 우리 Inno 인스톨러의 필수 작업
+///     (toml→LocalService, 단축아이콘, watchdog, sc start 견고화)을 보존해야 함.
 fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x08000000;
-
     let setup_str = setup_path.to_string_lossy().to_string();
     let log_path = std::path::Path::new(&setup_str)
         .parent()
         .map(|p| p.join("installer.log").to_string_lossy().to_string())
         .unwrap_or_else(|| "C:\\ProgramData\\ChainRemote\\pending\\installer.log".to_string());
 
-    // schtasks /TR 의 인용 규칙: 외부 큰 따옴표로 감싸고 내부 큰 따옴표는 \" 로 이스케이프.
-    // setup.exe 경로에 공백 가능하므로 인용 필수.
-    let tr_arg = format!(
-        "\\\"{}\\\" /SILENT /SUPPRESSMSGBOXES /NORESTART /LOG=\\\"{}\\\"",
+    // 일반 Windows 인용(실제 큰따옴표). 경로 공백 대비 exe·LOG 경로 인용.
+    let cmd = format!(
+        "\"{}\" /SILENT /SUPPRESSMSGBOXES /NORESTART /LOG=\"{}\"",
         setup_str, log_path
     );
 
-    let task_name = "ChainRemoteOneShotUpdate";
-
-    // 1) 기존 잔재 작업 삭제 (있어도 무시)
-    let _ = std::process::Command::new("schtasks.exe")
-        .args(&["/Delete", "/TN", task_name, "/F"])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output();
-
-    // 2) 신규 작업 등록 — SYSTEM, /HIGHEST, ONSTART (즉시 실행 가능, 향후 boot 트리거 안 됨)
-    //    /ST 23:59 + ONCE 로 두면 자정 직전에만 동작 — 우리는 /Run 으로 즉시 트리거할 거.
-    //    /RL HIGHEST 로 admin 권한 보장.
-    let create = std::process::Command::new("schtasks.exe")
-        .args(&[
-            "/Create",
-            "/TN",
-            task_name,
-            "/TR",
-            &tr_arg,
-            "/SC",
-            "ONCE",
-            "/ST",
-            "23:59",
-            "/RU",
-            "SYSTEM",
-            "/RL",
-            "HIGHEST",
-            "/F",
-        ])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()?;
-    if !create.status.success() {
-        bail!(
-            "schtasks /Create failed: {}",
-            String::from_utf8_lossy(&create.stderr)
-        );
+    // 활성 콘솔 세션 우선. 없으면(무인) 서비스 자기 세션으로 폴백.
+    let mut sid = crate::platform::get_current_session_id(false);
+    if sid == 0xFFFF_FFFF {
+        match crate::platform::get_current_process_session_id() {
+            Some(s) => {
+                flog("no active console session → falling back to service session");
+                sid = s;
+            }
+            None => bail!("no active console session and failed to get service session id"),
+        }
     }
+    flog(&format!("launch_privileged_process session={} cmd={}", sid, cmd));
 
-    // 3) 즉시 트리거
-    let run = std::process::Command::new("schtasks.exe")
-        .args(&["/Run", "/TN", task_name])
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()?;
-    if !run.status.success() {
-        bail!(
-            "schtasks /Run failed: {}",
-            String::from_utf8_lossy(&run.stderr)
-        );
+    let h = crate::platform::launch_privileged_process(sid, &cmd)?;
+    if h.is_null() {
+        bail!("launch_privileged_process returned null handle (session={})", sid);
     }
-
     Ok(())
 }
