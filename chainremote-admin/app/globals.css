@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard",
+    "Noto Sans KR", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.input {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(203 213 225);
+  background: white;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: rgb(15 23 42);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input::placeholder {
+  color: rgb(148 163 184);
+}
+.input:focus {
+  outline: none;
+  border-color: #00a0e5;
+  box-shadow: 0 0 0 3px rgb(0 160 229 / 0.15);
+}

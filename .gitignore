@@ -65,8 +65,21 @@ ChainRemote_기획서.md
 flutter/macos/Runner/AppIcon.icns.bak
 src/lang/*.bak
 
-# Admin panel sub-project (separate folder anyway, not in this repo)
-chainremote-admin/
+# Admin panel sub-project — 이 레포에 함께 보관(GitHub 백업/이력).
+# 단 비밀·빌드산출물은 부모 레벨에서도 명시 제외 (defense-in-depth:
+# 하위 chainremote-admin/.gitignore 와 중복이라도 보안 우선).
+# .env.example(플레이스홀더, 안전)은 일부러 추적 — 광범위 .env.* 패턴 안 씀.
+chainremote-admin/node_modules/
+chainremote-admin/.next/
+chainremote-admin/out/
+chainremote-admin/build/
+chainremote-admin/.env
+chainremote-admin/.env.local
+chainremote-admin/.env.*.local
+chainremote-admin/**/.env
+chainremote-admin/**/.env.local
+chainremote-admin/*.tsbuildinfo
+chainremote-admin/.vercel/
 .nas-hbbs-pubkey
 
 # Distribution artifacts (binary payloads / built installers)
