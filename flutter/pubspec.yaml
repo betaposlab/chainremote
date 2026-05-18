@@ -45,6 +45,9 @@ dependencies:
   settings_ui: ^2.0.2
   flutter_breadcrumb: ^1.0.1
   http: ^1.1.0
+  # ChainRemote: "지금 설치" 직접 다운로드 시 인스톨러 SHA256 무결성 검증.
+  # 이미 transitive 로 잠긴 버전 그대로 핀 — pubspec.lock 변동 없음.
+  crypto: 3.0.6
   qr_code_scanner: ^1.0.0
   zxing2: ^0.2.0
   image_picker: ^1.1.2
