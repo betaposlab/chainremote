@@ -324,7 +324,7 @@ def build_flutter_deb(version, features):
         system2(f'cargo build --features {features} --lib --release')
         ffi_bindgen_function_refactor()
     os.chdir('flutter')
-    system2('flutter build linux --release')
+    system2('flutter build linux --release --no-tree-shake-icons')
     system2('mkdir -p tmpdeb/usr/bin/')
     system2('mkdir -p tmpdeb/usr/share/rustdesk')
     system2('mkdir -p tmpdeb/etc/rustdesk/')
@@ -414,7 +414,7 @@ def build_flutter_dmg(version, features):
     system2(
         "cp target/release/liblibrustdesk.dylib target/release/librustdesk.dylib")
     os.chdir('flutter')
-    system2('flutter build macos --release')
+    system2('flutter build macos --release --no-tree-shake-icons')
     system2('cp -rf ../target/release/service ./build/macos/Build/Products/Release/RustDesk.app/Contents/MacOS/')
     '''
     system2(
@@ -429,7 +429,7 @@ def build_flutter_arch_manjaro(version, features):
         system2(f'cargo build --features {features} --lib --release')
     ffi_bindgen_function_refactor()
     os.chdir('flutter')
-    system2('flutter build linux --release')
+    system2('flutter build linux --release --no-tree-shake-icons')
     system2(f'strip {flutter_build_dir}/lib/librustdesk.so')
     os.chdir('../res')
     system2('HBB=`pwd`/.. FLUTTER=1 makepkg -f')
@@ -442,7 +442,9 @@ def build_flutter_windows(version, features, skip_portable_pack):
             print("cargo build failed, please check rust source code.")
             exit(-1)
     os.chdir('flutter')
-    system2('flutter build windows --release')
+    # --no-tree-shake-icons: RustDesk 툴바가 동적 IconData(조건부 Icons.a/b)를
+    # 써서 기본 트리셰이킹 시 아이콘이 빈 사각형(tofu)으로 깨짐. RustDesk 빌드 정석.
+    system2('flutter build windows --release --no-tree-shake-icons')
     os.chdir('..')
     shutil.copy2('target/release/deps/dylib_virtual_display.dll',
                  flutter_build_dir_2)
