@@ -53,15 +53,35 @@ foreach ($d in $cfgDirs) {
     }
 }
 
-# --- 2) 서비스 시작유형 auto 보장 ---
+# --- 2) 서비스 존재 확인. 트레이 "서비스 중지"(=uninstall_service)는 sc delete
+#        까지 하므로 서비스가 아예 없을 수 있음 → install_service 와 동일하게 재생성.
+#        (RustDesk get_create_service 의 검증된 명령 포맷 그대로 미러) ---
+$svc = Get-Service RustDesk -ErrorAction SilentlyContinue
+$recreated = $false
+if ($null -eq $svc) {
+    $exe = $null
+    foreach ($cand in @("$env:ProgramFiles\RustDesk\rustdesk.exe",
+                         "${env:ProgramFiles(x86)}\RustDesk\rustdesk.exe")) {
+        if (Test-Path $cand) { $exe = $cand; break }
+    }
+    if ($null -eq $exe) { return }   # ChainRemote 미설치(파일 없음) — 관여 안 함
+    $create = 'sc create RustDesk binpath= "\"' + $exe + '\" --service" start= auto DisplayName= "RustDesk Service"'
+    & cmd.exe /c $create *> $null
+    Start-Sleep -Seconds 2
+    $svc = Get-Service RustDesk -ErrorAction SilentlyContinue
+    if ($null -eq $svc) { Log '서비스 재생성 실패(sc create) -> STILL DOWN'; return }
+    $recreated = $true
+}
+
+# --- 3) 시작유형 auto 보장 + 상태별 조치 ---
 & sc.exe config RustDesk start= auto *> $null
 
-# --- 3) 상태 점검 후 조치 ---
-$svc = Get-Service RustDesk -ErrorAction SilentlyContinue
-if ($null -eq $svc) { return }   # 미설치 — 관여 안 함
-
 $action = $null
-if ($svc.Status -ne 'Running') {
+if ($recreated) {
+    $action = 'sc delete 된 서비스 재생성 + 시작'
+    try { Start-Service RustDesk -ErrorAction Stop } catch { & sc.exe start RustDesk *> $null }
+}
+elseif ($svc.Status -ne 'Running') {
     $action = if ($cleared) { 'stop-service 해제 + 서비스 시작' } else { '서비스 시작' }
     try { Start-Service RustDesk -ErrorAction Stop } catch { & sc.exe start RustDesk *> $null }
 }
