@@ -3959,11 +3959,7 @@ impl Connection {
                 self.follow_remote_cursor = q == BoolOption::Yes;
             }
         }
-        // ChainRemote: virtual_display — 호스트 측 가상 다운스케일 요청.
-        // OptionMessage.virtual_display = Resolution{width, height}. (0,0) = 비활성.
-        if let Some(vd) = o.virtual_display.as_ref() {
-            video_service::set_virtual_display(vd.width.max(0) as usize, vd.height.max(0) as usize);
-        }
+        // ChainRemote: virtual_display(서버측 다운스케일) 기능 제거됨 (2026-05-19).
         if let Ok(q) = o.follow_remote_window.enum_value() {
             if q != BoolOption::NotSet {
                 self.follow_remote_window = q == BoolOption::Yes;
@@ -5631,11 +5627,6 @@ mod raii {
                 .filter(|c| c.conn_type == AuthConnType::Remote)
                 .count();
             if remote_count == 0 {
-                // ChainRemote Bug2: 마지막 원격 연결 종료 시 가상 다운스케일 전역을
-                // (0,0) 으로 리셋. 안 하면 다음 연결/다른 클라가 virtual_display 를
-                // 안 보내도 이전 값이 남아 엉뚱한 다운스케일·검은화면 유발.
-                // (인접 virtual_display_manager::reset_all 와 동일 취지)
-                video_service::set_virtual_display(0, 0);
                 #[cfg(any(target_os = "windows", target_os = "linux"))]
                 {
                     *WALLPAPER_REMOVER.lock().unwrap() = None;

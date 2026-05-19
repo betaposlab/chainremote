@@ -2274,29 +2274,8 @@ impl LoginConfigHandler {
         }
         msg.supported_decoding = MessageField::some(self.get_supported_decoding());
 
-        // ChainRemote: virtual_display 요청 — 호스트가 4K 같은 큰 화면이면 1080p 등으로
-        // 서버 측 다운스케일 요청해서 Mac 화면에서 또렷이 봄. 고객 PC 의 실제 디스플레이는 안 바뀜.
-        //
-        // 우선순위:
-        //   1. peer config option "virtual-display" (예: "1920x1080") — 거래처별 저장 가능
-        //   2. 전역 env var CHAINREMOTE_VIRTUAL_DISPLAY (디버깅/긴급용)
-        //   3. 둘 다 없으면 비활성 (원본 그대로)
-        if let Some((vw, vh)) = self
-            .options
-            .get("virtual-display")
-            .and_then(|s| parse_resolution_str(s))
-            .or_else(|| {
-                std::env::var("CHAINREMOTE_VIRTUAL_DISPLAY")
-                    .ok()
-                    .and_then(|s| parse_resolution_str(&s))
-            })
-        {
-            // hbb_common::message_proto::Resolution (proto 생성 타입) — config::Resolution 과 동명 충돌이라 풀패스
-            let mut res = hbb_common::message_proto::Resolution::new();
-            res.width = vw;
-            res.height = vh;
-            msg.virtual_display = MessageField::some(res);
-        }
+        // ChainRemote: virtual_display(서버측 다운스케일) 기능 제거됨 (2026-05-19).
+        // 4K 가독성 미해결(캡처기반 본질 한계) + 사고 유발 → 정석상 폐기.
 
         Some(msg)
     }
@@ -3061,20 +3040,6 @@ fn sync_cpu_usage() {
         let t = std::thread::spawn(do_sync_cpu_usage);
         t.join().ok();
     });
-}
-
-/// ChainRemote: "1920x1080" 같은 문자열을 (width, height) 로 파싱.
-/// 잘못된 형식이면 None. 양 값 모두 양수여야 함.
-fn parse_resolution_str(s: &str) -> Option<(i32, i32)> {
-    let s = s.trim().to_ascii_lowercase();
-    let mut parts = s.splitn(2, |c| c == 'x' || c == ',' || c == '*');
-    let w: i32 = parts.next()?.trim().parse().ok()?;
-    let h: i32 = parts.next()?.trim().parse().ok()?;
-    if w > 0 && h > 0 {
-        Some((w, h))
-    } else {
-        None
-    }
 }
 
 #[cfg(windows)]
