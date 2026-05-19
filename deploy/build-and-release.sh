@@ -53,7 +53,9 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 git push origin HEAD:master
 
 echo "=== [3/5] 윈컴 원격 빌드 (SSH/Tailscale, 수 분~십수 분) ==="
-PS_BUILD="cd $WIN_REPO; git pull; \
+# 윈컴은 빌드 슬레이브(개발은 Mac 에서만) → 누적 cruft 무시하고 origin/master 로
+# 강제 동기. 단순 git pull 은 더러운/어긋난 트리에서 갱신 실패 → 옛 버전 빌드 사고.
+PS_BUILD="cd $WIN_REPO; git fetch origin --quiet; git reset --hard origin/master; \
 Remove-Item -Force $WIN_REPO\\rustdesk-*-install.exe -EA SilentlyContinue; \
 Remove-Item -Force $WIN_REPO\\rustdesk_portable.exe -EA SilentlyContinue; \
 Remove-Item -Force $WIN_REPO\\libs\\portable\\rustdesk_portable.exe -EA SilentlyContinue; \
