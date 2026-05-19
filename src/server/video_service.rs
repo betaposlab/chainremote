@@ -854,10 +854,14 @@ fn run(vs: VideoService) -> ResultType<()> {
                                 scrap::EncodeInput::YUV(&yuv)
                             }
                             scrap::Frame::Texture(_) => {
-                                // VRAM/Texture 와 가상 다운스케일은 호환 안 됨 → SWITCH 로 재시작
-                                // (set_not_use 가 적용돼서 다음 SWITCH 후엔 BGRA 경로로 떨어짐)
+                                // VRAM/Texture 와 가상 다운스케일 비호환 → vram 끄고 SWITCH.
+                                // _raii.try_vram=false 필수: 없으면 Raii::drop 이
+                                // set_not_use(name,false) 로 vram 을 도로 켜서
+                                // 재시작→Texture→SWITCH **무한루프(검은화면)**.
+                                // 라인 814(스크린샷 Texture 경로)와 동일 패턴.
                                 #[cfg(all(windows, feature = "vram"))]
                                 VRamEncoder::set_not_use(sp.name(), true);
+                                _raii.try_vram = false;
                                 bail!("SWITCH");
                             }
                         }
