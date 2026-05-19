@@ -2272,6 +2272,15 @@ pub fn get_hwid() -> Bytes {
 
 #[inline]
 pub fn get_builtin_option(key: &str) -> String {
+    // ChainRemote: 무인 원격지원 제품 — 거래처가 트레이/설정에서 서비스를
+    // 중지(=uninstall_service, sc delete)하지 못하게 "stop service" UI 를
+    // 모든 경로에서 영구 숨김. tray.rs·desktop_setting_page.dart·
+    // src/ui/index.tis 전부 이 함수를 경유하므로 단일지점 강제.
+    // (RustDesk 공식 HARD_SETTINGS/custom.txt 는 RustDesk 서명키가 있어야
+    //  주입 가능 → fork 에선 불가하여 여기서 직접 고정.)
+    if key == "hide-stop-service" {
+        return "Y".to_string();
+    }
     config::BUILTIN_SETTINGS
         .read()
         .unwrap()
