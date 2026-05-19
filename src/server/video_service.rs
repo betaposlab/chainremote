@@ -78,28 +78,6 @@ lazy_static::lazy_static! {
     pub static ref IS_UAC_RUNNING: Arc<Mutex<bool>> = Default::default();
     pub static ref IS_FOREGROUND_WINDOW_ELEVATED: Arc<Mutex<bool>> = Default::default();
     static ref SCREENSHOTS: Mutex<HashMap<usize, Screenshot>> = Default::default();
-
-    /// ChainRemote: 서버 측 가상 다운스케일 — 클라이언트가 OptionMessage 로 요청한 목표 해상도.
-    /// (w, h) 가 (0, 0) 이면 원본 그대로. > 0 이면 캡처 직후 BGRA 를 그 크기로 ARGBScale 다운샘플.
-    /// connection::update_options 가 set_virtual_display() 로 갱신, video_service 의 run() 이
-    /// 매 루프 시작 때 cache 와 비교 → 변경됐으면 bail!("SWITCH") 로 capture 재시작.
-    pub static ref VIRTUAL_DISPLAY: Arc<Mutex<(usize, usize)>> = Arc::new(Mutex::new((0, 0)));
-}
-
-/// ChainRemote: 클라이언트의 OptionMessage.virtual_display 를 받아 전역에 박음.
-/// (0,0) = 가상 다운스케일 비활성. 변경되면 video_service 가 SWITCH 로 재시작.
-pub fn set_virtual_display(w: usize, h: usize) {
-    let mut cur = VIRTUAL_DISPLAY.lock().unwrap();
-    let new = (w, h);
-    if *cur != new {
-        log::info!("virtual_display 변경: {:?} -> {:?}", *cur, new);
-        *cur = new;
-    }
-}
-
-#[inline]
-fn get_virtual_display() -> (usize, usize) {
-    *VIRTUAL_DISPLAY.lock().unwrap()
 }
 
 struct Screenshot {
@@ -591,28 +569,6 @@ fn run(vs: VideoService) -> ResultType<()> {
         c.set_gdi();
     }
 
-    // ChainRemote: 가상 다운스케일.
-    // c.width/c.height 가 모든 다운스트림(encoder init, 프로토콜 보고)에서 effective dims 로 쓰임.
-    // 실제 캡처는 native_w × native_h 그대로 들어옴 → 매 프레임 resize 후 encoder 로 보냄.
-    let native_w = c.width;
-    let native_h = c.height;
-    let (virtual_w, virtual_h) = get_virtual_display();
-    let virtual_active =
-        virtual_w > 0 && virtual_h > 0 && (virtual_w, virtual_h) != (native_w, native_h);
-    if virtual_active {
-        log::info!(
-            "virtual_display 활성: native {}x{} -> virtual {}x{}",
-            native_w,
-            native_h,
-            virtual_w,
-            virtual_h,
-        );
-        c.width = virtual_w;
-        c.height = virtual_h;
-        // VRAM/texture 경로는 GPU 메모리라 우리 BGRA resize 와 호환 안 됨 — 비활성.
-        #[cfg(all(windows, feature = "vram"))]
-        VRamEncoder::set_not_use(sp.name(), true);
-    }
     let mut video_qos = VIDEO_QOS.lock().unwrap();
     let mut spf = video_qos.spf();
     let mut quality = video_qos.ratio();
@@ -697,22 +653,7 @@ fn run(vs: VideoService) -> ResultType<()> {
     let capture_height = c.height;
     let (mut second_instant, mut send_counter) = (Instant::now(), 0);
 
-    let mut resize_buf: Vec<u8> = Vec::new();
-    if virtual_active {
-        resize_buf.resize(virtual_w * virtual_h * 4, 0);
-    }
     while sp.ok() {
-        // ChainRemote: virtual_display 가 클라이언트에 의해 바뀌었는지 확인 → SWITCH 로 capture 재시작
-        let (cur_vw, cur_vh) = get_virtual_display();
-        let cur_effective = if cur_vw > 0 && cur_vh > 0 {
-            (cur_vw, cur_vh)
-        } else {
-            (native_w, native_h)
-        };
-        if (c.width, c.height) != cur_effective {
-            log::info!("virtual_display mid-stream 변경 → SWITCH");
-            bail!("SWITCH");
-        }
         #[cfg(windows)]
         check_uac_switch(c.privacy_mode_id, c._capturer_privacy_mode_id)?;
         check_qos(
@@ -824,50 +765,7 @@ fn run(vs: VideoService) -> ResultType<()> {
                         }
                     }
 
-                    // ChainRemote: 가상 다운스케일 — 캡처된 BGRA 를 virtual_w×virtual_h 로 ARGBScale,
-                    // 그 후 YUV 변환을 raw 경로(convert_to_yuv_raw)로 진행. 인코더는 이미
-                    // virtual dims 로 init 됨 (capture_width/capture_height = virtual_w/h).
-                    let encode_input = if virtual_active {
-                        match &frame {
-                            scrap::Frame::PixelBuffer(pb) => {
-                                let src_stride = pb.stride()[0];
-                                scrap::argb_scale_bgra(
-                                    pb.data(),
-                                    src_stride,
-                                    pb.width(),
-                                    pb.height(),
-                                    &mut resize_buf,
-                                    virtual_w * 4,
-                                    virtual_w,
-                                    virtual_h,
-                                )?;
-                                scrap::convert_to_yuv_raw(
-                                    &resize_buf,
-                                    pb.pixfmt(),
-                                    virtual_w,
-                                    virtual_h,
-                                    virtual_w * 4,
-                                    encoder.yuvfmt(),
-                                    &mut yuv,
-                                    &mut mid_data,
-                                )?;
-                                scrap::EncodeInput::YUV(&yuv)
-                            }
-                            scrap::Frame::Texture(_) => {
-                                // VRAM/Texture 와 가상 다운스케일 비호환 → vram 끄고 SWITCH.
-                                // _raii.try_vram=false 필수: 없으면 Raii::drop 이
-                                // set_not_use(name,false) 로 vram 을 도로 켜서
-                                // 재시작→Texture→SWITCH **무한루프(검은화면)**.
-                                // 라인 814(스크린샷 Texture 경로)와 동일 패턴.
-                                #[cfg(all(windows, feature = "vram"))]
-                                VRamEncoder::set_not_use(sp.name(), true);
-                                _raii.try_vram = false;
-                                bail!("SWITCH");
-                            }
-                        }
-                    } else {
-                        frame.to(encoder.yuvfmt(), &mut yuv, &mut mid_data)?
-                    };
+                    let encode_input = frame.to(encoder.yuvfmt(), &mut yuv, &mut mid_data)?;
                     let send_conn_ids = handle_one_frame(
                         display_idx,
                         &sp,
