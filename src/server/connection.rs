@@ -5631,6 +5631,11 @@ mod raii {
                 .filter(|c| c.conn_type == AuthConnType::Remote)
                 .count();
             if remote_count == 0 {
+                // ChainRemote Bug2: 마지막 원격 연결 종료 시 가상 다운스케일 전역을
+                // (0,0) 으로 리셋. 안 하면 다음 연결/다른 클라가 virtual_display 를
+                // 안 보내도 이전 값이 남아 엉뚱한 다운스케일·검은화면 유발.
+                // (인접 virtual_display_manager::reset_all 와 동일 취지)
+                video_service::set_virtual_display(0, 0);
                 #[cfg(any(target_os = "windows", target_os = "linux"))]
                 {
                     *WALLPAPER_REMOVER.lock().unwrap() = None;
