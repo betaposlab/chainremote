@@ -67,3 +67,49 @@ python build.py --flutter --portable
 - **Flutter 패치**: 스크립트가 자동 적용. SDK 재설치 시 수동 적용:
   `binding.dart` 안의 `_setFramesEnabledState(false);` 를 주석 처리
 - **vcpkg install 실패**: 인터넷 끊김 또는 디스크 공간 부족. 재실행하면 이어짐.
+
+## v1.2.7 풀빌드(--hwcodec)에서 만난 함정 7가지 (2026-05-14, 영구 픽스 commit 완료)
+
+다음 빌드 셋업 시 미리 회피하기 위한 체크리스트. 모두 repo에 반영돼 있음 — 인프라가 깨질 때 디버그 단서로 활용.
+
+1. **vcpkg classic 모드 → manifest 모드 강제**
+   - `setup-build-env.ps1`가 `vcpkg install <name>` 으로 깔면 `res/vcpkg/` 의 RustDesk 오버레이 포트(aom 패치, ffmpeg)가 무시됨.
+   - 픽스: ChainRemote 루트(vcpkg.json 위치)에서
+     `vcpkg install --triplet x64-windows-static --host-triplet x64-windows-static --x-install-root=$VCPKG_ROOT/installed`
+
+2. **host-triplet 불일치 → ffmpeg avcodec.lib 부재**
+   - vcpkg.json 의 ffmpeg가 `host=true` → 기본 host-triplet(x64-windows)에 깔리고 target(x64-windows-static)에 lib 없음.
+   - 픽스: `--host-triplet=x64-windows-static` 강제.
+
+3. **LLVM 22.x → bindgen ABI 깨짐**
+   - choco가 최신 LLVM 깔면 bindgen libclang API와 ABI 불일치 → aom 구조체가 opaque(`{ _address: u8 }`)로 잘못 생성.
+   - 픽스: **LLVM 18.1.8** 로 핀.
+
+4. **patch-hwcodec.py swresample 패치 = Mac 전용**
+   - Windows RustDesk ffmpeg 오버레이가 `--disable-swresample --disable-swscale` 명시. OS 무관하게 swresample 링크 추가하면 .lib 부재로 link 실패.
+   - 픽스: Mac에서만 적용(homebrew/vcpkg ffmpeg가 swresample 포함, opus 디코더 swr_* 호출).
+
+5. **build.py entry exe 이름 충돌**
+   - `CMakeLists.txt`의 `BINARY_NAME`은 "rustdesk" 유지(코멘트에 명시). `build.py`가 `ChainRemote.exe` 박혀있어서 `generate.py`가 못 찾음.
+   - 픽스: build.py에서 `rustdesk.exe` 로 정정.
+
+6. **Windows의 `python3` = Microsoft Store stub**
+   - `system2('python3 generate.py')` 가 무음 종료.
+   - 픽스: build.py의 `system2`가 win32에서 `python3 ` 접두를 `sys.executable` 로 자동 치환.
+
+7. **build-iss.ps1 결과물 검증 파일명**
+   - `installer.iss`가 `OutputBaseFilename=ChainRemote_Setup_v{version}` 로 빌드하는데 검증은 옛 이름 `ChainRemote_Setup.exe` 를 찾음.
+   - 픽스: 가장 최근 `ChainRemote_Setup_v*.exe` 로 변경.
+
+## 툴바 아이콘 tofu(빈 사각형) — `--no-tree-shake-icons` 누락 (2026-05-19)
+
+- 증상: 원격 세션 툴바 아이콘이 식별불가 단색 사각형. RustDesk의 동적 IconData(조건부 `Icons.a/b`)를 `flutter build --release` 기본 트리셰이킹이 제거.
+- 원인: `build.py` 의 4개 `flutter build (win/mac/linux) --release` 라인에 `--no-tree-shake-icons` 부재(회귀 아님, 원래부터 없었음).
+- 픽스: 커밋 02165c658 — 4개 라인 전부 `--no-tree-shake-icons` 추가. 다음 빌드부터 정상.
+- 교훈: "툴바/아이콘 깨짐" 신고 시 첫 의심 = tree-shake-icons. **코드가 아니라 빌드플래그**.
+
+## Mac 측 --hwcodec 미빌드 (별도 이슈, 미해결)
+
+- 현재 Mac ChainRemote는 `--hwcodec` 없이 빌드됨 (CLAUDE.md 빌드 명령 참조).
+- 영향: Mac↔윈컴 코덱 협상에서 H264 까지만 보임. H265는 메뉴엔 보이지만 실제 협상 안 됨.
+- 향후: Mac도 `--hwcodec` 빌드해야 H265 협상 가능. 윈컴과 비슷한 패턴(vcpkg ffmpeg, `patch-hwcodec.py` Mac 분기 — swresample 포함, 이미 정비됨).

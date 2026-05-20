@@ -26,6 +26,10 @@ export default auth((req) => {
   return NextResponse.next();
 });
 
+// 매처: 브라우저 패널 페이지(RSC)만 NextAuth 쿠키 보호.
+// /api/* 는 전부 제외 — 데스크톱 앱이 Bearer 토큰으로 호출 (lib/api-auth.ts).
+//   - /api/auth/*  : NextAuth 핸들러 + 우리 /api/auth/token
+//   - /api/customers, /api/me/*, /api/sessions : requireApiAuth 로 자체 보호
 export const config = {
-  matcher: ["/((?!api/auth|login|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|login|_next/static|_next/image|favicon.ico).*)"],
 };

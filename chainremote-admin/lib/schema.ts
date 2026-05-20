@@ -9,6 +9,7 @@ import {
   integer,
   bigserial,
   jsonb,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 export const userRole = pgEnum("user_role", ["owner", "admin", "operator", "viewer"]);
@@ -76,6 +77,25 @@ export const customers = pgTable(
   (t) => ({
     tenantIdx: index("idx_customers_tenant").on(t.tenantId),
     assignedIdx: index("idx_customers_assigned_user").on(t.tenantId, t.assignedUserId),
+  }),
+);
+
+// 직원별 즐겨찾기 — 본사 앱의 "즐겨찾기" 탭은 로그인한 직원 본인의 것만,
+// 관리 패널에서는 모든 직원의 즐겨찾기를 모두 조회 가능.
+// 마이그레이션: db/migrations/005_user_favorites.sql
+export const userFavorites = pgTable(
+  "user_favorites",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.customerId] }),
+    userIdx: index("idx_user_favorites_user").on(t.userId),
+    customerIdx: index("idx_user_favorites_customer").on(t.customerId),
+    tenantIdx: index("idx_user_favorites_tenant").on(t.tenantId),
   }),
 );
 

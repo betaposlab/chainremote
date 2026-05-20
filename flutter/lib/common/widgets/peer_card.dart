@@ -826,14 +826,13 @@ abstract class BasePeerCard extends StatelessWidget {
           switch (tab) {
             case PeerTabIndex.recent:
               await bind.mainRemovePeer(id: id);
-              bind.mainLoadRecentPeers();
+              // ChainRemote 본사 앱: 진실 원천 = 관리 패널 DB. (Phase 2-C)
+              bind.chainremoteLoadCustomers();
               break;
             case PeerTabIndex.fav:
-              final favs = (await bind.mainGetFav()).toList();
-              if (favs.remove(id)) {
-                await bind.mainStoreFav(favs: favs);
-                bind.mainLoadFavPeers();
-              }
+              // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+              bind.chainremoteRemoveFavorite(remoteId: id);
+              bind.chainremoteLoadFavorites();
               break;
             case PeerTabIndex.lan:
               await bind.mainRemoveDiscovered(id: id);
@@ -903,11 +902,8 @@ abstract class BasePeerCard extends StatelessWidget {
       ),
       proc: () {
         () async {
-          final favs = (await bind.mainGetFav()).toList();
-          if (!favs.contains(id)) {
-            favs.add(id);
-            await bind.mainStoreFav(favs: favs);
-          }
+          // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+          bind.chainremoteAddFavorite(remoteId: id);
           showToast(translate('Successful'));
         }();
       },
@@ -938,11 +934,9 @@ abstract class BasePeerCard extends StatelessWidget {
       ),
       proc: () {
         () async {
-          final favs = (await bind.mainGetFav()).toList();
-          if (favs.remove(id)) {
-            await bind.mainStoreFav(favs: favs);
-            await reloadFunc();
-          }
+          // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+          bind.chainremoteRemoveFavorite(remoteId: id);
+          await reloadFunc();
           showToast(translate('Successful'));
         }();
       },
@@ -998,7 +992,8 @@ class RecentPeerCard extends BasePeerCard {
       menuItems.add(_terminalRunAsAdminAction(context));
     }
 
-    final List favs = (await bind.mainGetFav()).toList();
+    // ChainRemote 본사 앱: user_favorites DB 캐시. (Phase 2-D)
+    final List favs = bind.chainremoteGetFavoriteIds();
 
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {
       menuItems.add(_tcpTunnelingAction(context));
@@ -1038,7 +1033,8 @@ class RecentPeerCard extends BasePeerCard {
 
   @protected
   @override
-  void _update() => bind.mainLoadRecentPeers();
+  // ChainRemote 본사 앱: 진실 원천 = 관리 패널 DB. (Phase 2-C)
+  void _update() => bind.chainremoteLoadCustomers();
 }
 
 class FavoritePeerCard extends BasePeerCard {
@@ -1084,7 +1080,8 @@ class FavoritePeerCard extends BasePeerCard {
       menuItems.add(_unrememberPasswordAction(peer.id));
     }
     menuItems.add(_rmFavAction(peer.id, () async {
-      await bind.mainLoadFavPeers();
+      // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+      await bind.chainremoteLoadFavorites();
     }));
 
     if (gFFI.userModel.userName.isNotEmpty) {
@@ -1098,7 +1095,8 @@ class FavoritePeerCard extends BasePeerCard {
 
   @protected
   @override
-  void _update() => bind.mainLoadFavPeers();
+  // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+  void _update() => bind.chainremoteLoadFavorites();
 }
 
 class DiscoveredPeerCard extends BasePeerCard {
@@ -1123,7 +1121,8 @@ class DiscoveredPeerCard extends BasePeerCard {
       menuItems.add(_terminalRunAsAdminAction(context));
     }
 
-    final List favs = (await bind.mainGetFav()).toList();
+    // ChainRemote 본사 앱: user_favorites DB 캐시. (Phase 2-D)
+    final List favs = bind.chainremoteGetFavoriteIds();
 
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {
       menuItems.add(_tcpTunnelingAction(context));

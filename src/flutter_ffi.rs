@@ -2724,6 +2724,87 @@ pub fn main_max_encrypt_len() -> SyncReturn<usize> {
     SyncReturn(max_encrypt_len())
 }
 
+// ============================================================================
+// ChainRemote 본사 앱 인증 FFI (Phase 2-B)
+// 관리 패널 /api/auth/token Bearer JWT 흐름. 구현: src/chainremote_auth.rs
+// ============================================================================
+
+pub fn chainremote_login(email: String, password: String) -> SyncReturn<String> {
+    // Reqwest blocking 은 별도 thread 에서 — flutter_rust_bridge 호출 thread 의
+    // tokio runtime 과 충돌(nested runtime panic) 회피.
+    let result = std::thread::spawn(move || {
+        match crate::chainremote_auth::login(&email, &password) {
+            Ok(user) => serde_json::json!({ "ok": true, "user": user }).to_string(),
+            Err(e) => serde_json::json!({ "ok": false, "error": e.to_string() }).to_string(),
+        }
+    })
+    .join()
+    .unwrap_or_else(|_| r#"{"ok":false,"error":"login thread panic"}"#.to_string());
+    SyncReturn(result)
+}
+
+pub fn chainremote_logout() -> SyncReturn<bool> {
+    crate::chainremote_auth::logout();
+    SyncReturn(true)
+}
+
+pub fn chainremote_is_authenticated() -> SyncReturn<bool> {
+    SyncReturn(crate::chainremote_auth::is_authenticated())
+}
+
+pub fn chainremote_get_user() -> SyncReturn<String> {
+    SyncReturn(crate::chainremote_auth::get_user_json())
+}
+
+pub fn chainremote_get_token() -> SyncReturn<String> {
+    SyncReturn(crate::chainremote_auth::get_token())
+}
+
+pub fn chainremote_get_api_base() -> SyncReturn<String> {
+    SyncReturn(crate::chainremote_auth::api_base())
+}
+
+pub fn chainremote_set_api_base(url: String) -> SyncReturn<bool> {
+    crate::chainremote_auth::set_api_base(&url);
+    SyncReturn(true)
+}
+
+/// 본사 앱 메인 화면용 — GET /api/customers 결과를 RustDesk Peer 포맷으로
+/// 변환해서 기존 `load_recent_peers` 이벤트로 push.
+/// UI 측은 별도 변경 없이 같은 코드 경로로 동작.
+pub fn chainremote_load_customers() {
+    crate::chainremote_data::spawn_load_customers();
+}
+
+/// 즐겨찾기 탭 — GET /api/me/favorites → "load_fav_peers" 이벤트.
+pub fn chainremote_load_favorites() {
+    crate::chainremote_data::spawn_load_favorites();
+}
+
+/// 즐겨찾기 토글 — peer_card 의 별표 클릭 핸들러에서 호출.
+/// remote_id 는 RustDesk peer.id (9자리). 내부에서 UUID 매핑 후 POST.
+pub fn chainremote_add_favorite(remote_id: String) -> SyncReturn<bool> {
+    crate::chainremote_data::spawn_add_favorite(remote_id);
+    SyncReturn(true)
+}
+
+pub fn chainremote_remove_favorite(remote_id: String) -> SyncReturn<bool> {
+    crate::chainremote_data::spawn_remove_favorite(remote_id);
+    SyncReturn(true)
+}
+
+/// UI 동기 호출 — "이 거래처가 내 즐겨찾기인가" 빠른 체크.
+/// 캐시 기반 (spawn_load_favorites 가 채움).
+pub fn chainremote_is_favorite(remote_id: String) -> SyncReturn<bool> {
+    let ids = crate::chainremote_data::get_my_favorite_remote_ids();
+    SyncReturn(ids.contains(&remote_id))
+}
+
+/// UI 가 fav 리스트 전체 필요할 때 (peer_card 의 기존 mainGetFav 대체).
+pub fn chainremote_get_favorite_ids() -> SyncReturn<Vec<String>> {
+    SyncReturn(crate::chainremote_data::get_my_favorite_remote_ids())
+}
+
 pub fn session_request_new_display_init_msgs(session_id: SessionID, display: usize) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         session.request_init_msgs(display);
