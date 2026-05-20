@@ -988,7 +988,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
       hint:
           'ON 하면 다른 본사 직원이 내 PC 를 원격으로 볼 수 있습니다 (예: 내가 컴맹이라 동료 도움 필요한 경우).\n'
           '디폴트 OFF — 안전 디폴트. 1회 ON 하면 영구 유지.\n'
-          '※ 토글 변경 후 ChainRemote 를 한 번 재시작해야 적용됩니다.',
+          '※ 토글 즉시 적용 — ChainRemote 자동 재시작 신호가 박혀 1~2초 안에 발효됩니다.',
       children: [
         StatefulBuilder(builder: (context, setSt) {
           final allow = bind.chainremoteGetAllowIncoming();
@@ -999,8 +999,8 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                     bind.chainremoteSetAllowIncoming(allow: !allow);
                     setSt(() {});
                     showToast(!allow
-                        ? '외부 원격 접속 ON — ChainRemote 재시작 후 활성화됩니다.'
-                        : '외부 원격 접속 OFF — ChainRemote 재시작 후 차단됩니다.');
+                        ? '외부 원격 접속 ON — 즉시 활성화됨.'
+                        : '외부 원격 접속 OFF — 즉시 차단됨.');
                   },
             child: Row(
               children: [
@@ -1013,8 +1013,8 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                           bind.chainremoteSetAllowIncoming(allow: v);
                           setSt(() {});
                           showToast(v
-                              ? '외부 원격 접속 ON — ChainRemote 재시작 후 활성화됩니다.'
-                              : '외부 원격 접속 OFF — ChainRemote 재시작 후 차단됩니다.');
+                              ? '외부 원격 접속 ON — 즉시 활성화됨.'
+                              : '외부 원격 접속 OFF — 즉시 차단됨.');
                         },
                 ).marginOnly(right: 5),
                 Expanded(

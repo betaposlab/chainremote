@@ -2816,15 +2816,19 @@ pub fn chainremote_get_allow_incoming() -> SyncReturn<bool> {
     ))
 }
 
-/// 토글 ON/OFF. ON 시 서비스 재시작 신호 필요 — RustDesk 의 기존
-/// rendezvous restart 메커니즘은 별도. 사용자가 토글 후 ChainRemote 재시작 시
-/// 즉시 hbbs 등록 시작. 영구비번은 인스톨러가 박아둠.
+/// 토글 ON/OFF. 변경 직후 RendezvousMediator::restart() 로 서버 재시작 신호 →
+/// SHOULD_EXIT 플래그 박혀 메인 루프가 빠져나오고 start_all 재진입 → 새 차단
+/// 조건 평가. 사용자가 ChainRemote 재시작 안 해도 즉시 적용. 영구비번은
+/// 인스톨러가 박아둠.
 pub fn chainremote_set_allow_incoming(allow: bool) -> SyncReturn<bool> {
     let v = if allow { "Y" } else { "N" };
     hbb_common::config::Config::set_option(
         "chainremote-allow-incoming".to_owned(),
         v.to_owned(),
     );
+    // 서버 재시작 — UI 프로세스에서 호출되는 상황이라 데스크탑에서도 동작.
+    // restart() 는 atomic flag 만 박으므로 실패 케이스 없음.
+    crate::rendezvous_mediator::RendezvousMediator::restart();
     SyncReturn(true)
 }
 
