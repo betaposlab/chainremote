@@ -2805,6 +2805,29 @@ pub fn chainremote_get_favorite_ids() -> SyncReturn<Vec<String>> {
     SyncReturn(crate::chainremote_data::get_my_favorite_remote_ids())
 }
 
+/// 옵션 B+ (2026-05-21): HQ 빌드에서 "외부 원격 접속 허용" 토글 상태 조회.
+/// `chainremote-allow-incoming` 옵션 Y/N. 디폴트 OFF (안전 디폴트).
+/// rendezvous_mediator.rs::start_all() 이 이 값 보고 hbbs 등록 여부 결정.
+pub fn chainremote_get_allow_incoming() -> SyncReturn<bool> {
+    let v = hbb_common::config::Config::get_option("chainremote-allow-incoming");
+    SyncReturn(hbb_common::config::option2bool(
+        "chainremote-allow-incoming",
+        &v,
+    ))
+}
+
+/// 토글 ON/OFF. ON 시 서비스 재시작 신호 필요 — RustDesk 의 기존
+/// rendezvous restart 메커니즘은 별도. 사용자가 토글 후 ChainRemote 재시작 시
+/// 즉시 hbbs 등록 시작. 영구비번은 인스톨러가 박아둠.
+pub fn chainremote_set_allow_incoming(allow: bool) -> SyncReturn<bool> {
+    let v = if allow { "Y" } else { "N" };
+    hbb_common::config::Config::set_option(
+        "chainremote-allow-incoming".to_owned(),
+        v.to_owned(),
+    );
+    SyncReturn(true)
+}
+
 pub fn session_request_new_display_init_msgs(session_id: SessionID, display: usize) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         session.request_init_msgs(display);

@@ -314,10 +314,14 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
 - ⏳ 진희씨 컴 — `ChainRemote_Agent_Setup_v1.3.0.exe` 옛 v1.2.x 위에 덮어쓰기 설치 (재설치보다 깔끔). 내일.
 - ⏳ 한 거래처 자동업데이트 검증 — release.sh 푸시는 위 1차 dogfooding 통과 후. 점진 배포.
 
-**옵션 A 채택 결정 (2026-05-20)**: HQ 양방향화(옵션 B) 안 함.
-- 이유: 판매 시점 UI 멘탈모델 혼란/IT 정책 충돌/보안 책임 모호 등 4~6가지 우려.
-- 집 윈컴 ↔ 사무실 Mac 빌드용 원격은 **Chrome Remote Desktop 백업 경로** 유지. ChainRemote 는 거래처 원격에만 집중.
-- HQ 빌드 = 순수 outgoing 유지. CLAUDE.md "본사 PC 는 피지원자 아님" 청사진 그대로.
+**옵션 B+ 채택 결정 (2026-05-21, 옵션 A 번복)**: HQ 빌드에 사용자 토글 "외부 원격 접속 허용" 추가.
+- 번복 이유: 재성이/구매자 컴맹 시 IT 자기지원 불가 = 원격 SW 자체 모순. 판매 시 신뢰 문제.
+- 산업 표준 (TeamViewer Host / AnyDesk 수신 토글) 패턴. 6가지 우려 다 해소.
+- 코드: `src/rendezvous_mediator.rs::start_all()` 의 outgoing-only 차단 조건에 `chainremote-allow-incoming` 옵션 추가. 디폴트 OFF (안전 디폴트).
+- FFI: `chainremote_get_allow_incoming` / `chainremote_set_allow_incoming` 2개. Codegen 재생성됨.
+- UI: 설정 → 보안 탭에 "외부 원격 접속 허용" 체크박스 카드 추가 (`_chainremoteAllowIncomingCard`). 토글 변경 시 ChainRemote 재시작 안내.
+- 인스톨러: HQ 인스톨러에 `RustDesk.toml` (영구비번) 박기 추가. 사용자가 토글만 ON 하면 별도 비번 설정 없이 즉시 무인 incoming 가능.
+- 도구 분담 수정: Mac → 재성이 컴 원격 = ChainRemote HQ 로 통일 (Chrome RD 불필요). 사무실 Mac → 집 윈컴 빌드 원격도 ChainRemote 단일 운용 가능.
 
 **Phase 1 후속 backlog (안정화 후)**:
 - 거래처 PC 사용자/서비스 모드 toml 분리 문제 — UI 보안탭 빈 칸이지만 서비스 동작 OK. 메모리 [[project_user_vs_service_toml]]. 인스톨러 [Run] step 3 robustness 확인 또는 fork 코드에서 inherit.

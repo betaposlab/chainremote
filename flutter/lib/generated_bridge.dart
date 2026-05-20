@@ -1745,6 +1745,20 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kChainremoteGetFavoriteIdsConstMeta;
 
+  /// 옵션 B+ (2026-05-21): HQ 빌드에서 "외부 원격 접속 허용" 토글 상태 조회.
+  /// `chainremote-allow-incoming` 옵션 Y/N. 디폴트 OFF (안전 디폴트).
+  /// rendezvous_mediator.rs::start_all() 이 이 값 보고 hbbs 등록 여부 결정.
+  bool chainremoteGetAllowIncoming({dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteGetAllowIncomingConstMeta;
+
+  /// 토글 ON/OFF. ON 시 서비스 재시작 신호 필요 — RustDesk 의 기존
+  /// rendezvous restart 메커니즘은 별도. 사용자가 토글 후 ChainRemote 재시작 시
+  /// 즉시 hbbs 등록 시작. 영구비번은 인스톨러가 박아둠.
+  bool chainremoteSetAllowIncoming({required bool allow, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteSetAllowIncomingConstMeta;
+
   Future<void> sessionRequestNewDisplayInitMsgs(
       {required UuidValue sessionId, required int display, dynamic hint});
 
@@ -8111,6 +8125,39 @@ class RustdeskImpl implements Rustdesk {
         argNames: [],
       );
 
+  bool chainremoteGetAllowIncoming({dynamic hint}) {
+    return _platform.executeSync(FlutterRustBridgeSyncTask(
+      callFfi: () => _platform.inner.wire_chainremote_get_allow_incoming(),
+      parseSuccessData: _wire2api_bool,
+      constMeta: kChainremoteGetAllowIncomingConstMeta,
+      argValues: [],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteGetAllowIncomingConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "chainremote_get_allow_incoming",
+        argNames: [],
+      );
+
+  bool chainremoteSetAllowIncoming({required bool allow, dynamic hint}) {
+    var arg0 = allow;
+    return _platform.executeSync(FlutterRustBridgeSyncTask(
+      callFfi: () => _platform.inner.wire_chainremote_set_allow_incoming(arg0),
+      parseSuccessData: _wire2api_bool,
+      constMeta: kChainremoteSetAllowIncomingConstMeta,
+      argValues: [allow],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteSetAllowIncomingConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "chainremote_set_allow_incoming",
+        argNames: ["allow"],
+      );
+
   Future<void> sessionRequestNewDisplayInitMsgs(
       {required UuidValue sessionId, required int display, dynamic hint}) {
     var arg0 = _platform.api2wire_Uuid(sessionId);
@@ -8463,61 +8510,77 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   /// The symbols are looked up with [lookup].
   RustdeskWire.fromLookup(
-    ffi.Pointer<T> Function<T extends ffi.NativeType>(String symbolName) lookup,
-  ) : _lookup = lookup;
+      ffi.Pointer<T> Function<T extends ffi.NativeType>(String symbolName)
+          lookup)
+      : _lookup = lookup;
 
-  void store_dart_post_cobject(DartPostCObjectFnType ptr) {
-    return _store_dart_post_cobject(ptr);
+  void store_dart_post_cobject(
+    DartPostCObjectFnType ptr,
+  ) {
+    return _store_dart_post_cobject(
+      ptr,
+    );
   }
 
   late final _store_dart_post_cobjectPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(DartPostCObjectFnType)>>(
-    'store_dart_post_cobject',
-  );
+          'store_dart_post_cobject');
   late final _store_dart_post_cobject = _store_dart_post_cobjectPtr
       .asFunction<void Function(DartPostCObjectFnType)>();
 
-  Object get_dart_object(int ptr) {
-    return _get_dart_object(ptr);
+  Object get_dart_object(
+    int ptr,
+  ) {
+    return _get_dart_object(
+      ptr,
+    );
   }
 
   late final _get_dart_objectPtr =
       _lookup<ffi.NativeFunction<ffi.Handle Function(ffi.UintPtr)>>(
-    'get_dart_object',
-  );
+          'get_dart_object');
   late final _get_dart_object =
       _get_dart_objectPtr.asFunction<Object Function(int)>();
 
-  void drop_dart_object(int ptr) {
-    return _drop_dart_object(ptr);
+  void drop_dart_object(
+    int ptr,
+  ) {
+    return _drop_dart_object(
+      ptr,
+    );
   }
 
   late final _drop_dart_objectPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.UintPtr)>>(
-    'drop_dart_object',
-  );
+          'drop_dart_object');
   late final _drop_dart_object =
       _drop_dart_objectPtr.asFunction<void Function(int)>();
 
-  int new_dart_opaque(Object handle) {
-    return _new_dart_opaque(handle);
+  int new_dart_opaque(
+    Object handle,
+  ) {
+    return _new_dart_opaque(
+      handle,
+    );
   }
 
   late final _new_dart_opaquePtr =
       _lookup<ffi.NativeFunction<ffi.UintPtr Function(ffi.Handle)>>(
-    'new_dart_opaque',
-  );
+          'new_dart_opaque');
   late final _new_dart_opaque =
       _new_dart_opaquePtr.asFunction<int Function(Object)>();
 
-  int init_frb_dart_api_dl(ffi.Pointer<ffi.Void> obj) {
-    return _init_frb_dart_api_dl(obj);
+  int init_frb_dart_api_dl(
+    ffi.Pointer<ffi.Void> obj,
+  ) {
+    return _init_frb_dart_api_dl(
+      obj,
+    );
   }
 
   late final _init_frb_dart_api_dlPtr =
       _lookup<ffi.NativeFunction<ffi.IntPtr Function(ffi.Pointer<ffi.Void>)>>(
-    'init_frb_dart_api_dl',
-  );
+          'init_frb_dart_api_dl');
   late final _init_frb_dart_api_dl = _init_frb_dart_api_dlPtr
       .asFunction<int Function(ffi.Pointer<ffi.Void>)>();
 
@@ -8525,7 +8588,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> app_type,
   ) {
-    return _wire_start_global_event_stream(port_, app_type);
+    return _wire_start_global_event_stream(
+      port_,
+      app_type,
+    );
   }
 
   late final _wire_start_global_event_streamPtr = _lookup<
@@ -8540,7 +8606,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> app_type,
   ) {
-    return _wire_stop_global_event_stream(port_, app_type);
+    return _wire_stop_global_event_stream(
+      port_,
+      app_type,
+    );
   }
 
   late final _wire_stop_global_event_streamPtr = _lookup<
@@ -8550,14 +8619,19 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_stop_global_event_stream = _wire_stop_global_event_streamPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_host_stop_system_key_propagate(int port_, bool _stopped) {
-    return _wire_host_stop_system_key_propagate(port_, _stopped);
+  void wire_host_stop_system_key_propagate(
+    int port_,
+    bool _stopped,
+  ) {
+    return _wire_host_stop_system_key_propagate(
+      port_,
+      _stopped,
+    );
   }
 
   late final _wire_host_stop_system_key_propagatePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Bool)>>(
-    'wire_host_stop_system_key_propagate',
-  );
+          'wire_host_stop_system_key_propagate');
   late final _wire_host_stop_system_key_propagate =
       _wire_host_stop_system_key_propagatePtr
           .asFunction<void Function(int, bool)>();
@@ -8566,7 +8640,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> id,
     int conn_type,
   ) {
-    return _wire_peer_get_sessions_count(id, conn_type);
+    return _wire_peer_get_sessions_count(
+      id,
+      conn_type,
+    );
   }
 
   late final _wire_peer_get_sessions_countPtr = _lookup<
@@ -8594,19 +8671,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_add_existed_syncPtr = _lookup<
       ffi.NativeFunction<
           WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_int_32_list>,
-            ffi.Bool,
-          )>>('wire_session_add_existed_sync');
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_int_32_list>,
+              ffi.Bool)>>('wire_session_add_existed_sync');
   late final _wire_session_add_existed_sync =
       _wire_session_add_existed_syncPtr.asFunction<
           WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_int_32_list>,
-            bool,
-          )>();
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_int_32_list>,
+              bool)>();
 
   WireSyncReturn wire_session_add_sync(
     ffi.Pointer<wire_uint_8_list> session_id,
@@ -8641,56 +8716,52 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_add_syncPtr = _lookup<
       ffi.NativeFunction<
           WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-            ffi.Bool,
-            ffi.Bool,
-            ffi.Bool,
-            ffi.Bool,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_add_sync');
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool,
+              ffi.Bool,
+              ffi.Bool,
+              ffi.Bool,
+              ffi.Bool,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_add_sync');
   late final _wire_session_add_sync = _wire_session_add_syncPtr.asFunction<
       WireSyncReturn Function(
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        bool,
-        bool,
-        bool,
-        bool,
-        bool,
-        ffi.Pointer<wire_uint_8_list>,
-        bool,
-        ffi.Pointer<wire_uint_8_list>,
-        bool,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>,
+          bool,
+          bool,
+          bool,
+          bool,
+          bool,
+          ffi.Pointer<wire_uint_8_list>,
+          bool,
+          ffi.Pointer<wire_uint_8_list>,
+          bool,
+          ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_start(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> id,
   ) {
-    return _wire_session_start(port_, session_id, id);
+    return _wire_session_start(
+      port_,
+      session_id,
+      id,
+    );
   }
 
   late final _wire_session_startPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_start');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_start');
   late final _wire_session_start = _wire_session_startPtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          int, ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_start_with_displays(
     int port_,
@@ -8698,31 +8769,35 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> id,
     ffi.Pointer<wire_int_32_list> displays,
   ) {
-    return _wire_session_start_with_displays(port_, session_id, id, displays);
+    return _wire_session_start_with_displays(
+      port_,
+      session_id,
+      id,
+      displays,
+    );
   }
 
   late final _wire_session_start_with_displaysPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_int_32_list>,
-          )>>('wire_session_start_with_displays');
+          ffi.NativeFunction<
+              ffi.Void Function(
+                  ffi.Int64,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_int_32_list>)>>(
+      'wire_session_start_with_displays');
   late final _wire_session_start_with_displays =
       _wire_session_start_with_displaysPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_int_32_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_int_32_list>)>();
 
   void wire_session_get_remember(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_remember(port_, session_id);
+    return _wire_session_get_remember(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_get_rememberPtr = _lookup<
@@ -8737,65 +8812,62 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> arg,
   ) {
-    return _wire_session_get_toggle_option(port_, session_id, arg);
+    return _wire_session_get_toggle_option(
+      port_,
+      session_id,
+      arg,
+    );
   }
 
   late final _wire_session_get_toggle_optionPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_get_toggle_option');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_get_toggle_option');
   late final _wire_session_get_toggle_option =
       _wire_session_get_toggle_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_session_get_toggle_option_sync(
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> arg,
   ) {
-    return _wire_session_get_toggle_option_sync(session_id, arg);
+    return _wire_session_get_toggle_option_sync(
+      session_id,
+      arg,
+    );
   }
 
   late final _wire_session_get_toggle_option_syncPtr = _lookup<
-      ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_get_toggle_option_sync');
+          ffi.NativeFunction<
+              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_get_toggle_option_sync');
   late final _wire_session_get_toggle_option_sync =
       _wire_session_get_toggle_option_syncPtr.asFunction<
           WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_get_option(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> arg,
   ) {
-    return _wire_session_get_option(port_, session_id, arg);
+    return _wire_session_get_option(
+      port_,
+      session_id,
+      arg,
+    );
   }
 
   late final _wire_session_get_optionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_get_option');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_get_option');
   late final _wire_session_get_option = _wire_session_get_optionPtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          int, ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_login(
     int port_,
@@ -8818,22 +8890,20 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_loginPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_session_login');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_login');
   late final _wire_session_login = _wire_session_loginPtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        bool,
-      )>();
+          int,
+          ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>,
+          bool)>();
 
   void wire_session_send2fa(
     int port_,
@@ -8841,29 +8911,31 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> code,
     bool trust_this_device,
   ) {
-    return _wire_session_send2fa(port_, session_id, code, trust_this_device);
+    return _wire_session_send2fa(
+      port_,
+      session_id,
+      code,
+      trust_this_device,
+    );
   }
 
   late final _wire_session_send2faPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_session_send2fa');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_send2fa');
   late final _wire_session_send2fa = _wire_session_send2faPtr.asFunction<
-      void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        bool,
-      )>();
+      void Function(int, ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>, bool)>();
 
   WireSyncReturn wire_session_get_enable_trusted_devices(
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_enable_trusted_devices(session_id);
+    return _wire_session_get_enable_trusted_devices(
+      session_id,
+    );
   }
 
   late final _wire_session_get_enable_trusted_devicesPtr = _lookup<
@@ -8877,7 +8949,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   WireSyncReturn wire_will_session_close_close_session(
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_will_session_close_close_session(session_id);
+    return _wire_will_session_close_close_session(
+      session_id,
+    );
   }
 
   late final _wire_will_session_close_close_sessionPtr = _lookup<
@@ -8888,8 +8962,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_will_session_close_close_sessionPtr
           .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_session_close(int port_, ffi.Pointer<wire_uint_8_list> session_id) {
-    return _wire_session_close(port_, session_id);
+  void wire_session_close(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> session_id,
+  ) {
+    return _wire_session_close(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_closePtr = _lookup<
@@ -8904,16 +8984,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     int display,
   ) {
-    return _wire_session_refresh(port_, session_id, display);
+    return _wire_session_refresh(
+      port_,
+      session_id,
+      display,
+    );
   }
 
   late final _wire_session_refreshPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.UintPtr,
-          )>>('wire_session_refresh');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.UintPtr)>>('wire_session_refresh');
   late final _wire_session_refresh = _wire_session_refreshPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>, int)>();
 
@@ -8922,16 +9003,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     int display,
   ) {
-    return _wire_session_take_screenshot(port_, session_id, display);
+    return _wire_session_take_screenshot(
+      port_,
+      session_id,
+      display,
+    );
   }
 
   late final _wire_session_take_screenshotPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.UintPtr,
-          )>>('wire_session_take_screenshot');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.UintPtr)>>('wire_session_take_screenshot');
   late final _wire_session_take_screenshot = _wire_session_take_screenshotPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>, int)>();
 
@@ -8940,28 +9022,29 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> action,
   ) {
-    return _wire_session_handle_screenshot(port_, session_id, action);
+    return _wire_session_handle_screenshot(
+      port_,
+      session_id,
+      action,
+    );
   }
 
   late final _wire_session_handle_screenshotPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_handle_screenshot');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_handle_screenshot');
   late final _wire_session_handle_screenshot =
       _wire_session_handle_screenshotPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_session_is_multi_ui_session(
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_is_multi_ui_session(session_id);
+    return _wire_session_is_multi_ui_session(
+      session_id,
+    );
   }
 
   late final _wire_session_is_multi_ui_sessionPtr = _lookup<
@@ -8977,7 +9060,11 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     bool start,
   ) {
-    return _wire_session_record_screen(port_, session_id, start);
+    return _wire_session_record_screen(
+      port_,
+      session_id,
+      start,
+    );
   }
 
   late final _wire_session_record_screenPtr = _lookup<
@@ -8990,7 +9077,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   WireSyncReturn wire_session_get_is_recording(
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_is_recording(session_id);
+    return _wire_session_get_is_recording(
+      session_id,
+    );
   }
 
   late final _wire_session_get_is_recordingPtr = _lookup<
@@ -9005,7 +9094,11 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     bool force_relay,
   ) {
-    return _wire_session_reconnect(port_, session_id, force_relay);
+    return _wire_session_reconnect(
+      port_,
+      session_id,
+      force_relay,
+    );
   }
 
   late final _wire_session_reconnectPtr = _lookup<
@@ -9020,23 +9113,21 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_session_toggle_option(port_, session_id, value);
+    return _wire_session_toggle_option(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_toggle_optionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_toggle_option');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_toggle_option');
   late final _wire_session_toggle_option =
       _wire_session_toggle_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_toggle_privacy_mode(
     int port_,
@@ -9044,48 +9135,47 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> impl_key,
     bool on1,
   ) {
-    return _wire_session_toggle_privacy_mode(port_, session_id, impl_key, on1);
+    return _wire_session_toggle_privacy_mode(
+      port_,
+      session_id,
+      impl_key,
+      on1,
+    );
   }
 
   late final _wire_session_toggle_privacy_modePtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_session_toggle_privacy_mode');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_toggle_privacy_mode');
   late final _wire_session_toggle_privacy_mode =
       _wire_session_toggle_privacy_modePtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, bool)>();
 
   void wire_session_get_flutter_option(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> k,
   ) {
-    return _wire_session_get_flutter_option(port_, session_id, k);
+    return _wire_session_get_flutter_option(
+      port_,
+      session_id,
+      k,
+    );
   }
 
   late final _wire_session_get_flutter_optionPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_get_flutter_option');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_get_flutter_option');
   late final _wire_session_get_flutter_option =
       _wire_session_get_flutter_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_set_flutter_option(
     int port_,
@@ -9093,25 +9183,26 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> k,
     ffi.Pointer<wire_uint_8_list> v,
   ) {
-    return _wire_session_set_flutter_option(port_, session_id, k, v);
+    return _wire_session_set_flutter_option(
+      port_,
+      session_id,
+      k,
+      v,
+    );
   }
 
   late final _wire_session_set_flutter_optionPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_set_flutter_option');
+          ffi.NativeFunction<
+              ffi.Void Function(
+                  ffi.Int64,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_set_flutter_option');
   late final _wire_session_set_flutter_option =
       _wire_session_set_flutter_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_get_next_texture_key() {
     return _wire_get_next_texture_key();
@@ -9119,15 +9210,16 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_get_next_texture_keyPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_get_next_texture_key',
-  );
+          'wire_get_next_texture_key');
   late final _wire_get_next_texture_key =
       _wire_get_next_texture_keyPtr.asFunction<WireSyncReturn Function()>();
 
   WireSyncReturn wire_get_local_flutter_option(
     ffi.Pointer<wire_uint_8_list> k,
   ) {
-    return _wire_get_local_flutter_option(k);
+    return _wire_get_local_flutter_option(
+      k,
+    );
   }
 
   late final _wire_get_local_flutter_optionPtr = _lookup<
@@ -9142,23 +9234,21 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> k,
     ffi.Pointer<wire_uint_8_list> v,
   ) {
-    return _wire_set_local_flutter_option(port_, k, v);
+    return _wire_set_local_flutter_option(
+      port_,
+      k,
+      v,
+    );
   }
 
   late final _wire_set_local_flutter_optionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_set_local_flutter_option');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_set_local_flutter_option');
   late final _wire_set_local_flutter_option =
       _wire_set_local_flutter_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_get_local_kb_layout_type() {
     return _wire_get_local_kb_layout_type();
@@ -9166,8 +9256,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_get_local_kb_layout_typePtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_get_local_kb_layout_type',
-  );
+          'wire_get_local_kb_layout_type');
   late final _wire_get_local_kb_layout_type =
       _wire_get_local_kb_layout_typePtr.asFunction<WireSyncReturn Function()>();
 
@@ -9175,7 +9264,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> kb_layout_type,
   ) {
-    return _wire_set_local_kb_layout_type(port_, kb_layout_type);
+    return _wire_set_local_kb_layout_type(
+      port_,
+      kb_layout_type,
+    );
   }
 
   late final _wire_set_local_kb_layout_typePtr = _lookup<
@@ -9189,7 +9281,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_view_style(port_, session_id);
+    return _wire_session_get_view_style(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_get_view_stylePtr = _lookup<
@@ -9204,29 +9299,30 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_session_set_view_style(port_, session_id, value);
+    return _wire_session_set_view_style(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_set_view_stylePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_set_view_style');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_set_view_style');
   late final _wire_session_set_view_style =
       _wire_session_set_view_stylePtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_get_scroll_style(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_scroll_style(port_, session_id);
+    return _wire_session_get_scroll_style(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_get_scroll_stylePtr = _lookup<
@@ -9241,29 +9337,30 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_session_set_scroll_style(port_, session_id, value);
+    return _wire_session_set_scroll_style(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_set_scroll_stylePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_set_scroll_style');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_set_scroll_style');
   late final _wire_session_set_scroll_style =
       _wire_session_set_scroll_stylePtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_get_edge_scroll_edge_thickness(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_edge_scroll_edge_thickness(port_, session_id);
+    return _wire_session_get_edge_scroll_edge_thickness(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_get_edge_scroll_edge_thicknessPtr = _lookup<
@@ -9298,7 +9395,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_image_quality(port_, session_id);
+    return _wire_session_get_image_quality(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_get_image_qualityPtr = _lookup<
@@ -9314,29 +9414,31 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_session_set_image_quality(port_, session_id, value);
+    return _wire_session_set_image_quality(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_set_image_qualityPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_set_image_quality');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_set_image_quality');
   late final _wire_session_set_image_quality =
       _wire_session_set_image_qualityPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_get_keyboard_mode(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_keyboard_mode(port_, session_id);
+    return _wire_session_get_keyboard_mode(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_get_keyboard_modePtr = _lookup<
@@ -9352,28 +9454,29 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_session_set_keyboard_mode(port_, session_id, value);
+    return _wire_session_set_keyboard_mode(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_set_keyboard_modePtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_set_keyboard_mode');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_set_keyboard_mode');
   late final _wire_session_set_keyboard_mode =
       _wire_session_set_keyboard_modePtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_session_get_reverse_mouse_wheel_sync(
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_reverse_mouse_wheel_sync(session_id);
+    return _wire_session_get_reverse_mouse_wheel_sync(
+      session_id,
+    );
   }
 
   late final _wire_session_get_reverse_mouse_wheel_syncPtr = _lookup<
@@ -9389,28 +9492,29 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_session_set_reverse_mouse_wheel(port_, session_id, value);
+    return _wire_session_set_reverse_mouse_wheel(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_set_reverse_mouse_wheelPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_set_reverse_mouse_wheel');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_set_reverse_mouse_wheel');
   late final _wire_session_set_reverse_mouse_wheel =
       _wire_session_set_reverse_mouse_wheelPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_session_get_displays_as_individual_windows(
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_displays_as_individual_windows(session_id);
+    return _wire_session_get_displays_as_individual_windows(
+      session_id,
+    );
   }
 
   late final _wire_session_get_displays_as_individual_windowsPtr = _lookup<
@@ -9434,19 +9538,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   }
 
   late final _wire_session_set_displays_as_individual_windowsPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_set_displays_as_individual_windows');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_set_displays_as_individual_windows');
   late final _wire_session_set_displays_as_individual_windows =
       _wire_session_set_displays_as_individual_windowsPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_session_get_use_all_my_displays_for_the_remote_session(
     ffi.Pointer<wire_uint_8_list> session_id,
@@ -9480,26 +9579,23 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_set_use_all_my_displays_for_the_remote_sessionPtr =
       _lookup<
               ffi.NativeFunction<
-                  ffi.Void Function(
-                    ffi.Int64,
-                    ffi.Pointer<wire_uint_8_list>,
-                    ffi.Pointer<wire_uint_8_list>,
-                  )>>(
+                  ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                      ffi.Pointer<wire_uint_8_list>)>>(
           'wire_session_set_use_all_my_displays_for_the_remote_session');
   late final _wire_session_set_use_all_my_displays_for_the_remote_session =
       _wire_session_set_use_all_my_displays_for_the_remote_sessionPtr
           .asFunction<
-              void Function(
-                int,
-                ffi.Pointer<wire_uint_8_list>,
-                ffi.Pointer<wire_uint_8_list>,
-              )>();
+              void Function(int, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_get_custom_image_quality(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_custom_image_quality(port_, session_id);
+    return _wire_session_get_custom_image_quality(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_get_custom_image_qualityPtr = _lookup<
@@ -9514,28 +9610,32 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> mode,
   ) {
-    return _wire_session_is_keyboard_mode_supported(session_id, mode);
+    return _wire_session_is_keyboard_mode_supported(
+      session_id,
+      mode,
+    );
   }
 
   late final _wire_session_is_keyboard_mode_supportedPtr = _lookup<
-      ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_is_keyboard_mode_supported');
+          ffi.NativeFunction<
+              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_is_keyboard_mode_supported');
   late final _wire_session_is_keyboard_mode_supported =
       _wire_session_is_keyboard_mode_supportedPtr.asFunction<
           WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_set_custom_image_quality(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     int value,
   ) {
-    return _wire_session_set_custom_image_quality(port_, session_id, value);
+    return _wire_session_set_custom_image_quality(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_set_custom_image_qualityPtr = _lookup<
@@ -9551,7 +9651,11 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     int fps,
   ) {
-    return _wire_session_set_custom_fps(port_, session_id, fps);
+    return _wire_session_set_custom_fps(
+      port_,
+      session_id,
+      fps,
+    );
   }
 
   late final _wire_session_set_custom_fpsPtr = _lookup<
@@ -9565,7 +9669,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_trackpad_speed(port_, session_id);
+    return _wire_session_get_trackpad_speed(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_get_trackpad_speedPtr = _lookup<
@@ -9581,7 +9688,11 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     int value,
   ) {
-    return _wire_session_set_trackpad_speed(port_, session_id, value);
+    return _wire_session_set_trackpad_speed(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_set_trackpad_speedPtr = _lookup<
@@ -9596,7 +9707,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_lock_screen(port_, session_id);
+    return _wire_session_lock_screen(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_lock_screenPtr = _lookup<
@@ -9610,7 +9724,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_ctrl_alt_del(port_, session_id);
+    return _wire_session_ctrl_alt_del(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_ctrl_alt_delPtr = _lookup<
@@ -9626,25 +9743,22 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_int_32_list> value,
   ) {
-    return _wire_session_switch_display(port_, is_desktop, session_id, value);
+    return _wire_session_switch_display(
+      port_,
+      is_desktop,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_switch_displayPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Bool,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_int_32_list>,
-          )>>('wire_session_switch_display');
+          ffi.Void Function(ffi.Int64, ffi.Bool, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_int_32_list>)>>('wire_session_switch_display');
   late final _wire_session_switch_display =
       _wire_session_switch_displayPtr.asFunction<
-          void Function(
-            int,
-            bool,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_int_32_list>,
-          )>();
+          void Function(int, bool, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_int_32_list>)>();
 
   void wire_session_handle_flutter_key_event(
     int port_,
@@ -9667,23 +9781,16 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_handle_flutter_key_eventPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Int32,
-            ffi.Bool,
-          )>>('wire_session_handle_flutter_key_event');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Int32,
+              ffi.Bool)>>('wire_session_handle_flutter_key_event');
   late final _wire_session_handle_flutter_key_event =
       _wire_session_handle_flutter_key_eventPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            int,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, int, int, bool)>();
 
   void wire_session_handle_flutter_raw_key_event(
     int port_,
@@ -9708,31 +9815,26 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_handle_flutter_raw_key_eventPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Int32,
-            ffi.Int32,
-            ffi.Bool,
-          )>>('wire_session_handle_flutter_raw_key_event');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Int32,
+              ffi.Int32,
+              ffi.Bool)>>('wire_session_handle_flutter_raw_key_event');
   late final _wire_session_handle_flutter_raw_key_event =
       _wire_session_handle_flutter_raw_key_eventPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            int,
-            int,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, int, int, int, bool)>();
 
   WireSyncReturn wire_session_enter_or_leave(
     ffi.Pointer<wire_uint_8_list> _session_id,
     bool _enter,
   ) {
-    return _wire_session_enter_or_leave(_session_id, _enter);
+    return _wire_session_enter_or_leave(
+      _session_id,
+      _enter,
+    );
   }
 
   late final _wire_session_enter_or_leavePtr = _lookup<
@@ -9770,73 +9872,59 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_input_keyPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-            ffi.Bool,
-            ffi.Bool,
-            ffi.Bool,
-            ffi.Bool,
-            ffi.Bool,
-          )>>('wire_session_input_key');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool,
+              ffi.Bool,
+              ffi.Bool,
+              ffi.Bool,
+              ffi.Bool,
+              ffi.Bool)>>('wire_session_input_key');
   late final _wire_session_input_key = _wire_session_input_keyPtr.asFunction<
-      void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        bool,
-        bool,
-        bool,
-        bool,
-        bool,
-        bool,
-      )>();
+      void Function(int, ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>, bool, bool, bool, bool, bool, bool)>();
 
   void wire_session_input_string(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_session_input_string(port_, session_id, value);
+    return _wire_session_input_string(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_input_stringPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_input_string');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_input_string');
   late final _wire_session_input_string =
       _wire_session_input_stringPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_send_chat(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> text,
   ) {
-    return _wire_session_send_chat(port_, session_id, text);
+    return _wire_session_send_chat(
+      port_,
+      session_id,
+      text,
+    );
   }
 
   late final _wire_session_send_chatPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_send_chat');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_send_chat');
   late final _wire_session_send_chat = _wire_session_send_chatPtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          int, ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_open_terminal(
     int port_,
@@ -9856,13 +9944,8 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_session_open_terminalPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Uint32,
-            ffi.Uint32,
-          )>>('wire_session_open_terminal');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>, ffi.Int32,
+              ffi.Uint32, ffi.Uint32)>>('wire_session_open_terminal');
   late final _wire_session_open_terminal =
       _wire_session_open_terminalPtr.asFunction<
           void Function(int, ffi.Pointer<wire_uint_8_list>, int, int, int)>();
@@ -9882,21 +9965,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   }
 
   late final _wire_session_send_terminal_inputPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_send_terminal_input');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Int32, ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_send_terminal_input');
   late final _wire_session_send_terminal_input =
       _wire_session_send_terminal_inputPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>, int,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_resize_terminal(
     int port_,
@@ -9916,13 +9992,8 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_session_resize_terminalPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Uint32,
-            ffi.Uint32,
-          )>>('wire_session_resize_terminal');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>, ffi.Int32,
+              ffi.Uint32, ffi.Uint32)>>('wire_session_resize_terminal');
   late final _wire_session_resize_terminal =
       _wire_session_resize_terminalPtr.asFunction<
           void Function(int, ffi.Pointer<wire_uint_8_list>, int, int, int)>();
@@ -9932,7 +10003,11 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     int terminal_id,
   ) {
-    return _wire_session_close_terminal(port_, session_id, terminal_id);
+    return _wire_session_close_terminal(
+      port_,
+      session_id,
+      terminal_id,
+    );
   }
 
   late final _wire_session_close_terminalPtr = _lookup<
@@ -9948,71 +10023,68 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> name,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_session_peer_option(port_, session_id, name, value);
+    return _wire_session_peer_option(
+      port_,
+      session_id,
+      name,
+      value,
+    );
   }
 
   late final _wire_session_peer_optionPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_peer_option');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_peer_option');
   late final _wire_session_peer_option =
       _wire_session_peer_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_get_peer_option(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> name,
   ) {
-    return _wire_session_get_peer_option(port_, session_id, name);
+    return _wire_session_get_peer_option(
+      port_,
+      session_id,
+      name,
+    );
   }
 
   late final _wire_session_get_peer_optionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_get_peer_option');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_get_peer_option');
   late final _wire_session_get_peer_option =
       _wire_session_get_peer_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_input_os_password(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_session_input_os_password(port_, session_id, value);
+    return _wire_session_input_os_password(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_session_input_os_passwordPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_input_os_password');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_input_os_password');
   late final _wire_session_input_os_password =
       _wire_session_input_os_passwordPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_read_remote_dir(
     int port_,
@@ -10031,19 +10103,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_read_remote_dirPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_session_read_remote_dir');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_read_remote_dir');
   late final _wire_session_read_remote_dir =
       _wire_session_read_remote_dirPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, bool)>();
 
   void wire_session_send_files(
     int port_,
@@ -10072,28 +10139,26 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_send_filesPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Bool,
-            ffi.Bool,
-            ffi.Bool,
-          )>>('wire_session_send_files');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Bool,
+              ffi.Bool,
+              ffi.Bool)>>('wire_session_send_files');
   late final _wire_session_send_files = _wire_session_send_filesPtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        int,
-        bool,
-        bool,
-        bool,
-      )>();
+          int,
+          ffi.Pointer<wire_uint_8_list>,
+          int,
+          ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>,
+          int,
+          bool,
+          bool,
+          bool)>();
 
   void wire_session_set_confirm_override_file(
     int port_,
@@ -10118,25 +10183,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_set_confirm_override_filePtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Int32,
-            ffi.Bool,
-            ffi.Bool,
-            ffi.Bool,
-          )>>('wire_session_set_confirm_override_file');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Int32,
+              ffi.Bool,
+              ffi.Bool,
+              ffi.Bool)>>('wire_session_set_confirm_override_file');
   late final _wire_session_set_confirm_override_file =
       _wire_session_set_confirm_override_filePtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            int,
-            bool,
-            bool,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>, int, int, bool,
+              bool, bool)>();
 
   void wire_session_remove_file(
     int port_,
@@ -10159,23 +10216,16 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_remove_filePtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Bool,
-          )>>('wire_session_remove_file');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Bool)>>('wire_session_remove_file');
   late final _wire_session_remove_file =
       _wire_session_remove_filePtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>, int,
+              ffi.Pointer<wire_uint_8_list>, int, bool)>();
 
   void wire_session_read_dir_to_remove_recursive(
     int port_,
@@ -10198,23 +10248,16 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_read_dir_to_remove_recursivePtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-            ffi.Bool,
-          )>>('wire_session_read_dir_to_remove_recursive');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool,
+              ffi.Bool)>>('wire_session_read_dir_to_remove_recursive');
   late final _wire_session_read_dir_to_remove_recursive =
       _wire_session_read_dir_to_remove_recursivePtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            bool,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>, int,
+              ffi.Pointer<wire_uint_8_list>, bool, bool)>();
 
   void wire_session_remove_all_empty_dirs(
     int port_,
@@ -10235,28 +10278,26 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_remove_all_empty_dirsPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_session_remove_all_empty_dirs');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_remove_all_empty_dirs');
   late final _wire_session_remove_all_empty_dirs =
       _wire_session_remove_all_empty_dirsPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>, int,
+              ffi.Pointer<wire_uint_8_list>, bool)>();
 
   void wire_session_cancel_job(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     int act_id,
   ) {
-    return _wire_session_cancel_job(port_, session_id, act_id);
+    return _wire_session_cancel_job(
+      port_,
+      session_id,
+      act_id,
+    );
   }
 
   late final _wire_session_cancel_jobPtr = _lookup<
@@ -10273,26 +10314,26 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> path,
     bool is_remote,
   ) {
-    return _wire_session_create_dir(port_, session_id, act_id, path, is_remote);
+    return _wire_session_create_dir(
+      port_,
+      session_id,
+      act_id,
+      path,
+      is_remote,
+    );
   }
 
   late final _wire_session_create_dirPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_session_create_dir');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_create_dir');
   late final _wire_session_create_dir = _wire_session_create_dirPtr.asFunction<
-      void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        bool,
-      )>();
+      void Function(int, ffi.Pointer<wire_uint_8_list>, int,
+          ffi.Pointer<wire_uint_8_list>, bool)>();
 
   void wire_session_read_local_dir_sync(
     int port_,
@@ -10311,19 +10352,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_read_local_dir_syncPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_session_read_local_dir_sync');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_read_local_dir_sync');
   late final _wire_session_read_local_dir_sync =
       _wire_session_read_local_dir_syncPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, bool)>();
 
   void wire_session_read_local_empty_dirs_recursive_sync(
     int port_,
@@ -10342,19 +10378,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_read_local_empty_dirs_recursive_syncPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_session_read_local_empty_dirs_recursive_sync');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_read_local_empty_dirs_recursive_sync');
   late final _wire_session_read_local_empty_dirs_recursive_sync =
       _wire_session_read_local_empty_dirs_recursive_syncPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, bool)>();
 
   void wire_session_read_remote_empty_dirs_recursive_sync(
     int port_,
@@ -10373,26 +10404,25 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_read_remote_empty_dirs_recursive_syncPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_session_read_remote_empty_dirs_recursive_sync');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_read_remote_empty_dirs_recursive_sync');
   late final _wire_session_read_remote_empty_dirs_recursive_sync =
       _wire_session_read_remote_empty_dirs_recursive_syncPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            bool,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, bool)>();
 
   void wire_session_get_platform(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     bool is_remote,
   ) {
-    return _wire_session_get_platform(port_, session_id, is_remote);
+    return _wire_session_get_platform(
+      port_,
+      session_id,
+      is_remote,
+    );
   }
 
   late final _wire_session_get_platformPtr = _lookup<
@@ -10406,7 +10436,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_load_last_transfer_jobs(port_, session_id);
+    return _wire_session_load_last_transfer_jobs(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_load_last_transfer_jobsPtr = _lookup<
@@ -10442,26 +10475,24 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_add_jobPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Bool,
-            ffi.Bool,
-          )>>('wire_session_add_job');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Bool,
+              ffi.Bool)>>('wire_session_add_job');
   late final _wire_session_add_job = _wire_session_add_jobPtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        int,
-        bool,
-        bool,
-      )>();
+          int,
+          ffi.Pointer<wire_uint_8_list>,
+          int,
+          ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>,
+          int,
+          bool,
+          bool)>();
 
   void wire_session_resume_job(
     int port_,
@@ -10469,17 +10500,18 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int act_id,
     bool is_remote,
   ) {
-    return _wire_session_resume_job(port_, session_id, act_id, is_remote);
+    return _wire_session_resume_job(
+      port_,
+      session_id,
+      act_id,
+      is_remote,
+    );
   }
 
   late final _wire_session_resume_jobPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Bool,
-          )>>('wire_session_resume_job');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>, ffi.Int32,
+              ffi.Bool)>>('wire_session_resume_job');
   late final _wire_session_resume_job = _wire_session_resume_jobPtr.asFunction<
       void Function(int, ffi.Pointer<wire_uint_8_list>, int, bool)>();
 
@@ -10504,29 +10536,30 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_rename_filePtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_session_rename_file');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_rename_file');
   late final _wire_session_rename_file =
       _wire_session_rename_filePtr.asFunction<
           void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            bool,
-          )>();
+              int,
+              ffi.Pointer<wire_uint_8_list>,
+              int,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              bool)>();
 
   void wire_session_elevate_direct(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_elevate_direct(port_, session_id);
+    return _wire_session_elevate_direct(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_elevate_directPtr = _lookup<
@@ -10551,27 +10584,26 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   }
 
   late final _wire_session_elevate_with_logonPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_elevate_with_logon');
+          ffi.NativeFunction<
+              ffi.Void Function(
+                  ffi.Int64,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_elevate_with_logon');
   late final _wire_session_elevate_with_logon =
       _wire_session_elevate_with_logonPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_switch_sides(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_switch_sides(port_, session_id);
+    return _wire_session_switch_sides(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_switch_sidesPtr = _lookup<
@@ -10599,13 +10631,8 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_session_change_resolutionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Int32,
-            ffi.Int32,
-          )>>('wire_session_change_resolution');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>, ffi.Int32,
+              ffi.Int32, ffi.Int32)>>('wire_session_change_resolution');
   late final _wire_session_change_resolution =
       _wire_session_change_resolutionPtr.asFunction<
           void Function(int, ffi.Pointer<wire_uint_8_list>, int, int, int)>();
@@ -10617,18 +10644,19 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int width,
     int height,
   ) {
-    return _wire_session_set_size(port_, session_id, display, width, height);
+    return _wire_session_set_size(
+      port_,
+      session_id,
+      display,
+      width,
+      height,
+    );
   }
 
   late final _wire_session_set_sizePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.UintPtr,
-            ffi.UintPtr,
-            ffi.UintPtr,
-          )>>('wire_session_set_size');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.UintPtr, ffi.UintPtr, ffi.UintPtr)>>('wire_session_set_size');
   late final _wire_session_set_size = _wire_session_set_sizePtr.asFunction<
       void Function(int, ffi.Pointer<wire_uint_8_list>, int, int, int)>();
 
@@ -10637,32 +10665,34 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> sid,
   ) {
-    return _wire_session_send_selected_session_id(port_, session_id, sid);
+    return _wire_session_send_selected_session_id(
+      port_,
+      session_id,
+      sid,
+    );
   }
 
   late final _wire_session_send_selected_session_idPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_send_selected_session_id');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_send_selected_session_id');
   late final _wire_session_send_selected_session_id =
       _wire_session_send_selected_session_idPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_get_sound_inputs(int port_) {
-    return _wire_main_get_sound_inputs(port_);
+  void wire_main_get_sound_inputs(
+    int port_,
+  ) {
+    return _wire_main_get_sound_inputs(
+      port_,
+    );
   }
 
   late final _wire_main_get_sound_inputsPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_sound_inputs',
-  );
+          'wire_main_get_sound_inputs');
   late final _wire_main_get_sound_inputs =
       _wire_main_get_sound_inputsPtr.asFunction<void Function(int)>();
 
@@ -10672,14 +10702,19 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_get_login_device_infoPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_get_login_device_info',
-  );
+          'wire_main_get_login_device_info');
   late final _wire_main_get_login_device_info =
       _wire_main_get_login_device_infoPtr
           .asFunction<WireSyncReturn Function()>();
 
-  void wire_main_change_id(int port_, ffi.Pointer<wire_uint_8_list> new_id) {
-    return _wire_main_change_id(port_, new_id);
+  void wire_main_change_id(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> new_id,
+  ) {
+    return _wire_main_change_id(
+      port_,
+      new_id,
+    );
   }
 
   late final _wire_main_change_idPtr = _lookup<
@@ -10689,19 +10724,28 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_change_id = _wire_main_change_idPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_get_async_status(int port_) {
-    return _wire_main_get_async_status(port_);
+  void wire_main_get_async_status(
+    int port_,
+  ) {
+    return _wire_main_get_async_status(
+      port_,
+    );
   }
 
   late final _wire_main_get_async_statusPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_async_status',
-  );
+          'wire_main_get_async_status');
   late final _wire_main_get_async_status =
       _wire_main_get_async_statusPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_http_status(int port_, ffi.Pointer<wire_uint_8_list> url) {
-    return _wire_main_get_http_status(port_, url);
+  void wire_main_get_http_status(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> url,
+  ) {
+    return _wire_main_get_http_status(
+      port_,
+      url,
+    );
   }
 
   late final _wire_main_get_http_statusPtr = _lookup<
@@ -10711,8 +10755,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_get_http_status = _wire_main_get_http_statusPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_get_option(int port_, ffi.Pointer<wire_uint_8_list> key) {
-    return _wire_main_get_option(port_, key);
+  void wire_main_get_option(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> key,
+  ) {
+    return _wire_main_get_option(
+      port_,
+      key,
+    );
   }
 
   late final _wire_main_get_optionPtr = _lookup<
@@ -10722,8 +10772,12 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_get_option = _wire_main_get_optionPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_main_get_option_sync(ffi.Pointer<wire_uint_8_list> key) {
-    return _wire_main_get_option_sync(key);
+  WireSyncReturn wire_main_get_option_sync(
+    ffi.Pointer<wire_uint_8_list> key,
+  ) {
+    return _wire_main_get_option_sync(
+      key,
+    );
   }
 
   late final _wire_main_get_option_syncPtr = _lookup<
@@ -10733,19 +10787,26 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_get_option_sync = _wire_main_get_option_syncPtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_get_error(int port_) {
-    return _wire_main_get_error(port_);
+  void wire_main_get_error(
+    int port_,
+  ) {
+    return _wire_main_get_error(
+      port_,
+    );
   }
 
   late final _wire_main_get_errorPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_error',
-  );
+          'wire_main_get_error');
   late final _wire_main_get_error =
       _wire_main_get_errorPtr.asFunction<void Function(int)>();
 
-  WireSyncReturn wire_main_show_option(ffi.Pointer<wire_uint_8_list> _key) {
-    return _wire_main_show_option(_key);
+  WireSyncReturn wire_main_show_option(
+    ffi.Pointer<wire_uint_8_list> _key,
+  ) {
+    return _wire_main_show_option(
+      _key,
+    );
   }
 
   late final _wire_main_show_optionPtr = _lookup<
@@ -10760,31 +10821,32 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> key,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_main_set_option(port_, key, value);
+    return _wire_main_set_option(
+      port_,
+      key,
+      value,
+    );
   }
 
   late final _wire_main_set_optionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_option');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_set_option');
   late final _wire_main_set_option = _wire_main_set_optionPtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          int, ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_get_options(int port_) {
-    return _wire_main_get_options(port_);
+  void wire_main_get_options(
+    int port_,
+  ) {
+    return _wire_main_get_options(
+      port_,
+    );
   }
 
   late final _wire_main_get_optionsPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_options',
-  );
+          'wire_main_get_options');
   late final _wire_main_get_options =
       _wire_main_get_optionsPtr.asFunction<void Function(int)>();
 
@@ -10794,13 +10856,18 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_get_options_syncPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_get_options_sync',
-  );
+          'wire_main_get_options_sync');
   late final _wire_main_get_options_sync =
       _wire_main_get_options_syncPtr.asFunction<WireSyncReturn Function()>();
 
-  void wire_main_set_options(int port_, ffi.Pointer<wire_uint_8_list> json) {
-    return _wire_main_set_options(port_, json);
+  void wire_main_set_options(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> json,
+  ) {
+    return _wire_main_set_options(
+      port_,
+      json,
+    );
   }
 
   late final _wire_main_set_optionsPtr = _lookup<
@@ -10815,7 +10882,11 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> server,
     bool test_with_proxy,
   ) {
-    return _wire_main_test_if_valid_server(port_, server, test_with_proxy);
+    return _wire_main_test_if_valid_server(
+      port_,
+      server,
+      test_with_proxy,
+    );
   }
 
   late final _wire_main_test_if_valid_serverPtr = _lookup<
@@ -10832,55 +10903,64 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> username,
     ffi.Pointer<wire_uint_8_list> password,
   ) {
-    return _wire_main_set_socks(port_, proxy, username, password);
+    return _wire_main_set_socks(
+      port_,
+      proxy,
+      username,
+      password,
+    );
   }
 
   late final _wire_main_set_socksPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_socks');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_set_socks');
   late final _wire_main_set_socks = _wire_main_set_socksPtr.asFunction<
-      void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+      void Function(int, ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_get_proxy_status(int port_) {
-    return _wire_main_get_proxy_status(port_);
+  void wire_main_get_proxy_status(
+    int port_,
+  ) {
+    return _wire_main_get_proxy_status(
+      port_,
+    );
   }
 
   late final _wire_main_get_proxy_statusPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_proxy_status',
-  );
+          'wire_main_get_proxy_status');
   late final _wire_main_get_proxy_status =
       _wire_main_get_proxy_statusPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_socks(int port_) {
-    return _wire_main_get_socks(port_);
+  void wire_main_get_socks(
+    int port_,
+  ) {
+    return _wire_main_get_socks(
+      port_,
+    );
   }
 
   late final _wire_main_get_socksPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_socks',
-  );
+          'wire_main_get_socks');
   late final _wire_main_get_socks =
       _wire_main_get_socksPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_app_name(int port_) {
-    return _wire_main_get_app_name(port_);
+  void wire_main_get_app_name(
+    int port_,
+  ) {
+    return _wire_main_get_app_name(
+      port_,
+    );
   }
 
   late final _wire_main_get_app_namePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_app_name',
-  );
+          'wire_main_get_app_name');
   late final _wire_main_get_app_name =
       _wire_main_get_app_namePtr.asFunction<void Function(int)>();
 
@@ -10890,8 +10970,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_get_app_name_syncPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_get_app_name_sync',
-  );
+          'wire_main_get_app_name_sync');
   late final _wire_main_get_app_name_sync =
       _wire_main_get_app_name_syncPtr.asFunction<WireSyncReturn Function()>();
 
@@ -10901,46 +10980,60 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_uri_prefix_syncPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_uri_prefix_sync',
-  );
+          'wire_main_uri_prefix_sync');
   late final _wire_main_uri_prefix_sync =
       _wire_main_uri_prefix_syncPtr.asFunction<WireSyncReturn Function()>();
 
-  void wire_main_get_license(int port_) {
-    return _wire_main_get_license(port_);
+  void wire_main_get_license(
+    int port_,
+  ) {
+    return _wire_main_get_license(
+      port_,
+    );
   }
 
   late final _wire_main_get_licensePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_license',
-  );
+          'wire_main_get_license');
   late final _wire_main_get_license =
       _wire_main_get_licensePtr.asFunction<void Function(int)>();
 
-  void wire_main_get_version(int port_) {
-    return _wire_main_get_version(port_);
+  void wire_main_get_version(
+    int port_,
+  ) {
+    return _wire_main_get_version(
+      port_,
+    );
   }
 
   late final _wire_main_get_versionPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_version',
-  );
+          'wire_main_get_version');
   late final _wire_main_get_version =
       _wire_main_get_versionPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_fav(int port_) {
-    return _wire_main_get_fav(port_);
+  void wire_main_get_fav(
+    int port_,
+  ) {
+    return _wire_main_get_fav(
+      port_,
+    );
   }
 
   late final _wire_main_get_favPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_fav',
-  );
+          'wire_main_get_fav');
   late final _wire_main_get_fav =
       _wire_main_get_favPtr.asFunction<void Function(int)>();
 
-  void wire_main_store_fav(int port_, ffi.Pointer<wire_StringList> favs) {
-    return _wire_main_store_fav(port_, favs);
+  void wire_main_store_fav(
+    int port_,
+    ffi.Pointer<wire_StringList> favs,
+  ) {
+    return _wire_main_store_fav(
+      port_,
+      favs,
+    );
   }
 
   late final _wire_main_store_favPtr = _lookup<
@@ -10950,8 +11043,12 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_store_fav = _wire_main_store_favPtr
       .asFunction<void Function(int, ffi.Pointer<wire_StringList>)>();
 
-  WireSyncReturn wire_main_get_peer_sync(ffi.Pointer<wire_uint_8_list> id) {
-    return _wire_main_get_peer_sync(id);
+  WireSyncReturn wire_main_get_peer_sync(
+    ffi.Pointer<wire_uint_8_list> id,
+  ) {
+    return _wire_main_get_peer_sync(
+      id,
+    );
   }
 
   late final _wire_main_get_peer_syncPtr = _lookup<
@@ -10961,76 +11058,96 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_get_peer_sync = _wire_main_get_peer_syncPtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_get_lan_peers(int port_) {
-    return _wire_main_get_lan_peers(port_);
+  void wire_main_get_lan_peers(
+    int port_,
+  ) {
+    return _wire_main_get_lan_peers(
+      port_,
+    );
   }
 
   late final _wire_main_get_lan_peersPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_lan_peers',
-  );
+          'wire_main_get_lan_peers');
   late final _wire_main_get_lan_peers =
       _wire_main_get_lan_peersPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_connect_status(int port_) {
-    return _wire_main_get_connect_status(port_);
+  void wire_main_get_connect_status(
+    int port_,
+  ) {
+    return _wire_main_get_connect_status(
+      port_,
+    );
   }
 
   late final _wire_main_get_connect_statusPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_connect_status',
-  );
+          'wire_main_get_connect_status');
   late final _wire_main_get_connect_status =
       _wire_main_get_connect_statusPtr.asFunction<void Function(int)>();
 
-  void wire_main_check_connect_status(int port_) {
-    return _wire_main_check_connect_status(port_);
+  void wire_main_check_connect_status(
+    int port_,
+  ) {
+    return _wire_main_check_connect_status(
+      port_,
+    );
   }
 
   late final _wire_main_check_connect_statusPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_check_connect_status',
-  );
+          'wire_main_check_connect_status');
   late final _wire_main_check_connect_status =
       _wire_main_check_connect_statusPtr.asFunction<void Function(int)>();
 
-  void wire_main_is_using_public_server(int port_) {
-    return _wire_main_is_using_public_server(port_);
+  void wire_main_is_using_public_server(
+    int port_,
+  ) {
+    return _wire_main_is_using_public_server(
+      port_,
+    );
   }
 
   late final _wire_main_is_using_public_serverPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_is_using_public_server',
-  );
+          'wire_main_is_using_public_server');
   late final _wire_main_is_using_public_server =
       _wire_main_is_using_public_serverPtr.asFunction<void Function(int)>();
 
-  void wire_main_discover(int port_) {
-    return _wire_main_discover(port_);
+  void wire_main_discover(
+    int port_,
+  ) {
+    return _wire_main_discover(
+      port_,
+    );
   }
 
   late final _wire_main_discoverPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_discover',
-  );
+          'wire_main_discover');
   late final _wire_main_discover =
       _wire_main_discoverPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_api_server(int port_) {
-    return _wire_main_get_api_server(port_);
+  void wire_main_get_api_server(
+    int port_,
+  ) {
+    return _wire_main_get_api_server(
+      port_,
+    );
   }
 
   late final _wire_main_get_api_serverPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_api_server',
-  );
+          'wire_main_get_api_server');
   late final _wire_main_get_api_server =
       _wire_main_get_api_serverPtr.asFunction<void Function(int)>();
 
   WireSyncReturn wire_main_resolve_avatar_url(
     ffi.Pointer<wire_uint_8_list> avatar,
   ) {
-    return _wire_main_resolve_avatar_url(avatar);
+    return _wire_main_resolve_avatar_url(
+      avatar,
+    );
   }
 
   late final _wire_main_resolve_avatar_urlPtr = _lookup<
@@ -11047,29 +11164,37 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> body,
     ffi.Pointer<wire_uint_8_list> header,
   ) {
-    return _wire_main_http_request(port_, url, method, body, header);
+    return _wire_main_http_request(
+      port_,
+      url,
+      method,
+      body,
+      header,
+    );
   }
 
   late final _wire_main_http_requestPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_http_request');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_http_request');
   late final _wire_main_http_request = _wire_main_http_requestPtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          int,
+          ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_main_get_local_option(ffi.Pointer<wire_uint_8_list> key) {
-    return _wire_main_get_local_option(key);
+  WireSyncReturn wire_main_get_local_option(
+    ffi.Pointer<wire_uint_8_list> key,
+  ) {
+    return _wire_main_get_local_option(
+      key,
+    );
   }
 
   late final _wire_main_get_local_optionPtr = _lookup<
@@ -11085,14 +11210,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_get_use_texture_renderPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_get_use_texture_render',
-  );
+          'wire_main_get_use_texture_render');
   late final _wire_main_get_use_texture_render =
       _wire_main_get_use_texture_renderPtr
           .asFunction<WireSyncReturn Function()>();
 
-  WireSyncReturn wire_main_get_env(ffi.Pointer<wire_uint_8_list> key) {
-    return _wire_main_get_env(key);
+  WireSyncReturn wire_main_get_env(
+    ffi.Pointer<wire_uint_8_list> key,
+  ) {
+    return _wire_main_get_env(
+      key,
+    );
   }
 
   late final _wire_main_get_envPtr = _lookup<
@@ -11106,43 +11234,40 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> key,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_main_set_env(key, value);
+    return _wire_main_set_env(
+      key,
+      value,
+    );
   }
 
   late final _wire_main_set_envPtr = _lookup<
       ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_env');
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_set_env');
   late final _wire_main_set_env = _wire_main_set_envPtr.asFunction<
       WireSyncReturn Function(
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_main_set_local_option(
     int port_,
     ffi.Pointer<wire_uint_8_list> key,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_main_set_local_option(port_, key, value);
+    return _wire_main_set_local_option(
+      port_,
+      key,
+      value,
+    );
   }
 
   late final _wire_main_set_local_optionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_local_option');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_set_local_option');
   late final _wire_main_set_local_option =
       _wire_main_set_local_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_main_handle_wayland_screencast_restore_token(
     int port_,
@@ -11157,19 +11282,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   }
 
   late final _wire_main_handle_wayland_screencast_restore_tokenPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_handle_wayland_screencast_restore_token');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_main_handle_wayland_screencast_restore_token');
   late final _wire_main_handle_wayland_screencast_restore_token =
       _wire_main_handle_wayland_screencast_restore_tokenPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_main_get_input_source() {
     return _wire_main_get_input_source();
@@ -11177,8 +11297,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_get_input_sourcePtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_get_input_source',
-  );
+          'wire_main_get_input_source');
   late final _wire_main_get_input_source =
       _wire_main_get_input_sourcePtr.asFunction<WireSyncReturn Function()>();
 
@@ -11187,26 +11306,30 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_main_set_input_source(port_, session_id, value);
+    return _wire_main_set_input_source(
+      port_,
+      session_id,
+      value,
+    );
   }
 
   late final _wire_main_set_input_sourcePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_input_source');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_set_input_source');
   late final _wire_main_set_input_source =
       _wire_main_set_input_sourcePtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_main_set_cursor_position(int x, int y) {
-    return _wire_main_set_cursor_position(x, y);
+  WireSyncReturn wire_main_set_cursor_position(
+    int x,
+    int y,
+  ) {
+    return _wire_main_set_cursor_position(
+      x,
+      y,
+    );
   }
 
   late final _wire_main_set_cursor_positionPtr = _lookup<
@@ -11222,40 +11345,47 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int bottom,
     bool enable,
   ) {
-    return _wire_main_clip_cursor(left, top, right, bottom, enable);
+    return _wire_main_clip_cursor(
+      left,
+      top,
+      right,
+      bottom,
+      enable,
+    );
   }
 
   late final _wire_main_clip_cursorPtr = _lookup<
       ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Int32,
-            ffi.Int32,
-            ffi.Int32,
-            ffi.Int32,
-            ffi.Bool,
-          )>>('wire_main_clip_cursor');
+          WireSyncReturn Function(ffi.Int32, ffi.Int32, ffi.Int32, ffi.Int32,
+              ffi.Bool)>>('wire_main_clip_cursor');
   late final _wire_main_clip_cursor = _wire_main_clip_cursorPtr
       .asFunction<WireSyncReturn Function(int, int, int, int, bool)>();
 
-  void wire_main_get_my_id(int port_) {
-    return _wire_main_get_my_id(port_);
+  void wire_main_get_my_id(
+    int port_,
+  ) {
+    return _wire_main_get_my_id(
+      port_,
+    );
   }
 
   late final _wire_main_get_my_idPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_my_id',
-  );
+          'wire_main_get_my_id');
   late final _wire_main_get_my_id =
       _wire_main_get_my_idPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_uuid(int port_) {
-    return _wire_main_get_uuid(port_);
+  void wire_main_get_uuid(
+    int port_,
+  ) {
+    return _wire_main_get_uuid(
+      port_,
+    );
   }
 
   late final _wire_main_get_uuidPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_uuid',
-  );
+          'wire_main_get_uuid');
   late final _wire_main_get_uuid =
       _wire_main_get_uuidPtr.asFunction<void Function(int)>();
 
@@ -11264,86 +11394,85 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> id,
     ffi.Pointer<wire_uint_8_list> key,
   ) {
-    return _wire_main_get_peer_option(port_, id, key);
+    return _wire_main_get_peer_option(
+      port_,
+      id,
+      key,
+    );
   }
 
   late final _wire_main_get_peer_optionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_get_peer_option');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_get_peer_option');
   late final _wire_main_get_peer_option =
       _wire_main_get_peer_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_main_get_peer_option_sync(
     ffi.Pointer<wire_uint_8_list> id,
     ffi.Pointer<wire_uint_8_list> key,
   ) {
-    return _wire_main_get_peer_option_sync(id, key);
+    return _wire_main_get_peer_option_sync(
+      id,
+      key,
+    );
   }
 
   late final _wire_main_get_peer_option_syncPtr = _lookup<
-      ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_get_peer_option_sync');
+          ffi.NativeFunction<
+              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_main_get_peer_option_sync');
   late final _wire_main_get_peer_option_sync =
       _wire_main_get_peer_option_syncPtr.asFunction<
           WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_main_get_peer_flutter_option_sync(
     ffi.Pointer<wire_uint_8_list> id,
     ffi.Pointer<wire_uint_8_list> k,
   ) {
-    return _wire_main_get_peer_flutter_option_sync(id, k);
+    return _wire_main_get_peer_flutter_option_sync(
+      id,
+      k,
+    );
   }
 
   late final _wire_main_get_peer_flutter_option_syncPtr = _lookup<
-      ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_get_peer_flutter_option_sync');
+          ffi.NativeFunction<
+              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_main_get_peer_flutter_option_sync');
   late final _wire_main_get_peer_flutter_option_sync =
       _wire_main_get_peer_flutter_option_syncPtr.asFunction<
           WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_main_set_peer_flutter_option_sync(
     ffi.Pointer<wire_uint_8_list> id,
     ffi.Pointer<wire_uint_8_list> k,
     ffi.Pointer<wire_uint_8_list> v,
   ) {
-    return _wire_main_set_peer_flutter_option_sync(id, k, v);
+    return _wire_main_set_peer_flutter_option_sync(
+      id,
+      k,
+      v,
+    );
   }
 
   late final _wire_main_set_peer_flutter_option_syncPtr = _lookup<
-      ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_peer_flutter_option_sync');
+          ffi.NativeFunction<
+              WireSyncReturn Function(
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_main_set_peer_flutter_option_sync');
   late final _wire_main_set_peer_flutter_option_sync =
       _wire_main_set_peer_flutter_option_syncPtr.asFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_main_set_peer_option(
     int port_,
@@ -11351,85 +11480,93 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> key,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_main_set_peer_option(port_, id, key, value);
+    return _wire_main_set_peer_option(
+      port_,
+      id,
+      key,
+      value,
+    );
   }
 
   late final _wire_main_set_peer_optionPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_peer_option');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_set_peer_option');
   late final _wire_main_set_peer_option =
       _wire_main_set_peer_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_main_set_peer_option_sync(
     ffi.Pointer<wire_uint_8_list> id,
     ffi.Pointer<wire_uint_8_list> key,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_main_set_peer_option_sync(id, key, value);
+    return _wire_main_set_peer_option_sync(
+      id,
+      key,
+      value,
+    );
   }
 
   late final _wire_main_set_peer_option_syncPtr = _lookup<
-      ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_peer_option_sync');
+          ffi.NativeFunction<
+              WireSyncReturn Function(
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_main_set_peer_option_sync');
   late final _wire_main_set_peer_option_sync =
       _wire_main_set_peer_option_syncPtr.asFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_main_set_peer_alias(
     int port_,
     ffi.Pointer<wire_uint_8_list> id,
     ffi.Pointer<wire_uint_8_list> alias,
   ) {
-    return _wire_main_set_peer_alias(port_, id, alias);
+    return _wire_main_set_peer_alias(
+      port_,
+      id,
+      alias,
+    );
   }
 
   late final _wire_main_set_peer_aliasPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_peer_alias');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_set_peer_alias');
   late final _wire_main_set_peer_alias =
       _wire_main_set_peer_aliasPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_get_new_stored_peers(int port_) {
-    return _wire_main_get_new_stored_peers(port_);
+  void wire_main_get_new_stored_peers(
+    int port_,
+  ) {
+    return _wire_main_get_new_stored_peers(
+      port_,
+    );
   }
 
   late final _wire_main_get_new_stored_peersPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_new_stored_peers',
-  );
+          'wire_main_get_new_stored_peers');
   late final _wire_main_get_new_stored_peers =
       _wire_main_get_new_stored_peersPtr.asFunction<void Function(int)>();
 
-  void wire_main_forget_password(int port_, ffi.Pointer<wire_uint_8_list> id) {
-    return _wire_main_forget_password(port_, id);
+  void wire_main_forget_password(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> id,
+  ) {
+    return _wire_main_forget_password(
+      port_,
+      id,
+    );
   }
 
   late final _wire_main_forget_passwordPtr = _lookup<
@@ -11443,7 +11580,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> id,
   ) {
-    return _wire_main_peer_has_password(port_, id);
+    return _wire_main_peer_has_password(
+      port_,
+      id,
+    );
   }
 
   late final _wire_main_peer_has_passwordPtr = _lookup<
@@ -11453,8 +11593,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_peer_has_password = _wire_main_peer_has_passwordPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_peer_exists(int port_, ffi.Pointer<wire_uint_8_list> id) {
-    return _wire_main_peer_exists(port_, id);
+  void wire_main_peer_exists(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> id,
+  ) {
+    return _wire_main_peer_exists(
+      port_,
+      id,
+    );
   }
 
   late final _wire_main_peer_existsPtr = _lookup<
@@ -11464,14 +11610,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_peer_exists = _wire_main_peer_existsPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_load_recent_peers(int port_) {
-    return _wire_main_load_recent_peers(port_);
+  void wire_main_load_recent_peers(
+    int port_,
+  ) {
+    return _wire_main_load_recent_peers(
+      port_,
+    );
   }
 
   late final _wire_main_load_recent_peersPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_load_recent_peers',
-  );
+          'wire_main_load_recent_peers');
   late final _wire_main_load_recent_peers =
       _wire_main_load_recent_peersPtr.asFunction<void Function(int)>();
 
@@ -11479,7 +11628,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> filter,
   ) {
-    return _wire_main_load_recent_peers_for_ab(port_, filter);
+    return _wire_main_load_recent_peers_for_ab(
+      port_,
+      filter,
+    );
   }
 
   late final _wire_main_load_recent_peers_for_abPtr = _lookup<
@@ -11490,25 +11642,31 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_main_load_recent_peers_for_abPtr
           .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_load_fav_peers(int port_) {
-    return _wire_main_load_fav_peers(port_);
+  void wire_main_load_fav_peers(
+    int port_,
+  ) {
+    return _wire_main_load_fav_peers(
+      port_,
+    );
   }
 
   late final _wire_main_load_fav_peersPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_load_fav_peers',
-  );
+          'wire_main_load_fav_peers');
   late final _wire_main_load_fav_peers =
       _wire_main_load_fav_peersPtr.asFunction<void Function(int)>();
 
-  void wire_main_load_lan_peers(int port_) {
-    return _wire_main_load_lan_peers(port_);
+  void wire_main_load_lan_peers(
+    int port_,
+  ) {
+    return _wire_main_load_lan_peers(
+      port_,
+    );
   }
 
   late final _wire_main_load_lan_peersPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_load_lan_peers',
-  );
+          'wire_main_load_lan_peers');
   late final _wire_main_load_lan_peers =
       _wire_main_load_lan_peersPtr.asFunction<void Function(int)>();
 
@@ -11516,7 +11674,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> id,
   ) {
-    return _wire_main_remove_discovered(port_, id);
+    return _wire_main_remove_discovered(
+      port_,
+      id,
+    );
   }
 
   late final _wire_main_remove_discoveredPtr = _lookup<
@@ -11526,8 +11687,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_remove_discovered = _wire_main_remove_discoveredPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_change_theme(int port_, ffi.Pointer<wire_uint_8_list> dark) {
-    return _wire_main_change_theme(port_, dark);
+  void wire_main_change_theme(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> dark,
+  ) {
+    return _wire_main_change_theme(
+      port_,
+      dark,
+    );
   }
 
   late final _wire_main_change_themePtr = _lookup<
@@ -11541,7 +11708,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> lang,
   ) {
-    return _wire_main_change_language(port_, lang);
+    return _wire_main_change_language(
+      port_,
+      lang,
+    );
   }
 
   late final _wire_main_change_languagePtr = _lookup<
@@ -11551,14 +11721,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_change_language = _wire_main_change_languagePtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_main_video_save_directory(bool root) {
-    return _wire_main_video_save_directory(root);
+  WireSyncReturn wire_main_video_save_directory(
+    bool root,
+  ) {
+    return _wire_main_video_save_directory(
+      root,
+    );
   }
 
   late final _wire_main_video_save_directoryPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function(ffi.Bool)>>(
-    'wire_main_video_save_directory',
-  );
+          'wire_main_video_save_directory');
   late final _wire_main_video_save_directory =
       _wire_main_video_save_directoryPtr
           .asFunction<WireSyncReturn Function(bool)>();
@@ -11568,28 +11741,29 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> key,
     ffi.Pointer<wire_uint_8_list> value,
   ) {
-    return _wire_main_set_user_default_option(port_, key, value);
+    return _wire_main_set_user_default_option(
+      port_,
+      key,
+      value,
+    );
   }
 
   late final _wire_main_set_user_default_optionPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_user_default_option');
+          ffi.NativeFunction<
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_main_set_user_default_option');
   late final _wire_main_set_user_default_option =
       _wire_main_set_user_default_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_main_get_user_default_option(
     ffi.Pointer<wire_uint_8_list> key,
   ) {
-    return _wire_main_get_user_default_option(key);
+    return _wire_main_get_user_default_option(
+      key,
+    );
   }
 
   late final _wire_main_get_user_default_optionPtr = _lookup<
@@ -11600,8 +11774,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_main_get_user_default_optionPtr
           .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_handle_relay_id(int port_, ffi.Pointer<wire_uint_8_list> id) {
-    return _wire_main_handle_relay_id(port_, id);
+  void wire_main_handle_relay_id(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> id,
+  ) {
+    return _wire_main_handle_relay_id(
+      port_,
+      id,
+    );
   }
 
   late final _wire_main_handle_relay_idPtr = _lookup<
@@ -11611,8 +11791,12 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_handle_relay_id = _wire_main_handle_relay_idPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_main_is_option_fixed(ffi.Pointer<wire_uint_8_list> key) {
-    return _wire_main_is_option_fixed(key);
+  WireSyncReturn wire_main_is_option_fixed(
+    ffi.Pointer<wire_uint_8_list> key,
+  ) {
+    return _wire_main_is_option_fixed(
+      key,
+    );
   }
 
   late final _wire_main_is_option_fixedPtr = _lookup<
@@ -11628,8 +11812,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_get_main_displayPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_get_main_display',
-  );
+          'wire_main_get_main_display');
   late final _wire_main_get_main_display =
       _wire_main_get_main_displayPtr.asFunction<WireSyncReturn Function()>();
 
@@ -11639,8 +11822,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_get_displaysPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_get_displays',
-  );
+          'wire_main_get_displays');
   late final _wire_main_get_displays =
       _wire_main_get_displaysPtr.asFunction<WireSyncReturn Function()>();
 
@@ -11663,28 +11845,26 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_add_port_forwardPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-          )>>('wire_session_add_port_forward');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32)>>('wire_session_add_port_forward');
   late final _wire_session_add_port_forward =
       _wire_session_add_port_forwardPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>, int,
+              ffi.Pointer<wire_uint_8_list>, int)>();
 
   void wire_session_remove_port_forward(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     int local_port,
   ) {
-    return _wire_session_remove_port_forward(port_, session_id, local_port);
+    return _wire_session_remove_port_forward(
+      port_,
+      session_id,
+      local_port,
+    );
   }
 
   late final _wire_session_remove_port_forwardPtr = _lookup<
@@ -11699,7 +11879,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_new_rdp(port_, session_id);
+    return _wire_session_new_rdp(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_new_rdpPtr = _lookup<
@@ -11713,7 +11896,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_request_voice_call(port_, session_id);
+    return _wire_session_request_voice_call(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_request_voice_callPtr = _lookup<
@@ -11728,7 +11914,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_close_voice_call(port_, session_id);
+    return _wire_session_close_voice_call(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_close_voice_callPtr = _lookup<
@@ -11741,7 +11930,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   WireSyncReturn wire_session_get_conn_token(
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_conn_token(session_id);
+    return _wire_session_get_conn_token(
+      session_id,
+    );
   }
 
   late final _wire_session_get_conn_tokenPtr = _lookup<
@@ -11751,8 +11942,16 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_get_conn_token = _wire_session_get_conn_tokenPtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_cm_handle_incoming_voice_call(int port_, int id, bool accept) {
-    return _wire_cm_handle_incoming_voice_call(port_, id, accept);
+  void wire_cm_handle_incoming_voice_call(
+    int port_,
+    int id,
+    bool accept,
+  ) {
+    return _wire_cm_handle_incoming_voice_call(
+      port_,
+      id,
+      accept,
+    );
   }
 
   late final _wire_cm_handle_incoming_voice_callPtr = _lookup<
@@ -11763,14 +11962,19 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_cm_handle_incoming_voice_callPtr
           .asFunction<void Function(int, int, bool)>();
 
-  void wire_cm_close_voice_call(int port_, int id) {
-    return _wire_cm_close_voice_call(port_, id);
+  void wire_cm_close_voice_call(
+    int port_,
+    int id,
+  ) {
+    return _wire_cm_close_voice_call(
+      port_,
+      id,
+    );
   }
 
   late final _wire_cm_close_voice_callPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Int32)>>(
-    'wire_cm_close_voice_call',
-  );
+          'wire_cm_close_voice_call');
   late final _wire_cm_close_voice_call =
       _wire_cm_close_voice_callPtr.asFunction<void Function(int, int)>();
 
@@ -11779,7 +11983,11 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     bool _is_cm,
     ffi.Pointer<wire_uint_8_list> _device,
   ) {
-    return _wire_set_voice_call_input_device(port_, _is_cm, _device);
+    return _wire_set_voice_call_input_device(
+      port_,
+      _is_cm,
+      _device,
+    );
   }
 
   late final _wire_set_voice_call_input_devicePtr = _lookup<
@@ -11791,70 +11999,90 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_set_voice_call_input_devicePtr.asFunction<
           void Function(int, bool, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_get_voice_call_input_device(int port_, bool _is_cm) {
-    return _wire_get_voice_call_input_device(port_, _is_cm);
+  void wire_get_voice_call_input_device(
+    int port_,
+    bool _is_cm,
+  ) {
+    return _wire_get_voice_call_input_device(
+      port_,
+      _is_cm,
+    );
   }
 
   late final _wire_get_voice_call_input_devicePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Bool)>>(
-    'wire_get_voice_call_input_device',
-  );
+          'wire_get_voice_call_input_device');
   late final _wire_get_voice_call_input_device =
       _wire_get_voice_call_input_devicePtr
           .asFunction<void Function(int, bool)>();
 
-  void wire_main_get_last_remote_id(int port_) {
-    return _wire_main_get_last_remote_id(port_);
+  void wire_main_get_last_remote_id(
+    int port_,
+  ) {
+    return _wire_main_get_last_remote_id(
+      port_,
+    );
   }
 
   late final _wire_main_get_last_remote_idPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_last_remote_id',
-  );
+          'wire_main_get_last_remote_id');
   late final _wire_main_get_last_remote_id =
       _wire_main_get_last_remote_idPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_software_update_url(int port_) {
-    return _wire_main_get_software_update_url(port_);
+  void wire_main_get_software_update_url(
+    int port_,
+  ) {
+    return _wire_main_get_software_update_url(
+      port_,
+    );
   }
 
   late final _wire_main_get_software_update_urlPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_software_update_url',
-  );
+          'wire_main_get_software_update_url');
   late final _wire_main_get_software_update_url =
       _wire_main_get_software_update_urlPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_home_dir(int port_) {
-    return _wire_main_get_home_dir(port_);
+  void wire_main_get_home_dir(
+    int port_,
+  ) {
+    return _wire_main_get_home_dir(
+      port_,
+    );
   }
 
   late final _wire_main_get_home_dirPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_home_dir',
-  );
+          'wire_main_get_home_dir');
   late final _wire_main_get_home_dir =
       _wire_main_get_home_dirPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_langs(int port_) {
-    return _wire_main_get_langs(port_);
+  void wire_main_get_langs(
+    int port_,
+  ) {
+    return _wire_main_get_langs(
+      port_,
+    );
   }
 
   late final _wire_main_get_langsPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_langs',
-  );
+          'wire_main_get_langs');
   late final _wire_main_get_langs =
       _wire_main_get_langsPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_temporary_password(int port_) {
-    return _wire_main_get_temporary_password(port_);
+  void wire_main_get_temporary_password(
+    int port_,
+  ) {
+    return _wire_main_get_temporary_password(
+      port_,
+    );
   }
 
   late final _wire_main_get_temporary_passwordPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_temporary_password',
-  );
+          'wire_main_get_temporary_password');
   late final _wire_main_get_temporary_password =
       _wire_main_get_temporary_passwordPtr.asFunction<void Function(int)>();
 
@@ -11862,7 +12090,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> password,
   ) {
-    return _wire_main_set_permanent_password_with_result(port_, password);
+    return _wire_main_set_permanent_password_with_result(
+      port_,
+      password,
+    );
   }
 
   late final _wire_main_set_permanent_password_with_resultPtr = _lookup<
@@ -11873,47 +12104,61 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_main_set_permanent_password_with_resultPtr
           .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_get_fingerprint(int port_) {
-    return _wire_main_get_fingerprint(port_);
+  void wire_main_get_fingerprint(
+    int port_,
+  ) {
+    return _wire_main_get_fingerprint(
+      port_,
+    );
   }
 
   late final _wire_main_get_fingerprintPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_fingerprint',
-  );
+          'wire_main_get_fingerprint');
   late final _wire_main_get_fingerprint =
       _wire_main_get_fingerprintPtr.asFunction<void Function(int)>();
 
-  void wire_cm_get_clients_state(int port_) {
-    return _wire_cm_get_clients_state(port_);
+  void wire_cm_get_clients_state(
+    int port_,
+  ) {
+    return _wire_cm_get_clients_state(
+      port_,
+    );
   }
 
   late final _wire_cm_get_clients_statePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_cm_get_clients_state',
-  );
+          'wire_cm_get_clients_state');
   late final _wire_cm_get_clients_state =
       _wire_cm_get_clients_statePtr.asFunction<void Function(int)>();
 
-  void wire_cm_check_clients_length(int port_, int length) {
-    return _wire_cm_check_clients_length(port_, length);
+  void wire_cm_check_clients_length(
+    int port_,
+    int length,
+  ) {
+    return _wire_cm_check_clients_length(
+      port_,
+      length,
+    );
   }
 
   late final _wire_cm_check_clients_lengthPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.UintPtr)>>(
-    'wire_cm_check_clients_length',
-  );
+          'wire_cm_check_clients_length');
   late final _wire_cm_check_clients_length =
       _wire_cm_check_clients_lengthPtr.asFunction<void Function(int, int)>();
 
-  void wire_cm_get_clients_length(int port_) {
-    return _wire_cm_get_clients_length(port_);
+  void wire_cm_get_clients_length(
+    int port_,
+  ) {
+    return _wire_cm_get_clients_length(
+      port_,
+    );
   }
 
   late final _wire_cm_get_clients_lengthPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_cm_get_clients_length',
-  );
+          'wire_cm_get_clients_length');
   late final _wire_cm_get_clients_length =
       _wire_cm_get_clients_lengthPtr.asFunction<void Function(int)>();
 
@@ -11922,25 +12167,29 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> app_dir,
     ffi.Pointer<wire_uint_8_list> custom_client_config,
   ) {
-    return _wire_main_init(port_, app_dir, custom_client_config);
+    return _wire_main_init(
+      port_,
+      app_dir,
+      custom_client_config,
+    );
   }
 
   late final _wire_main_initPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_init');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_init');
   late final _wire_main_init = _wire_main_initPtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          int, ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_device_id(int port_, ffi.Pointer<wire_uint_8_list> id) {
-    return _wire_main_device_id(port_, id);
+  void wire_main_device_id(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> id,
+  ) {
+    return _wire_main_device_id(
+      port_,
+      id,
+    );
   }
 
   late final _wire_main_device_idPtr = _lookup<
@@ -11950,8 +12199,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_device_id = _wire_main_device_idPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_device_name(int port_, ffi.Pointer<wire_uint_8_list> name) {
-    return _wire_main_device_name(port_, name);
+  void wire_main_device_name(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> name,
+  ) {
+    return _wire_main_device_name(
+      port_,
+      name,
+    );
   }
 
   late final _wire_main_device_namePtr = _lookup<
@@ -11961,8 +12216,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_device_name = _wire_main_device_namePtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_remove_peer(int port_, ffi.Pointer<wire_uint_8_list> id) {
-    return _wire_main_remove_peer(port_, id);
+  void wire_main_remove_peer(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> id,
+  ) {
+    return _wire_main_remove_peer(
+      port_,
+      id,
+    );
   }
 
   late final _wire_main_remove_peerPtr = _lookup<
@@ -11978,8 +12239,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_has_hwcodecPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_has_hwcodec',
-  );
+          'wire_main_has_hwcodec');
   late final _wire_main_has_hwcodec =
       _wire_main_has_hwcodecPtr.asFunction<WireSyncReturn Function()>();
 
@@ -11989,8 +12249,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_has_vramPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_has_vram',
-  );
+          'wire_main_has_vram');
   late final _wire_main_has_vram =
       _wire_main_has_vramPtr.asFunction<WireSyncReturn Function()>();
 
@@ -12000,20 +12259,22 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_supported_hwdecodingsPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_supported_hwdecodings',
-  );
+          'wire_main_supported_hwdecodings');
   late final _wire_main_supported_hwdecodings =
       _wire_main_supported_hwdecodingsPtr
           .asFunction<WireSyncReturn Function()>();
 
-  void wire_main_is_root(int port_) {
-    return _wire_main_is_root(port_);
+  void wire_main_is_root(
+    int port_,
+  ) {
+    return _wire_main_is_root(
+      port_,
+    );
   }
 
   late final _wire_main_is_rootPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_is_root',
-  );
+          'wire_main_is_root');
   late final _wire_main_is_root =
       _wire_main_is_rootPtr.asFunction<void Function(int)>();
 
@@ -12023,24 +12284,32 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_get_double_click_timePtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_get_double_click_time',
-  );
+          'wire_get_double_click_time');
   late final _wire_get_double_click_time =
       _wire_get_double_click_timePtr.asFunction<WireSyncReturn Function()>();
 
-  void wire_main_start_dbus_server(int port_) {
-    return _wire_main_start_dbus_server(port_);
+  void wire_main_start_dbus_server(
+    int port_,
+  ) {
+    return _wire_main_start_dbus_server(
+      port_,
+    );
   }
 
   late final _wire_main_start_dbus_serverPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_start_dbus_server',
-  );
+          'wire_main_start_dbus_server');
   late final _wire_main_start_dbus_server =
       _wire_main_start_dbus_serverPtr.asFunction<void Function(int)>();
 
-  void wire_main_save_ab(int port_, ffi.Pointer<wire_uint_8_list> json) {
-    return _wire_main_save_ab(port_, json);
+  void wire_main_save_ab(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> json,
+  ) {
+    return _wire_main_save_ab(
+      port_,
+      json,
+    );
   }
 
   late final _wire_main_save_abPtr = _lookup<
@@ -12050,30 +12319,42 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_save_ab = _wire_main_save_abPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_clear_ab(int port_) {
-    return _wire_main_clear_ab(port_);
+  void wire_main_clear_ab(
+    int port_,
+  ) {
+    return _wire_main_clear_ab(
+      port_,
+    );
   }
 
   late final _wire_main_clear_abPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_clear_ab',
-  );
+          'wire_main_clear_ab');
   late final _wire_main_clear_ab =
       _wire_main_clear_abPtr.asFunction<void Function(int)>();
 
-  void wire_main_load_ab(int port_) {
-    return _wire_main_load_ab(port_);
+  void wire_main_load_ab(
+    int port_,
+  ) {
+    return _wire_main_load_ab(
+      port_,
+    );
   }
 
   late final _wire_main_load_abPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_load_ab',
-  );
+          'wire_main_load_ab');
   late final _wire_main_load_ab =
       _wire_main_load_abPtr.asFunction<void Function(int)>();
 
-  void wire_main_save_group(int port_, ffi.Pointer<wire_uint_8_list> json) {
-    return _wire_main_save_group(port_, json);
+  void wire_main_save_group(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> json,
+  ) {
+    return _wire_main_save_group(
+      port_,
+      json,
+    );
   }
 
   late final _wire_main_save_groupPtr = _lookup<
@@ -12083,25 +12364,31 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_save_group = _wire_main_save_groupPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_clear_group(int port_) {
-    return _wire_main_clear_group(port_);
+  void wire_main_clear_group(
+    int port_,
+  ) {
+    return _wire_main_clear_group(
+      port_,
+    );
   }
 
   late final _wire_main_clear_groupPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_clear_group',
-  );
+          'wire_main_clear_group');
   late final _wire_main_clear_group =
       _wire_main_clear_groupPtr.asFunction<void Function(int)>();
 
-  void wire_main_load_group(int port_) {
-    return _wire_main_load_group(port_);
+  void wire_main_load_group(
+    int port_,
+  ) {
+    return _wire_main_load_group(
+      port_,
+    );
   }
 
   late final _wire_main_load_groupPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_load_group',
-  );
+          'wire_main_load_group');
   late final _wire_main_load_group =
       _wire_main_load_groupPtr.asFunction<void Function(int)>();
 
@@ -12110,51 +12397,50 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> msg,
   ) {
-    return _wire_session_send_pointer(port_, session_id, msg);
+    return _wire_session_send_pointer(
+      port_,
+      session_id,
+      msg,
+    );
   }
 
   late final _wire_session_send_pointerPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_send_pointer');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_send_pointer');
   late final _wire_session_send_pointer =
       _wire_session_send_pointerPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_send_mouse(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> msg,
   ) {
-    return _wire_session_send_mouse(port_, session_id, msg);
+    return _wire_session_send_mouse(
+      port_,
+      session_id,
+      msg,
+    );
   }
 
   late final _wire_session_send_mousePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_send_mouse');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_send_mouse');
   late final _wire_session_send_mouse = _wire_session_send_mousePtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          int, ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_restart_remote_device(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_restart_remote_device(port_, session_id);
+    return _wire_session_restart_remote_device(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_restart_remote_devicePtr = _lookup<
@@ -12169,48 +12455,48 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> typ,
   ) {
-    return _wire_session_get_audit_server_sync(session_id, typ);
+    return _wire_session_get_audit_server_sync(
+      session_id,
+      typ,
+    );
   }
 
   late final _wire_session_get_audit_server_syncPtr = _lookup<
-      ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_get_audit_server_sync');
+          ffi.NativeFunction<
+              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_session_get_audit_server_sync');
   late final _wire_session_get_audit_server_sync =
       _wire_session_get_audit_server_syncPtr.asFunction<
           WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_send_note(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> note,
   ) {
-    return _wire_session_send_note(port_, session_id, note);
+    return _wire_session_send_note(
+      port_,
+      session_id,
+      note,
+    );
   }
 
   late final _wire_session_send_notePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_send_note');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_send_note');
   late final _wire_session_send_note = _wire_session_send_notePtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          int, ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_session_get_last_audit_note(
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_last_audit_note(session_id);
+    return _wire_session_get_last_audit_note(
+      session_id,
+    );
   }
 
   late final _wire_session_get_last_audit_notePtr = _lookup<
@@ -12226,28 +12512,28 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> guid,
   ) {
-    return _wire_session_set_audit_guid(port_, session_id, guid);
+    return _wire_session_set_audit_guid(
+      port_,
+      session_id,
+      guid,
+    );
   }
 
   late final _wire_session_set_audit_guidPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_set_audit_guid');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_set_audit_guid');
   late final _wire_session_set_audit_guid =
       _wire_session_set_audit_guidPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_session_get_audit_guid(
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_audit_guid(session_id);
+    return _wire_session_get_audit_guid(
+      session_id,
+    );
   }
 
   late final _wire_session_get_audit_guidPtr = _lookup<
@@ -12260,7 +12546,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   WireSyncReturn wire_session_get_conn_session_id(
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_get_conn_session_id(session_id);
+    return _wire_session_get_conn_session_id(
+      session_id,
+    );
   }
 
   late final _wire_session_get_conn_session_idPtr = _lookup<
@@ -12275,7 +12563,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_alternative_codecs(port_, session_id);
+    return _wire_session_alternative_codecs(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_alternative_codecsPtr = _lookup<
@@ -12290,7 +12581,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_change_prefer_codec(port_, session_id);
+    return _wire_session_change_prefer_codec(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_change_prefer_codecPtr = _lookup<
@@ -12305,7 +12599,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_session_on_waiting_for_image_dialog_show(port_, session_id);
+    return _wire_session_on_waiting_for_image_dialog_show(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_session_on_waiting_for_image_dialog_showPtr = _lookup<
@@ -12322,17 +12619,18 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int index,
     bool on1,
   ) {
-    return _wire_session_toggle_virtual_display(port_, session_id, index, on1);
+    return _wire_session_toggle_virtual_display(
+      port_,
+      session_id,
+      index,
+      on1,
+    );
   }
 
   late final _wire_session_toggle_virtual_displayPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Bool,
-          )>>('wire_session_toggle_virtual_display');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>, ffi.Int32,
+              ffi.Bool)>>('wire_session_toggle_virtual_display');
   late final _wire_session_toggle_virtual_display =
       _wire_session_toggle_virtual_displayPtr.asFunction<
           void Function(int, ffi.Pointer<wire_uint_8_list>, int, bool)>();
@@ -12356,24 +12654,24 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_session_printer_responsePtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_printer_response');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_printer_response');
   late final _wire_session_printer_response =
       _wire_session_printer_responsePtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>, int,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_set_home_dir(int port_, ffi.Pointer<wire_uint_8_list> _home) {
-    return _wire_main_set_home_dir(port_, _home);
+  void wire_main_set_home_dir(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> _home,
+  ) {
+    return _wire_main_set_home_dir(
+      port_,
+      _home,
+    );
   }
 
   late final _wire_main_set_home_dirPtr = _lookup<
@@ -12386,7 +12684,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   WireSyncReturn wire_main_get_data_dir_ios(
     ffi.Pointer<wire_uint_8_list> app_dir,
   ) {
-    return _wire_main_get_data_dir_ios(app_dir);
+    return _wire_main_get_data_dir_ios(
+      app_dir,
+    );
   }
 
   late final _wire_main_get_data_dir_iosPtr = _lookup<
@@ -12396,47 +12696,59 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_get_data_dir_ios = _wire_main_get_data_dir_iosPtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_stop_service(int port_) {
-    return _wire_main_stop_service(port_);
+  void wire_main_stop_service(
+    int port_,
+  ) {
+    return _wire_main_stop_service(
+      port_,
+    );
   }
 
   late final _wire_main_stop_servicePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_stop_service',
-  );
+          'wire_main_stop_service');
   late final _wire_main_stop_service =
       _wire_main_stop_servicePtr.asFunction<void Function(int)>();
 
-  void wire_main_start_service(int port_) {
-    return _wire_main_start_service(port_);
+  void wire_main_start_service(
+    int port_,
+  ) {
+    return _wire_main_start_service(
+      port_,
+    );
   }
 
   late final _wire_main_start_servicePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_start_service',
-  );
+          'wire_main_start_service');
   late final _wire_main_start_service =
       _wire_main_start_servicePtr.asFunction<void Function(int)>();
 
-  void wire_main_update_temporary_password(int port_) {
-    return _wire_main_update_temporary_password(port_);
+  void wire_main_update_temporary_password(
+    int port_,
+  ) {
+    return _wire_main_update_temporary_password(
+      port_,
+    );
   }
 
   late final _wire_main_update_temporary_passwordPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_update_temporary_password',
-  );
+          'wire_main_update_temporary_password');
   late final _wire_main_update_temporary_password =
       _wire_main_update_temporary_passwordPtr.asFunction<void Function(int)>();
 
-  void wire_main_check_super_user_permission(int port_) {
-    return _wire_main_check_super_user_permission(port_);
+  void wire_main_check_super_user_permission(
+    int port_,
+  ) {
+    return _wire_main_check_super_user_permission(
+      port_,
+    );
   }
 
   late final _wire_main_check_super_user_permissionPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_check_super_user_permission',
-  );
+          'wire_main_check_super_user_permission');
   late final _wire_main_check_super_user_permission =
       _wire_main_check_super_user_permissionPtr
           .asFunction<void Function(int)>();
@@ -12447,13 +12759,16 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_get_unlock_pinPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_get_unlock_pin',
-  );
+          'wire_main_get_unlock_pin');
   late final _wire_main_get_unlock_pin =
       _wire_main_get_unlock_pinPtr.asFunction<WireSyncReturn Function()>();
 
-  WireSyncReturn wire_main_set_unlock_pin(ffi.Pointer<wire_uint_8_list> pin) {
-    return _wire_main_set_unlock_pin(pin);
+  WireSyncReturn wire_main_set_unlock_pin(
+    ffi.Pointer<wire_uint_8_list> pin,
+  ) {
+    return _wire_main_set_unlock_pin(
+      pin,
+    );
   }
 
   late final _wire_main_set_unlock_pinPtr = _lookup<
@@ -12463,30 +12778,42 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_set_unlock_pin = _wire_main_set_unlock_pinPtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_check_mouse_time(int port_) {
-    return _wire_main_check_mouse_time(port_);
+  void wire_main_check_mouse_time(
+    int port_,
+  ) {
+    return _wire_main_check_mouse_time(
+      port_,
+    );
   }
 
   late final _wire_main_check_mouse_timePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_check_mouse_time',
-  );
+          'wire_main_check_mouse_time');
   late final _wire_main_check_mouse_time =
       _wire_main_check_mouse_timePtr.asFunction<void Function(int)>();
 
-  void wire_main_get_mouse_time(int port_) {
-    return _wire_main_get_mouse_time(port_);
+  void wire_main_get_mouse_time(
+    int port_,
+  ) {
+    return _wire_main_get_mouse_time(
+      port_,
+    );
   }
 
   late final _wire_main_get_mouse_timePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_mouse_time',
-  );
+          'wire_main_get_mouse_time');
   late final _wire_main_get_mouse_time =
       _wire_main_get_mouse_timePtr.asFunction<void Function(int)>();
 
-  void wire_main_wol(int port_, ffi.Pointer<wire_uint_8_list> id) {
-    return _wire_main_wol(port_, id);
+  void wire_main_wol(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> id,
+  ) {
+    return _wire_main_wol(
+      port_,
+      id,
+    );
   }
 
   late final _wire_main_wolPtr = _lookup<
@@ -12496,8 +12823,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_wol = _wire_main_wolPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_create_shortcut(int port_, ffi.Pointer<wire_uint_8_list> _id) {
-    return _wire_main_create_shortcut(port_, _id);
+  void wire_main_create_shortcut(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> _id,
+  ) {
+    return _wire_main_create_shortcut(
+      port_,
+      _id,
+    );
   }
 
   late final _wire_main_create_shortcutPtr = _lookup<
@@ -12512,7 +12845,11 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int conn_id,
     ffi.Pointer<wire_uint_8_list> msg,
   ) {
-    return _wire_cm_send_chat(port_, conn_id, msg);
+    return _wire_cm_send_chat(
+      port_,
+      conn_id,
+      msg,
+    );
   }
 
   late final _wire_cm_send_chatPtr = _lookup<
@@ -12522,8 +12859,16 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_cm_send_chat = _wire_cm_send_chatPtr
       .asFunction<void Function(int, int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_cm_login_res(int port_, int conn_id, bool res) {
-    return _wire_cm_login_res(port_, conn_id, res);
+  void wire_cm_login_res(
+    int port_,
+    int conn_id,
+    bool res,
+  ) {
+    return _wire_cm_login_res(
+      port_,
+      conn_id,
+      res,
+    );
   }
 
   late final _wire_cm_login_resPtr = _lookup<
@@ -12533,48 +12878,66 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_cm_login_res =
       _wire_cm_login_resPtr.asFunction<void Function(int, int, bool)>();
 
-  void wire_cm_close_connection(int port_, int conn_id) {
-    return _wire_cm_close_connection(port_, conn_id);
+  void wire_cm_close_connection(
+    int port_,
+    int conn_id,
+  ) {
+    return _wire_cm_close_connection(
+      port_,
+      conn_id,
+    );
   }
 
   late final _wire_cm_close_connectionPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Int32)>>(
-    'wire_cm_close_connection',
-  );
+          'wire_cm_close_connection');
   late final _wire_cm_close_connection =
       _wire_cm_close_connectionPtr.asFunction<void Function(int, int)>();
 
-  void wire_cm_remove_disconnected_connection(int port_, int conn_id) {
-    return _wire_cm_remove_disconnected_connection(port_, conn_id);
+  void wire_cm_remove_disconnected_connection(
+    int port_,
+    int conn_id,
+  ) {
+    return _wire_cm_remove_disconnected_connection(
+      port_,
+      conn_id,
+    );
   }
 
   late final _wire_cm_remove_disconnected_connectionPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Int32)>>(
-    'wire_cm_remove_disconnected_connection',
-  );
+          'wire_cm_remove_disconnected_connection');
   late final _wire_cm_remove_disconnected_connection =
       _wire_cm_remove_disconnected_connectionPtr
           .asFunction<void Function(int, int)>();
 
-  void wire_cm_check_click_time(int port_, int conn_id) {
-    return _wire_cm_check_click_time(port_, conn_id);
+  void wire_cm_check_click_time(
+    int port_,
+    int conn_id,
+  ) {
+    return _wire_cm_check_click_time(
+      port_,
+      conn_id,
+    );
   }
 
   late final _wire_cm_check_click_timePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Int32)>>(
-    'wire_cm_check_click_time',
-  );
+          'wire_cm_check_click_time');
   late final _wire_cm_check_click_time =
       _wire_cm_check_click_timePtr.asFunction<void Function(int, int)>();
 
-  void wire_cm_get_click_time(int port_) {
-    return _wire_cm_get_click_time(port_);
+  void wire_cm_get_click_time(
+    int port_,
+  ) {
+    return _wire_cm_get_click_time(
+      port_,
+    );
   }
 
   late final _wire_cm_get_click_timePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_cm_get_click_time',
-  );
+          'wire_cm_get_click_time');
   late final _wire_cm_get_click_time =
       _wire_cm_get_click_timePtr.asFunction<void Function(int)>();
 
@@ -12584,17 +12947,18 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> name,
     bool enabled,
   ) {
-    return _wire_cm_switch_permission(port_, conn_id, name, enabled);
+    return _wire_cm_switch_permission(
+      port_,
+      conn_id,
+      name,
+      enabled,
+    );
   }
 
   late final _wire_cm_switch_permissionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Int32,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Bool,
-          )>>('wire_cm_switch_permission');
+          ffi.Void Function(ffi.Int64, ffi.Int32, ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_cm_switch_permission');
   late final _wire_cm_switch_permission =
       _wire_cm_switch_permissionPtr.asFunction<
           void Function(int, int, ffi.Pointer<wire_uint_8_list>, bool)>();
@@ -12605,35 +12969,50 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_cm_can_elevatePtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_cm_can_elevate',
-  );
+          'wire_cm_can_elevate');
   late final _wire_cm_can_elevate =
       _wire_cm_can_elevatePtr.asFunction<WireSyncReturn Function()>();
 
-  void wire_cm_elevate_portable(int port_, int conn_id) {
-    return _wire_cm_elevate_portable(port_, conn_id);
+  void wire_cm_elevate_portable(
+    int port_,
+    int conn_id,
+  ) {
+    return _wire_cm_elevate_portable(
+      port_,
+      conn_id,
+    );
   }
 
   late final _wire_cm_elevate_portablePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Int32)>>(
-    'wire_cm_elevate_portable',
-  );
+          'wire_cm_elevate_portable');
   late final _wire_cm_elevate_portable =
       _wire_cm_elevate_portablePtr.asFunction<void Function(int, int)>();
 
-  void wire_cm_switch_back(int port_, int conn_id) {
-    return _wire_cm_switch_back(port_, conn_id);
+  void wire_cm_switch_back(
+    int port_,
+    int conn_id,
+  ) {
+    return _wire_cm_switch_back(
+      port_,
+      conn_id,
+    );
   }
 
   late final _wire_cm_switch_backPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Int32)>>(
-    'wire_cm_switch_back',
-  );
+          'wire_cm_switch_back');
   late final _wire_cm_switch_back =
       _wire_cm_switch_backPtr.asFunction<void Function(int, int)>();
 
-  void wire_cm_get_config(int port_, ffi.Pointer<wire_uint_8_list> name) {
-    return _wire_cm_get_config(port_, name);
+  void wire_cm_get_config(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> name,
+  ) {
+    return _wire_cm_get_config(
+      port_,
+      name,
+    );
   }
 
   late final _wire_cm_get_configPtr = _lookup<
@@ -12643,14 +13022,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_cm_get_config = _wire_cm_get_configPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_get_build_date(int port_) {
-    return _wire_main_get_build_date(port_);
+  void wire_main_get_build_date(
+    int port_,
+  ) {
+    return _wire_main_get_build_date(
+      port_,
+    );
   }
 
   late final _wire_main_get_build_datePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_build_date',
-  );
+          'wire_main_get_build_date');
   late final _wire_main_get_build_date =
       _wire_main_get_build_datePtr.asFunction<void Function(int)>();
 
@@ -12658,26 +13040,28 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> name,
     ffi.Pointer<wire_uint_8_list> locale,
   ) {
-    return _wire_translate(name, locale);
+    return _wire_translate(
+      name,
+      locale,
+    );
   }
 
   late final _wire_translatePtr = _lookup<
       ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_translate');
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_translate');
   late final _wire_translate = _wire_translatePtr.asFunction<
       WireSyncReturn Function(
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_session_get_rgba_size(
     ffi.Pointer<wire_uint_8_list> session_id,
     int display,
   ) {
-    return _wire_session_get_rgba_size(session_id, display);
+    return _wire_session_get_rgba_size(
+      session_id,
+      display,
+    );
   }
 
   late final _wire_session_get_rgba_sizePtr = _lookup<
@@ -12692,7 +13076,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> session_id,
     int display,
   ) {
-    return _wire_session_next_rgba(session_id, display);
+    return _wire_session_next_rgba(
+      session_id,
+      display,
+    );
   }
 
   late final _wire_session_next_rgbaPtr = _lookup<
@@ -12707,16 +13094,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int display,
     int ptr,
   ) {
-    return _wire_session_register_pixelbuffer_texture(session_id, display, ptr);
+    return _wire_session_register_pixelbuffer_texture(
+      session_id,
+      display,
+      ptr,
+    );
   }
 
   late final _wire_session_register_pixelbuffer_texturePtr = _lookup<
       ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.UintPtr,
-            ffi.UintPtr,
-          )>>('wire_session_register_pixelbuffer_texture');
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>, ffi.UintPtr,
+              ffi.UintPtr)>>('wire_session_register_pixelbuffer_texture');
   late final _wire_session_register_pixelbuffer_texture =
       _wire_session_register_pixelbuffer_texturePtr.asFunction<
           WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>, int, int)>();
@@ -12726,22 +13114,29 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int display,
     int ptr,
   ) {
-    return _wire_session_register_gpu_texture(session_id, display, ptr);
+    return _wire_session_register_gpu_texture(
+      session_id,
+      display,
+      ptr,
+    );
   }
 
   late final _wire_session_register_gpu_texturePtr = _lookup<
       ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.UintPtr,
-            ffi.UintPtr,
-          )>>('wire_session_register_gpu_texture');
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>, ffi.UintPtr,
+              ffi.UintPtr)>>('wire_session_register_gpu_texture');
   late final _wire_session_register_gpu_texture =
       _wire_session_register_gpu_texturePtr.asFunction<
           WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>, int, int)>();
 
-  void wire_query_onlines(int port_, ffi.Pointer<wire_StringList> ids) {
-    return _wire_query_onlines(port_, ids);
+  void wire_query_onlines(
+    int port_,
+    ffi.Pointer<wire_StringList> ids,
+  ) {
+    return _wire_query_onlines(
+      port_,
+      ids,
+    );
   }
 
   late final _wire_query_onlinesPtr = _lookup<
@@ -12751,8 +13146,12 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_query_onlines = _wire_query_onlinesPtr
       .asFunction<void Function(int, ffi.Pointer<wire_StringList>)>();
 
-  WireSyncReturn wire_version_to_number(ffi.Pointer<wire_uint_8_list> v) {
-    return _wire_version_to_number(v);
+  WireSyncReturn wire_version_to_number(
+    ffi.Pointer<wire_uint_8_list> v,
+  ) {
+    return _wire_version_to_number(
+      v,
+    );
   }
 
   late final _wire_version_to_numberPtr = _lookup<
@@ -12762,14 +13161,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_version_to_number = _wire_version_to_numberPtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_option_synced(int port_) {
-    return _wire_option_synced(port_);
+  void wire_option_synced(
+    int port_,
+  ) {
+    return _wire_option_synced(
+      port_,
+    );
   }
 
   late final _wire_option_syncedPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_option_synced',
-  );
+          'wire_option_synced');
   late final _wire_option_synced =
       _wire_option_syncedPtr.asFunction<void Function(int)>();
 
@@ -12779,8 +13181,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_is_installedPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_is_installed',
-  );
+          'wire_main_is_installed');
   late final _wire_main_is_installed =
       _wire_main_is_installedPtr.asFunction<WireSyncReturn Function()>();
 
@@ -12790,8 +13191,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_init_input_sourcePtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_init_input_source',
-  );
+          'wire_main_init_input_source');
   late final _wire_main_init_input_source =
       _wire_main_init_input_sourcePtr.asFunction<WireSyncReturn Function()>();
 
@@ -12801,54 +13201,65 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_is_installed_lower_versionPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_is_installed_lower_version',
-  );
+          'wire_main_is_installed_lower_version');
   late final _wire_main_is_installed_lower_version =
       _wire_main_is_installed_lower_versionPtr
           .asFunction<WireSyncReturn Function()>();
 
-  WireSyncReturn wire_main_is_installed_daemon(bool prompt) {
-    return _wire_main_is_installed_daemon(prompt);
+  WireSyncReturn wire_main_is_installed_daemon(
+    bool prompt,
+  ) {
+    return _wire_main_is_installed_daemon(
+      prompt,
+    );
   }
 
   late final _wire_main_is_installed_daemonPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function(ffi.Bool)>>(
-    'wire_main_is_installed_daemon',
-  );
+          'wire_main_is_installed_daemon');
   late final _wire_main_is_installed_daemon = _wire_main_is_installed_daemonPtr
       .asFunction<WireSyncReturn Function(bool)>();
 
-  WireSyncReturn wire_main_is_process_trusted(bool prompt) {
-    return _wire_main_is_process_trusted(prompt);
+  WireSyncReturn wire_main_is_process_trusted(
+    bool prompt,
+  ) {
+    return _wire_main_is_process_trusted(
+      prompt,
+    );
   }
 
   late final _wire_main_is_process_trustedPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function(ffi.Bool)>>(
-    'wire_main_is_process_trusted',
-  );
+          'wire_main_is_process_trusted');
   late final _wire_main_is_process_trusted = _wire_main_is_process_trustedPtr
       .asFunction<WireSyncReturn Function(bool)>();
 
-  WireSyncReturn wire_main_is_can_screen_recording(bool prompt) {
-    return _wire_main_is_can_screen_recording(prompt);
+  WireSyncReturn wire_main_is_can_screen_recording(
+    bool prompt,
+  ) {
+    return _wire_main_is_can_screen_recording(
+      prompt,
+    );
   }
 
   late final _wire_main_is_can_screen_recordingPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function(ffi.Bool)>>(
-    'wire_main_is_can_screen_recording',
-  );
+          'wire_main_is_can_screen_recording');
   late final _wire_main_is_can_screen_recording =
       _wire_main_is_can_screen_recordingPtr
           .asFunction<WireSyncReturn Function(bool)>();
 
-  WireSyncReturn wire_main_is_can_input_monitoring(bool prompt) {
-    return _wire_main_is_can_input_monitoring(prompt);
+  WireSyncReturn wire_main_is_can_input_monitoring(
+    bool prompt,
+  ) {
+    return _wire_main_is_can_input_monitoring(
+      prompt,
+    );
   }
 
   late final _wire_main_is_can_input_monitoringPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function(ffi.Bool)>>(
-    'wire_main_is_can_input_monitoring',
-  );
+          'wire_main_is_can_input_monitoring');
   late final _wire_main_is_can_input_monitoring =
       _wire_main_is_can_input_monitoringPtr
           .asFunction<WireSyncReturn Function(bool)>();
@@ -12859,19 +13270,23 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_is_share_rdpPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_is_share_rdp',
-  );
+          'wire_main_is_share_rdp');
   late final _wire_main_is_share_rdp =
       _wire_main_is_share_rdpPtr.asFunction<WireSyncReturn Function()>();
 
-  void wire_main_set_share_rdp(int port_, bool enable) {
-    return _wire_main_set_share_rdp(port_, enable);
+  void wire_main_set_share_rdp(
+    int port_,
+    bool enable,
+  ) {
+    return _wire_main_set_share_rdp(
+      port_,
+      enable,
+    );
   }
 
   late final _wire_main_set_share_rdpPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Bool)>>(
-    'wire_main_set_share_rdp',
-  );
+          'wire_main_set_share_rdp');
   late final _wire_main_set_share_rdp =
       _wire_main_set_share_rdpPtr.asFunction<void Function(int, bool)>();
 
@@ -12881,8 +13296,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_goto_installPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_goto_install',
-  );
+          'wire_main_goto_install');
   late final _wire_main_goto_install =
       _wire_main_goto_installPtr.asFunction<WireSyncReturn Function()>();
 
@@ -12892,8 +13306,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_get_new_versionPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_get_new_version',
-  );
+          'wire_main_get_new_version');
   late final _wire_main_get_new_version =
       _wire_main_get_new_versionPtr.asFunction<WireSyncReturn Function()>();
 
@@ -12903,8 +13316,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_update_mePtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_update_me',
-  );
+          'wire_main_update_me');
   late final _wire_main_update_me =
       _wire_main_update_mePtr.asFunction<WireSyncReturn Function()>();
 
@@ -12912,7 +13324,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
   ) {
-    return _wire_set_cur_session_id(port_, session_id);
+    return _wire_set_cur_session_id(
+      port_,
+      session_id,
+    );
   }
 
   late final _wire_set_cur_session_idPtr = _lookup<
@@ -12928,20 +13343,22 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_install_show_run_without_installPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_install_show_run_without_install',
-  );
+          'wire_install_show_run_without_install');
   late final _wire_install_show_run_without_install =
       _wire_install_show_run_without_installPtr
           .asFunction<WireSyncReturn Function()>();
 
-  void wire_install_run_without_install(int port_) {
-    return _wire_install_run_without_install(port_);
+  void wire_install_run_without_install(
+    int port_,
+  ) {
+    return _wire_install_run_without_install(
+      port_,
+    );
   }
 
   late final _wire_install_run_without_installPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_install_run_without_install',
-  );
+          'wire_install_run_without_install');
   late final _wire_install_run_without_install =
       _wire_install_run_without_installPtr.asFunction<void Function(int)>();
 
@@ -12950,22 +13367,20 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> options,
     ffi.Pointer<wire_uint_8_list> path,
   ) {
-    return _wire_install_install_me(port_, options, path);
+    return _wire_install_install_me(
+      port_,
+      options,
+      path,
+    );
   }
 
   late final _wire_install_install_mePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_install_install_me');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_install_install_me');
   late final _wire_install_install_me = _wire_install_install_mePtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          int, ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_install_install_path() {
     return _wire_install_install_path();
@@ -12973,8 +13388,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_install_install_pathPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_install_install_path',
-  );
+          'wire_install_install_path');
   late final _wire_install_install_path =
       _wire_install_install_pathPtr.asFunction<WireSyncReturn Function()>();
 
@@ -12984,8 +13398,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_install_install_optionsPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_install_install_options',
-  );
+          'wire_install_install_options');
   late final _wire_install_install_options =
       _wire_install_install_optionsPtr.asFunction<WireSyncReturn Function()>();
 
@@ -12994,7 +13407,11 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> op,
     bool remember_me,
   ) {
-    return _wire_main_account_auth(port_, op, remember_me);
+    return _wire_main_account_auth(
+      port_,
+      op,
+      remember_me,
+    );
   }
 
   late final _wire_main_account_authPtr = _lookup<
@@ -13004,36 +13421,45 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_account_auth = _wire_main_account_authPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>, bool)>();
 
-  void wire_main_account_auth_cancel(int port_) {
-    return _wire_main_account_auth_cancel(port_);
+  void wire_main_account_auth_cancel(
+    int port_,
+  ) {
+    return _wire_main_account_auth_cancel(
+      port_,
+    );
   }
 
   late final _wire_main_account_auth_cancelPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_account_auth_cancel',
-  );
+          'wire_main_account_auth_cancel');
   late final _wire_main_account_auth_cancel =
       _wire_main_account_auth_cancelPtr.asFunction<void Function(int)>();
 
-  void wire_main_account_auth_result(int port_) {
-    return _wire_main_account_auth_result(port_);
+  void wire_main_account_auth_result(
+    int port_,
+  ) {
+    return _wire_main_account_auth_result(
+      port_,
+    );
   }
 
   late final _wire_main_account_auth_resultPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_account_auth_result',
-  );
+          'wire_main_account_auth_result');
   late final _wire_main_account_auth_result =
       _wire_main_account_auth_resultPtr.asFunction<void Function(int)>();
 
-  void wire_main_on_main_window_close(int port_) {
-    return _wire_main_on_main_window_close(port_);
+  void wire_main_on_main_window_close(
+    int port_,
+  ) {
+    return _wire_main_on_main_window_close(
+      port_,
+    );
   }
 
   late final _wire_main_on_main_window_closePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_on_main_window_close',
-  );
+          'wire_main_on_main_window_close');
   late final _wire_main_on_main_window_close =
       _wire_main_on_main_window_closePtr.asFunction<void Function(int)>();
 
@@ -13043,8 +13469,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_current_is_waylandPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_current_is_wayland',
-  );
+          'wire_main_current_is_wayland');
   late final _wire_main_current_is_wayland =
       _wire_main_current_is_waylandPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13054,8 +13479,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_is_login_waylandPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_is_login_wayland',
-  );
+          'wire_main_is_login_wayland');
   late final _wire_main_is_login_wayland =
       _wire_main_is_login_waylandPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13065,8 +13489,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_hide_dockPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_hide_dock',
-  );
+          'wire_main_hide_dock');
   late final _wire_main_hide_dock =
       _wire_main_hide_dockPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13076,8 +13499,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_has_file_clipboardPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_has_file_clipboard',
-  );
+          'wire_main_has_file_clipboard');
   late final _wire_main_has_file_clipboard =
       _wire_main_has_file_clipboardPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13087,50 +13509,64 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_has_gpu_texture_renderPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_has_gpu_texture_render',
-  );
+          'wire_main_has_gpu_texture_render');
   late final _wire_main_has_gpu_texture_render =
       _wire_main_has_gpu_texture_renderPtr
           .asFunction<WireSyncReturn Function()>();
 
-  void wire_cm_init(int port_) {
-    return _wire_cm_init(port_);
+  void wire_cm_init(
+    int port_,
+  ) {
+    return _wire_cm_init(
+      port_,
+    );
   }
 
   late final _wire_cm_initPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>('wire_cm_init');
   late final _wire_cm_init = _wire_cm_initPtr.asFunction<void Function(int)>();
 
-  void wire_main_start_ipc_url_server(int port_) {
-    return _wire_main_start_ipc_url_server(port_);
+  void wire_main_start_ipc_url_server(
+    int port_,
+  ) {
+    return _wire_main_start_ipc_url_server(
+      port_,
+    );
   }
 
   late final _wire_main_start_ipc_url_serverPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_start_ipc_url_server',
-  );
+          'wire_main_start_ipc_url_server');
   late final _wire_main_start_ipc_url_server =
       _wire_main_start_ipc_url_serverPtr.asFunction<void Function(int)>();
 
-  void wire_main_test_wallpaper(int port_, int _second) {
-    return _wire_main_test_wallpaper(port_, _second);
+  void wire_main_test_wallpaper(
+    int port_,
+    int _second,
+  ) {
+    return _wire_main_test_wallpaper(
+      port_,
+      _second,
+    );
   }
 
   late final _wire_main_test_wallpaperPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Uint64)>>(
-    'wire_main_test_wallpaper',
-  );
+          'wire_main_test_wallpaper');
   late final _wire_main_test_wallpaper =
       _wire_main_test_wallpaperPtr.asFunction<void Function(int, int)>();
 
-  void wire_main_support_remove_wallpaper(int port_) {
-    return _wire_main_support_remove_wallpaper(port_);
+  void wire_main_support_remove_wallpaper(
+    int port_,
+  ) {
+    return _wire_main_support_remove_wallpaper(
+      port_,
+    );
   }
 
   late final _wire_main_support_remove_wallpaperPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_support_remove_wallpaper',
-  );
+          'wire_main_support_remove_wallpaper');
   late final _wire_main_support_remove_wallpaper =
       _wire_main_support_remove_wallpaperPtr.asFunction<void Function(int)>();
 
@@ -13140,8 +13576,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_is_incoming_onlyPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_is_incoming_only',
-  );
+          'wire_is_incoming_only');
   late final _wire_is_incoming_only =
       _wire_is_incoming_onlyPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13151,8 +13586,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_is_outgoing_onlyPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_is_outgoing_only',
-  );
+          'wire_is_outgoing_only');
   late final _wire_is_outgoing_only =
       _wire_is_outgoing_onlyPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13162,8 +13596,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_is_custom_clientPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_is_custom_client',
-  );
+          'wire_is_custom_client');
   late final _wire_is_custom_client =
       _wire_is_custom_clientPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13173,8 +13606,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_is_disable_settingsPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_is_disable_settings',
-  );
+          'wire_is_disable_settings');
   late final _wire_is_disable_settings =
       _wire_is_disable_settingsPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13184,8 +13616,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_is_disable_abPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_is_disable_ab',
-  );
+          'wire_is_disable_ab');
   late final _wire_is_disable_ab =
       _wire_is_disable_abPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13195,8 +13626,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_is_disable_accountPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_is_disable_account',
-  );
+          'wire_is_disable_account');
   late final _wire_is_disable_account =
       _wire_is_disable_accountPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13206,8 +13636,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_is_disable_group_panelPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_is_disable_group_panel',
-  );
+          'wire_is_disable_group_panel');
   late final _wire_is_disable_group_panel =
       _wire_is_disable_group_panelPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13217,19 +13646,21 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_is_disable_installationPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_is_disable_installation',
-  );
+          'wire_is_disable_installation');
   late final _wire_is_disable_installation =
       _wire_is_disable_installationPtr.asFunction<WireSyncReturn Function()>();
 
-  void wire_is_preset_password(int port_) {
-    return _wire_is_preset_password(port_);
+  void wire_is_preset_password(
+    int port_,
+  ) {
+    return _wire_is_preset_password(
+      port_,
+    );
   }
 
   late final _wire_is_preset_passwordPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_is_preset_password',
-  );
+          'wire_is_preset_password');
   late final _wire_is_preset_password =
       _wire_is_preset_passwordPtr.asFunction<void Function(int)>();
 
@@ -13239,14 +13670,19 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_is_preset_password_mobile_onlyPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_is_preset_password_mobile_only',
-  );
+          'wire_is_preset_password_mobile_only');
   late final _wire_is_preset_password_mobile_only =
       _wire_is_preset_password_mobile_onlyPtr
           .asFunction<WireSyncReturn Function()>();
 
-  void wire_send_url_scheme(int port_, ffi.Pointer<wire_uint_8_list> _url) {
-    return _wire_send_url_scheme(port_, _url);
+  void wire_send_url_scheme(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> _url,
+  ) {
+    return _wire_send_url_scheme(
+      port_,
+      _url,
+    );
   }
 
   late final _wire_send_url_schemePtr = _lookup<
@@ -13262,30 +13698,33 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> _peer,
     ffi.Pointer<wire_uint_8_list> _event,
   ) {
-    return _wire_plugin_event(port_, _id, _peer, _event);
+    return _wire_plugin_event(
+      port_,
+      _id,
+      _peer,
+      _event,
+    );
   }
 
   late final _wire_plugin_eventPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_plugin_event');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_plugin_event');
   late final _wire_plugin_event = _wire_plugin_eventPtr.asFunction<
-      void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+      void Function(int, ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_plugin_register_event_stream(
     int port_,
     ffi.Pointer<wire_uint_8_list> _id,
   ) {
-    return _wire_plugin_register_event_stream(port_, _id);
+    return _wire_plugin_register_event_stream(
+      port_,
+      _id,
+    );
   }
 
   late final _wire_plugin_register_event_streamPtr = _lookup<
@@ -13301,23 +13740,24 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> _peer,
     ffi.Pointer<wire_uint_8_list> _key,
   ) {
-    return _wire_plugin_get_session_option(_id, _peer, _key);
+    return _wire_plugin_get_session_option(
+      _id,
+      _peer,
+      _key,
+    );
   }
 
   late final _wire_plugin_get_session_optionPtr = _lookup<
-      ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_plugin_get_session_option');
+          ffi.NativeFunction<
+              WireSyncReturn Function(
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_plugin_get_session_option');
   late final _wire_plugin_get_session_option =
       _wire_plugin_get_session_optionPtr.asFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_plugin_set_session_option(
     int port_,
@@ -13326,47 +13766,51 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> _key,
     ffi.Pointer<wire_uint_8_list> _value,
   ) {
-    return _wire_plugin_set_session_option(port_, _id, _peer, _key, _value);
+    return _wire_plugin_set_session_option(
+      port_,
+      _id,
+      _peer,
+      _key,
+      _value,
+    );
   }
 
   late final _wire_plugin_set_session_optionPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_plugin_set_session_option');
+          ffi.NativeFunction<
+              ffi.Void Function(
+                  ffi.Int64,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_plugin_set_session_option');
   late final _wire_plugin_set_session_option =
       _wire_plugin_set_session_optionPtr.asFunction<
           void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+              int,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_plugin_get_shared_option(
     ffi.Pointer<wire_uint_8_list> _id,
     ffi.Pointer<wire_uint_8_list> _key,
   ) {
-    return _wire_plugin_get_shared_option(_id, _key);
+    return _wire_plugin_get_shared_option(
+      _id,
+      _key,
+    );
   }
 
   late final _wire_plugin_get_shared_optionPtr = _lookup<
       ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_plugin_get_shared_option');
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_plugin_get_shared_option');
   late final _wire_plugin_get_shared_option =
       _wire_plugin_get_shared_optionPtr.asFunction<
           WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_plugin_set_shared_option(
     int port_,
@@ -13374,28 +13818,34 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> _key,
     ffi.Pointer<wire_uint_8_list> _value,
   ) {
-    return _wire_plugin_set_shared_option(port_, _id, _key, _value);
+    return _wire_plugin_set_shared_option(
+      port_,
+      _id,
+      _key,
+      _value,
+    );
   }
 
   late final _wire_plugin_set_shared_optionPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_plugin_set_shared_option');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_plugin_set_shared_option');
   late final _wire_plugin_set_shared_option =
       _wire_plugin_set_shared_optionPtr.asFunction<
-          void Function(
-            int,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_plugin_reload(int port_, ffi.Pointer<wire_uint_8_list> _id) {
-    return _wire_plugin_reload(port_, _id);
+  void wire_plugin_reload(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> _id,
+  ) {
+    return _wire_plugin_reload(
+      port_,
+      _id,
+    );
   }
 
   late final _wire_plugin_reloadPtr = _lookup<
@@ -13409,7 +13859,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> _id,
     bool _v,
   ) {
-    return _wire_plugin_enable(_id, _v);
+    return _wire_plugin_enable(
+      _id,
+      _v,
+    );
   }
 
   late final _wire_plugin_enablePtr = _lookup<
@@ -13419,8 +13872,12 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_plugin_enable = _wire_plugin_enablePtr.asFunction<
       WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>, bool)>();
 
-  WireSyncReturn wire_plugin_is_enabled(ffi.Pointer<wire_uint_8_list> _id) {
-    return _wire_plugin_is_enabled(_id);
+  WireSyncReturn wire_plugin_is_enabled(
+    ffi.Pointer<wire_uint_8_list> _id,
+  ) {
+    return _wire_plugin_is_enabled(
+      _id,
+    );
   }
 
   late final _wire_plugin_is_enabledPtr = _lookup<
@@ -13436,14 +13893,19 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_plugin_feature_is_enabledPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_plugin_feature_is_enabled',
-  );
+          'wire_plugin_feature_is_enabled');
   late final _wire_plugin_feature_is_enabled =
       _wire_plugin_feature_is_enabledPtr
           .asFunction<WireSyncReturn Function()>();
 
-  void wire_plugin_sync_ui(int port_, ffi.Pointer<wire_uint_8_list> _sync_to) {
-    return _wire_plugin_sync_ui(port_, _sync_to);
+  void wire_plugin_sync_ui(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> _sync_to,
+  ) {
+    return _wire_plugin_sync_ui(
+      port_,
+      _sync_to,
+    );
   }
 
   late final _wire_plugin_sync_uiPtr = _lookup<
@@ -13453,14 +13915,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_plugin_sync_ui = _wire_plugin_sync_uiPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_plugin_list_reload(int port_) {
-    return _wire_plugin_list_reload(port_);
+  void wire_plugin_list_reload(
+    int port_,
+  ) {
+    return _wire_plugin_list_reload(
+      port_,
+    );
   }
 
   late final _wire_plugin_list_reloadPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_plugin_list_reload',
-  );
+          'wire_plugin_list_reload');
   late final _wire_plugin_list_reload =
       _wire_plugin_list_reloadPtr.asFunction<void Function(int)>();
 
@@ -13469,7 +13934,11 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> _id,
     bool _b,
   ) {
-    return _wire_plugin_install(port_, _id, _b);
+    return _wire_plugin_install(
+      port_,
+      _id,
+      _b,
+    );
   }
 
   late final _wire_plugin_installPtr = _lookup<
@@ -13482,7 +13951,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   WireSyncReturn wire_is_support_multi_ui_session(
     ffi.Pointer<wire_uint_8_list> version,
   ) {
-    return _wire_is_support_multi_ui_session(version);
+    return _wire_is_support_multi_ui_session(
+      version,
+    );
   }
 
   late final _wire_is_support_multi_ui_sessionPtr = _lookup<
@@ -13499,8 +13970,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_is_selinux_enforcingPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_is_selinux_enforcing',
-  );
+          'wire_is_selinux_enforcing');
   late final _wire_is_selinux_enforcing =
       _wire_is_selinux_enforcingPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13510,8 +13980,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_default_privacy_mode_implPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_default_privacy_mode_impl',
-  );
+          'wire_main_default_privacy_mode_impl');
   late final _wire_main_default_privacy_mode_impl =
       _wire_main_default_privacy_mode_implPtr
           .asFunction<WireSyncReturn Function()>();
@@ -13522,8 +13991,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_supported_privacy_mode_implsPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_supported_privacy_mode_impls',
-  );
+          'wire_main_supported_privacy_mode_impls');
   late final _wire_main_supported_privacy_mode_impls =
       _wire_main_supported_privacy_mode_implsPtr
           .asFunction<WireSyncReturn Function()>();
@@ -13534,25 +14002,33 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_supported_input_sourcePtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_supported_input_source',
-  );
+          'wire_main_supported_input_source');
   late final _wire_main_supported_input_source =
       _wire_main_supported_input_sourcePtr
           .asFunction<WireSyncReturn Function()>();
 
-  void wire_main_generate2fa(int port_) {
-    return _wire_main_generate2fa(port_);
+  void wire_main_generate2fa(
+    int port_,
+  ) {
+    return _wire_main_generate2fa(
+      port_,
+    );
   }
 
   late final _wire_main_generate2faPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_generate2fa',
-  );
+          'wire_main_generate2fa');
   late final _wire_main_generate2fa =
       _wire_main_generate2faPtr.asFunction<void Function(int)>();
 
-  void wire_main_verify2fa(int port_, ffi.Pointer<wire_uint_8_list> code) {
-    return _wire_main_verify2fa(port_, code);
+  void wire_main_verify2fa(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> code,
+  ) {
+    return _wire_main_verify2fa(
+      port_,
+      code,
+    );
   }
 
   late final _wire_main_verify2faPtr = _lookup<
@@ -13568,13 +14044,18 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_has_valid_2fa_syncPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_has_valid_2fa_sync',
-  );
+          'wire_main_has_valid_2fa_sync');
   late final _wire_main_has_valid_2fa_sync =
       _wire_main_has_valid_2fa_syncPtr.asFunction<WireSyncReturn Function()>();
 
-  void wire_main_verify_bot(int port_, ffi.Pointer<wire_uint_8_list> token) {
-    return _wire_main_verify_bot(port_, token);
+  void wire_main_verify_bot(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> token,
+  ) {
+    return _wire_main_verify_bot(
+      port_,
+      token,
+    );
   }
 
   late final _wire_main_verify_botPtr = _lookup<
@@ -13590,13 +14071,16 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_has_valid_bot_syncPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_has_valid_bot_sync',
-  );
+          'wire_main_has_valid_bot_sync');
   late final _wire_main_has_valid_bot_sync =
       _wire_main_has_valid_bot_syncPtr.asFunction<WireSyncReturn Function()>();
 
-  WireSyncReturn wire_main_get_hard_option(ffi.Pointer<wire_uint_8_list> key) {
-    return _wire_main_get_hard_option(key);
+  WireSyncReturn wire_main_get_hard_option(
+    ffi.Pointer<wire_uint_8_list> key,
+  ) {
+    return _wire_main_get_hard_option(
+      key,
+    );
   }
 
   late final _wire_main_get_hard_optionPtr = _lookup<
@@ -13609,7 +14093,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   WireSyncReturn wire_main_get_buildin_option(
     ffi.Pointer<wire_uint_8_list> key,
   ) {
-    return _wire_main_get_buildin_option(key);
+    return _wire_main_get_buildin_option(
+      key,
+    );
   }
 
   late final _wire_main_get_buildin_optionPtr = _lookup<
@@ -13619,25 +14105,31 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_get_buildin_option = _wire_main_get_buildin_optionPtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_check_hwcodec(int port_) {
-    return _wire_main_check_hwcodec(port_);
+  void wire_main_check_hwcodec(
+    int port_,
+  ) {
+    return _wire_main_check_hwcodec(
+      port_,
+    );
   }
 
   late final _wire_main_check_hwcodecPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_check_hwcodec',
-  );
+          'wire_main_check_hwcodec');
   late final _wire_main_check_hwcodec =
       _wire_main_check_hwcodecPtr.asFunction<void Function(int)>();
 
-  void wire_main_get_trusted_devices(int port_) {
-    return _wire_main_get_trusted_devices(port_);
+  void wire_main_get_trusted_devices(
+    int port_,
+  ) {
+    return _wire_main_get_trusted_devices(
+      port_,
+    );
   }
 
   late final _wire_main_get_trusted_devicesPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_get_trusted_devices',
-  );
+          'wire_main_get_trusted_devices');
   late final _wire_main_get_trusted_devices =
       _wire_main_get_trusted_devicesPtr.asFunction<void Function(int)>();
 
@@ -13645,7 +14137,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> json,
   ) {
-    return _wire_main_remove_trusted_devices(port_, json);
+    return _wire_main_remove_trusted_devices(
+      port_,
+      json,
+    );
   }
 
   late final _wire_main_remove_trusted_devicesPtr = _lookup<
@@ -13656,14 +14151,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_main_remove_trusted_devicesPtr
           .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_main_clear_trusted_devices(int port_) {
-    return _wire_main_clear_trusted_devices(port_);
+  void wire_main_clear_trusted_devices(
+    int port_,
+  ) {
+    return _wire_main_clear_trusted_devices(
+      port_,
+    );
   }
 
   late final _wire_main_clear_trusted_devicesPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_main_clear_trusted_devices',
-  );
+          'wire_main_clear_trusted_devices');
   late final _wire_main_clear_trusted_devices =
       _wire_main_clear_trusted_devicesPtr.asFunction<void Function(int)>();
 
@@ -13673,8 +14171,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_max_encrypt_lenPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_max_encrypt_len',
-  );
+          'wire_main_max_encrypt_len');
   late final _wire_main_max_encrypt_len =
       _wire_main_max_encrypt_lenPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13682,20 +14179,19 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> email,
     ffi.Pointer<wire_uint_8_list> password,
   ) {
-    return _wire_chainremote_login(email, password);
+    return _wire_chainremote_login(
+      email,
+      password,
+    );
   }
 
   late final _wire_chainremote_loginPtr = _lookup<
       ffi.NativeFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_chainremote_login');
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_chainremote_login');
   late final _wire_chainremote_login = _wire_chainremote_loginPtr.asFunction<
       WireSyncReturn Function(
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_chainremote_logout() {
     return _wire_chainremote_logout();
@@ -13703,8 +14199,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_chainremote_logoutPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_chainremote_logout',
-  );
+          'wire_chainremote_logout');
   late final _wire_chainremote_logout =
       _wire_chainremote_logoutPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13714,8 +14209,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_chainremote_is_authenticatedPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_chainremote_is_authenticated',
-  );
+          'wire_chainremote_is_authenticated');
   late final _wire_chainremote_is_authenticated =
       _wire_chainremote_is_authenticatedPtr
           .asFunction<WireSyncReturn Function()>();
@@ -13726,8 +14220,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_chainremote_get_userPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_chainremote_get_user',
-  );
+          'wire_chainremote_get_user');
   late final _wire_chainremote_get_user =
       _wire_chainremote_get_userPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13737,8 +14230,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_chainremote_get_tokenPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_chainremote_get_token',
-  );
+          'wire_chainremote_get_token');
   late final _wire_chainremote_get_token =
       _wire_chainremote_get_tokenPtr.asFunction<WireSyncReturn Function()>();
 
@@ -13748,15 +14240,16 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_chainremote_get_api_basePtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_chainremote_get_api_base',
-  );
+          'wire_chainremote_get_api_base');
   late final _wire_chainremote_get_api_base =
       _wire_chainremote_get_api_basePtr.asFunction<WireSyncReturn Function()>();
 
   WireSyncReturn wire_chainremote_set_api_base(
     ffi.Pointer<wire_uint_8_list> url,
   ) {
-    return _wire_chainremote_set_api_base(url);
+    return _wire_chainremote_set_api_base(
+      url,
+    );
   }
 
   late final _wire_chainremote_set_api_basePtr = _lookup<
@@ -13766,32 +14259,40 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_chainremote_set_api_base = _wire_chainremote_set_api_basePtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  void wire_chainremote_load_customers(int port_) {
-    return _wire_chainremote_load_customers(port_);
+  void wire_chainremote_load_customers(
+    int port_,
+  ) {
+    return _wire_chainremote_load_customers(
+      port_,
+    );
   }
 
   late final _wire_chainremote_load_customersPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_chainremote_load_customers',
-  );
+          'wire_chainremote_load_customers');
   late final _wire_chainremote_load_customers =
       _wire_chainremote_load_customersPtr.asFunction<void Function(int)>();
 
-  void wire_chainremote_load_favorites(int port_) {
-    return _wire_chainremote_load_favorites(port_);
+  void wire_chainremote_load_favorites(
+    int port_,
+  ) {
+    return _wire_chainremote_load_favorites(
+      port_,
+    );
   }
 
   late final _wire_chainremote_load_favoritesPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-    'wire_chainremote_load_favorites',
-  );
+          'wire_chainremote_load_favorites');
   late final _wire_chainremote_load_favorites =
       _wire_chainremote_load_favoritesPtr.asFunction<void Function(int)>();
 
   WireSyncReturn wire_chainremote_add_favorite(
     ffi.Pointer<wire_uint_8_list> remote_id,
   ) {
-    return _wire_chainremote_add_favorite(remote_id);
+    return _wire_chainremote_add_favorite(
+      remote_id,
+    );
   }
 
   late final _wire_chainremote_add_favoritePtr = _lookup<
@@ -13804,7 +14305,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   WireSyncReturn wire_chainremote_remove_favorite(
     ffi.Pointer<wire_uint_8_list> remote_id,
   ) {
-    return _wire_chainremote_remove_favorite(remote_id);
+    return _wire_chainremote_remove_favorite(
+      remote_id,
+    );
   }
 
   late final _wire_chainremote_remove_favoritePtr = _lookup<
@@ -13818,7 +14321,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   WireSyncReturn wire_chainremote_is_favorite(
     ffi.Pointer<wire_uint_8_list> remote_id,
   ) {
-    return _wire_chainremote_is_favorite(remote_id);
+    return _wire_chainremote_is_favorite(
+      remote_id,
+    );
   }
 
   late final _wire_chainremote_is_favoritePtr = _lookup<
@@ -13834,11 +14339,36 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_chainremote_get_favorite_idsPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_chainremote_get_favorite_ids',
-  );
+          'wire_chainremote_get_favorite_ids');
   late final _wire_chainremote_get_favorite_ids =
       _wire_chainremote_get_favorite_idsPtr
           .asFunction<WireSyncReturn Function()>();
+
+  WireSyncReturn wire_chainremote_get_allow_incoming() {
+    return _wire_chainremote_get_allow_incoming();
+  }
+
+  late final _wire_chainremote_get_allow_incomingPtr =
+      _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
+          'wire_chainremote_get_allow_incoming');
+  late final _wire_chainremote_get_allow_incoming =
+      _wire_chainremote_get_allow_incomingPtr
+          .asFunction<WireSyncReturn Function()>();
+
+  WireSyncReturn wire_chainremote_set_allow_incoming(
+    bool allow,
+  ) {
+    return _wire_chainremote_set_allow_incoming(
+      allow,
+    );
+  }
+
+  late final _wire_chainremote_set_allow_incomingPtr =
+      _lookup<ffi.NativeFunction<WireSyncReturn Function(ffi.Bool)>>(
+          'wire_chainremote_set_allow_incoming');
+  late final _wire_chainremote_set_allow_incoming =
+      _wire_chainremote_set_allow_incomingPtr
+          .asFunction<WireSyncReturn Function(bool)>();
 
   void wire_session_request_new_display_init_msgs(
     int port_,
@@ -13854,11 +14384,8 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_session_request_new_display_init_msgsPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.UintPtr,
-          )>>('wire_session_request_new_display_init_msgs');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.UintPtr)>>('wire_session_request_new_display_init_msgs');
   late final _wire_session_request_new_display_init_msgs =
       _wire_session_request_new_display_init_msgsPtr
           .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>, int)>();
@@ -13869,8 +14396,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_audio_support_loopbackPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_audio_support_loopback',
-  );
+          'wire_main_audio_support_loopback');
   late final _wire_main_audio_support_loopback =
       _wire_main_audio_support_loopbackPtr
           .asFunction<WireSyncReturn Function()>();
@@ -13881,13 +14407,18 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_main_get_printer_namesPtr =
       _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
-    'wire_main_get_printer_names',
-  );
+          'wire_main_get_printer_names');
   late final _wire_main_get_printer_names =
       _wire_main_get_printer_namesPtr.asFunction<WireSyncReturn Function()>();
 
-  void wire_main_get_common(int port_, ffi.Pointer<wire_uint_8_list> key) {
-    return _wire_main_get_common(port_, key);
+  void wire_main_get_common(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> key,
+  ) {
+    return _wire_main_get_common(
+      port_,
+      key,
+    );
   }
 
   late final _wire_main_get_commonPtr = _lookup<
@@ -13897,8 +14428,12 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_get_common = _wire_main_get_commonPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_main_get_common_sync(ffi.Pointer<wire_uint_8_list> key) {
-    return _wire_main_get_common_sync(key);
+  WireSyncReturn wire_main_get_common_sync(
+    ffi.Pointer<wire_uint_8_list> key,
+  ) {
+    return _wire_main_get_common_sync(
+      key,
+    );
   }
 
   late final _wire_main_get_common_syncPtr = _lookup<
@@ -13913,45 +14448,43 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> _key,
     ffi.Pointer<wire_uint_8_list> _value,
   ) {
-    return _wire_main_set_common(port_, _key, _value);
+    return _wire_main_set_common(
+      port_,
+      _key,
+      _value,
+    );
   }
 
   late final _wire_main_set_commonPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_main_set_common');
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_set_common');
   late final _wire_main_set_common = _wire_main_set_commonPtr.asFunction<
       void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+          int, ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_session_get_common_sync(
     ffi.Pointer<wire_uint_8_list> session_id,
     ffi.Pointer<wire_uint_8_list> key,
     ffi.Pointer<wire_uint_8_list> param,
   ) {
-    return _wire_session_get_common_sync(session_id, key, param);
+    return _wire_session_get_common_sync(
+      session_id,
+      key,
+      param,
+    );
   }
 
   late final _wire_session_get_common_syncPtr = _lookup<
       ffi.NativeFunction<
           WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_get_common_sync');
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_get_common_sync');
   late final _wire_session_get_common_sync =
       _wire_session_get_common_syncPtr.asFunction<
-          WireSyncReturn Function(
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>();
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_get_common(
     int port_,
@@ -13959,27 +14492,31 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<wire_uint_8_list> key,
     ffi.Pointer<wire_uint_8_list> param,
   ) {
-    return _wire_session_get_common(port_, session_id, key, param);
+    return _wire_session_get_common(
+      port_,
+      session_id,
+      key,
+      param,
+    );
   }
 
   late final _wire_session_get_commonPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
-            ffi.Int64,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-            ffi.Pointer<wire_uint_8_list>,
-          )>>('wire_session_get_common');
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_get_common');
   late final _wire_session_get_common = _wire_session_get_commonPtr.asFunction<
-      void Function(
-        int,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-        ffi.Pointer<wire_uint_8_list>,
-      )>();
+      void Function(int, ffi.Pointer<wire_uint_8_list>,
+          ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
-  ffi.Pointer<wire_StringList> new_StringList_0(int len) {
-    return _new_StringList_0(len);
+  ffi.Pointer<wire_StringList> new_StringList_0(
+    int len,
+  ) {
+    return _new_StringList_0(
+      len,
+    );
   }
 
   late final _new_StringList_0Ptr = _lookup<
@@ -13988,8 +14525,12 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _new_StringList_0 = _new_StringList_0Ptr
       .asFunction<ffi.Pointer<wire_StringList> Function(int)>();
 
-  ffi.Pointer<wire_int_32_list> new_int_32_list_0(int len) {
-    return _new_int_32_list_0(len);
+  ffi.Pointer<wire_int_32_list> new_int_32_list_0(
+    int len,
+  ) {
+    return _new_int_32_list_0(
+      len,
+    );
   }
 
   late final _new_int_32_list_0Ptr = _lookup<
@@ -13999,8 +14540,12 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _new_int_32_list_0 = _new_int_32_list_0Ptr
       .asFunction<ffi.Pointer<wire_int_32_list> Function(int)>();
 
-  ffi.Pointer<wire_uint_8_list> new_uint_8_list_0(int len) {
-    return _new_uint_8_list_0(len);
+  ffi.Pointer<wire_uint_8_list> new_uint_8_list_0(
+    int len,
+  ) {
+    return _new_uint_8_list_0(
+      len,
+    );
   }
 
   late final _new_uint_8_list_0Ptr = _lookup<
@@ -14010,14 +14555,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _new_uint_8_list_0 = _new_uint_8_list_0Ptr
       .asFunction<ffi.Pointer<wire_uint_8_list> Function(int)>();
 
-  void free_WireSyncReturn(WireSyncReturn ptr) {
-    return _free_WireSyncReturn(ptr);
+  void free_WireSyncReturn(
+    WireSyncReturn ptr,
+  ) {
+    return _free_WireSyncReturn(
+      ptr,
+    );
   }
 
   late final _free_WireSyncReturnPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(WireSyncReturn)>>(
-    'free_WireSyncReturn',
-  );
+          'free_WireSyncReturn');
   late final _free_WireSyncReturn =
       _free_WireSyncReturnPtr.asFunction<void Function(WireSyncReturn)>();
 
@@ -14036,8 +14584,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _handle_applicationShouldOpenUntitledFilePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function()>>(
-    'handle_applicationShouldOpenUntitledFile',
-  );
+          'handle_applicationShouldOpenUntitledFile');
   late final _handle_applicationShouldOpenUntitledFile =
       _handle_applicationShouldOpenUntitledFilePtr
           .asFunction<void Function()>();
@@ -14045,7 +14592,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   ffi.Pointer<ffi.Pointer<ffi.Char>> rustdesk_core_main_args(
     ffi.Pointer<ffi.Int> args_len,
   ) {
-    return _rustdesk_core_main_args(args_len);
+    return _rustdesk_core_main_args(
+      args_len,
+    );
   }
 
   late final _rustdesk_core_main_argsPtr = _lookup<
@@ -14055,8 +14604,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _rustdesk_core_main_args = _rustdesk_core_main_argsPtr.asFunction<
       ffi.Pointer<ffi.Pointer<ffi.Char>> Function(ffi.Pointer<ffi.Int>)>();
 
-  void free_c_args(ffi.Pointer<ffi.Pointer<ffi.Char>> ptr, int len) {
-    return _free_c_args(ptr, len);
+  void free_c_args(
+    ffi.Pointer<ffi.Pointer<ffi.Char>> ptr,
+    int len,
+  ) {
+    return _free_c_args(
+      ptr,
+      len,
+    );
   }
 
   late final _free_c_argsPtr = _lookup<
@@ -14066,8 +14621,14 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _free_c_args = _free_c_argsPtr
       .asFunction<void Function(ffi.Pointer<ffi.Pointer<ffi.Char>>, int)>();
 
-  int get_rustdesk_app_name(ffi.Pointer<ffi.Uint16> buffer, int length) {
-    return _get_rustdesk_app_name(buffer, length);
+  int get_rustdesk_app_name(
+    ffi.Pointer<ffi.Uint16> buffer,
+    int length,
+  ) {
+    return _get_rustdesk_app_name(
+      buffer,
+      length,
+    );
   }
 
   late final _get_rustdesk_app_namePtr = _lookup<
@@ -14081,7 +14642,10 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<ffi.Uint32> session_uuid_str,
     int display,
   ) {
-    return _session_get_rgba(session_uuid_str, display);
+    return _session_get_rgba(
+      session_uuid_str,
+      display,
+    );
   }
 
   late final _session_get_rgbaPtr = _lookup<
@@ -14096,21 +14660,28 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     ffi.Pointer<XRectangle> rectangles,
     int nrectangles,
   ) {
-    return _XFixesCreateRegion(dpy, rectangles, nrectangles);
+    return _XFixesCreateRegion(
+      dpy,
+      rectangles,
+      nrectangles,
+    );
   }
 
   late final _XFixesCreateRegionPtr = _lookup<
       ffi.NativeFunction<
-          XserverRegion Function(
-            ffi.Pointer<Display>,
-            ffi.Pointer<XRectangle>,
-            ffi.Int,
-          )>>('XFixesCreateRegion');
+          XserverRegion Function(ffi.Pointer<Display>, ffi.Pointer<XRectangle>,
+              ffi.Int)>>('XFixesCreateRegion');
   late final _XFixesCreateRegion = _XFixesCreateRegionPtr.asFunction<
       int Function(ffi.Pointer<Display>, ffi.Pointer<XRectangle>, int)>();
 
-  void XFixesDestroyRegion(ffi.Pointer<Display> dpy, int region) {
-    return _XFixesDestroyRegion(dpy, region);
+  void XFixesDestroyRegion(
+    ffi.Pointer<Display> dpy,
+    int region,
+  ) {
+    return _XFixesDestroyRegion(
+      dpy,
+      region,
+    );
   }
 
   late final _XFixesDestroyRegionPtr = _lookup<
@@ -14140,26 +14711,23 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _XFixesSetWindowShapeRegionPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-            ffi.Pointer<Display>,
-            XID,
-            ffi.Int,
-            ffi.Int,
-            ffi.Int,
-            XserverRegion,
-          )>>('XFixesSetWindowShapeRegion');
+          ffi.Void Function(ffi.Pointer<Display>, XID, ffi.Int, ffi.Int,
+              ffi.Int, XserverRegion)>>('XFixesSetWindowShapeRegion');
   late final _XFixesSetWindowShapeRegion =
       _XFixesSetWindowShapeRegionPtr.asFunction<
           void Function(ffi.Pointer<Display>, int, int, int, int, int)>();
 
-  bool MacSetPrivacyMode(bool on1) {
-    return _MacSetPrivacyMode(on1);
+  bool MacSetPrivacyMode(
+    bool on1,
+  ) {
+    return _MacSetPrivacyMode(
+      on1,
+    );
   }
 
   late final _MacSetPrivacyModePtr =
       _lookup<ffi.NativeFunction<ffi.Bool Function(ffi.Bool)>>(
-    'MacSetPrivacyMode',
-  );
+          'MacSetPrivacyMode');
   late final _MacSetPrivacyMode =
       _MacSetPrivacyModePtr.asFunction<bool Function(bool)>();
 }

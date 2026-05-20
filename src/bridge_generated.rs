@@ -5153,6 +5153,31 @@ fn wire_chainremote_get_favorite_ids_impl() -> support::WireSyncReturn {
         move || Ok(chainremote_get_favorite_ids()),
     )
 }
+fn wire_chainremote_get_allow_incoming_impl() -> support::WireSyncReturn {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+        WrapInfo {
+            debug_name: "chainremote_get_allow_incoming",
+            port: None,
+            mode: FfiCallMode::Sync,
+        },
+        move || Ok(chainremote_get_allow_incoming()),
+    )
+}
+fn wire_chainremote_set_allow_incoming_impl(
+    allow: impl Wire2Api<bool> + UnwindSafe,
+) -> support::WireSyncReturn {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+        WrapInfo {
+            debug_name: "chainremote_set_allow_incoming",
+            port: None,
+            mode: FfiCallMode::Sync,
+        },
+        move || {
+            let api_allow = allow.wire2api();
+            Ok(chainremote_set_allow_incoming(api_allow))
+        },
+    )
+}
 fn wire_session_request_new_display_init_msgs_impl(
     port_: MessagePort,
     session_id: impl Wire2Api<uuid::Uuid> + UnwindSafe,
