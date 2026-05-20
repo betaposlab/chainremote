@@ -56,7 +56,8 @@ Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; Flags: del
 Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Phase 1 — 본사 분기 플래그. {app}\custom.txt 로 박혀 HARD_SETTINGS["conn-type"]="outgoing" (송신 전용).
-Source: "custom-hq.txt"; DestDir: "{app}"; DestName: "custom.txt"; Flags: ignoreversion
+; 본사 custom 파일은 win-installer 외부(deploy/) 에 있음 — Mac 빌드와 공유.
+Source: "..\custom-hq.txt"; DestDir: "{app}"; DestName: "custom.txt"; Flags: ignoreversion
 
 [Run]
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\RustDesk\ 로 모든 파일 복사 + 서비스 등록.
