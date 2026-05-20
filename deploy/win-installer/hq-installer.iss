@@ -48,8 +48,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "{#BUILD_DIR}\*"; DestDir: "{tmp}\chainremote_payload"; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
 
-; HQ 는 RustDesk2.toml (rendezvous server) + RustDesk_default.toml (디스플레이 기본값) 만.
-; RustDesk.toml (영구 비번) 은 본사 PC 에 의미 없으므로 제외.
+; 옵션 B+ (2026-05-21): HQ 도 영구비번 toml 박음. 사용자가 "외부 원격 접속 허용"
+; 토글 ON 만 하면 별도 비번 설정 없이 즉시 무인 incoming 가능 (Chang→재성이 컴 시나리오).
+; 토글 OFF 일 땐 hbbs 등록 자체 안 함 → 영구비번 박혀있어도 외부 ID 못 찾음.
+Source: "RustDesk.toml";         DestDir: "{tmp}\chainremote_config"; Flags: deleteafterinstall ignoreversion
 Source: "RustDesk2.toml";        DestDir: "{tmp}\chainremote_config"; Flags: deleteafterinstall ignoreversion
 Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; Flags: deleteafterinstall ignoreversion
 

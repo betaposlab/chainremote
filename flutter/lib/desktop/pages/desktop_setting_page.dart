@@ -966,6 +966,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
               block: locked,
               child: Column(children: [
                 permissions(context),
+                _chainremoteAllowIncomingCard(),
                 password(context),
                 _Card(title: '2FA', hint: 'RustDesk 클라우드 계정용. 우리는 안 씁니다 — 끔(OFF) 권장.', children: [tfa()]),
                 if (!isChangeIdDisabled())
@@ -975,6 +976,59 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
             ),
           ],
         )).marginOnly(bottom: _kListViewBottomMargin);
+  }
+
+  /// ChainRemote 옵션 B+ (2026-05-21): HQ 빌드에서 외부 원격 접속 허용 토글.
+  /// ON 시 → `chainremote-allow-incoming=Y` → rendezvous_mediator 가 hbbs 등록 →
+  /// 다른 본사 PC 가 내 PC 를 원격으로 볼 수 있음. 디폴트 OFF (안전 디폴트).
+  /// 영구비번은 HQ 인스톨러가 박아둠 — 사용자 별도 설정 불필요.
+  Widget _chainremoteAllowIncomingCard() {
+    return _Card(
+      title: '외부 원격 접속 허용',
+      hint:
+          'ON 하면 다른 본사 직원이 내 PC 를 원격으로 볼 수 있습니다 (예: 내가 컴맹이라 동료 도움 필요한 경우).\n'
+          '디폴트 OFF — 안전 디폴트. 1회 ON 하면 영구 유지.\n'
+          '※ 토글 변경 후 ChainRemote 를 한 번 재시작해야 적용됩니다.',
+      children: [
+        StatefulBuilder(builder: (context, setSt) {
+          final allow = bind.chainremoteGetAllowIncoming();
+          return GestureDetector(
+            onTap: locked
+                ? null
+                : () {
+                    bind.chainremoteSetAllowIncoming(allow: !allow);
+                    setSt(() {});
+                    showToast(!allow
+                        ? '외부 원격 접속 ON — ChainRemote 재시작 후 활성화됩니다.'
+                        : '외부 원격 접속 OFF — ChainRemote 재시작 후 차단됩니다.');
+                  },
+            child: Row(
+              children: [
+                Checkbox(
+                  value: allow,
+                  onChanged: locked
+                      ? null
+                      : (v) {
+                          if (v == null) return;
+                          bind.chainremoteSetAllowIncoming(allow: v);
+                          setSt(() {});
+                          showToast(v
+                              ? '외부 원격 접속 ON — ChainRemote 재시작 후 활성화됩니다.'
+                              : '외부 원격 접속 OFF — ChainRemote 재시작 후 차단됩니다.');
+                        },
+                ).marginOnly(right: 5),
+                Expanded(
+                  child: Text(
+                    '이 PC 에 외부 본사 PC 가 원격 접속하도록 허용',
+                    style: TextStyle(color: disabledTextColor(context, !locked)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).marginOnly(left: _kCheckBoxLeftMargin),
+      ],
+    );
   }
 
   Widget tfa() {

@@ -2285,6 +2285,16 @@ pub extern "C" fn wire_chainremote_get_favorite_ids() -> support::WireSyncReturn
 }
 
 #[no_mangle]
+pub extern "C" fn wire_chainremote_get_allow_incoming() -> support::WireSyncReturn {
+    wire_chainremote_get_allow_incoming_impl()
+}
+
+#[no_mangle]
+pub extern "C" fn wire_chainremote_set_allow_incoming(allow: bool) -> support::WireSyncReturn {
+    wire_chainremote_set_allow_incoming_impl(allow)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_session_request_new_display_init_msgs(
     port_: i64,
     session_id: *mut wire_uint_8_list,
