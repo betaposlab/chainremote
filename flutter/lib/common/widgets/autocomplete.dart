@@ -42,7 +42,8 @@ class AllPeersLoader {
     _isPeersLoading = true;
 
     if (gFFI.recentPeersModel.peers.isEmpty) {
-      bind.mainLoadRecentPeers();
+      // ChainRemote 본사 앱: 진실 원천 = 관리 패널 DB. (Phase 2-C)
+      bind.chainremoteLoadCustomers();
     }
     if (gFFI.lanPeersModel.peers.isEmpty) {
       bind.mainLoadLanPeers();

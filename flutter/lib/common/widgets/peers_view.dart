@@ -613,7 +613,10 @@ class RecentPeersView extends BasePeersView {
   @override
   Widget build(BuildContext context) {
     final widget = super.build(context);
-    bind.mainLoadRecentPeers();
+    // ChainRemote 본사 앱: 로컬 peer toml 대신 관리 패널 DB 의 customers 를 받음.
+    // 이벤트명("load_recent_peers")은 동일 — Flutter 측 Peers 모델 변경 0.
+    // 구현: src/chainremote_data.rs (GET /api/customers + push_global_event)
+    bind.chainremoteLoadCustomers();
     return widget;
   }
 }
@@ -633,7 +636,8 @@ class FavoritePeersView extends BasePeersView {
   @override
   Widget build(BuildContext context) {
     final widget = super.build(context);
-    bind.mainLoadFavPeers();
+    // ChainRemote 본사 앱: 즐겨찾기는 user 별로 DB 의 user_favorites 에서 옴. (Phase 2-D)
+    bind.chainremoteLoadFavorites();
     return widget;
   }
 }

@@ -33,6 +33,11 @@ pub use version::*;
 // ChainRemote 자체 버전 (별도 파일 — version.rs 는 빌드 자동 생성이라 .gitignore)
 mod chainremote_version;
 pub use chainremote_version::*;
+// ChainRemote 관리 패널 인증 (Phase 2-B)
+pub mod chainremote_auth;
+// ChainRemote 관리 패널 데이터 fetcher (Phase 2-C)
+#[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
+pub mod chainremote_data;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 mod bridge_generated;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]

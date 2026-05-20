@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/consts.dart';
+import 'package:flutter_hbb/desktop/pages/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
@@ -49,8 +50,10 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
         selectedIcon: Icons.home_sharp,
         unselectedIcon: Icons.home_outlined,
         closable: false,
-        page: DesktopHomePage(
-          key: const ValueKey(kTabLabelHomePage),
+        page: ChainRemoteAuthGate(
+          child: DesktopHomePage(
+            key: const ValueKey(kTabLabelHomePage),
+          ),
         )));
     if (bind.isIncomingOnly()) {
       tabController.onSelected = (key) {

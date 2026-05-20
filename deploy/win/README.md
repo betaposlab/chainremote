@@ -1,6 +1,15 @@
-# 윈컴 배포 템플릿 (Step C 진행 시 핵심 자산)
+# ⚠️ DEPRECATED — Step C 이전(2026-05-02)의 PowerShell 수동 셋업 방식
 
-거래처용 ChainRemote 윈컴 셋업 자동화 스크립트.
+> 이 폴더는 **`deploy/win-installer/`의 `ChainRemote_Setup.exe`로 완전히 대체됨**.
+> 신규 거래처 배포에는 절대 사용하지 말 것. 역사적 참고용으로만 보존.
+>
+> 여기 적혀 있던 3대 한계(Mac LAN HTTP 호스팅, `--password` 미동작, 단일 비번)는
+> Inno Setup 인스톨러 + v1.2.0 LocalService toml 양쪽 배치 + 영구 비번 평문→자동해싱으로 모두 해소됨.
+> 현행 방식은 [`deploy/win-installer/README.md`](../win-installer/README.md) 참조.
+
+---
+
+## (히스토리) 거래처용 ChainRemote 윈컴 셋업 자동화 스크립트
 
 ## 파일
 

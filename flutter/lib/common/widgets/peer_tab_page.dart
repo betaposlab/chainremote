@@ -396,15 +396,15 @@ class _PeerTabPageState extends State<PeerTabPage>
                 for (var p in peers) {
                   await bind.mainRemovePeer(id: p.id);
                 }
-                bind.mainLoadRecentPeers();
+                // ChainRemote 본사 앱: 진실 원천 = 관리 패널 DB. (Phase 2-C)
+                bind.chainremoteLoadCustomers();
                 break;
               case 1:
-                final favs = (await bind.mainGetFav()).toList();
-                peers.map((p) {
-                  favs.remove(p.id);
-                }).toList();
-                await bind.mainStoreFav(favs: favs);
-                bind.mainLoadFavPeers();
+                // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+                for (var p in peers) {
+                  bind.chainremoteRemoveFavorite(remoteId: p.id);
+                }
+                bind.chainremoteLoadFavorites();
                 break;
               case 2:
                 for (var p in peers) {
@@ -437,13 +437,10 @@ class _PeerTabPageState extends State<PeerTabPage>
         toolTip: translate('Add to Favorites'),
         onTap: () async {
           final peers = model.selectedPeers;
-          final favs = (await bind.mainGetFav()).toList();
+          // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
           for (var p in peers) {
-            if (!favs.contains(p.id)) {
-              favs.add(p.id);
-            }
+            bind.chainremoteAddFavorite(remoteId: p.id);
           }
-          await bind.mainStoreFav(favs: favs);
           model.setMultiSelectionMode(false);
           showToast(translate('Successful'));
         },

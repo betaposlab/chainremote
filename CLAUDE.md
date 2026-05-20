@@ -34,27 +34,99 @@
 - **테스트 서버 우선**: 모든 배포는 테스트 → 본서버/GitHub push는 Chang 지시 시에만.
 - **결과만 보고**: 코드 덤프 X, 간결한 완료 보고만.
 
-## 미해결 이슈 (2026-05-04 발견 — 해결 진행 중)
+### 앱 구조 불변 원칙 (2026-05-20 확정)
+이 셋은 어떤 상황·시나리오에서도 유지된다. UI/IA 설계 시 전제로 깔 것.
 
-### 이슈 1: 인스톨러가 toml 을 잘못된 경로에 배치 (LICENSE_MISMATCH 의 root cause)
-- **증상**: `ChainRemote_Setup.exe` 로 깐 PC 가 ChainRemote UI 의 ID/릴레이/Key 필드 모두 비어 있음. 수동 입력해도 POS→Mac 시도 시 "키가 일치하지 않습니다" 에러.
-- **분석** ([client.rs:498-499](src/client.rs:498)): hbbs 서버가 LICENSE_MISMATCH 응답 → 클라이언트 키가 서버 공개키와 불일치. user 가 toml 수정해도 무효.
-- **근본 원인** ([config.rs:484-485](libs/hbb_common/src/config.rs:484)): RustDesk 가 **서비스 모드** 로 구동되면 `C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\` 를 읽음. 인스톨러는 `%APPDATA%\RustDesk\config\` (사용자 폴더) 에만 박음 → 서비스가 빈 key 로 서버에 등록 시도.
-- **왜 LAN 에선 Mac→POS 가 됐나**: P2P punch hole 로 직결되어 서버 키 검증 우회. POS→Mac 방향에서야 POS 가 요청자가 되며 키 검증 → 실패.
-- **임시 해결** (이미 배포된 PC): cmd 관리자 권한으로 LocalService 경로에 toml 직접 박고 서비스 재시작.
-- **영구 해결** (다음 인스톨러 빌드): `installer.iss` 의 `[Files]` 에 LocalService 경로 추가 + `[Run]` 에서 `--silent-install` 전후로 서비스 stop/start.
+1. **본사 빌드는 한 벌, 거래처 빌드는 별도.** 본사 직원이 늘어도(Chang·재성·향후 더) 본사 빌드는 1개. 차이는 로그인 계정으로만 갈라짐.
+2. **거래처 풀의 진실 원천은 관리 패널 DB.** 로컬 peer 캐시 아님. Chang이 등록한 거래처를 재성이가 자기 본사 앱에서 그대로 봐야 함. 동시에 누가 어디 들어가 있는지(presence) 서로 보여야 사고 방지.
+3. ~~판매 대비 멀티테넌시~~ **폐기 (2026-05-20)**: 판매 안 함. 우리 팀(betaposlab) 전용. 단, DB 스키마의 tenant_id는 이미 들어있으니 그대로 둠(제거할 이유 없음).
 
-### 이슈 2: 사무실/외출 시 관리 패널 DB 도달 불가
-- **증상**: Mac 을 사무실로 가져가면 `localhost:3000/customers` 에서 `connect ETIMEDOUT 192.168.68.103:15432`.
-- **원인**: 관리 패널 .env.local 이 NAS 의 LAN IP `192.168.68.103:15432` 직접 사용. 외부 네트워크에서 도달 불가.
-- **추가**: 클라이언트들의 `21114/api/sysinfo` heartbeat 도 외부에서 timeout (포트 포워딩 없음, 21115-21118 만 노출). 신규 POS 가 콘솔에 자동 등록 안 되는 이유.
-- **해결 방향**: Tailscale (mesh VPN) 로 Mac↔NAS 묶음. DB 는 인터넷 노출 금지. 21114 는 별도로 포트 포워딩 추가 (RustDesk hbbs API 는 공개 노출 전제 설계, 위험도 낮음).
+### 앱 구조 청사진 (2026-05-20 8개 결정)
 
-### 이슈 3: 어제 풀린 줄 알았던 Mac TCC 도 LAN P2P 덕에 부분만 검증된 가능성
-- 어젯밤 윈컴↔Mac 동작 확인했지만 둘 다 같은 LAN 이라 P2P 직결. 외부 네트워크에서 검증 안 됨.
-- 위 두 이슈 풀린 후 외부망에서 재검증 필요.
+판매 없음. Chang+재성이(향후 1~2명 더)가 자기 PC에서 우리 거래처들을 원격 지원하는 사내 도구.
 
-## 현재 단계 (2026-05-02 종료)
+```
+┌── 거래처 윈컴 (별도 빌드) ──┐
+│ ChainRemote 서비스 (트레이만)│
+│ • 본사 접속 수신만           │
+│ • 비번 1회 설정 → 영원히 0클릭│
+│ • 설정/거래처목록 화면 없음   │
+└────────────┬────────────────┘
+             │ RustDesk 프로토콜 (NAS hbbs)
+┌────────────┴───────────┐  ┌──────────────────────┐
+│ 본사 ChainRemote 앱     │  │ 관리 패널 (브라우저) │
+│ (Chang Mac, 재성이 Win) │  │                      │
+│ 로그인 chang|jaesung    │  │ 로그인 chang|jaesung │
+│ [홈 = RustDesk 스샷 모양]│  │ • 모든 거래처 표      │
+│ • 전체 거래처(DB에서)   │  │ • 모든 직원 즐겨찾기  │
+│ • 즐겨찾기 탭 (내 것만) │  │ • 지원이력           │
+│ • 최근 세션 (내 것만)   │  │ • 권한 관리          │
+│ • 1클릭 원격 + presence │  │                      │
+│ • [업데이트 확인] 버튼   │  └──────┬───────────────┘
+└────────┬────────────────┘         │
+         └──── NAS PostgreSQL ◄─────┘
+              (진실 원천)
+              • customers, users
+              • user_favorites ← 신설 필요
+              • support_sessions
+```
+
+**8개 결정 (변경 시 전체 작전 재검토):**
+1. 판매 없음. 우리 팀 전용.
+2. 거래처 빌드 = 수신만. 별도 빌드(--role=agent).
+3. 본사 앱 로그인 (chang/jaesung 각자 비번 6002).
+4. 동시간 각자 다른 거래처 원격 가능. RustDesk 다중 viewer로 native 지원.
+5. 본사 앱 홈 = 전체 거래처 + "내 즐겨찾기" 탭. 모두 다 보이되 즐겨찾기는 자기 것만.
+6. 관리 패널 = 모든 직원의 즐겨찾기까지 조회 가능. user_favorites 테이블 신설.
+7. 권한: **chang = 모두**. **jaesung = 읽기 + 원격 + 거래처 추가 + 자기 즐겨찾기 관리**. 거래처 수정/삭제·직원 관리는 chang만.
+8. 업데이트 = 현재 방식 유지 (B-2 완성: 설정에 "업데이트 확인" 버튼 → 즉시 설치). 24h 자동 폴링도 그대로.
+
+**부수 결정:**
+- 본사 앱 메인의 "내 ID 큰 표시" 폐기 (본사 PC는 피지원자 아님).
+- importPeer 유지하되 역할 변경: "자동 등록" → "신규 ID 발견 시 1클릭 등록 알림". 진실 원천 DB와 모순 없음.
+
+### 작업 순서 (Phase 1~3) — Phase 2 가 먼저 진행 중
+
+- **Phase 1** (대기): 거래처 빌드 분리 (--role=agent). 거래처 UI = 트레이만 + ID/비번/정보 한 화면. "서비스 중지" 버튼 제거.
+- **Phase 2** (4/6 sub 완료, 2026-05-20):
+  - ✅ 2-A DB 토대: `user_favorites` 마이그레이션 + Bearer JWT 인증 (`lib/api-auth.ts`) + REST API 8개 라우트 + 패널 Server Actions 와 `lib/data/` 공유 레이어
+  - ✅ 2-B 본사 앱 로그인: `chainremote_auth.rs` + `ChainRemoteAuthGate` + FFI 7개. 토큰 LocalConfig 저장 (chainremote-token, chainremote-user)
+  - ✅ 2-C 거래처 목록 DB: `chainremote_data.rs::spawn_load_customers` → push_global_event("load_recent_peers"). Flutter 측 6개 호출 자리 `mainLoadRecentPeers` → `chainremoteLoadCustomers` 교체
+  - ✅ 2-D 즐겨찾기 user별: `user_favorites` 테이블 + load/add/remove + (remote_id→UUID) 캐시 + 8자리 Flutter 호출 교체. platform="Windows" cosmetic 픽스.
+  - ⏳ 2-E presence + "내 ID 큰 표시" 폐기 + 설정에 "업데이트 확인" 버튼(B-2 마무리)
+  - ⏳ 2-F Mac 빌드 + 외부망 검증 (이슈 2/3)
+- **Phase 3** (대기): 진짜 윈도우 브랜딩 (BINARY_NAME, 서비스명, 아이콘, About).
+
+### Phase 2 의 협업 청사진 (2-D 시점 동작 검증됨)
+```
+Chang Mac (chang 로그인) ─┐
+재성이 Win (jaesung 로그인)─┤  POST /api/auth/token → Bearer JWT (7일)
+향후 직원 ─────────────────┘  ↓
+                              GET /api/customers (모두 같은 4 거래처 봄)
+                              GET /api/me/favorites (자기 것만)
+                              POST /api/me/favorites { customerId } (자기 즐겨찾기)
+                              ↓
+                      NAS PostgreSQL — 진실 원천 1개
+
+## 이슈 트래커
+
+### ✅ 이슈 1: 인스톨러 toml 경로 (LICENSE_MISMATCH) — **해결 (v1.2.0, 2026-05-06)**
+- **증상이었던 것**: `ChainRemote_Setup.exe` 로 깐 PC가 ID/릴레이/Key 필드 비어 있음. POS→Mac 시도 시 "키가 일치하지 않습니다".
+- **근본 원인** ([config.rs:484-485](libs/hbb_common/src/config.rs:484)): RustDesk가 서비스 모드로 구동되면 `C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\` 를 읽는데, 옛 인스톨러는 `%APPDATA%\RustDesk\config\` 만 박았음 → 서비스가 빈 key로 등록 시도.
+- **영구 해결**: v1.2.0 인스톨러가 toml 3종(`RustDesk.toml`+`RustDesk2.toml`+`RustDesk_default.toml`)을 **사용자/LocalService 두 경로 동시 배치**. 인스톨 중 `sc stop`→toml 복사→`sc start` 순서. 영구 비번 평문→자동해싱, `access-mode=full`, 디스플레이/원격커서/음소거/파일복사 기본값도 같이 적용.
+
+### ⏳ 이슈 2: 외부망에서 관리 패널 DB / 21114 heartbeat 도달 불가 — **부분 해결 (Tailscale 적용 중)**
+- **증상**: Mac을 사무실로 가져가면 `localhost:3000/customers` 에서 `connect ETIMEDOUT 192.168.68.103:15432`.
+- **원인**: 관리 패널 `.env.local`이 NAS LAN IP `192.168.68.103:15432` 직접 사용. 외부망 도달 불가.
+- **추가 증상**: 클라이언트의 `21114/api/sysinfo` heartbeat도 외부에서 timeout(21115-21118만 포트 포워딩) → 신규 POS가 콘솔에 자동 등록 안 되는 이유.
+- **해결 방향**: Tailscale(mesh VPN)로 Mac↔NAS 묶음 (메모리 [reference_home_infra] 참조 — 셋업됨). DB는 인터넷 노출 금지. 21114는 별도로 포트 포워딩 추가 검토(RustDesk hbbs API는 공개 노출 전제 설계, 위험도 낮음).
+- **잔여 작업**: 21114 포트 포워딩 결정 + 외부망에서 신규 POS 자동 등록 검증.
+
+### ⏳ 이슈 3: 외부망 P2P / 릴레이 / Mac TCC 재검증 — **미해결**
+- 윈컴↔Mac 동작 확인은 같은 LAN(P2P 직결)에서만. 외부망(릴레이 경유)에서 검증 안 됨.
+- 이슈 2 해결 후 외부망에서 재검증 필요.
+
+## 현재 단계 (2026-05-20 갱신)
 
 ### 완료된 것
 - ✅ Step 1 Mac: 빌드 환경 + 첫 빌드 + 윈컴 원격 테스트
@@ -66,8 +138,12 @@
 - ✅ 무인 접속 모드: 영구 비번 + 부팅 자동 시작 + approve-mode=password
 - ✅ **Step C 거래처 배포 인스톨러**: Inno Setup 으로 `ChainRemote_Setup.exe` 단일 파일 (2026-05-02)
 - ✅ **첫 ChainRemote 자체 개선**: 원격 세션 툴바에 파일 전송 버튼 (Mac 빌드 검증) (2026-05-02)
-- ✅ **인스톨러 v1.2.0 — 자동 기본 설정 + LICENSE_MISMATCH 근본 픽스** (2026-05-06): toml 3종(`RustDesk.toml`+`RustDesk2.toml`+`RustDesk_default.toml`)을 사용자/LocalService 두 경로 동시 배치, `access-mode=full`, 영구비번(`Ch042558~` 평문→자동해싱), 디스플레이/원격커서/음소거/파일복사 기본값 적용, 인스톨 중 `sc stop`→toml 복사→`sc start` 순서. 윈컴 빌드 대기 중.
-- ✅ **자동 업데이트 시스템 B-1** (2026-05-06): `src/chainremote_updater.rs` 신규 — 서비스(LocalSystem)에서 24h 주기로 NAS `latest.json` 폴링, SHA256 검증 후 `C:\ProgramData\ChainRemote\pending\` 에 다운로드, 활성 세션 없을 때 setup.exe 사일런트 적용. 본사 측 `deploy/release.sh` 로 NAS 에 새 버전 푸시. UI/푸시 채널은 B-2 에서.
+- ✅ **인스톨러 v1.2.0 — LICENSE_MISMATCH 근본 픽스** (2026-05-06): toml 3종을 사용자/LocalService 양쪽 배치 + 영구비번 평문→자동해싱 + `access-mode=full` 기본값.
+- ✅ **자동 업데이트 시스템 B-1** (2026-05-06): `src/chainremote_updater.rs` — 서비스에서 24h 폴링, SHA256 검증, 활성 세션 없을 때 사일런트 적용. 본사 측 `deploy/release.sh`로 NAS 푸시.
+- ✅ **v1.2.7 윈컴 풀빌드 함정 7가지 영구 픽스** (2026-05-14): vcpkg manifest 모드, host-triplet 강제, LLVM 18 핀, swresample 패치 Mac 전용 분기, build.py python3 stub 우회 등. 상세는 [deploy/win-build/README.md](deploy/win-build/README.md).
+- ✅ **툴바 아이콘 tofu 픽스** (2026-05-19, 02165c658): `build.py`의 `flutter build --release` 4개 라인에 `--no-tree-shake-icons` 추가.
+- ✅ **watchdog 강화 + v1.2.18 배포** (2026-05-20): 트레이 "서비스 중지"/서비스 삭제 케이스까지 자가치유. virtual_display 제거.
+- ✅ **빌드+배포 원샷 자동화** (2026-05-20, 커밋 8a7da53b9): SSH/Tailscale 경유.
 
 ### 거래처 배포 인스톨러 (Step C 정석, `deploy/win-installer/`, 2026-05-02 완성)
 **결과물**: `ChainRemote_Setup.exe` (~25MB) — 거래처가 더블클릭만으로 원격 셋업 완료.
@@ -189,6 +265,35 @@ sed -i '' 's|_setFramesEnabledState(false);|//_setFramesEnabledState(false);|g' 
 ```
 Flutter SDK 재설치 시 다시 적용 필요.
 
+### Mac 빌드 함정 8 — `.dart_tool` 의 homebrew Flutter SDK 누수 (2026-05-20)
+- **증상**: PATH 에 `~/flutter-3.24.5/bin` 박았는데도 빌드 도중 `/opt/homebrew/share/flutter/packages/flutter/...:engineId` 에러로 실패.
+- **원인**: `flutter/.dart_tool/package_config.json` 의 `flutter` 패키지 rootUri 가 과거 어떤 시점(brew Flutter 3.41.8 로 pub get 한 흔적)에서 `file:///opt/homebrew/share/flutter/packages/flutter` 로 캐시됨. PATH 1순위라도 캐시가 우선.
+- **픽스**: 빌드 전 `rm -rf flutter/.dart_tool` 한 줄 추가 후 `flutter pub get` 재실행. package_config.json 의 rootUri 가 우리 SDK 로 다시 박힘. 확인: `python3 -c "import json; d=json.load(open('flutter/.dart_tool/package_config.json')); [print(p['name'],'→',p['rootUri']) for p in d['packages'] if p['name']=='flutter']"` 가 `~/flutter-3.24.5/packages/flutter` 가리켜야 정상.
+
+### Mac 빌드 함정 9 — `flutter_rust_bridge_codegen` 이 `.dart_tool` 을 brew SDK 로 오염 (2026-05-20)
+- **증상**: 함정 8 픽스 직후 `flutter pub get` 으로 package_config.json 을 우리 SDK 로 박았음에도, codegen 한 번 돌리면 brew Flutter 로 다시 바뀜.
+- **원인**: `flutter_rust_bridge_codegen` 1.80.1 이 내부적으로 dart 도구 호출. dart 가 brew Flutter 일 경우 `.dart_tool` 을 brew 기준으로 재생성.
+- **픽스**: 빌드 워크플로에서 **codegen 직후에도** `rm -rf flutter/.dart_tool && flutter pub get` 박을 것. 즉, 함정 8 의 클린 단계를 codegen 뒤에 한 번 더. CLAUDE.md 의 빌드 + 실행 명령 (위) 이 이미 빌드 직전에 박고 있어서 첫 빌드 정상 작동.
+
+### Mac 빌드 함정 10 — `http_request_sync` 의 헤더 형식 + 응답 wrapper (2026-05-20)
+RustDesk 의 두 HTTP 헬퍼가 서로 다른 헤더 형식을 요구하고, 응답을 다르게 감싼다. 새 API 호출 추가 시 반드시 매칭.
+
+| 함수 | 헤더 입력 형식 | 응답 형식 |
+|---|---|---|
+| `post_request_sync` (common.rs:1494) | `"Name: value"` 단순 split (라인 1425). 그 외 무시 + Content-Type 자동 application/json | raw body 문자열 |
+| `http_request_sync` (common.rs:1648) | **JSON object** `{"Name":"value"}` (라인 1313 `parse_json_header_entries`). array `[{...}]` 는 실패 → "HTTP header information parsing failed!" | **wrapper** `{"body":"<json string>"}` |
+
+- **예전 실수**: 두 함수 모두에 array `[{"name":"Authorization","value":"..."}]` 박았다가 GET 인증 호출이 헤더 없이 가서 401, body 파싱도 wrapper 못 풀어서 `missing field 'customers'` 실패.
+- **정석 패턴**:
+  ```rust
+  // 인증 헤더가 필요한 GET
+  let header = format!(r#"{{"Authorization":"Bearer {}"}}"#, token);
+  let raw = crate::http_request_sync(url, "GET".into(), None, header)?;
+  let inner = serde_json::from_str::<HttpWrapper>(&raw).map(|w| w.body).unwrap_or(raw);
+  let parsed: MyType = serde_json::from_str(&inner)?;
+  ```
+  `HttpWrapper { body: String }` 같은 wrapper 구조체 필수. body 가 stringified JSON 이므로 두 단계 파싱.
+
 ### 빌드 + 실행 명령 (재사용 가능)
 ```bash
 cd ~/내작업/ChainRemote && \
@@ -197,10 +302,19 @@ cd ~/내작업/ChainRemote && \
   VCPKG_ROOT=$HOME/vcpkg \
   MACOSX_DEPLOYMENT_TARGET=12.3 \
   LANG=en_US.UTF-8 \
+  bash -c 'cd flutter && rm -rf .dart_tool && flutter pub get && cd ..' && \
   python3 ./build.py --flutter --unix-file-copy-paste --screencapturekit && \
-  codesign --force --deep --sign - flutter/build/macos/Build/Products/Release/RustDesk.app && \
-  open flutter/build/macos/Build/Products/Release/RustDesk.app
+  pkill -9 RustDesk ChainRemote 2>/dev/null; \
+  rm -rf /Applications/ChainRemote.app && \
+  cp -R flutter/build/macos/Build/Products/Release/RustDesk.app /Applications/ChainRemote.app && \
+  codesign --force --deep --sign - /Applications/ChainRemote.app && \
+  open /Applications/ChainRemote.app
 ```
+
+**왜 `/Applications/ChainRemote.app` 까지 복사하는가** (2026-05-20 함정):
+- `build/macos/Build/Products/Release/RustDesk.app` 가 새 빌드, `/Applications/ChainRemote.app` 가 매일 켜는 것 (Spotlight·Dock). 둘은 다른 파일.
+- build dir 빌드만 갱신하고 `open` 하면 새 코드 검증 가능. 단, Chang/재성이가 평소 Launchpad 로 켜는 건 옛 .app → "코드 적용 안 됨" 착각.
+- 빌드 워크플로에 `/Applications` 복사 + 재서명까지 포함해야 두 vector 일치.
 
 ### 알려진 이슈/생략된 옵션
 - **`--hwcodec` 생략됨**: ffmpeg 컴파일 30~60분 소요. 필요해지면 `vcpkg install ffmpeg` 후 추가.
