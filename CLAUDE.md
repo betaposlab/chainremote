@@ -9,6 +9,47 @@
 - **라이선스**: AGPL v3 (1단계 내부 사용). 사업화 시점에 재결정.
 - **체인오더 시스템과 완전 분리** — 별도 프로젝트.
 
+## Chang 작업 환경 (2026-05-20 기준)
+
+### 데일리 드라이버
+- **MacBook Pro 16" M2 Max** — Chang 의 유일한 데일리 드라이버. 집/사무실 항상 들고 다님.
+- **사무실엔 윈컴 없음.** 사무실에서 윈컴 작업 = 거래처 PC 직접 만지거나 Mac → 집 윈컴 원격.
+
+### 집 윈컴 (Chang 본인 — 빌드/HQ 겸용)
+- **위치**: 집. 사용자명 `zenta`. 절전 모드 기본.
+- **역할**: Windows 빌드 머신 (ChainRemote 풀빌드 환경 셋업 완료) + HQ 워크스테이션 (집에서 거래처 원격 볼 때 큰 모니터 활용).
+- **원격 접속 경로**:
+  - 사무실 Mac → 집 윈컴: **Chrome Remote Desktop** (백업/빌드용 원격). HQ 빌드라 ChainRemote 양방향 불가.
+  - WoL: `gogo` 명령어 (Tailscale 위로 매직패킷). 메모리 [[reference_home_infra]].
+- **빌드 환경**: `C:\src\ChainRemote\`. 풀빌드 도구 (Rust 1.81, Flutter 3.24.5, vcpkg, LLVM 18, Inno Setup 6) 셋업 완료. 함정 7가지 (메모리 [[project_v127_build_pitfalls]]) 영구 픽스됨.
+
+### 재성이 윈컴 (HQ 사용자)
+- **위치**: 사무실 또는 본인 집. Windows 데일리드라이버.
+- **역할**: 순수 HQ 사용자 — 거래처 원격만. 피지원자 아님.
+- **현재 상태 (2026-05-20)**: v1.3.0 HQ 인스톨러 본인 홈피에 게시됨. 내일(2026-05-21) 사무실에서 설치 + `jaesung/6002` 로그인 검증 예정.
+
+### NAS (Synology DS220+ "kimfam")
+- **위치**: 집. KT 1Gbps. 192.168.68.103 (LAN). DDNS `sepani.synology.me`.
+- **서비스**:
+  - hbbs/hbbr (포트 21115~21118): RustDesk 시그널링/릴레이.
+  - PostgreSQL (포트 15432 LAN-only): chainremote DB.
+  - chainremote-admin (Next.js 컨테이너, 포트 3001/3443): 관리 패널 + 본사 앱 API.
+- **외부 접속**:
+  - 본사 앱 API (`http://sepani.synology.me:3001`): HTTP 직노출, 어디서나 도달.
+  - 관리 패널 브라우저 (`https://sepani.synology.me:3443`): HTTPS Reverse Proxy.
+  - DB 직접 노출 안 함.
+- **자세히**: 메모리 [[project_admin_panel]], [[reference_home_infra]].
+
+### 거래처 PC (외부 사용자)
+- **OS**: 윈도우 (POS/키오스크). 100% Windows.
+- **빌드**: Agent (`ChainRemote_Agent_Setup_v*.exe`). 영구비번 + watchdog + 자동업데이트.
+- **현재 셋업된 거래처 5곳**: 중앙리, 우리집(=Chang 집 윈컴, 옛 셋업 잔재), 진희씨 컴, 바다양푼이 동태찜, 재성이 컴.
+
+### 도구 분담 (2026-05-20 옵션 A 결정)
+- **ChainRemote**: 거래처 원격 (POS A/S 본업)
+- **Chrome Remote Desktop**: Chang 개인용 (사무실 Mac → 집 윈컴 빌드). 사업화 시 영향 0.
+- **Tailscale + SSH**: Mac → NAS / 집 윈컴 명령형 작업. 헤드리스 빌드 자동화는 폐기 (메모리 [[feedback_no_autobuild_workflow]]).
+
 ## 절대 원칙
 
 ### 고객 UX (★최우선) — 전략 변경 (2026-04-30)
