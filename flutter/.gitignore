@@ -40,8 +40,9 @@ app.*.map.json
 jniLibs
 .vscode
 
-# flutter rust bridge
-lib/generated_bridge.dart
+# flutter rust bridge — ChainRemote: git tracked 로 전환 (Mac+Win 두 머신 빌드 지원).
+# Mac 에서 codegen 후 commit → 윈컴은 그대로 사용. (freezed 는 빌드시 자동 생성)
+# lib/generated_bridge.dart
 lib/generated_bridge.freezed.dart
 
 # Flutter Generated Files

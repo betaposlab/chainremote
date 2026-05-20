@@ -19,8 +19,11 @@ cert.pfx
 *jpg
 sciter.dll
 **pdb
-src/bridge_generated.rs
-src/bridge_generated.io.rs
+# ChainRemote: bridge codegen 결과를 git tracked 로 전환 (Mac+Win 두 머신 빌드 지원).
+# RustDesk upstream 은 codegen 도구가 PATH 에 있는 단일 빌드 환경 가정이라 ignore 였음.
+# 우리 fork 는 Mac 에서 codegen 후 commit → 윈컴은 그대로 사용.
+# src/bridge_generated.rs
+# src/bridge_generated.io.rs
 *deb
 rustdesk
 *.cache
@@ -42,8 +45,8 @@ flatpak/.flatpak-builder/debian-binary
 flatpak/build/**
 flatpak/repo/**
 flatpak/*.flatpak
-# bridge file
-lib/generated_bridge.dart
+# bridge file — ChainRemote: 위와 같은 이유로 ignore 해제 (Mac+Win 빌드 호환).
+# lib/generated_bridge.dart
 # vscode devcontainer
 .gitconfig
 .vscode-server/
