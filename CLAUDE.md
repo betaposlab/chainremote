@@ -266,13 +266,22 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
 - ✅ [release.sh](deploy/release.sh) — ISS 파일 경로 갱신, REMOTE_FILENAME → `ChainRemote_Agent_Setup_v{version}.exe`. 본사 채널은 자동업데이트 푸시 X (재성이 수동 설치 1회).
 - ⏳ 윈컴에서 `git pull` → Flutter Windows 빌드 (한 번이면 agent/hq 둘 다 커버, custom.txt 만 다름) → `build-iss.ps1 -Target both` → 두 .exe 산출. 함정 7가지(메모리 [project_v127_build_pitfalls]) 대응.
 
-**단계 6 (윈컴 필요, 미완)**:
-- 윈컴 본사용 → 재성이 윈컴에서 `ChainRemote_HQ_Setup_v*.exe` 설치 → `jaesung` 로그인 검증 (2-F 잔여).
-- 거래처용 → 한 거래처 PC 에서 v1.2.18 → v1.3.0 agent 빌드로 자동 업데이트. 무인 접속 비번/설정 유지 확인. 자동업데이트 가 download 하는 URL 안의 파일명이 `ChainRemote_Setup_v*.exe` → `ChainRemote_Agent_Setup_v*.exe` 로 바뀌나 latest.json 의 url 키만 보면 되므로 호환 OK (v1.2.18 updater 의 PENDING_FILE local temp 명은 무관).
+**단계 6 부분 완료 (2026-05-20, Chang 윈컴 dogfooding)**:
+- ✅ Chang 윈컴 v1.3.0 HQ 빌드 설치 검증 — 로그인 + 거래처 5건 + outgoing-only UI 정상.
+- ⏳ 재성이 윈컴 — `ChainRemote_HQ_Setup_v1.3.0.exe` 본인 홈피 게시됨. 내일(2026-05-21) 사무실에서 설치 + `jaesung` 로그인 검증.
+- ⏳ 진희씨 컴 — `ChainRemote_Agent_Setup_v1.3.0.exe` 옛 v1.2.x 위에 덮어쓰기 설치 (재설치보다 깔끔). 내일.
+- ⏳ 한 거래처 자동업데이트 검증 — release.sh 푸시는 위 1차 dogfooding 통과 후. 점진 배포.
 
-**위험**:
-- 거래처 PC 옛 빌드(v1.2.18) → 새 agent 빌드 자동 업데이트 시 무인 접속 비번/설정 유지돼야 함. updater 로직(`src/chainremote_updater.rs`) 확인 필요.
-- 본사용 incoming-없는 빌드는 처음. Flutter UI 분기 빠진 곳 있을 수 있음 — Mac 에서 단계 1~4 검증 후 윈컴 진행.
+**옵션 A 채택 결정 (2026-05-20)**: HQ 양방향화(옵션 B) 안 함.
+- 이유: 판매 시점 UI 멘탈모델 혼란/IT 정책 충돌/보안 책임 모호 등 4~6가지 우려.
+- 집 윈컴 ↔ 사무실 Mac 빌드용 원격은 **Chrome Remote Desktop 백업 경로** 유지. ChainRemote 는 거래처 원격에만 집중.
+- HQ 빌드 = 순수 outgoing 유지. CLAUDE.md "본사 PC 는 피지원자 아님" 청사진 그대로.
+
+**Phase 1 후속 backlog (안정화 후)**:
+- 거래처 PC 사용자/서비스 모드 toml 분리 문제 — UI 보안탭 빈 칸이지만 서비스 동작 OK. 메모리 [[project_user_vs_service_toml]]. 인스톨러 [Run] step 3 robustness 확인 또는 fork 코드에서 inherit.
+- 거래처별 chainremote_version heartbeat — NAS API `/api/customers/heartbeat` → 관리 패널 + 본사 앱 거래처 목록에 "v1.x.x · 마지막 보고 N분 전" 컬럼.
+- 자동업데이트 실패 진단 — 중앙리 PC 의 `C:\ProgramData\ChainRemote\updater.log` 확인 (내일).
+- build-all.ps1 의 [3.5/5] codegen 단계 거짓 OK 보고 버그 — 진단/실패 보고하도록 보강.
 
 ### 관리 패널 코드 위치
 - `/Users/changsmac/내작업/ChainRemote/chainremote-admin/` (서브폴더, Next.js 16)
