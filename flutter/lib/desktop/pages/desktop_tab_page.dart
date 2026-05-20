@@ -44,17 +44,21 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
   _DesktopTabPageState() {
     RemoteCountState.init();
     Get.put<DesktopTabController>(tabController);
+    // ChainRemote: 거래처(--role=agent, conn-type=incoming) 빌드에서는 로그인
+    // 게이트를 끼우지 않는다. 거래처 PC 에는 본사 계정 개념이 없고, 트레이만
+    // 떠 있어야 한다.
+    final Widget homePage = DesktopHomePage(
+      key: const ValueKey(kTabLabelHomePage),
+    );
     tabController.add(TabInfo(
         key: kTabLabelHomePage,
         label: kTabLabelHomePage,
         selectedIcon: Icons.home_sharp,
         unselectedIcon: Icons.home_outlined,
         closable: false,
-        page: ChainRemoteAuthGate(
-          child: DesktopHomePage(
-            key: const ValueKey(kTabLabelHomePage),
-          ),
-        )));
+        page: bind.isIncomingOnly()
+            ? homePage
+            : ChainRemoteAuthGate(child: homePage)));
     if (bind.isIncomingOnly()) {
       tabController.onSelected = (key) {
         if (key == kTabLabelHomePage) {

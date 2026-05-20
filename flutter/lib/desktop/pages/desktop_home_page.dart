@@ -81,87 +81,35 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   }
 
   Widget buildChainRemoteTopBar(BuildContext context) {
-    return Consumer<ServerModel>(builder: (context, model, child) {
-      // ChainRemote: Stack 사용 — 내 ID 는 창 가운데 절대 중앙 정렬,
-      // 로고는 좌측, 아이콘은 우측. 서로 위치 영향 없음.
-      return Container(
-        height: 72,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        color: Theme.of(context).colorScheme.background,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // 가운데 — 내 ID 블록 (창 절대 중앙)
-            GestureDetector(
-              onDoubleTap: () {
-                Clipboard.setData(ClipboardData(text: model.serverId.text));
-                showToast(translate('Copied'));
-              },
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '내 ID',
-                    style: TextStyle(
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                        color: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.color
-                            ?.withOpacity(0.55)),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    model.serverId.text.isEmpty ? '-' : model.serverId.text,
-                    style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: MyTheme.brandBlue,
-                        letterSpacing: 1.5),
-                  ),
-                ],
-              ),
-            ),
-            // 좌우 — 로고 + 액션 버튼 (가운데 ID 위에 겹치지 않게 별도 Row)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  constraints:
-                      const BoxConstraints(maxWidth: 220, maxHeight: 56),
-                  child: Image.asset('assets/chainremote_logo.png',
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) =>
-                          const SizedBox(width: 200)),
-                ),
-                const Spacer(),
-                IconButton(
-                  tooltip: translate('ID') + ' 복사',
-                  icon: const Icon(Icons.copy_outlined, size: 20),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: model.serverId.text));
-                    showToast(translate('Copied'));
-                  },
-                ),
-                IconButton(
-                  tooltip: translate('Settings'),
-                  icon: const Icon(Icons.settings_outlined, size: 22),
-                  onPressed: () {
-                    if (DesktopSettingPage.tabKeys.isNotEmpty) {
-                      DesktopSettingPage.switch2page(
-                          DesktopSettingPage.tabKeys[0]);
-                    }
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-      );
-    });
+    // 본사 빌드 — 자기 ID/비번 표시 없음 (피지원자 아님).
+    // 로고 좌측 + 설정 우측만.
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      color: Theme.of(context).colorScheme.background,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            constraints: const BoxConstraints(maxWidth: 220, maxHeight: 48),
+            child: Image.asset('assets/chainremote_logo.png',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const SizedBox(width: 200)),
+          ),
+          const Spacer(),
+          IconButton(
+            tooltip: translate('Settings'),
+            icon: const Icon(Icons.settings_outlined, size: 22),
+            onPressed: () {
+              if (DesktopSettingPage.tabKeys.isNotEmpty) {
+                DesktopSettingPage.switch2page(
+                    DesktopSettingPage.tabKeys[0]);
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildBlock({required Widget child}) {

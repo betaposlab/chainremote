@@ -3,17 +3,17 @@
 #
 # ★ 정석 워크플로 (절대 어기지 말 것)
 #   1. (Mac) 새 버전 X.Y.Z 를 src 의 세 곳에 직접 동기화 + git commit + push
-#        - src/chainremote_version.rs  : pub const CHAINREMOTE_VERSION: &str = "X.Y.Z";
-#        - flutter/lib/common.dart     : const chainRemoteVersion = 'X.Y.Z';
-#        - deploy/win-installer/installer.iss : #define APP_VERSION "X.Y.Z"
-#   2. (윈컴) git pull → build-all.ps1 → ISCC → ChainRemote_Setup.exe 생성
+#        - src/chainremote_version.rs               : pub const CHAINREMOTE_VERSION: &str = "X.Y.Z";
+#        - flutter/lib/common.dart                  : const chainRemoteVersion = 'X.Y.Z';
+#        - deploy/win-installer/agent-installer.iss : #define APP_VERSION "X.Y.Z"
+#        - deploy/win-installer/hq-installer.iss    : #define APP_VERSION "X.Y.Z"  (있으면)
+#   2. (윈컴) git pull → build-all.ps1 → ISCC (agent) → ChainRemote_Agent_Setup_v*.exe
 #   3. (Mac) SMB / 파일 전송으로 dist/ 에 가져옴
-#   4. (Mac) ./deploy/release.sh dist/ChainRemote_Setup.exe ["릴리즈 노트"]
-#        → 인자 없이 src 의 버전 자동 추출. 세 곳 일치 검증 후에만 push.
-#        → 불일치면 fail. 빌드 시점 src 와 NAS push 의 버전이 항상 일치 보장.
+#   4. (Mac) ./deploy/release.sh dist/ChainRemote_Agent_Setup_v*.exe ["릴리즈 노트"]
+#        → 거래처 자동업데이트 채널은 agent 전용. HQ (본사) 빌드는 NAS 푸시 X — 재성이 PC 에 수동 설치.
 #
-# 사용법: ./deploy/release.sh <setup.exe 경로> [릴리즈노트]
-# 예시:   ./deploy/release.sh dist/ChainRemote_Setup.exe "기본 설정 자동 적용"
+# 사용법: ./deploy/release.sh <agent setup.exe 경로> [릴리즈노트]
+# 예시:   ./deploy/release.sh dist/ChainRemote_Agent_Setup_v1.3.0.exe "Phase 1 거래처 빌드"
 
 set -euo pipefail
 
@@ -36,7 +36,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # ★ 버전 정합성 검증 — 세 곳에서 추출 + 일치 확인
 RUST_FILE="$SCRIPT_DIR/src/chainremote_version.rs"
 DART_FILE="$SCRIPT_DIR/flutter/lib/common.dart"
-ISS_FILE="$SCRIPT_DIR/deploy/win-installer/installer.iss"
+ISS_FILE="$SCRIPT_DIR/deploy/win-installer/agent-installer.iss"
 
 RUST_VERSION=$(grep -oE 'CHAINREMOTE_VERSION: &str = "[^"]+"' "$RUST_FILE" | sed -E 's/.*"([^"]+)".*/\1/')
 DART_VERSION=$(grep -oE "chainRemoteVersion = '[^']+'" "$DART_FILE" | sed -E "s/.*'([^']+)'.*/\1/")
@@ -74,7 +74,7 @@ NAS_HOST="${NAS_HOST:-chang@192.168.68.103}"
 NAS_WEB_DIR="${NAS_WEB_DIR:-/volume1/web/chainremote}"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://sepani.synology.me/chainremote}"
 
-REMOTE_FILENAME="ChainRemote_Setup_v${VERSION}.exe"
+REMOTE_FILENAME="ChainRemote_Agent_Setup_v${VERSION}.exe"
 SHA256=$(shasum -a 256 "$SETUP_EXE" | awk '{print $1}')
 SIZE=$(stat -f %z "$SETUP_EXE" 2>/dev/null || stat -c %s "$SETUP_EXE")
 RELEASED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")

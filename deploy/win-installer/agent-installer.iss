@@ -1,6 +1,9 @@
 ; ChainRemote 거래처 배포용 인스톨러 (Inno Setup) — 자체 빌드본 직접 묶기
-; 빌드: 윈컴에서 ISCC.exe installer.iss
-; 결과물: ChainRemote_Setup.exe
+; 빌드: 윈컴에서 ISCC.exe agent-installer.iss
+; 결과물: ChainRemote_Agent_Setup_v{version}.exe
+;
+; Phase 1 분기: 거래처 빌드 = conn-type=incoming (custom-agent.txt → {app}\custom.txt).
+; 본사 빌드는 hq-installer.iss 가 같은 Flutter Windows 산출물 + custom-hq.txt 로 따로 묶음.
 ;
 ; 전략:
 ;   1. 윈컴에서 빌드한 새 ChainRemote 빌드 폴더 (ChainRemote.exe + DLL + data) 통째로 묶음
@@ -10,7 +13,7 @@
 ;   4. NAS 설정(RustDesk2.toml) + 우리 .ico 배치 + 단축아이콘 IconLocation 갱신
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.2.20"
+#define APP_VERSION    "1.3.0"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; 윈컴에서 빌드한 ChainRemote.exe 가 들어있는 폴더
@@ -27,9 +30,9 @@ DefaultGroupName={#APP_NAME}
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 OutputDir=.
-; 파일명에 버전 박기 — 매 빌드마다 ChainRemote_Setup_v{버전}.exe 생성 (예: v1.2.3)
+; 파일명에 버전 박기 — 매 빌드마다 ChainRemote_Agent_Setup_v{버전}.exe 생성
 ; 이름이 매번 달라 옛 빌드 / 새 빌드 헷갈림 방지 + NAS URL 캐시 무관
-OutputBaseFilename=ChainRemote_Setup_v{#APP_VERSION}
+OutputBaseFilename=ChainRemote_Agent_Setup_v{#APP_VERSION}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -60,6 +63,11 @@ Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; Flags: del
 
 ; ChainRemote 단축아이콘에 쓸 .ico (Program Files 안에 영구 보관)
 Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
+
+; Phase 1 — 거래처 분기 플래그. {app}\custom.txt 로 박혀 rustdesk.exe 첫 실행 시
+; load_custom_client() 가 읽어 HARD_SETTINGS["conn-type"]="incoming" 박음 (수신 전용).
+; 본사 빌드는 같은 자리에 hq-installer.iss 가 custom-hq.txt 를 박음.
+Source: "custom-agent.txt"; DestDir: "{app}"; DestName: "custom.txt"; Flags: ignoreversion
 
 ; 서비스 watchdog 스크립트 — 공백 없는 경로(ProgramData)에 둬서 schtasks /TR 중첩인용 회피.
 ; SYSTEM 예약작업이 10분마다 실행 (아래 [Run] 4b 에서 등록).

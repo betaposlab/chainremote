@@ -12,7 +12,16 @@ use hbb_common::{anyhow::anyhow, log, ResultType};
 use hbb_common::config::LocalConfig;
 use serde::{Deserialize, Serialize};
 
-const DEFAULT_API_BASE: &str = "http://localhost:3001";
+// NAS chainremote-admin 컨테이너 (port 3001 직접 노출).
+// 외부: http://sepani.synology.me:3001 (라우터 포트포워딩 3001 → 192.168.68.103:3001).
+// 인터넷 어디서나 도달 (집/사무실/PC방 모두 같음). Tailscale 불필요.
+// HTTPS X — RustDesk core 의 reqwest/rustls 가 Synology nginx Reverse Proxy 와
+// TLS 호환 불안정 (close_notify 누락 quirk). HTTP 직노출이 안정적이고 Chang 의
+// 보안 의지 (비중 낮음 + UX 우선) 와 일치. 비번 평문 전송이지만 코이노/AnySupport
+// 도 같은 수준이라 사업적 격차 없음.
+// 사용자 정의: LocalConfig::set_option("chainremote-api-base", ...) 또는
+//             설정 UI 의 "관리 패널 주소" 필드 (있을 시).
+const DEFAULT_API_BASE: &str = "http://sepani.synology.me:3001";
 const KEY_API_BASE: &str = "chainremote-api-base";
 const KEY_TOKEN: &str = "chainremote-token";
 const KEY_USER_JSON: &str = "chainremote-user";

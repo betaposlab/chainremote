@@ -2,7 +2,7 @@
 
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { customers, supportSessions } from "@/lib/schema";
+import { customers, supportSessions, users } from "@/lib/schema";
 
 /**
  * 내가 최근에 접속한 세션들 + 거래처 정보.
@@ -39,9 +39,12 @@ export async function listActiveSessions(tenantId: string) {
     .select({
       session: supportSessions,
       customer: customers,
+      operatorName: users.displayName,
+      operatorEmail: users.email,
     })
     .from(supportSessions)
     .leftJoin(customers, eq(customers.id, supportSessions.customerId))
+    .leftJoin(users, eq(users.id, supportSessions.operatorId))
     .where(
       and(
         eq(supportSessions.tenantId, tenantId),

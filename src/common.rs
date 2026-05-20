@@ -2180,24 +2180,39 @@ pub fn get_dst_align_rgba() -> usize {
 }
 
 pub fn read_custom_client(config: &str) {
-    let Ok(data) = decode64(config) else {
-        log::error!("Failed to decode custom client config");
-        return;
-    };
-    const KEY: &str = "5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=";
-    let Some(pk) = get_rs_pk(KEY) else {
-        log::error!("Failed to parse public key of custom client");
-        return;
-    };
-    let Ok(data) = sign::verify(&data, &pk) else {
-        log::error!("Failed to dec custom client config");
-        return;
-    };
-    let Ok(mut data) =
-        serde_json::from_slice::<std::collections::HashMap<String, serde_json::Value>>(&data)
-    else {
-        log::error!("Failed to parse custom client config");
-        return;
+    // ChainRemote: 우리 포크 자체 빌드용 plain JSON 경로.
+    // 원본 RustDesk 는 base64 + ed25519 서명된 custom.txt 만 허용 (상용 anti-tamper).
+    // 우리는 빌드를 우리가 통제하므로 '{' 로 시작하면 서명 없이 그대로 적용.
+    let trimmed = config.trim();
+    let mut data: std::collections::HashMap<String, serde_json::Value> = if trimmed
+        .starts_with('{')
+    {
+        match serde_json::from_str(trimmed) {
+            Ok(d) => d,
+            Err(e) => {
+                log::error!("Failed to parse plain custom client config: {e}");
+                return;
+            }
+        }
+    } else {
+        let Ok(data) = decode64(trimmed) else {
+            log::error!("Failed to decode custom client config");
+            return;
+        };
+        const KEY: &str = "5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=";
+        let Some(pk) = get_rs_pk(KEY) else {
+            log::error!("Failed to parse public key of custom client");
+            return;
+        };
+        let Ok(data) = sign::verify(&data, &pk) else {
+            log::error!("Failed to dec custom client config");
+            return;
+        };
+        let Ok(parsed) = serde_json::from_slice(&data) else {
+            log::error!("Failed to parse custom client config");
+            return;
+        };
+        parsed
     };
 
     if let Some(app_name) = data.remove("app-name") {
