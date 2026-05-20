@@ -1,9 +1,21 @@
-﻿$ErrorActionPreference = "Stop"
-Write-Host "=== ChainRemote_Setup.exe 인스톨러 빌드 (Inno Setup) ===" -ForegroundColor Cyan
+﻿param(
+  [ValidateSet("agent","hq","both")]
+  [string]$Target = "agent"
+)
+
+$ErrorActionPreference = "Stop"
+Write-Host "=== ChainRemote 인스톨러 빌드 (Inno Setup) — Target: $Target ===" -ForegroundColor Cyan
 
 $dir = $PSScriptRoot
 if (-not $dir) { $dir = (Get-Location).Path }
 Push-Location $dir
+
+# Phase 1: 거래처(agent) / 본사(hq) 분기 빌드 선택
+$targets = switch ($Target) {
+  "agent" { @("agent-installer.iss") }
+  "hq"    { @("hq-installer.iss") }
+  "both"  { @("agent-installer.iss","hq-installer.iss") }
+}
 
 # 1. RustDesk 공식 인스톨러 페이로드 (없으면 다운로드)
 $inner = "rustdesk-1.4.6-x86_64.exe"
@@ -31,29 +43,37 @@ if (-not $iscc) {
 }
 Write-Host "[2/3] ISCC: $iscc" -ForegroundColor Gray
 
-# 3. 컴파일
-Write-Host "[3/3] installer.iss 컴파일 (1~2분)..." -ForegroundColor Yellow
-$prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
-& $iscc /Q installer.iss
-$code = $LASTEXITCODE
-$ErrorActionPreference = $prevEAP
+# 3. 컴파일 (target 별로 순차 실행)
+$failed = @()
+foreach ($iss in $targets) {
+  Write-Host "[3/3] $iss 컴파일 (1~2분)..." -ForegroundColor Yellow
+  $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+  & $iscc /Q $iss
+  $code = $LASTEXITCODE
+  $ErrorActionPreference = $prevEAP
+  if ($code -ne 0) {
+    Write-Host "❌ $iss 빌드 실패 (exit $code)" -ForegroundColor Red
+    $failed += $iss
+  }
+}
 
 Pop-Location
 
-if ($code -ne 0) {
-  Write-Host "❌ 빌드 실패 (exit $code)" -ForegroundColor Red
+if ($failed.Count -gt 0) {
+  Write-Host ("`n실패: " + ($failed -join ", ")) -ForegroundColor Red
   exit 1
 }
 
-# installer.iss 가 OutputBaseFilename=ChainRemote_Setup_v{version} 으로 박아서
-# 매 빌드마다 버전 박힌 파일명으로 산출. 가장 최근 산출물 골라 보고.
-$out = Get-ChildItem -Path $dir -Filter "ChainRemote_Setup_v*.exe" -ErrorAction SilentlyContinue |
-  Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if ($out) {
-  $sizeMB = [Math]::Round($out.Length/1MB,1)
+# 결과물 패턴: ChainRemote_Agent_Setup_v*.exe / ChainRemote_HQ_Setup_v*.exe
+$outs = Get-ChildItem -Path $dir -Filter "ChainRemote_*_Setup_v*.exe" -ErrorAction SilentlyContinue |
+  Sort-Object LastWriteTime -Descending | Select-Object -First $targets.Count
+if ($outs) {
   Write-Host "`n=== 완료 ===" -ForegroundColor Green
-  Write-Host "  결과물: $($out.FullName) ($sizeMB MB)" -ForegroundColor White
-  Write-Host "`n  검증: 다른 윈컴(또는 VM)에서 더블클릭 → 자동 설치 → ChainRemote 자동 실행 → ID 확인" -ForegroundColor Cyan
+  foreach ($out in $outs) {
+    $sizeMB = [Math]::Round($out.Length/1MB,1)
+    Write-Host "  결과물: $($out.FullName) ($sizeMB MB)" -ForegroundColor White
+  }
+  Write-Host "`n  검증: 다른 윈컴(또는 VM)에서 더블클릭 → 자동 설치 → ChainRemote 자동 실행" -ForegroundColor Cyan
 } else {
-  Write-Host "❌ ChainRemote_Setup_v*.exe 생성 안 됨" -ForegroundColor Red
+  Write-Host "❌ ChainRemote_*_Setup_v*.exe 생성 안 됨" -ForegroundColor Red
 }
