@@ -64,10 +64,11 @@ Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; Flags: del
 ; ChainRemote 단축아이콘에 쓸 .ico (Program Files 안에 영구 보관)
 Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 
-; Phase 1 — 거래처 분기 플래그. {app}\custom.txt 로 박혀 rustdesk.exe 첫 실행 시
-; load_custom_client() 가 읽어 HARD_SETTINGS["conn-type"]="incoming" 박음 (수신 전용).
-; 본사 빌드는 같은 자리에 hq-installer.iss 가 custom-hq.txt 를 박음.
-Source: "custom-agent.txt"; DestDir: "{app}"; DestName: "custom.txt"; Flags: ignoreversion
+; Phase 1 — 거래처 분기 플래그. silent-install([Run]1번)이 {app} 폴더를 클린업하므로
+; 임시 폴더에 박아두고 [Run]에서 silent-install 후에 {app}\custom.txt 로 복사한다.
+; ordering 버그 픽스 (2026-05-21): 옛 [Files] 에서 {app} 으로 박았을 때 silent-install 이
+; 덮어써서 custom.txt 가 사라졌음. 이제 silent-install 후 [Run]단계에서 강제 박음.
+Source: "custom-agent.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.txt"; Flags: deleteafterinstall ignoreversion
 
 ; 서비스 watchdog 스크립트 — 공백 없는 경로(ProgramData)에 둬서 schtasks /TR 중첩인용 회피.
 ; SYSTEM 예약작업이 10분마다 실행 (아래 [Run] 4b 에서 등록).
@@ -77,6 +78,11 @@ Source: "watchdog.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignorever
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\RustDesk\ 로 모든 파일 복사 + 서비스 등록 + 서비스 시작
 ;    BINARY_NAME=rustdesk 로 빌드해서 install_me 의 RustDesk.exe 가정과 호환됨
 Filename: "{tmp}\chainremote_payload\rustdesk.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
+
+; 1.5. ★ custom.txt 박기 (silent-install 후) — ordering 버그 픽스 (2026-05-21).
+;    silent-install 이 {app} 폴더를 클린업하면서 custom.txt 를 덮어쓰는 문제 해결.
+;    이제 silent-install 후 명시적으로 박아 conn-type=incoming 이 확실히 적용되게.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Copy-Item '{tmp}\custom_payload\custom.txt' '{app}\custom.txt' -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
 
 ; 2. ★ 서비스 + UI/서비스 잔여 프로세스 강제 정지 — toml 박기 전 필수
 ;    원인: sc stop 만으론 STOP_PENDING 상태에서 file lock 유지 → 다음 copy 실패.

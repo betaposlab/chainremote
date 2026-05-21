@@ -57,14 +57,21 @@ Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; Flags: del
 
 Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 
-; Phase 1 — 본사 분기 플래그. {app}\custom.txt 로 박혀 HARD_SETTINGS["conn-type"]="outgoing" (송신 전용).
-; 본사 custom 파일은 win-installer 외부(deploy/) 에 있음 — Mac 빌드와 공유.
-Source: "..\custom-hq.txt"; DestDir: "{app}"; DestName: "custom.txt"; Flags: ignoreversion
+; Phase 1 — 본사 분기 플래그. silent-install([Run]1번)이 {app} 폴더를 클린업하므로
+; 임시 폴더에 박아두고 [Run]에서 silent-install 후에 {app}\custom.txt 로 복사한다.
+; ordering 버그 픽스 (2026-05-21): 옛 [Files] 에서 {app} 으로 박았을 때 silent-install 이
+; 덮어써서 custom.txt 가 사라졌음. 본사 custom 파일은 win-installer 외부(deploy/) 에 있음.
+Source: "..\custom-hq.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.txt"; Flags: deleteafterinstall ignoreversion
 
 [Run]
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\RustDesk\ 로 모든 파일 복사 + 서비스 등록.
 ;    HQ 는 outgoing-only 이므로 서비스가 incoming 을 받을 일 없지만, install_me 의 기본 흐름 그대로 둠.
 Filename: "{tmp}\chainremote_payload\rustdesk.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
+
+; 1.5. ★ custom.txt 박기 (silent-install 후) — ordering 버그 픽스 (2026-05-21).
+;    silent-install 이 {app} 폴더를 클린업하면서 custom.txt 를 덮어쓰는 문제 해결.
+;    이제 silent-install 후 명시적으로 박아 conn-type=outgoing 이 확실히 적용되게.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Copy-Item '{tmp}\custom_payload\custom.txt' '{app}\custom.txt' -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
 
 ; 2. 서비스/UI 강제 정지 — toml 박기 전 file lock 해제
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service RustDesk -Force -ErrorAction SilentlyContinue }} catch {{}}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service RustDesk -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }}; Start-Sleep -Seconds 1 }}; taskkill /F /IM rustdesk.exe /T *>$null; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
