@@ -67,8 +67,9 @@ class DesktopSettingPage extends StatefulWidget {
   // ChainRemote: 거래처 운영에 불필요한 탭들(계정/플러그인/프린터) 비활성화.
   static final List<SettingsTabKey> tabKeys = [
     SettingsTabKey.general,
+    // ChainRemote 옵션 B+ (2026-05-21): outgoing-only HQ 빌드도 "외부 원격 접속
+    // 허용" 토글이 보안 탭에 있어야 하므로 isOutgoingOnly 조건 제거.
     if (!isWeb &&
-        !bind.isOutgoingOnly() &&
         !bind.isDisableSettings() &&
         bind.mainGetBuildinOption(key: kOptionHideSecuritySetting) != 'Y')
       SettingsTabKey.safety,
