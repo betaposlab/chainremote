@@ -613,10 +613,9 @@ class RecentPeersView extends BasePeersView {
   @override
   Widget build(BuildContext context) {
     final widget = super.build(context);
-    // ChainRemote 본사 앱: 로컬 peer toml 대신 관리 패널 DB 의 customers 를 받음.
-    // 이벤트명("load_recent_peers")은 동일 — Flutter 측 Peers 모델 변경 0.
-    // 구현: src/chainremote_data.rs (GET /api/customers + push_global_event)
-    bind.chainremoteLoadCustomers();
+    // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록 (앞으로 원격하면 쌓임).
+    // 전체 거래처 마스터 뷰는 관리 패널 전용.
+    bind.mainLoadRecentPeers();
     return widget;
   }
 }

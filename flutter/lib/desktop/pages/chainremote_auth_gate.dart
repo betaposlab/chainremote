@@ -29,9 +29,10 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
     if (_authed) _warmCaches();
   }
 
-  /// 본사 앱 메인 진입 직후 즐겨찾기 캐시 채우기.
-  /// 이렇게 안 하면 peer_card 메뉴 빌드 시 chainremoteGetFavoriteIds() 가 빈 리스트 반환 →
-  /// "Add/Remove Favorites" 메뉴 분기가 잘못됨.
+  /// 본사 앱 메인 진입 직후 캐시 워밍.
+  /// - chainremoteLoadFavorites: 즐겨찾기 탭 + chainremoteGetFavoriteIds() 캐시 (peer_card 별표 분기).
+  /// - chainremoteLoadCustomers: remote_id→uuid 매핑만 silent 워밍 (즐겨찾기 추가 시 즉시 변환).
+  ///   전체 거래처를 화면에 뿌리지 않음 — 최근 세션은 네이티브, 전체는 관리 패널 전용.
   void _warmCaches() {
     bind.chainremoteLoadCustomers();
     bind.chainremoteLoadFavorites();

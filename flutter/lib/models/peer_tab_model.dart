@@ -24,7 +24,7 @@ class PeerTabModel with ChangeNotifier {
   int _currentTab = 0; // index in tabNames
   static const int maxTabCount = 5;
   static const List<String> tabNames = [
-    'Recent sessions',
+    'Recent sessions', // ChainRemote: 네이티브 최근 접속 기록 (앞으로 원격하면 쌓임). 전체 거래처는 관리 패널.
     'Favorites',
     'Discovered',
     'Address book',
@@ -38,8 +38,8 @@ class PeerTabModel with ChangeNotifier {
     IconFont.deviceGroupFill,
   ];
   List<bool> isEnabled = List.from([
-    true,
-    true,
+    true, // 최근 세션 — 네이티브 최근 접속(mainLoadRecentPeers). 여기서 우클릭 → 즐겨찾기 추가.
+    true, // 즐겨찾기 — 앱 홈 기본 탭. GET /api/me/favorites (내 것만)
     false, // ChainRemote: 발견됨(LAN) 탭 비활성화 — 거래처 운영에 의미 없음
     false, // ChainRemote: 주소록 비활성화 — 별도 Next.js 관리 패널이 그 역할
     false, // ChainRemote: 엑세스 가능한 장치 비활성화 — 클라우드 계정 서버 안 돌림
@@ -108,12 +108,9 @@ class PeerTabModel with ChangeNotifier {
     } catch (e) {
       debugPrint("failed to get peer tab order list: $e");
     }
-    // init currentTab
-    _currentTab =
-        int.tryParse(bind.getLocalFlutterOption(k: kOptionPeerTabIndex)) ?? 0;
-    if (_currentTab < 0 || _currentTab >= maxTabCount) {
-      _currentTab = 0;
-    }
+    // init currentTab — ChainRemote: 앱 홈은 항상 즐겨찾기 탭으로 착지.
+    // (저장된 탭 무시. 전체 거래처 탭은 즐겨찾기 추가할 때만 의도적으로 들어감.)
+    _currentTab = PeerTabIndex.fav.index;
     _trySetCurrentTabToFirstVisibleEnabled();
   }
 

@@ -1290,8 +1290,8 @@ class FfiModel with ChangeNotifier {
     cachedPeerData.peerInfo.remove('resolutions');
 
     // Recent peer is updated by handle_peer_info(ui_session_interface.rs) --> handle_peer_info(client.rs) --> save_config(client.rs)
-    // ChainRemote 본사 앱: 진실 원천 = 관리 패널 DB. (Phase 2-C)
-    bind.chainremoteLoadCustomers();
+    // ChainRemote 본사 앱: 원격 접속 직후 최근 세션 탭 갱신 (네이티브 최근 접속 기록).
+    bind.mainLoadRecentPeers();
 
     parent.target?.dialogManager.dismissAll();
     _pi.version = evt['version'];
