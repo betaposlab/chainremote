@@ -4,7 +4,7 @@
 // 로그인 성공 시 setState 로 child 로 전환.
 //
 // 백엔드: src/chainremote_auth.rs + /api/auth/token (Bearer JWT)
-// 토큰/사용자 저장: LocalConfig (chainremote-token / chainremote-user)
+// 토큰/사용자 저장: 프로세스 메모리 전용 (디스크 잔재 0). 앱 종료 시 소멸 → 재실행 시 재로그인.
 
 import 'dart:convert';
 
