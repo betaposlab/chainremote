@@ -12,7 +12,7 @@ import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 const ALG = "HS256";
 const ISSUER = "chainremote-admin";
 const AUDIENCE = "chainremote-desktop";
-const TOKEN_TTL = "7d";
+const TOKEN_TTL = "24h";
 
 export interface ApiTokenClaims extends JWTPayload {
   uid: string;
@@ -38,7 +38,7 @@ export async function signApiToken(
     .setIssuedAt()
     .setExpirationTime(TOKEN_TTL)
     .sign(getSecret());
-  return { token, expiresIn: 60 * 60 * 24 * 7 };
+  return { token, expiresIn: 60 * 60 * 24 };
 }
 
 export async function verifyApiToken(token: string): Promise<ApiTokenClaims> {

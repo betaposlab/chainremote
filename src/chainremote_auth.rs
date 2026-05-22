@@ -1,16 +1,31 @@
 // ChainRemote 본사 앱 인증 — 관리 패널(/api/auth/token) Bearer JWT.
 //
 // 책임:
-//   - 로그인 (email + password) → 토큰 + 사용자 정보 LocalConfig 에 저장
+//   - 로그인 (email + password) → 토큰 + 사용자 정보를 **메모리(RAM)에만** 보관
 //   - 토큰/사용자 정보 조회 (Flutter UI 가 표시)
-//   - 로그아웃 (저장된 자격증명 삭제)
+//   - 로그아웃 (메모리 자격증명 삭제)
 //   - 관리 패널 API base URL 관리 (build-time 기본값 + LocalConfig override)
 //
 // 호출자: src/flutter_ffi.rs 의 chainremote_login/logout/get_user FFI 들.
+//
+// 보안 설계 (2026-05-22): 토큰을 디스크(LocalConfig)에 저장하지 않고 **프로세스
+// 메모리 static 에만** 둔다. 앱 종료 시 토큰이 메모리째 증발 → 디스크 잔재 0.
+//   - 매 실행마다 재로그인 (Chang·재성이 OK — 코이노식 매번 로그인에 익숙).
+//   - 빌린 PC(피시방·거래처 포스)에서 써도 토큰이 디스크에 안 남음 = 보안.
+//   - TTL 길이(패널 24h)는 보안과 무관해짐(앱 닫으면 어차피 죽음) → 하루 연속
+//     사용 중 mid-session 만료(401) 방지용으로만 길게 둠.
+//   - API base 만 LocalConfig 유지(자격증명 아닌 단순 설정).
 
-use hbb_common::{anyhow::anyhow, log, ResultType};
+use hbb_common::{anyhow::anyhow, lazy_static, log, ResultType};
 use hbb_common::config::LocalConfig;
 use serde::{Deserialize, Serialize};
+use std::sync::RwLock;
+
+lazy_static::lazy_static! {
+    // 인메모리 자격증명. 프로세스 생존 중에만 유효. 종료 시 소멸 → 디스크 잔재 없음.
+    static ref TOKEN: RwLock<String> = RwLock::new(String::new());
+    static ref USER_JSON: RwLock<String> = RwLock::new(String::new());
+}
 
 // NAS chainremote-admin 컨테이너 (port 3001 직접 노출).
 // 외부: http://sepani.synology.me:3001 (라우터 포트포워딩 3001 → 192.168.68.103:3001).
@@ -23,8 +38,6 @@ use serde::{Deserialize, Serialize};
 //             설정 UI 의 "관리 패널 주소" 필드 (있을 시).
 const DEFAULT_API_BASE: &str = "http://sepani.synology.me:3001";
 const KEY_API_BASE: &str = "chainremote-api-base";
-const KEY_TOKEN: &str = "chainremote-token";
-const KEY_USER_JSON: &str = "chainremote-user";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserInfo {
@@ -68,14 +81,14 @@ pub fn set_api_base(url: &str) {
     LocalConfig::set_option(KEY_API_BASE.to_string(), url.trim().to_string());
 }
 
-/// 저장된 Bearer 토큰. 없으면 빈 문자열.
+/// 메모리에 보관된 Bearer 토큰. 없으면 빈 문자열.
 pub fn get_token() -> String {
-    LocalConfig::get_option(KEY_TOKEN)
+    TOKEN.read().map(|t| t.clone()).unwrap_or_default()
 }
 
-/// 현재 로그인된 사용자 정보 (JSON 으로 저장 — Flutter 가 동일 객체 디코딩).
+/// 현재 로그인된 사용자 정보 (JSON — Flutter 가 동일 객체 디코딩). 메모리 보관.
 pub fn get_user_json() -> String {
-    LocalConfig::get_option(KEY_USER_JSON)
+    USER_JSON.read().map(|u| u.clone()).unwrap_or_default()
 }
 
 /// 로그인 상태인지 (토큰 존재 여부만 — 만료/유효성은 서버가 401 로 알려줌).
@@ -83,10 +96,14 @@ pub fn is_authenticated() -> bool {
     !get_token().is_empty()
 }
 
-/// 저장된 자격증명 삭제.
+/// 메모리 자격증명 삭제.
 pub fn logout() {
-    LocalConfig::set_option(KEY_TOKEN.to_string(), String::new());
-    LocalConfig::set_option(KEY_USER_JSON.to_string(), String::new());
+    if let Ok(mut t) = TOKEN.write() {
+        t.clear();
+    }
+    if let Ok(mut u) = USER_JSON.write() {
+        u.clear();
+    }
 }
 
 /// POST /api/auth/token → 성공 시 토큰·사용자 정보 저장 후 UserInfo 반환.
@@ -100,9 +117,13 @@ pub fn login(email: &str, password: &str) -> ResultType<UserInfo> {
 
     // 200: TokenResponse / 4xx,5xx: ErrorResponse — 둘 다 JSON.
     if let Ok(tok) = serde_json::from_str::<TokenResponse>(&resp_text) {
-        LocalConfig::set_option(KEY_TOKEN.to_string(), tok.token);
         let user_json = serde_json::to_string(&tok.user)?;
-        LocalConfig::set_option(KEY_USER_JSON.to_string(), user_json);
+        if let Ok(mut t) = TOKEN.write() {
+            *t = tok.token;
+        }
+        if let Ok(mut u) = USER_JSON.write() {
+            *u = user_json;
+        }
         log::info!("ChainRemote 로그인 성공: {}", tok.user.email);
         return Ok(tok.user);
     }
