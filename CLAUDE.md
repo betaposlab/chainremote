@@ -314,6 +314,8 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
 - ⏳ 진희씨 컴 — `ChainRemote_Agent_Setup_v1.3.0.exe` 옛 v1.2.x 위에 덮어쓰기 설치 (재설치보다 깔끔). 내일.
 - ⏳ 한 거래처 자동업데이트 검증 — release.sh 푸시는 위 1차 dogfooding 통과 후. 점진 배포.
 
+**옵션 B+ 완성 (2026-05-22)**: 집 윈컴 v1.3.0 HQ 에 옵션 B+ 빌드 설치 + 검증 통과. Mac(사무실)→집 윈컴 ChainRemote 양방향 원격 성공. hbbs ESTABLISHED + custom.txt outgoing + 보안탭 토글 노출 확인. 빌드는 Mac→집윈컴 Tailscale SSH 자동화로 진행 (메모리 [[project_win_remote_build_ssh]] — 함정 6가지 + commit 누락 교훈). 잔여: 재성이 컴 배포 + Mac 본사 빌드도 동일 코드 동기(현재 Mac 은 옵션 B+ 빌드 + 토글 동작 검증됨).
+
 **옵션 B+ 채택 결정 (2026-05-21, 옵션 A 번복)**: HQ 빌드에 사용자 토글 "외부 원격 접속 허용" 추가.
 - 번복 이유: 재성이/구매자 컴맹 시 IT 자기지원 불가 = 원격 SW 자체 모순. 판매 시 신뢰 문제.
 - 산업 표준 (TeamViewer Host / AnyDesk 수신 토글) 패턴. 6가지 우려 다 해소.
