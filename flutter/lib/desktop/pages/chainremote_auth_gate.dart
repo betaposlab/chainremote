@@ -11,6 +11,34 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
 
+/// 본사 앱 인증 상태 전역 핸들. 홈 상단바의 로그아웃 버튼이 어디서든 호출.
+/// authed 노티파이어를 게이트가 구독 → false 면 로그인 화면으로 되돌아감.
+class ChainRemoteAuth {
+  ChainRemoteAuth._();
+
+  static final ValueNotifier<bool> authed = ValueNotifier<bool>(false);
+
+  /// 로그아웃: 메모리 자격증명 삭제(Rust static) + 게이트를 로그인 화면으로 전환.
+  static void logout() {
+    bind.chainremoteLogout();
+    authed.value = false;
+  }
+
+  /// 현재 로그인 사용자 표시명 (없으면 빈 문자열).
+  static String currentDisplayName() {
+    try {
+      final raw = bind.chainremoteGetUser();
+      if (raw.isEmpty) return '';
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      final name = (m['displayName'] as String?)?.trim();
+      if (name != null && name.isNotEmpty) return name;
+      return (m['email'] as String?) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+}
+
 class ChainRemoteAuthGate extends StatefulWidget {
   final Widget child;
   const ChainRemoteAuthGate({Key? key, required this.child}) : super(key: key);
@@ -20,13 +48,11 @@ class ChainRemoteAuthGate extends StatefulWidget {
 }
 
 class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
-  bool _authed = false;
-
   @override
   void initState() {
     super.initState();
-    _authed = bind.chainremoteIsAuthenticated();
-    if (_authed) _warmCaches();
+    ChainRemoteAuth.authed.value = bind.chainremoteIsAuthenticated();
+    if (ChainRemoteAuth.authed.value) _warmCaches();
   }
 
   /// 본사 앱 메인 진입 직후 캐시 워밍.
@@ -40,11 +66,16 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    if (_authed) return widget.child;
-    return _ChainRemoteLoginPage(
-      onLoggedIn: () {
-        setState(() => _authed = true);
-        _warmCaches();
+    return ValueListenableBuilder<bool>(
+      valueListenable: ChainRemoteAuth.authed,
+      builder: (_, authed, __) {
+        if (authed) return widget.child;
+        return _ChainRemoteLoginPage(
+          onLoggedIn: () {
+            ChainRemoteAuth.authed.value = true;
+            _warmCaches();
+          },
+        );
       },
     );
   }

@@ -10,6 +10,7 @@ import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
+import 'package:flutter_hbb/desktop/pages/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/widgets/update_progress.dart';
@@ -97,6 +98,29 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 errorBuilder: (_, __, ___) => const SizedBox(width: 200)),
           ),
           const Spacer(),
+          Builder(builder: (_) {
+            final name = ChainRemoteAuth.currentDisplayName();
+            if (name.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.account_circle_outlined,
+                      size: 20, color: Colors.black54),
+                  const SizedBox(width: 6),
+                  Text(name,
+                      style: const TextStyle(
+                          fontSize: 13, color: Colors.black87)),
+                ],
+              ),
+            );
+          }),
+          IconButton(
+            tooltip: '로그아웃',
+            icon: const Icon(Icons.logout, size: 20),
+            onPressed: () => _confirmLogout(context),
+          ),
           IconButton(
             tooltip: translate('Settings'),
             icon: const Icon(Icons.settings_outlined, size: 22),
@@ -110,6 +134,25 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         ],
       ),
     );
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('로그아웃'),
+        content: const Text('로그아웃하시겠습니까? 다시 사용하려면 로그인해야 합니다.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('취소')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('로그아웃')),
+        ],
+      ),
+    );
+    if (ok == true) ChainRemoteAuth.logout();
   }
 
   Widget _buildBlock({required Widget child}) {
