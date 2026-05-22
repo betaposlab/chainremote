@@ -128,7 +128,7 @@
 8. 업데이트 = 현재 방식 유지 (B-2 완성: 설정에 "업데이트 확인" 버튼 → 즉시 설치). 24h 자동 폴링도 그대로.
 
 **부수 결정:**
-- 본사 앱 메인의 "내 ID 큰 표시" 폐기 (본사 PC는 피지원자 아님).
+- ~~본사 앱 메인의 "내 ID 큰 표시" 폐기~~ **부분 번복 (2026-05-22)**: 옵션 B+ 로 HQ 도 수신 대상이 될 수 있어 자기 9자리 ID 가 실사용에 필요(재성이 "내 번호 뭐야?"). 상단바 로고 옆에 **적당한 크기 칩 + 클릭 복사**로 부활([desktop_home_page.dart](flutter/lib/desktop/pages/desktop_home_page.dart) `_buildMyIdChip`, `bind.mainGetMyId()`). "큰 표시" 가 아니라 청사진 취지(본사 PC 를 피지원자로 강조 안 함)와 충돌 없음. Chang 결정: "이런 앱에 ID 표시가 무슨 대수냐, 코이노도 다 보여줌".
 - importPeer 유지하되 역할 변경: "자동 등록" → "신규 ID 발견 시 1클릭 등록 알림". 진실 원천 DB와 모순 없음.
 
 ### 작업 순서 (Phase 1~3) — Phase 2 가 먼저 진행 중
@@ -319,6 +319,12 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
 - ⏳ 한 거래처 자동업데이트 검증 — release.sh 푸시는 위 1차 dogfooding 통과 후. 점진 배포.
 
 **옵션 B+ 완성 (2026-05-22)**: 집 윈컴 v1.3.0 HQ 에 옵션 B+ 빌드 설치 + 검증 통과. Mac(사무실)→집 윈컴 ChainRemote 양방향 원격 성공. hbbs ESTABLISHED + custom.txt outgoing + 보안탭 토글 노출 확인. 빌드는 Mac→집윈컴 Tailscale SSH 자동화로 진행 (메모리 [[project_win_remote_build_ssh]] — 함정 6가지 + commit 누락 교훈). 잔여: 재성이 컴 배포 + Mac 본사 빌드도 동일 코드 동기(현재 Mac 은 옵션 B+ 빌드 + 토글 동작 검증됨).
+
+**HQ 앱 인증/UX 4종 완성 (2026-05-22, Mac+집윈컴 검증)**:
+- **토큰 메모리 전용**: 로그인 토큰/사용자정보를 LocalConfig(디스크) 대신 `lazy_static`+`RwLock` 인메모리 static 에만 보관([src/chainremote_auth.rs](src/chainremote_auth.rs)). 앱 종료 시 증발 → 디스크 잔재 0(빌린 PC 안전), 매 실행 재로그인. 메모리 전용이라 TTL 무관해져 패널 JWT TTL 7d→24h([chainremote-admin/lib/api-auth.ts](chainremote-admin/lib/api-auth.ts)). **단 윈도우는 트레이 프로세스가 살아있어 "창 닫기" 로는 토큰이 안 비워짐** — 계정 비우기는 로그아웃 버튼이 정답.
+- **로그아웃 버튼**: 상단바에 사용자명 + 로그아웃(확인 다이얼로그). `ChainRemoteAuth` 전역 핸들(`authed` ValueNotifier)을 게이트가 구독 → 로그아웃 시 즉시 로그인 화면 복귀. 계정 전환(chang↔jaesung) 가능. ([chainremote_auth_gate.dart](flutter/lib/desktop/pages/chainremote_auth_gate.dart))
+- **원격 세션 중 창 닫기 확인**: 원격 제어 창 X 누르면 활성 세션 1개라도 있으면 항상 확인 다이얼로그([remote_tab_page.dart](flutter/lib/desktop/pages/remote_tab_page.dart) `handleWindowCloseButton`/`_chainremoteConfirmCloseDuringSession`). 코이노 페인포인트(원격 중 무경고 끊김→거래처 재안내) 해결. 로그인만 한 메인 창은 hide 동작이라 무확인 유지(Chang 결정: 종료 무확인, 원격중만 경고).
+- **자기 ID 칩**: 위 부수결정 참조.
 
 **옵션 B+ 채택 결정 (2026-05-21, 옵션 A 번복)**: HQ 빌드에 사용자 토글 "외부 원격 접속 허용" 추가.
 - 번복 이유: 재성이/구매자 컴맹 시 IT 자기지원 불가 = 원격 SW 자체 모순. 판매 시 신뢰 문제.
