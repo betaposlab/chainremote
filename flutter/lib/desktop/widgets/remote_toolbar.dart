@@ -2248,6 +2248,11 @@ class _CloseMenu extends StatelessWidget {
       assetName: 'assets/close.svg',
       tooltip: 'Close',
       onPressed: () async {
+        // ChainRemote: 툴바 빨간 X 도 경고 없이 끊기지 않도록 확인.
+        // (창 X 와 별개 경로 — 둘 다 막아야 코이노식 무경고 끊김 방지.)
+        if (!await _chainremoteConfirmEndSession()) {
+          return;
+        }
         if (await showConnEndAuditDialogCloseCanceled(ffi: ffi)) {
           return;
         }
@@ -2256,6 +2261,27 @@ class _CloseMenu extends StatelessWidget {
       color: _ToolbarTheme.redColor,
       hoverColor: _ToolbarTheme.hoverRedColor,
     );
+  }
+
+  Future<bool> _chainremoteConfirmEndSession() async {
+    final res = await ffi.dialogManager.show<bool>((setState, close, context) {
+      return CustomAlertDialog(
+        title: Row(children: [
+          const Icon(Icons.warning_amber_sharp,
+              color: Colors.redAccent, size: 28),
+          const SizedBox(width: 10),
+          Text(translate("Warning")),
+        ]),
+        content: const Text('원격 세션을 종료할까요?\n거래처 연결이 끊깁니다.'),
+        actions: [
+          dialogButton("Cancel", onPressed: () => close(false), isOutline: true),
+          dialogButton("OK", onPressed: () => close(true)),
+        ],
+        onSubmit: () => close(true),
+        onCancel: () => close(false),
+      );
+    });
+    return res == true;
   }
 }
 
