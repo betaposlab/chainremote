@@ -391,6 +391,15 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
 
   Future<bool> handleWindowCloseButton() async {
     final connLength = tabController.length;
+    // ChainRemote: 원격 세션 중 창 닫기 = 원격 끊김. 코이노처럼 경고 없이
+    // 끊겨서 거래처에 재안내(앱 실행→ID 불러주기→재접속) 하는 일을 막기 위해,
+    // 활성 세션이 1개라도 있으면 항상 확인 다이얼로그를 띄운다.
+    // (로그인만 한 메인 창은 별도 — 거긴 hide 라 무확인 유지.)
+    if (connLength >= 1) {
+      if (!await _chainremoteConfirmCloseDuringSession(connLength)) {
+        return false;
+      }
+    }
     if (connLength == 1) {
       if (await desktopTryShowTabAuditDialogCloseCancelled(
         id: tabController.state.value.tabs[0].key,
@@ -415,6 +424,30 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
       }
       return res;
     }
+  }
+
+  Future<bool> _chainremoteConfirmCloseDuringSession(int connLength) async {
+    final msg = connLength > 1
+        ? '원격 세션 $connLength개가 진행 중입니다. 모두 종료할까요?\n거래처 연결이 끊깁니다.'
+        : '원격 세션이 진행 중입니다. 종료할까요?\n거래처 연결이 끊깁니다.';
+    final res = await gFFI.dialogManager.show<bool>((setState, close, context) {
+      return CustomAlertDialog(
+        title: Row(children: [
+          const Icon(Icons.warning_amber_sharp,
+              color: Colors.redAccent, size: 28),
+          const SizedBox(width: 10),
+          Text(translate("Warning")),
+        ]),
+        content: Text(msg),
+        actions: [
+          dialogButton("Cancel", onPressed: () => close(false), isOutline: true),
+          dialogButton("OK", onPressed: () => close(true)),
+        ],
+        onSubmit: () => close(true),
+        onCancel: () => close(false),
+      );
+    });
+    return res == true;
   }
 
   _update_remote_count() =>
