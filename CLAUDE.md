@@ -323,7 +323,7 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
 **HQ 앱 인증/UX 4종 완성 (2026-05-22, Mac+집윈컴 검증)**:
 - **토큰 메모리 전용**: 로그인 토큰/사용자정보를 LocalConfig(디스크) 대신 `lazy_static`+`RwLock` 인메모리 static 에만 보관([src/chainremote_auth.rs](src/chainremote_auth.rs)). 앱 종료 시 증발 → 디스크 잔재 0(빌린 PC 안전), 매 실행 재로그인. 메모리 전용이라 TTL 무관해져 패널 JWT TTL 7d→24h([chainremote-admin/lib/api-auth.ts](chainremote-admin/lib/api-auth.ts)). **단 윈도우는 트레이 프로세스가 살아있어 "창 닫기" 로는 토큰이 안 비워짐** — 계정 비우기는 로그아웃 버튼이 정답.
 - **로그아웃 버튼**: 상단바에 사용자명 + 로그아웃(확인 다이얼로그). `ChainRemoteAuth` 전역 핸들(`authed` ValueNotifier)을 게이트가 구독 → 로그아웃 시 즉시 로그인 화면 복귀. 계정 전환(chang↔jaesung) 가능. ([chainremote_auth_gate.dart](flutter/lib/desktop/pages/chainremote_auth_gate.dart))
-- **원격 세션 중 창 닫기 확인**: 원격 제어 창 X 누르면 활성 세션 1개라도 있으면 항상 확인 다이얼로그([remote_tab_page.dart](flutter/lib/desktop/pages/remote_tab_page.dart) `handleWindowCloseButton`/`_chainremoteConfirmCloseDuringSession`). 코이노 페인포인트(원격 중 무경고 끊김→거래처 재안내) 해결. 로그인만 한 메인 창은 hide 동작이라 무확인 유지(Chang 결정: 종료 무확인, 원격중만 경고).
+- **원격 세션 종료 확인 (2경로)**: 원격 중 무경고 끊김(코이노 페인포인트: 끊기면 거래처에 앱 실행→ID 불러주기→재접속 재안내) 해결. **두 종료 경로 모두** 확인 다이얼로그: ① 원격 제어 **창 X**([remote_tab_page.dart](flutter/lib/desktop/pages/remote_tab_page.dart) `handleWindowCloseButton`/`_chainremoteConfirmCloseDuringSession`, 활성 세션 1개라도 있으면), ② 세션 **툴바 빨간 X**([remote_toolbar.dart](flutter/lib/desktop/widgets/remote_toolbar.dart) `_CloseMenu`/`_chainremoteConfirmEndSession` — `closeConnection` 직전). 둘은 별개 경로라 둘 다 막아야 함. 로그인만 한 메인 창 X 는 hide 라 무확인 유지(Chang 결정: 종료 무확인, 원격중만 경고).
 - **자기 ID 칩**: 위 부수결정 참조.
 
 **옵션 B+ 채택 결정 (2026-05-21, 옵션 A 번복)**: HQ 빌드에 사용자 토글 "외부 원격 접속 허용" 추가.
