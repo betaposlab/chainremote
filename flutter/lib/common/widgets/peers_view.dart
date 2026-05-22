@@ -51,6 +51,14 @@ class PeersModelName {
   static const String group = 'group peer';
 }
 
+// ChainRemote: 이 기기 자신의 ID 캐시. 자기 자신을 거래처 목록(최근/즐겨찾기/LAN)에서 숨기기 위함.
+// 집 윈컴처럼 HQ 빌드(뷰어)이면서 동시에 거래처로도 등록된 머신이, 자기 홈에서 자기 자신을
+// 원격 대상으로 보여주는 무의미한 표시를 방지. ID 는 세션 중 불변 + Rust get_id()=config 동기
+// 읽기라, matchPeers(async) 안에서 1회 await 캐시하면 첫 렌더부터 깜빡임 없이 가려진다.
+// DB 안 건드림 — 즐겨찾기는 chang 계정에 그대로 남고, 가리기는 순전히 기기 로컬 동작이라
+// 맥북에는 영향 0 (맥북은 자기 ID 가 달라 우리집이 그대로 보임).
+String _myOwnIdCache = '';
+
 /// for peer search text, global obs value
 final peerSearchText = "".obs;
 
@@ -508,6 +516,15 @@ class _PeersViewState extends State<_PeersView>
 
   Future<List<Peer>>? matchPeers(
       String searchText, String sortedBy, List<Peer> peers) async {
+    // ChainRemote: 자기 자신 ID 를 모든 목록에서 숨김 (단일 필터 지점 = 전 탭 일괄 적용).
+    // async 라 첫 호출 때 실제 ID 를 await 로 받아 캐시 → 깜빡임 없음.
+    if (_myOwnIdCache.isEmpty) {
+      _myOwnIdCache = (await bind.mainGetMyId()).trim();
+    }
+    if (_myOwnIdCache.isNotEmpty) {
+      peers = peers.where((peer) => peer.id != _myOwnIdCache).toList();
+    }
+
     if (widget.peerFilter != null) {
       peers = peers.where((peer) => widget.peerFilter!(peer)).toList();
     }
