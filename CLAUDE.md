@@ -99,11 +99,11 @@
 │ 본사 ChainRemote 앱     │  │ 관리 패널 (브라우저) │
 │ (Chang Mac, 재성이 Win) │  │                      │
 │ 로그인 chang|jaesung    │  │ 로그인 chang|jaesung │
-│ [홈 = RustDesk 스샷 모양]│  │ • 모든 거래처 표      │
-│ • 전체 거래처(DB에서)   │  │ • 모든 직원 즐겨찾기  │
-│ • 즐겨찾기 탭 (내 것만) │  │ • 지원이력           │
-│ • 최근 세션 (내 것만)   │  │ • 권한 관리          │
-│ • 1클릭 원격 + presence │  │                      │
+│ [홈 = 즐겨찾기 탭 착지]  │  │ • 모든 거래처 표      │
+│ • 즐겨찾기 (내 것만)    │  │ • 모든 직원 즐겨찾기  │
+│ • 최근 세션 (네이티브)  │  │ • 지원이력           │
+│   (전체 거래처는 패널)  │  │ • 권한 관리          │
+│ • 1클릭 원격            │  │                      │
 │ • [업데이트 확인] 버튼   │  └──────┬───────────────┘
 └────────┬────────────────┘         │
          └──── NAS PostgreSQL ◄─────┘
@@ -118,7 +118,11 @@
 2. 거래처 빌드 = 수신만. 별도 빌드(--role=agent).
 3. 본사 앱 로그인 (chang/jaesung 각자 비번 6002).
 4. 동시간 각자 다른 거래처 원격 가능. RustDesk 다중 viewer로 native 지원.
-5. 본사 앱 홈 = 전체 거래처 + "내 즐겨찾기" 탭. 모두 다 보이되 즐겨찾기는 자기 것만.
+5. **본사 앱 = 최근 세션 + 즐겨찾기 두 탭, 즐겨찾기 탭으로 착지** (2026-05-22 정정). **전체 거래처 마스터 뷰는 관리 패널 전용** (앱엔 없음). 
+   - **최근 세션**: 네이티브 최근 접속 기록(`mainLoadRecentPeers`). 과거분 무시, 앞으로 원격하면 쌓임. 여기서 우클릭 → 즐겨찾기 추가.
+   - **즐겨찾기**: `GET /api/me/favorites` (내 것만). 앱 열면 이 탭으로 착지.
+   - 즐겨찾기 추가 경로: 최근 세션 우클릭, 또는 상단 연결박스로 ID 접속 후. 추가 → `POST /api/me/favorites` → 같은 DB → 패널 자동 반영.
+   - 코드: [flutter/lib/models/peer_tab_model.dart](flutter/lib/models/peer_tab_model.dart) init `_currentTab=fav`. `chainremoteLoadCustomers`는 화면 안 뿌리고 remote_id→uuid 캐시만 silent 워밍([src/chainremote_data.rs](src/chainremote_data.rs) `fetch_customers_blocking`). (옛 표현 "전체 거래처 + 즐겨찾기 탭" 폐기.)
 6. 관리 패널 = 모든 직원의 즐겨찾기까지 조회 가능. user_favorites 테이블 신설.
 7. 권한: **chang = 모두**. **jaesung = 읽기 + 원격 + 거래처 추가 + 자기 즐겨찾기 관리**. 거래처 수정/삭제·직원 관리는 chang만.
 8. 업데이트 = 현재 방식 유지 (B-2 완성: 설정에 "업데이트 확인" 버튼 → 즉시 설치). 24h 자동 폴링도 그대로.
@@ -416,11 +420,11 @@ RustDesk 의 두 HTTP 헬퍼가 서로 다른 헤더 형식을 요구하고, 응
 ```bash
 cd ~/내작업/ChainRemote && \
   source $HOME/.cargo/env && rustup default 1.81 && \
-  PATH="$HOME/flutter-3.24.5/bin:$HOME/.local/bin:$PATH" \
-  VCPKG_ROOT=$HOME/vcpkg \
-  MACOSX_DEPLOYMENT_TARGET=12.3 \
-  LANG=en_US.UTF-8 \
-  bash -c 'cd flutter && rm -rf .dart_tool && flutter pub get && cd ..' && \
+  export PATH="$HOME/flutter-3.24.5/bin:$HOME/.local/bin:$PATH" && \
+  export VCPKG_ROOT=$HOME/vcpkg && \
+  export MACOSX_DEPLOYMENT_TARGET=12.3 && \
+  export LANG=en_US.UTF-8 && \
+  (cd flutter && rm -rf .dart_tool && flutter pub get) && \
   python3 ./build.py --flutter --unix-file-copy-paste --screencapturekit && \
   pkill -9 RustDesk ChainRemote 2>/dev/null; \
   rm -rf /Applications/ChainRemote.app && \
@@ -429,6 +433,8 @@ cd ~/내작업/ChainRemote && \
   codesign --force --deep --sign - /Applications/ChainRemote.app && \
   open /Applications/ChainRemote.app
 ```
+
+**⚠️ `export` 필수 (2026-05-22 함정 12)**: 옛 명령은 `PATH=... VCPKG_ROOT=... bash -c '...'` 형태라 env 가 **그 `bash -c` 한 줄에만** 적용됐다. 그 뒤 `&& python3 ./build.py` 는 env 없이 기본 PATH 로 실행 → `build.py` 가 brew Flutter 3.41.8(`/opt/homebrew/bin/flutter`)을 잡아 빌드 실패(`DialogThemeData`/`TabBarThemeData`/`_SelectableFragment`/google_fonts 상수 에러 = 신버전 Flutter 증상). **반드시 `export` 로 셸 전체에 전파**시켜 build.py 가 `~/flutter-3.24.5/bin/flutter` 를 쓰게 할 것. 빌드 시작 직후 `which flutter` 가 `~/flutter-3.24.5/bin/flutter` 인지 확인.
 
 **왜 `/Applications/ChainRemote.app` 까지 복사하는가** (2026-05-20 함정):
 - `build/macos/Build/Products/Release/RustDesk.app` 가 새 빌드, `/Applications/ChainRemote.app` 가 매일 켜는 것 (Spotlight·Dock). 둘은 다른 파일.

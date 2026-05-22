@@ -826,8 +826,8 @@ abstract class BasePeerCard extends StatelessWidget {
           switch (tab) {
             case PeerTabIndex.recent:
               await bind.mainRemovePeer(id: id);
-              // ChainRemote 본사 앱: 진실 원천 = 관리 패널 DB. (Phase 2-C)
-              bind.chainremoteLoadCustomers();
+              // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록.
+              bind.mainLoadRecentPeers();
               break;
             case PeerTabIndex.fav:
               // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
@@ -1033,8 +1033,8 @@ class RecentPeerCard extends BasePeerCard {
 
   @protected
   @override
-  // ChainRemote 본사 앱: 진실 원천 = 관리 패널 DB. (Phase 2-C)
-  void _update() => bind.chainremoteLoadCustomers();
+  // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록.
+  void _update() => bind.mainLoadRecentPeers();
 }
 
 class FavoritePeerCard extends BasePeerCard {

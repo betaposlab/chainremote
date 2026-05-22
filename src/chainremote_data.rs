@@ -167,32 +167,25 @@ fn unwrap_body(raw: String) -> String {
         .unwrap_or(raw)
 }
 
-/// GET /api/customers → "load_recent_peers" 이벤트로 push.
-/// 동시에 remote_id → uuid 매핑 캐시 갱신.
+/// GET /api/customers → remote_id → uuid 매핑 캐시 갱신 (silent).
+/// 전체 거래처 마스터 뷰는 관리 패널 전용 — 앱은 최근세션(네이티브)+즐겨찾기만 표시하므로
+/// 더 이상 "load_recent_peers" 로 push 하지 않는다. 이 fetch 는 즐겨찾기 추가 시
+/// remote_id → uuid 변환에만 쓰인다 (캐시 미스 자동 보충 + 시작 시 워밍).
 fn fetch_customers_blocking() -> bool {
     let url = format!("{}/api/customers", chainremote_auth::api_base());
     match authed_get(url) {
         Ok(inner) => match serde_json::from_str::<CustomersResponse>(&inner) {
             Ok(resp) => {
                 update_remote_to_uuid(&resp.customers.iter().collect::<Vec<_>>());
-                let peers: Vec<_> = resp
-                    .customers
-                    .iter()
-                    .filter_map(customer_to_peer_json)
-                    .collect();
-                let json = serde_json::ser::to_string(&peers).unwrap_or_default();
-                push_event("load_recent_peers", json);
                 true
             }
             Err(e) => {
                 log::warn!("ChainRemote customers 파싱 실패: {} ({:.200})", e, inner);
-                push_empty("load_recent_peers");
                 false
             }
         },
         Err(e) => {
             log::warn!("ChainRemote /api/customers 실패: {}", e);
-            push_empty("load_recent_peers");
             false
         }
     }
@@ -271,6 +264,9 @@ fn add_favorite_blocking(remote_id: String) -> bool {
                     s.insert(remote_id);
                 }
             }
+            // 서버 반영 후 즐겨찾기 탭 재푸시 → 앱 홈(즐겨찾기) 즉시 갱신.
+            // 같은 스레드라 POST 완료 후 실행 = 레이스 없음.
+            fetch_favorites_blocking();
             true
         }
         Err(e) => {
@@ -301,6 +297,8 @@ fn remove_favorite_blocking(remote_id: String) -> bool {
                     s.remove(&remote_id);
                 }
             }
+            // 서버 반영 후 즐겨찾기 탭 재푸시 → 앱 홈(즐겨찾기) 즉시 갱신.
+            fetch_favorites_blocking();
             true
         }
         Err(e) => {

@@ -396,8 +396,8 @@ class _PeerTabPageState extends State<PeerTabPage>
                 for (var p in peers) {
                   await bind.mainRemovePeer(id: p.id);
                 }
-                // ChainRemote 본사 앱: 진실 원천 = 관리 패널 DB. (Phase 2-C)
-                bind.chainremoteLoadCustomers();
+                // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록.
+                bind.mainLoadRecentPeers();
                 break;
               case 1:
                 // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
