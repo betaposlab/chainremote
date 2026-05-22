@@ -97,6 +97,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => const SizedBox(width: 200)),
           ),
+          const SizedBox(width: 16),
+          _buildMyIdChip(),
           const Spacer(),
           Builder(builder: (_) {
             final name = ChainRemoteAuth.currentDisplayName();
@@ -133,6 +135,47 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           ),
         ],
       ),
+    );
+  }
+
+  // 옵션 B+ 로 HQ 도 수신 대상이 될 수 있어 자기 ID 가 필요. 메인에 적당한
+  // 크기로 표시(+복사). 기존 "내 ID 큰 표시 폐기" 원칙은 이 카드에 한해 완화.
+  Widget _buildMyIdChip() {
+    return FutureBuilder<String>(
+      future: bind.mainGetMyId(),
+      builder: (_, snapshot) {
+        final id = (snapshot.data ?? '').trim();
+        if (id.isEmpty) return const SizedBox.shrink();
+        return InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: () {
+            Clipboard.setData(ClipboardData(text: id));
+            showToast(translate("Copied"));
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF3FB),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('내 ID ',
+                    style: TextStyle(fontSize: 12, color: Colors.black54)),
+                Text(id,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                        color: Color(0xFF1E40AF))),
+                const SizedBox(width: 6),
+                const Icon(Icons.copy, size: 14, color: Colors.black45),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
