@@ -144,7 +144,11 @@ if (-not $srcPacker) {
 $outDir = "$repoDir\deploy\portable"
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }
 $outExe = "$outDir\ChainGo.exe"
-if (Test-Path $outExe) { Remove-Item $outExe -Force }
+# 이전에 띄운 ChainGo/inner 가 살아있으면 파일 잠금 → Copy-Item access denied.
+# 출력 덮어쓰기 전에 살짝 정리.
+Get-Process ChainGo,rustdesk -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 500
+if (Test-Path $outExe) { Remove-Item $outExe -Force -ErrorAction SilentlyContinue }
 Copy-Item $srcPacker $outExe -Force
 $sizeMB = [Math]::Round((Get-Item $outExe).Length/1MB,1)
 
