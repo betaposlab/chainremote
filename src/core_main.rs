@@ -22,6 +22,30 @@ macro_rules! my_println{
     };
 }
 
+/// ChainRemote 포터블(ChainGo) 모드 감지 및 APP_DIR 세팅.
+///
+/// env `CHAINREMOTE_PORTABLE_DIR` 이 있으면 그 하위 `config/` 를 APP_DIR 로 박는다.
+/// (이 함수가 core_main 최상단에서 한 번 호출됨. global_init 보다 먼저.)
+///
+/// 동작:
+///   1. env 가 없으면 noop — 정식 빌드와 동일.
+///   2. env 가 있으면 `<env>/config` 폴더 생성 시도 + `APP_DIR.write()` 박음.
+///        - 폴더 생성 실패해도 APP_DIR 은 박음(Config 가 자체적으로 재시도).
+///        - env 값이 빈 문자열이면 무시(noop) — 안전.
+fn chainremote_portable_init() {
+    let dir = std::env::var("CHAINREMOTE_PORTABLE_DIR").unwrap_or_default();
+    let dir = dir.trim().to_string();
+    if dir.is_empty() {
+        return;
+    }
+    let mut cfg_dir = std::path::PathBuf::from(&dir);
+    cfg_dir.push("config");
+    let _ = std::fs::create_dir_all(&cfg_dir);
+    if let Ok(mut app_dir) = hbb_common::config::APP_DIR.write() {
+        *app_dir = cfg_dir.to_string_lossy().to_string();
+    }
+}
+
 /// shared by flutter and sciter main function
 ///
 /// [Note]
@@ -29,6 +53,15 @@ macro_rules! my_println{
 /// If it returns [`Some`], then the process will continue, and flutter gui will be started.
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn core_main() -> Option<Vec<String>> {
+    // ChainRemote 포터블(ChainGo) 진입점.
+    // SFX 래퍼가 inner exe 실행 전 env CHAINREMOTE_PORTABLE_DIR=<temp 디렉터리>
+    // 를 박아둠. 여기서 APP_DIR 을 그 하위 config 로 세팅하면 hbb_common 의
+    // Config::path() 가 ProjectDirs(%APPDATA%) 대신 그 폴더를 쓰게 됨 →
+    // 호스트 PC 의 %APPDATA% / 레지스트리에 흔적 안 남음.
+    //
+    // 반드시 global_init() 보다 먼저: init_log, Config::path 호출 전에 박혀야 함.
+    chainremote_portable_init();
+
     if !crate::common::global_init() {
         return None;
     }
@@ -138,11 +171,16 @@ pub fn core_main() -> Option<Vec<String>> {
     }
     #[cfg(windows)]
     {
-        _is_quick_support |= !crate::platform::is_installed()
-            && args.is_empty()
-            && (is_quick_support_exe(&arg_exe)
-                || config::LocalConfig::get_option("pre-elevate-service") == "Y"
-                || (!click_setup && crate::platform::is_elevated(None).unwrap_or(false)));
+        // ChainRemote 포터블(ChainGo): quick_support 자동 추론 금지. quick_support 가 켜지면
+        // 아래에서 start_portable_service 가 elevated 헬퍼를 띄워 호스트 PC 에 흔적/서비스
+        // 등록 시도를 할 수 있음. 포터블은 단순 outgoing viewer 라 불필요.
+        if !crate::common::is_chainremote_portable() {
+            _is_quick_support |= !crate::platform::is_installed()
+                && args.is_empty()
+                && (is_quick_support_exe(&arg_exe)
+                    || config::LocalConfig::get_option("pre-elevate-service") == "Y"
+                    || (!click_setup && crate::platform::is_elevated(None).unwrap_or(false)));
+        }
         crate::portable_service::client::set_quick_support(_is_quick_support);
     }
     let mut log_name = "".to_owned();
@@ -166,6 +204,7 @@ pub fn core_main() -> Option<Vec<String>> {
         && _is_quick_support
         && !_is_elevate
         && !_is_run_as_system
+        && !crate::common::is_chainremote_portable()
     {
         use crate::portable_service::client;
         if let Err(e) = client::start_portable_service(client::StartPara::Direct) {
