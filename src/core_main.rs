@@ -44,6 +44,16 @@ fn chainremote_portable_init() {
     if let Ok(mut app_dir) = hbb_common::config::APP_DIR.write() {
         *app_dir = cfg_dir.to_string_lossy().to_string();
     }
+    // 호스트 PC 에 정식 ChainRemote(HQ) 가 떠있으면 Flutter runner 의
+    // `FindWindowW(class, app_name)` single-instance 체크가 호스트 창을 잡아
+    // 새 inner 가 자기 종료 → 호스트 HQ 가 활성화돼 버림(포터블 격리 실패).
+    // APP_NAME 을 "ChainGo" 로 바꿔주면 `get_rustdesk_app_name` FFI 가 다른
+    // 이름을 반환 → FindWindowW(class,"ChainGo") 가 호스트(="ChainRemote") 를
+    // 못 찾고 자기 창을 새로 띄움. 디스크는 APP_DIR, IPC 는 해시+APP_NAME
+    // 으로 이미 격리돼 있어 안전.
+    if let Ok(mut name) = hbb_common::config::APP_NAME.write() {
+        *name = "ChainGo".to_string();
+    }
 }
 
 /// shared by flutter and sciter main function

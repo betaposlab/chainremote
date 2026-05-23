@@ -44,12 +44,35 @@ foreach ($f in @("rustdesk_portable.exe","rustdesk-1.4.6-install.exe")) {
   if (Test-Path $f) { Remove-Item $f -Force; Write-Host "removed stale $f" }
 }
 
-# Dart-only 도 아니고 Rust core 변경이라 풀빌드. .dart_tool 만 살짝 청소.
-Write-Host "[clean] rm flutter/.dart_tool, flutter/build"
+# Rust core 변경이라 풀빌드. HQ 스크립트와 같은 클린 패턴 사용
+# (flutter clean → rm .dart_tool/build → flutter pub get).
+# 추가 방어: pub advisories 캐시가 손상되면 readAdvisoriesFromCache 가
+# "Null check operator used on a null value" 로 panic (Dart pub 알려진 버그).
+# .advisories 폴더만 골라 제거하여 다음 fetch 시 재생성되게 함.
+Write-Host "[clean] pub advisories cache 정리"
+# 손상된 advisories 캐시는 hosted\pub.dev\.cache\*-advisories.json. 그 .cache 폴더만
+# 통째로 정리(패키지 archives 와 분리된 위치라 재다운로드 비용 없음). pub 가 다음
+# resolve 시 재생성.
+$pubMetaCache = "$env:LOCALAPPDATA\Pub\Cache\hosted\pub.dev\.cache"
+if (Test-Path $pubMetaCache) {
+  Remove-Item -Recurse -Force $pubMetaCache -ErrorAction SilentlyContinue
+  Write-Host "  removed $pubMetaCache"
+}
+
+Write-Host "[clean] flutter clean + rm .dart_tool/build + flutter pub get"
+$prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
 Push-Location "$repoDir\flutter"
+cmd /c "flutter clean" 2>&1 | Select-Object -Last 2
 Remove-Item -Recurse -Force .dart_tool, build -ErrorAction SilentlyContinue
-cmd /c "flutter pub get" 2>&1 | Select-Object -Last 2
+cmd /c "flutter pub get" 2>&1 | Select-Object -Last 3
 Pop-Location
+$ErrorActionPreference = $prevEAP
+
+# pub advisories 검색이 Dart pub 의 알려진 버그(Null check panic)로 죽음.
+# PUB_OFFLINE=1 = 어제 cached 패키지로만 풀어 advisories 네트워크 조회 skip.
+# 만약 캐시 누락이 있으면 그때만 PUB_OFFLINE 빼고 재시도하면 됨.
+$env:PUB_OFFLINE = "1"
+Write-Host "[env] PUB_OFFLINE=1 (advisories panic 회피)"
 
 # 1) Flutter + cargo lib 빌드 (SFX 패킹 skip)
 $buildLog = "$env:TEMP\chaingo-build.log"
@@ -78,17 +101,18 @@ Write-Host "[1/5] OK. Release rustdesk.exe mtime: $((Get-Item "$releaseDir\rustd
 Write-Host "[2/5] custom.txt 박기 (conn-type=outgoing)"
 Copy-Item "$repoDir\deploy\custom-portable.txt" "$releaseDir\custom.txt" -Force
 
-# 3) generate.py 로 SFX 페이로드 만들기
+# 3) generate.py 로 SFX 페이로드 만들기 (pip + python 둘 다 stderr 출력 흔함 → EAP 완화)
 Push-Location "$repoDir\libs\portable"
+$prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
 cmd /c "pip3 install -r requirements.txt" 2>&1 | Select-Object -Last 3
 Write-Host "[3/5] generate.py (페이로드 생성)"
-$prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
 cmd /c "python generate.py -f ../../flutter/build/windows/x64/runner/Release -o . -e ../../flutter/build/windows/x64/runner/Release/rustdesk.exe" 2>&1 | Select-Object -Last 5
-if ($LASTEXITCODE -ne 0) {
-  Write-Host "generate.py FAILED"
+$genCode = $LASTEXITCODE
+$ErrorActionPreference = $prevEAP
+if ($genCode -ne 0) {
+  Write-Host "generate.py FAILED (exit $genCode)"
   Pop-Location; Pop-Location; exit 1
 }
-$ErrorActionPreference = $prevEAP
 
 # 4) cargo build --release of libs/portable (= SFX 래퍼)
 Write-Host "[4/5] cargo build --release (libs/portable)"
@@ -106,7 +130,17 @@ if ($cargoCode -ne 0) {
 Pop-Location
 
 # 5) deploy\portable\ChainGo.exe 로 이동
-$srcPacker = "$repoDir\libs\portable\target\release\rustdesk-portable-packer.exe"
+# cargo workspace 때문에 target 이 libs/portable 가 아니라 워크스페이스 루트.
+$candidates = @(
+  "$repoDir\target\release\rustdesk-portable-packer.exe",
+  "$repoDir\libs\portable\target\release\rustdesk-portable-packer.exe"
+)
+$srcPacker = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $srcPacker) {
+  Write-Host "ERROR: rustdesk-portable-packer.exe 못 찾음. 후보:"
+  $candidates | ForEach-Object { Write-Host "  $_" }
+  exit 1
+}
 $outDir = "$repoDir\deploy\portable"
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }
 $outExe = "$outDir\ChainGo.exe"
