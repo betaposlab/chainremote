@@ -97,6 +97,10 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 fit: BoxFit.contain,
                 errorBuilder: (_, __, ___) => const SizedBox(width: 200)),
           ),
+          if ((Platform.environment['CHAINREMOTE_PORTABLE_DIR'] ?? '').isNotEmpty) ...[
+            const SizedBox(width: 10),
+            _buildChainGoBadge(),
+          ],
           const SizedBox(width: 16),
           _buildMyIdChip(),
           const Spacer(),
@@ -134,6 +138,29 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             },
           ),
         ],
+      ),
+    );
+  }
+
+  // ChainGo(포터블 SFX) 모드 식별 배지. SFX 래퍼가 inner 실행 시 env
+  // CHAINREMOTE_PORTABLE_DIR 박음 → Dart 가 그 env 보고 띄움. 정식 HQ 빌드
+  // 와 시각적으로 즉시 구별되도록 주황색.
+  Widget _buildChainGoBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFEDD5), // light orange bg
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFEA580C), width: 1),
+      ),
+      child: const Text(
+        'ChainGo',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFFC2410C), // deep orange text
+          letterSpacing: 0.3,
+        ),
       ),
     );
   }
