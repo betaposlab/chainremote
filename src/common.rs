@@ -121,6 +121,22 @@ impl Drop for SimpleCallOnReturn {
     }
 }
 
+/// ChainRemote 포터블(ChainGo) 모드 여부.
+///
+/// SFX 래퍼가 inner exe 진입 직전 `CHAINREMOTE_PORTABLE_DIR` env 를 박고,
+/// core_main 최상단 `chainremote_portable_init()` 가 그 하위 config 폴더를
+/// `APP_DIR` 에 세팅함. 그래서 데스크톱에서 APP_DIR 가 비어있지 않으면
+/// = 포터블 = 호스트 PC 에 흔적 남기는 어떤 동작도 자동 트리거 금지.
+///
+/// 정식 빌드는 APP_DIR 가 비어있어 false.
+#[inline]
+pub fn is_chainremote_portable() -> bool {
+    !hbb_common::config::APP_DIR
+        .read()
+        .map(|s| s.is_empty())
+        .unwrap_or(true)
+}
+
 pub fn global_init() -> bool {
     #[cfg(target_os = "linux")]
     {
