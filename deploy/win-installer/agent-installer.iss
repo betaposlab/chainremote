@@ -99,8 +99,13 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;    - 서비스 폴더 : C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\
 ;                                                          (RustDesk 가 service 모드일 때 읽음)
 ;    개선: PowerShell Copy-Item + 검증 + 최대 5회 재시도 (file lock 일시 보유 환경 대비)
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\RustDesk\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
+;
+;    자동업데이트 안전 가드 (2026-05-24): dst 의 RustDesk2.toml 이 이미 존재하면 toml 박지
+;    않음. 자동업데이트(silent install 재실행) 시 거래처가 자체 설정한 영구비번/approve-mode
+;    /기타 옵션이 reset 되는 사고 회피. 신규 설치는 dst 비어있어 정상 박힘. 우리 NAS 서버/key
+;    변경 시엔 거래처 재설치 필요 (현재 sepani.synology.me 고정이라 무관).
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\RustDesk\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\RustDesk2.toml"") {{ Write-Host 'preserved (auto-update mode, user toml exists)' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\RustDesk2.toml"") {{ Write-Host 'preserved (auto-update mode, user toml exists)' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
 
 ; 4. ★ 서비스 재시작 — 새 config 로 등록 (검증 + 재시도 + updater.log 기록)
 ;    배경: install_me 가 서비스를 start=auto 로 생성·시작하지만, 위 2단계가 강제 정지(taskkill 포함)함.
