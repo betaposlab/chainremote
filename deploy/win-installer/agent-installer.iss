@@ -54,11 +54,15 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "{#BUILD_DIR}\*"; DestDir: "{tmp}\chainremote_payload"; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
 
 ; 우리 toml 파일들을 임시 폴더에 풀어두고 [Run] 단계에서 두 경로(user + LocalService)에 동시 배치
-;   - RustDesk.toml          : Config (영구 비밀번호)  — 첫 로드 시 평문이 자동 해싱됨
-;   - RustDesk2.toml         : Config2 (서버 + 옵션)  — 우리 NAS, access-mode=full 등
-;   - RustDesk_default.toml  : UserDefaultConfig      — 디스플레이/원격커서/음소거 등 기본값
-Source: "RustDesk.toml";         DestDir: "{tmp}\chainremote_config"; Flags: deleteafterinstall ignoreversion
-Source: "RustDesk2.toml";        DestDir: "{tmp}\chainremote_config"; Flags: deleteafterinstall ignoreversion
+;   - RustDesk2-agent.toml   : Config2 (서버 + 옵션) — agent 전용 (approve-mode=click,
+;                              영구비번 미사용). DestName 으로 RustDesk2.toml 이름으로 배치.
+;   - RustDesk_default.toml  : UserDefaultConfig — 디스플레이/원격커서/음소거 등 기본값
+;
+; 디폴트 정책 변경 (2026-05-24):
+;   거래처 PC 디폴트 = "클릭으로 세션 수락". 영구비번 평문(RustDesk.toml) 박지 않음.
+;   거래처가 자기 사용성에 따라 자율적으로 영구비번 켜거나 click 그대로 사용.
+;   HQ 인스톨러는 RustDesk2.toml (영구비번 모드) 그대로 유지 (옵션 B+).
+Source: "RustDesk2-agent.toml";  DestDir: "{tmp}\chainremote_config"; DestName: "RustDesk2.toml"; Flags: deleteafterinstall ignoreversion
 Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; Flags: deleteafterinstall ignoreversion
 
 ; ChainRemote 단축아이콘에 쓸 .ico (Program Files 안에 영구 보관)
