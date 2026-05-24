@@ -1712,6 +1712,16 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kChainremoteSetApiBaseConstMeta;
 
+  /// 본인 비번 변경. 현재 비번 검증 후 새 비번 저장.
+  /// 반환: `{"ok": true}` 또는 `{"ok": false, "error": "..."}` JSON 문자열.
+  /// 별도 thread 에서 실행 — http_request_sync 의 tokio runtime 충돌 회피.
+  String chainremoteChangePassword(
+      {required String currentPassword,
+      required String newPassword,
+      dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteChangePasswordConstMeta;
+
   /// 본사 앱 메인 화면용 — GET /api/customers 결과를 RustDesk Peer 포맷으로
   /// 변환해서 기존 `load_recent_peers` 이벤트로 push.
   /// UI 측은 별도 변경 없이 같은 코드 경로로 동작.
@@ -1752,9 +1762,10 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kChainremoteGetAllowIncomingConstMeta;
 
-  /// 토글 ON/OFF. ON 시 서비스 재시작 신호 필요 — RustDesk 의 기존
-  /// rendezvous restart 메커니즘은 별도. 사용자가 토글 후 ChainRemote 재시작 시
-  /// 즉시 hbbs 등록 시작. 영구비번은 인스톨러가 박아둠.
+  /// 토글 ON/OFF. 변경 직후 RendezvousMediator::restart() 로 서버 재시작 신호 →
+  /// SHOULD_EXIT 플래그 박혀 메인 루프가 빠져나오고 start_all 재진입 → 새 차단
+  /// 조건 평가. 사용자가 ChainRemote 재시작 안 해도 즉시 적용. 영구비번은
+  /// 인스톨러가 박아둠.
   bool chainremoteSetAllowIncoming({required bool allow, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteSetAllowIncomingConstMeta;
@@ -8024,6 +8035,28 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["url"],
       );
 
+  String chainremoteChangePassword(
+      {required String currentPassword,
+      required String newPassword,
+      dynamic hint}) {
+    var arg0 = _platform.api2wire_String(currentPassword);
+    var arg1 = _platform.api2wire_String(newPassword);
+    return _platform.executeSync(FlutterRustBridgeSyncTask(
+      callFfi: () =>
+          _platform.inner.wire_chainremote_change_password(arg0, arg1),
+      parseSuccessData: _wire2api_String,
+      constMeta: kChainremoteChangePasswordConstMeta,
+      argValues: [currentPassword, newPassword],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteChangePasswordConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "chainremote_change_password",
+        argNames: ["currentPassword", "newPassword"],
+      );
+
   Future<void> chainremoteLoadCustomers({dynamic hint}) {
     return _platform.executeNormal(FlutterRustBridgeTask(
       callFfi: (port_) =>
@@ -14258,6 +14291,26 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
               ffi.Pointer<wire_uint_8_list>)>>('wire_chainremote_set_api_base');
   late final _wire_chainremote_set_api_base = _wire_chainremote_set_api_basePtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
+
+  WireSyncReturn wire_chainremote_change_password(
+    ffi.Pointer<wire_uint_8_list> current_password,
+    ffi.Pointer<wire_uint_8_list> new_password,
+  ) {
+    return _wire_chainremote_change_password(
+      current_password,
+      new_password,
+    );
+  }
+
+  late final _wire_chainremote_change_passwordPtr = _lookup<
+          ffi.NativeFunction<
+              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+                  ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_chainremote_change_password');
+  late final _wire_chainremote_change_password =
+      _wire_chainremote_change_passwordPtr.asFunction<
+          WireSyncReturn Function(
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_chainremote_load_customers(
     int port_,

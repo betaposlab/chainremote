@@ -24,6 +24,25 @@ class ChainRemoteAuth {
     authed.value = false;
   }
 
+  /// 본인 비밀번호 변경. 현재 비번 검증 후 새 비번 hash 로 DB 업데이트.
+  /// 반환: (ok, error). 토큰은 그대로 유효 — 재로그인 불필요.
+  static ({bool ok, String? error}) changePassword(
+    String currentPassword,
+    String newPassword,
+  ) {
+    final raw = bind.chainremoteChangePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+    try {
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      if (m['ok'] == true) return (ok: true, error: null);
+      return (ok: false, error: (m['error'] as String?) ?? '비밀번호 변경 실패');
+    } catch (_) {
+      return (ok: false, error: '응답 파싱 실패');
+    }
+  }
+
   /// 현재 로그인 사용자 표시명 (없으면 빈 문자열).
   static String currentDisplayName() {
     try {

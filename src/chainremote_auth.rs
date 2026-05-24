@@ -132,3 +132,43 @@ pub fn login(email: &str, password: &str) -> ResultType<UserInfo> {
     }
     Err(anyhow!("응답 파싱 실패: {}", resp_text))
 }
+
+/// POST /api/me/password { currentPassword, newPassword } → 본인 비번 변경.
+///
+/// Bearer 헤더 필요 → `http_request_sync` 사용 (헤더 JSON object 형식, 응답 wrapper).
+/// 함정 10 (CLAUDE.md) — `post_request_sync` 와 다르니 주의.
+pub fn change_password(current: &str, new: &str) -> ResultType<()> {
+    let token = get_token();
+    if token.is_empty() {
+        return Err(anyhow!("로그인 안 됨"));
+    }
+    let url = format!("{}/api/me/password", api_base());
+    let body = serde_json::json!({
+        "currentPassword": current,
+        "newPassword": new,
+    })
+    .to_string();
+    let header = format!(
+        r#"{{"Authorization":"Bearer {}","Content-Type":"application/json"}}"#,
+        token
+    );
+    let raw = crate::http_request_sync(url, "POST".into(), Some(body), header)?;
+
+    // wrapper: {"status_code":N, "headers":{...}, "body":"<body string>"}
+    #[derive(Deserialize)]
+    struct HttpWrapper {
+        status_code: u16,
+        body: String,
+    }
+    let w: HttpWrapper = serde_json::from_str(&raw)
+        .map_err(|e| anyhow!("응답 파싱 실패: {}", e))?;
+
+    if (200..300).contains(&w.status_code) {
+        return Ok(());
+    }
+    // 에러 body 가 {"error":"..."} 형식
+    if let Ok(err) = serde_json::from_str::<ErrorResponse>(&w.body) {
+        return Err(anyhow!("{}", err.error));
+    }
+    Err(anyhow!("실패 ({}): {}", w.status_code, w.body))
+}
