@@ -277,14 +277,27 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
 ### v1.2.5+ 보류 항목 (다음 버전 묶을 때 같이)
 - **창/트레이/Alt+Tab 아이콘 RustDesk → ChainRemote 교체** (2026-05-07 발견): `flutter/windows/runner/resources/app_icon.ico` 가 RustDesk 기본값. `deploy/win-installer/chainremote.ico` 로 덮어쓰기 + 재빌드면 끝. 동작 무관 cosmetic — 재성이 PC v1.2.4 검증 후 다른 픽스 모일 때 묶어서 진행.
 
-### 다음 단계 (다음 세션)
-1. **Phase 1 — 거래처/본사 빌드 분리** (상세는 ↓ "Phase 1 작업 계획" 섹션).
-2. **재성이 윈도우 본사 빌드** — Phase 1 의 5~6 단계와 합쳐서 한 번에 (윈컴 빌드 환경 1회 깨움).
-3. **첫 거래처 실전 시도** — 가장 가까운 1곳 (코이노 대체 또는 신규).
-4. **거래처별 비번 자동 생성 + 관리 패널 DB 저장** (운영 정석화).
-5. **이슈 3** 외부망 P2P/릴레이/Mac TCC 재검증 — Mac → 윈컴 실원격 (다른 LAN).
-6. **파일 전송 UX 개선** — 더블클릭=전송, 드래그앤드롭, OS→원격창 직접 드롭.
-7. **코드 서명 인증서** ($300/년) — SmartScreen 경고 제거 (사업화 단계).
+### 작업 backlog (사업화 launch 진행 중, 2026-05-25 갱신)
+
+**코드 작업 (Claude 측, 우선순위 순):**
+1. **드래그앤드롭 파일전송** (Chang 명시 필수) — 원격 세션 창에 OS 파일 드롭 → 즉시 전송. RustDesk core 의 file transfer 흐름에 drop handler 추가. 0.5~1일.
+2. **AGPL 준수** — repo public 전환 (현재 betaposlab/chainremote private) + HQ/ChainGo 의 About 화면에 "AGPL v3 + 출처 URL" 표시. 사업화 합법화. 0.5일.
+3. **Phase 3 브랜딩** — rustdesk.exe → ChainRemote.exe (binary 이름), 서비스명, 레지스트리 키, About 등 RustDesk 상표 잔재 제거. 상표권 회피 + heartbeat 의 prerequisite. 1~2일.
+4. **거래처 heartbeat** — agent 가 NAS API `/api/customers/heartbeat` 호출 → 패널 거래처 표에 "v1.x.x · 마지막 N분 전" 컬럼. Phase 3 의 우리 fork binary 활용. 0.5~1일.
+5. **단위테스트** — 버전비교(Rust+Dart 일관성)/sha256/json 파싱. 자동업뎃 무음정지 방지. 0.5일.
+6. **설치 후 self-test 스모크** — 인스톨러 끝나면 자가진단 → updater.log PASS/FAIL.
+
+**외부/Chang 작업 (사업화 launch):**
+- 재성이 컴 v1.3.0 HQ 설치 (다음 사무실 출근 시).
+- 첫 영업 (진희씨 외) — 회사 관리 패널에서 사업자 정보 등록 → 인스톨러 배포.
+- 코드 서명 인증서 (EV $300~600/년) — 매출 발생 후 영업 본격화 시점. 그 전엔 "더 보기→실행" 안내.
+- 결제 시스템 (Stripe/토스/수동) — 첫 결제 시점에 결정.
+- 약관/개인정보처리방침 — SaaS 운영자 책임.
+
+**낮은 우선순위:**
+- 외부망 P2P/릴레이/Mac TCC 재검증 — 옵션 B+ 로 사실상 검증됨.
+- 거래처별 비번 자동 생성 — agent click 디폴트로 약화됨 (영구비번 거래처 자율).
+- build-all.ps1 codegen 거짓 OK 보고 버그.
 
 ### Phase 1 작업 계획 — 거래처/본사 빌드 분리 (단계 1~4 완료 2026-05-20)
 
@@ -310,13 +323,14 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
 - ✅ [deploy/win-installer/hq-installer.iss](deploy/win-installer/hq-installer.iss) 신규 — `custom-hq.txt` → `custom.txt`, RustDesk.toml(영구비번) 제외, watchdog 예약작업 제외, 간단한 서비스 시작. OutputBaseFilename `ChainRemote_HQ_Setup_v{version}`. AppId 별도.
 - ✅ [build-iss.ps1](deploy/win-installer/build-iss.ps1) `-Target agent|hq|both` 파라미터 지원 (기본 agent).
 - ✅ [release.sh](deploy/release.sh) — ISS 파일 경로 갱신, REMOTE_FILENAME → `ChainRemote_Agent_Setup_v{version}.exe`. 본사 채널은 자동업데이트 푸시 X (재성이 수동 설치 1회).
-- ⏳ 윈컴에서 `git pull` → Flutter Windows 빌드 (한 번이면 agent/hq 둘 다 커버, custom.txt 만 다름) → `build-iss.ps1 -Target both` → 두 .exe 산출. 함정 7가지(메모리 [project_v127_build_pitfalls]) 대응.
+- ✅ 윈컴에서 build-all → ISCC → 두 .exe (HQ + Agent) 산출. 윈컴 dogfooding 완료.
 
 **단계 6 부분 완료 (2026-05-20, Chang 윈컴 dogfooding)**:
 - ✅ Chang 윈컴 v1.3.0 HQ 빌드 설치 검증 — 로그인 + 거래처 5건 + outgoing-only UI 정상.
-- ⏳ 재성이 윈컴 — `ChainRemote_HQ_Setup_v1.3.0.exe` 본인 홈피 게시됨. 내일(2026-05-21) 사무실에서 설치 + `jaesung` 로그인 검증.
-- ⏳ 진희씨 컴 — `ChainRemote_Agent_Setup_v1.3.0.exe` 옛 v1.2.x 위에 덮어쓰기 설치 (재설치보다 깔끔). 내일.
-- ⏳ 한 거래처 자동업데이트 검증 — release.sh 푸시는 위 1차 dogfooding 통과 후. 점진 배포.
+- ⏳ **재성이 윈컴** — 사무실 방문 시 새 v1.3.0 HQ Setup (비번변경 UI + ChainGo 배지 포함) 설치 + `jaesung` 로그인 검증. (Chang 외부 작업, 다음 사무실 출근 때)
+- ✅ **ChainGo.exe 홈피 업로드 완료** (2026-05-25). 외부 비상 도구 공개 배포.
+- ⏳ **첫 영업 (진희씨 외)** — 회사 관리 패널에서 사업자 정보 등록 → HQ/Agent 배포 → 운영 시작. (Chang 외부 작업)
+- ⏳ **한 거래처 자동업데이트 실증 검증** — 진희씨 컴 작업 시 `New-Item C:\ProgramData\ChainRemote\update_now.flag -Type File` 로 즉시 trigger. toml 보존 가드(2026-05-24 픽스) 동작 확인.
 
 **옵션 B+ 완성 (2026-05-22)**: 집 윈컴 v1.3.0 HQ 에 옵션 B+ 빌드 설치 + 검증 통과. Mac(사무실)→집 윈컴 ChainRemote 양방향 원격 성공. hbbs ESTABLISHED + custom.txt outgoing + 보안탭 토글 노출 확인. 빌드는 Mac→집윈컴 Tailscale SSH 자동화로 진행 (메모리 [[project_win_remote_build_ssh]] — 함정 6가지 + commit 누락 교훈). 잔여: 재성이 컴 배포 + Mac 본사 빌드도 동일 코드 동기(현재 Mac 은 옵션 B+ 빌드 + 토글 동작 검증됨).
 
