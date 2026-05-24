@@ -166,9 +166,18 @@ pub fn change_password(current: &str, new: &str) -> ResultType<()> {
     if (200..300).contains(&w.status_code) {
         return Ok(());
     }
-    // 에러 body 가 {"error":"..."} 형식
+    // 1순위: 서버가 한글 메시지 줬으면 그대로 (예: "현재 비밀번호 불일치")
     if let Ok(err) = serde_json::from_str::<ErrorResponse>(&w.body) {
         return Err(anyhow!("{}", err.error));
     }
-    Err(anyhow!("실패 ({}): {}", w.status_code, w.body))
+    // 2순위: HTML/raw 응답은 status_code 기반 단순 메시지 (사용자에게 HTML
+    // 덤프 보여주지 않기 — 404 시 NAS 패널 미배포 등 운영 이슈 분리)
+    let msg = match w.status_code {
+        400 => "비밀번호 형식이 올바르지 않습니다",
+        401 | 403 => "현재 비밀번호가 일치하지 않습니다",
+        404 => "서버 업데이트가 필요합니다 (관리자에게 문의)",
+        500..=599 => "서버 오류가 발생했습니다",
+        _ => "비밀번호 변경 실패",
+    };
+    Err(anyhow!("{}", msg))
 }
