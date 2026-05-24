@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { resetPassword, updateUser, deleteUser } from "@/lib/actions/users";
 
-type Role = "owner" | "admin" | "operator" | "viewer";
+type Role = "owner" | "admin" | "operator" | "viewer" | "super_admin";
 type Props = {
   user: {
     id: string;
@@ -178,5 +178,7 @@ function roleLabel(role: Role): string {
       return "직원";
     case "viewer":
       return "뷰어";
+    case "super_admin":
+      return "플랫폼 운영자";
   }
 }

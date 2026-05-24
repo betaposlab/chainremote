@@ -11,7 +11,11 @@ import { auth } from "@/auth";
 async function requireOwner() {
   const session = await auth();
   if (!session?.user) throw new Error("로그인 필요");
-  if (session.user.role !== "owner") throw new Error("owner 권한만 사용자 관리 가능");
+  // super_admin (Chang, 플랫폼 운영자) 은 자기 tenant 의 owner 역할도 겸함.
+  // 다른 tenant 안의 user 는 어차피 me.tenantId 로 격리되므로 노출 X.
+  if (session.user.role !== "owner" && session.user.role !== "super_admin") {
+    throw new Error("owner 권한만 사용자 관리 가능");
+  }
   return session.user;
 }
 

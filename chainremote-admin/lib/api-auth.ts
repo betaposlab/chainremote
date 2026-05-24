@@ -18,7 +18,7 @@ export interface ApiTokenClaims extends JWTPayload {
   uid: string;
   email: string;
   displayName: string;
-  role: "owner" | "admin" | "operator" | "viewer";
+  role: "owner" | "admin" | "operator" | "viewer" | "super_admin";
   tenantId: string;
 }
 
