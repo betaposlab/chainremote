@@ -2769,6 +2769,24 @@ pub fn chainremote_set_api_base(url: String) -> SyncReturn<bool> {
     SyncReturn(true)
 }
 
+/// 본인 비번 변경. 현재 비번 검증 후 새 비번 저장.
+/// 반환: `{"ok": true}` 또는 `{"ok": false, "error": "..."}` JSON 문자열.
+/// 별도 thread 에서 실행 — http_request_sync 의 tokio runtime 충돌 회피.
+pub fn chainremote_change_password(
+    current_password: String,
+    new_password: String,
+) -> SyncReturn<String> {
+    let result = std::thread::spawn(move || {
+        match crate::chainremote_auth::change_password(&current_password, &new_password) {
+            Ok(()) => r#"{"ok":true}"#.to_string(),
+            Err(e) => serde_json::json!({ "ok": false, "error": e.to_string() }).to_string(),
+        }
+    })
+    .join()
+    .unwrap_or_else(|_| r#"{"ok":false,"error":"change_password thread panic"}"#.to_string());
+    SyncReturn(result)
+}
+
 /// 본사 앱 메인 화면용 — GET /api/customers 결과를 RustDesk Peer 포맷으로
 /// 변환해서 기존 `load_recent_peers` 이벤트로 push.
 /// UI 측은 별도 변경 없이 같은 코드 경로로 동작.

@@ -5078,6 +5078,26 @@ fn wire_chainremote_set_api_base_impl(
         },
     )
 }
+fn wire_chainremote_change_password_impl(
+    current_password: impl Wire2Api<String> + UnwindSafe,
+    new_password: impl Wire2Api<String> + UnwindSafe,
+) -> support::WireSyncReturn {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+        WrapInfo {
+            debug_name: "chainremote_change_password",
+            port: None,
+            mode: FfiCallMode::Sync,
+        },
+        move || {
+            let api_current_password = current_password.wire2api();
+            let api_new_password = new_password.wire2api();
+            Ok(chainremote_change_password(
+                api_current_password,
+                api_new_password,
+            ))
+        },
+    )
+}
 fn wire_chainremote_load_customers_impl(port_: MessagePort) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
         WrapInfo {

@@ -2249,6 +2249,14 @@ pub extern "C" fn wire_chainremote_set_api_base(
 }
 
 #[no_mangle]
+pub extern "C" fn wire_chainremote_change_password(
+    current_password: *mut wire_uint_8_list,
+    new_password: *mut wire_uint_8_list,
+) -> support::WireSyncReturn {
+    wire_chainremote_change_password_impl(current_password, new_password)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_chainremote_load_customers(port_: i64) {
     wire_chainremote_load_customers_impl(port_)
 }
