@@ -12,7 +12,15 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 
-export const userRole = pgEnum("user_role", ["owner", "admin", "operator", "viewer"]);
+// "super_admin" = 플랫폼 운영자(Chang) — tenant 생성/관리 권한. 다른 tenant 의
+// 거래처/세션/이력은 *조회하지 않음* (코드 단계에서 강제). 격리 모델 깨끗.
+export const userRole = pgEnum("user_role", [
+  "owner",
+  "admin",
+  "operator",
+  "viewer",
+  "super_admin",
+]);
 export const issueType = pgEnum("issue_type", [
   "config",
   "hardware",
@@ -28,12 +36,40 @@ export const resolutionStatus = pgEnum("resolution_status", [
   "in_progress",
 ]);
 
+// SaaS 멀티테넌트: 한 row = 한 대리점(회사). 사업자등록증/통장/연락처/구독
+// 정보를 한 곳에 보관. 신규 컬럼 추가는 마이그레이션 006 참조.
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
   displayName: text("display_name").notNull(),
   plan: text("plan").notNull().default("free"),
   isActive: boolean("is_active").notNull().default(true),
+
+  // 사업자 정보 (사업자등록증 기준)
+  businessNo: text("business_no"),                   // 사업자등록번호
+  representativeName: text("representative_name"),   // 대표자명
+  businessAddress: text("business_address"),         // 사업장 주소
+  businessType: text("business_type"),               // 업태
+  businessItem: text("business_item"),               // 종목
+
+  // 연락처
+  companyPhone: text("company_phone"),
+  representativePhone: text("representative_phone"),
+  contactPhone: text("contact_phone"),
+
+  // 결제 계좌 (통장사본)
+  bankName: text("bank_name"),
+  bankAccount: text("bank_account"),
+  bankHolder: text("bank_holder"),
+
+  // 구독/요금 — monthly_fee_krw 는 공급가액(부가세 별도), UI 가 +VAT 10% 표시
+  monthlyFeeKrw: integer("monthly_fee_krw"),
+  paymentDay: integer("payment_day"),                // 매월 1~31
+  paymentMethod: text("payment_method"),             // CHECK: cms|bank_transfer|credit_card
+  subscriptionStartedAt: timestamp("subscription_started_at", { withTimezone: true }),
+  subscriptionStatus: text("subscription_status").notNull().default("active"),
+  notes: text("notes"),                              // 비고
+
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

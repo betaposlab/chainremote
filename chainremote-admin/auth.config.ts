@@ -14,7 +14,7 @@ declare module "next-auth" {
       id: string;
       email: string;
       displayName: string;
-      role: "owner" | "admin" | "operator" | "viewer";
+      role: "owner" | "admin" | "operator" | "viewer" | "super_admin";
       tenantId: string;
     } & import("next-auth").DefaultSession["user"];
   }
@@ -23,7 +23,7 @@ declare module "next-auth" {
     id?: string;
     email?: string | null;
     displayName: string;
-    role: "owner" | "admin" | "operator" | "viewer";
+    role: "owner" | "admin" | "operator" | "viewer" | "super_admin";
     tenantId: string;
   }
 }
@@ -33,7 +33,7 @@ declare module "@auth/core/jwt" {
     uid: string;
     email: string;
     displayName: string;
-    role: "owner" | "admin" | "operator" | "viewer";
+    role: "owner" | "admin" | "operator" | "viewer" | "super_admin";
     tenantId: string;
   }
 }

@@ -43,6 +43,15 @@ export default async function RootLayout({
             <NavItem href="/customers">거래처</NavItem>
             <NavItem href="/sessions">지원기록</NavItem>
             {user.role === "owner" && <NavItem href="/users">사용자</NavItem>}
+            {user.role === "super_admin" && (
+              <>
+                <NavItem href="/users">사용자</NavItem>
+                <div className="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  플랫폼 운영
+                </div>
+                <NavItem href="/admin/tenants">회사 관리</NavItem>
+              </>
+            )}
           </nav>
           {/* 사이드바 하단 — 현재 사용자 정보 + 로그아웃 */}
           <div className="border-t border-slate-200 p-3 pb-6 text-sm">
@@ -115,6 +124,8 @@ function roleLabel(role: string): string {
       return "직원";
     case "viewer":
       return "뷰어";
+    case "super_admin":
+      return "플랫폼 운영자";
     default:
       return role;
   }

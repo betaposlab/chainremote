@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function UsersPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "owner") {
+  if (session.user.role !== "owner" && session.user.role !== "super_admin") {
     return (
       <div className="px-8 py-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
