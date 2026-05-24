@@ -85,7 +85,7 @@
 
 ### 앱 구조 청사진 (2026-05-20 8개 결정)
 
-판매 없음. Chang+재성이(향후 1~2명 더)가 자기 PC에서 우리 거래처들을 원격 지원하는 사내 도구.
+~~판매 없음~~ **사업화 진입 (2026-05-24)**: 코이노 월 10만/seat 대비 월 2~3만/tenant 가격 차별로 소규모 밴 대리점(50개 목표) 에 판매. 1 카피 = 1 대리점(tenant) = 직원 N명 + 가맹점 무제한. 자세히 ↓ "사업화 phase 1+2 완성" 섹션. **Chang+재성이(betaposlab tenant) 는 별개 tenant 로 우리 본업 운영 그대로**.
 
 ```
 ┌── 거래처 윈컴 (별도 빌드) ──┐
@@ -114,7 +114,7 @@
 ```
 
 **8개 결정 (변경 시 전체 작전 재검토):**
-1. 판매 없음. 우리 팀 전용.
+1. ~~판매 없음~~ **사업화 진입 (2026-05-24)**: 멀티테넌트 SaaS 활성화. 50개 대리점 목표. tenant_id 격리 코드/스키마 이미 있어서 활성화만 2~3일 작업으로 완성. ↓ "사업화 phase 1+2".
 2. 거래처 빌드 = 수신만. 별도 빌드(--role=agent).
 3. 본사 앱 로그인 (chang/jaesung 각자 비번 6002).
 4. 동시간 각자 다른 거래처 원격 가능. RustDesk 다중 viewer로 native 지원.
@@ -334,6 +334,44 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
 - **검증 통과 (2026-05-23, 윈컴)**: 호스트 HQ 가 떠있는 상태에서 ChainGo 더블클릭 → 별도 로그인창 + 별도 즐겨찾기, %TEMP%\ChainGo_xxx 폴더 살아있다가 종료 시 사라짐, %APPDATA%\RustDesk mtime 변동 0(호스트 완전 무흔적).
 - **알려진 한계 — Mac↔윈컴 H264/H265 안 뜸** (2026-05-23 결론: 받아들임): 세션 툴바 코덱 메뉴는 decoder_ability(this) AND encoder_capability(peer). Mac 빌드가 `--hwcodec` 없이 컴파일(CLAUDE.md 빌드 환경 참조 — ffmpeg 30~60분 회피) → Mac decoder ability_h264=0 → AND 결과 H264 안 뜸. 본업(윈컴 HQ → 거래처 윈컴) 은 양쪽 hwcodec 라 H264/H265 잘 동작. Chang 결정: AV1 충분(체감 차이 없음 + 4K 캡처 한계는 코덱 아닌 캡처 측 본질), Mac 에 ffmpeg 추가 안 함. **재진단 금지** — toml 의 `enable-hwcodec` 검사는 무관(Mac 측 빌드 자체 누락).
 - **배포**: ChainGo.exe 를 재성이 홈피(또는 NAS 공개 URL) 에 올려두면 끝. 단일 .exe 24MB. SmartScreen 첫 실행 경고 "더 보기→실행" (코드 서명 인증서 사기 전까지 어쩔 수 없음 — 사업화 단계 항목).
+
+**사업화 phase 1+2 완성 (2026-05-24)**: 멀티테넌트 SaaS 활성화 + HQ 비번 변경 + Agent 디폴트 정책 변경. 50개 대리점 판매 가능 상태 진입.
+
+**비즈니스 모델**:
+- **1 카피 = 1 대리점(tenant) = 직원 N명 동시 사용 + 가맹점 무제한**. 코이노 ("카피=seat, 2명 동시 = 카피 추가") 와 차별. JWT stateless 라 우리 기술적으로 가능.
+- 가격: 코이노 월 10만/seat 대비 우리 월 2~3만/tenant (1/3~1/5).
+- 50개 × 월 2.5만 = 월 125만, 연 1500만 (사이드 수익).
+- Chang 본업 (chang/jaesung 의 betaposlab tenant) 은 그대로. 다른 회사 데이터는 *Chang 도 조회 안 함* (코이노식, super_admin 권한은 tenant 라이프사이클 한정).
+
+**phase 1 (멀티테넌트 활성화)**:
+- DB migration 006: tenants 에 사업자정보(번호/대표자/주소/업태/종목) + 연락처(회사/대표/담당) + 결제계좌(은행/계좌/예금주) + 구독요금(월정액 공급가액/결제일/결제방식 CMS-bank_transfer-credit_card/시작일/상태 active-suspended-cancelled/비고) 컬럼 추가. 모두 nullable. user_role enum 에 `super_admin` 추가. chang user 격상.
+- `lib/data/tenants.ts` + `lib/actions/tenants.ts` — createTenant/listTenants/updateTenant/setSubscriptionStatus/resetTenantOwnerPassword. requireSuperAdmin 가드.
+- `/admin/tenants` 페이지 (super_admin 전용 메뉴 "플랫폼 운영 > 회사 관리"):
+  - 회사 목록 (등록일/요금/결제일/결제방식/상태/관리 액션). 수정/비번리셋(=1234)/일시정지/재개/해지.
+  - `/admin/tenants/new` 신규 등록 폼 — 사업자 정보 + 연락처 + 통장 + 구독 + 관리자 계정. 등록 후 임시비번(default 1234) + 다운로드 URL 카톡 메시지 자동 생성.
+  - `/admin/tenants/[id]/edit` 수정 — slug 와 관리자 계정 제외 전부 수정 가능.
+- `FormattedInput` 컴포넌트: 한국 자동 하이픈 (사업자번호 XXX-XX-XXXXX / 서울02 / 지방0XX / 휴대폰 / 070 / 050X 평생번호).
+- 비번 정책: 신규 default 1234 + 비번 리셋도 1234 통일 (Chang: 단순/일관성 우선).
+
+**phase 2 (HQ 본인 비번 변경)**:
+- `POST /api/me/password` — Bearer JWT 인증 + bcrypt.compareSync 현재 비번 검증 + 새 hash 저장.
+- Rust `chainremote_auth::change_password` — http_request_sync 로 Bearer 헤더 + JSON body POST. 응답 wrapper 풀어 status_code 체크. 에러는 한글 + status_code 기반 단순 메시지(HTML 덤프 회피).
+- FFI `chainremote_change_password` → `{"ok":true}` 또는 `{"ok":false,"error":"..."}`.
+- Flutter UI: 상단바 lock_reset 아이콘 → 다이얼로그(현재/새/새 확인) → 성공 시 토스트 "비밀번호가 변경되었습니다". 토큰 그대로 — 재로그인 불필요.
+- 검증 통과 (2026-05-24, Mac HQ).
+
+**Agent 인스톨러 정책 변경 (2026-05-24)**:
+- 기존: 영구비번 평문(`Ch042558~`) + approve-mode='password' + verification-method='use-permanent-password' 박혀 거래처 자동 무인 접속. → 공유 비번 보안 약점 + 모든 거래처 동일.
+- 신규: `RustDesk2-agent.toml` 분리. approve-mode='click', verification-method='', 영구비번 미박힘. 거래처가 매번 수락 클릭 또는 자기 알아서 영구비번 켬. HQ 인스톨러는 옛 RustDesk2.toml + RustDesk.toml(영구비번) 유지(옵션 B+ 토글 ON 시 즉시 무인 incoming).
+- 기존 거래처 5곳 영향 없음(자동업데이트가 toml 안 덮어씀). 새 거래처 배포부터 적용.
+- 운영 변화: 새 거래처 셋업 시 "수락 클릭 부탁드립니다" 안내. 자주 보는 거래처는 영구비번 가이드.
+
+**알려진 이슈 (backlog)**:
+- **peer password decrypt race** (libs/hbb_common/src/password_security.rs:210 + lib.rs:318): `get_uuid()` 가 macOS 첫 호출 8회 retry 다 실패 시 fallback `Config::get_key_pair().1` 로 떨어짐 → 그 시점에 encrypt 된 peer password 는 fallback key 로 암호화. 그 다음 machine_uid 정상 fetch 시 decrypt 키 불일치 → "비밀번호 필요" 다이얼로그. 회복 = 거래처 영구비번 재입력 + "기억" 체크. **dual-decrypt 픽스 필요** (decrypt 시 두 키 다 시도) — 자동업데이트 sprint 전 필수, 안 하면 매 업데이트마다 거래처 비번 다 재입력 부담.
+- **자동업데이트 실증 검증 안 됨** (B-1 코드만, 24h 자동 적용 실제 본 적 없음): 사업화 launch 전 필수 검증.
+- **super_admin 도 자기 tenant(betaposlab) 의 customers/sessions 조회는 정상** — owner 권한 통과(lib/actions/users.ts:11 requireOwner 가 owner 또는 super_admin 통과). Chang 의 본업 운영 그대로.
+- **NAS 패널 배포 함정**: docker compose build 가 EOF 로 중간 끊기는 경우 있음 → 옛 이미지 그대로. 해결: `docker compose build` 단독 → 끝까지 대기 → 그 다음 `up -d`. 또한 build 가 *dependent containers(postgres/hbbs/hbbr) 도 함께 죽일 수 있음* → 수동 `docker start chainremote-postgres chainremote-hbbs chainremote-hbbr`.
+- **NAS 코드 동기 = tar over SSH** (rsync 가 `-o`/`-g` 권한 거부): `tar -czf - --exclude=... -C ~/내작업/ChainRemote chainremote-admin/ | ssh chang@192.168.68.103 "cd /volume1/docker && tar -xzf -"`.
 
 **옵션 B+ 채택 결정 (2026-05-21, 옵션 A 번복)**: HQ 빌드에 사용자 토글 "외부 원격 접속 허용" 추가.
 - 번복 이유: 재성이/구매자 컴맹 시 IT 자기지원 불가 = 원격 SW 자체 모순. 판매 시 신뢰 문제.
