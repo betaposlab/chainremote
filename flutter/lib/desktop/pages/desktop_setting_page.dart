@@ -2604,22 +2604,66 @@ class _AboutState extends State<_About> {
                         .marginSymmetric(vertical: 4.0)),
               SelectionArea(
                   child: const Text(
-                          '회사: 베타포스랩 (BetaPosLab)\n홈페이지: betaposlab.com\n관리 패널: admin.betaposlab.com\n기술지원: zentars004@gmail.com')
+                          '회사: 베타포스랩 (BetaPosLab)\n기술지원: zentars004@gmail.com')
                       .marginSymmetric(vertical: 6.0)),
               const SizedBox(height: 8),
               const Divider(),
-              // 원본 RustDesk 크레딧 (AGPL 라이선스 의무 표기)
+              // 오픈소스 라이선스 / AGPL v3 의무 표기.
               const Text(
-                '오픈소스 기반',
+                '오픈소스 라이선스',
                 style: TextStyle(
                     fontSize: 12, fontWeight: FontWeight.w700),
               ).marginSymmetric(vertical: 4.0),
               SelectionArea(
                 child: Text(
-                  'ChainRemote 는 RustDesk (AGPL v3) 의 포크입니다.\n원본 저작권: Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Ltd.\n$license',
+                  'ChainRemote 는 RustDesk (AGPL v3) 의 포크입니다.\n'
+                  'AGPL v3 라이선스에 따라 ChainRemote 의 전체 소스 코드는 공개됩니다.\n'
+                  '원본 저작권: Copyright © ${DateTime.now().toString().substring(0, 4)} Purslane Ltd. (RustDesk).\n'
+                  '$license',
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
               ).marginSymmetric(vertical: 4.0),
+              const SizedBox(height: 4),
+              InkWell(
+                  onTap: () {
+                    launchUrlString(
+                        'https://github.com/betaposlab/chainremote');
+                  },
+                  child: Text(
+                    'ChainRemote 소스 코드 (GitHub)',
+                    style: linkStyle.copyWith(
+                        fontSize: 11, color: const Color(0xFF1E5BFF)),
+                  ).marginSymmetric(vertical: 4.0)),
+              InkWell(
+                  onTap: () {
+                    launchUrlString(
+                        'https://github.com/betaposlab/chainremote/blob/main/CHAINREMOTE_CHANGES.md');
+                  },
+                  child: Text(
+                    'ChainRemote 변경 내역 (RustDesk 대비)',
+                    style: linkStyle.copyWith(
+                        fontSize: 11, color: const Color(0xFF1E5BFF)),
+                  ).marginSymmetric(vertical: 4.0)),
+              InkWell(
+                  onTap: () {
+                    launchUrlString(
+                        'https://www.gnu.org/licenses/agpl-3.0.html');
+                  },
+                  child: Text(
+                    'AGPL v3 라이선스 전문',
+                    style:
+                        linkStyle.copyWith(fontSize: 11, color: Colors.grey),
+                  ).marginSymmetric(vertical: 4.0)),
+              const SizedBox(height: 8),
+              InkWell(
+                  onTap: () {
+                    launchUrlString('https://github.com/rustdesk/rustdesk');
+                  },
+                  child: Text(
+                    'RustDesk 원본 저장소',
+                    style:
+                        linkStyle.copyWith(fontSize: 11, color: Colors.grey),
+                  ).marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
                     launchUrlString('https://rustdesk.com');
