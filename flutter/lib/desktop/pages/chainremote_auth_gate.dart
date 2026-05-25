@@ -9,6 +9,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common.dart' show chainRemoteVersion;
 import 'package:flutter_hbb/models/platform_model.dart';
 
 /// 본사 앱 인증 상태 전역 핸들. 홈 상단바의 로그아웃 버튼이 어디서든 호출.
@@ -152,96 +153,259 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     }
   }
 
+  // ChainRemote 액센트 (베타포스랩 톤).
+  static const _brandPrimary = Color(0xFF1E5BFF);
+  static const _brandDeep = Color(0xFF1E40AF);
+
   @override
   Widget build(BuildContext context) {
-    final apiBase = bind.chainremoteGetApiBase();
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 380),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  'ChainRemote',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E40AF),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '본사 직원 로그인',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 14, color: Colors.black54),
-                ),
-                const SizedBox(height: 32),
-                TextField(
-                  controller: _emailCtrl,
-                  enabled: !_busy,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: '아이디',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _passwordCtrl,
-                  enabled: !_busy,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: '비밀번호',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _submit(),
-                ),
-                if (_errorText != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _errorText!,
-                    style: const TextStyle(color: Colors.red, fontSize: 13),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: _busy ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    backgroundColor: const Color(0xFF1E40AF),
-                  ),
-                  child: _busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('로그인',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  '서버: $apiBase',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 11, color: Colors.black38),
-                ),
-              ],
+      // Cool gray 톤 배경 + 양쪽 brand 색 옅은 블롭. 카드가 떠다니지 않도록
+      // 무게 있는 배경 + 카드 그림자 강화.
+      body: Stack(
+        children: [
+          // 베이스 배경 — 위→아래 옅은 회청색 vertical gradient.
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFE5ECF5), Color(0xFFEEF2F7)],
+              ),
             ),
           ),
+          // 좌상단 brand 색 블롭 (옅게).
+          Positioned(
+            left: -120,
+            top: -120,
+            child: Container(
+              width: 360,
+              height: 360,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    _brandPrimary.withOpacity(0.18),
+                    _brandPrimary.withOpacity(0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // 우하단 청록 블롭 (옅게).
+          Positioned(
+            right: -140,
+            bottom: -140,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Color(0x3300B894),
+                    Color(0x0000B894),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // 중앙 로그인 카드.
+          Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 380),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Material(
+                    color: Colors.white,
+                    elevation: 0,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE3E8F1)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0A2540).withOpacity(0.08),
+                            blurRadius: 28,
+                            offset: const Offset(0, 12),
+                          ),
+                          BoxShadow(
+                            color: const Color(0xFF0A2540).withOpacity(0.04),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildBrand(),
+                          const SizedBox(height: 28),
+                          _buildField(
+                            controller: _emailCtrl,
+                            label: '아이디',
+                            autofocus: true,
+                            textInputAction: TextInputAction.next,
+                          ),
+                          const SizedBox(height: 14),
+                          _buildField(
+                            controller: _passwordCtrl,
+                            label: '비밀번호',
+                            obscure: true,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _submit(),
+                          ),
+                          if (_errorText != null) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    size: 16, color: Color(0xFFE53935)),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    _errorText!,
+                                    style: const TextStyle(
+                                        color: Color(0xFFE53935),
+                                        fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 22),
+                          _buildLoginButton(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // 하단 회사 footer.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 16,
+              child: Center(
+                child: Text(
+                  'BetaPosLab · ChainRemote v$chainRemoteVersion',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF8A93A6),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ),
+          ],
+      ),
+    );
+  }
+
+  /// 워드마크 (chainremote_logo.png — 메인 상단바와 동일) + 부제.
+  Widget _buildBrand() {
+    return Column(
+      children: [
+        // 워드마크 가로형 — 비율 2048:685 ≈ 2.99:1. 가로 240 → 세로 ~80.
+        Image.asset(
+          'assets/chainremote_logo.png',
+          width: 240,
+          filterQuality: FilterQuality.high,
         ),
+        const SizedBox(height: 14),
+        const Text(
+          '대리점 로그인',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            color: Color(0xFF6B7280),
+            letterSpacing: 0.1,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 입력란 — focus 시 brand 색 강조 border.
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    String? hint,
+    bool obscure = false,
+    bool autofocus = false,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onSubmitted,
+  }) {
+    return TextField(
+      controller: controller,
+      enabled: !_busy,
+      autofocus: autofocus,
+      obscureText: obscure,
+      textInputAction: textInputAction,
+      onSubmitted: onSubmitted,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFFB0B7C3), fontSize: 13),
+        labelStyle: const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
+        floatingLabelStyle: const TextStyle(
+            color: _brandPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        filled: true,
+        fillColor: const Color(0xFFF7F9FC),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE3E8F1)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE3E8F1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: _brandPrimary, width: 1.5),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginButton() {
+    return SizedBox(
+      height: 48,
+      child: FilledButton(
+        onPressed: _busy ? null : _submit,
+        style: FilledButton.styleFrom(
+          backgroundColor: _brandPrimary,
+          disabledBackgroundColor: _brandPrimary.withOpacity(0.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          elevation: 0,
+        ),
+        child: _busy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Text(
+                '로그인',
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2),
+              ),
       ),
     );
   }
