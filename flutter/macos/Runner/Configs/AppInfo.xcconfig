@@ -5,10 +5,15 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = RustDesk
+// ChainRemote: 사용자에게 노출되는 .app 파일명. 빌드 결과가 ChainRemote.app 으로 출력됨.
+PRODUCT_NAME = ChainRemote
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.carriez.flutterHbb
+// ChainRemote: 베타포스랩 자체 도메인의 bundle id. 옛 com.carriez.flutterHbb 와는 다른 앱으로
+// macOS 가 인식하므로 첫 실행 시 권한 (화면 기록 / 입력 모니터링 / 접근성) 재승인 필요.
+PRODUCT_BUNDLE_IDENTIFIER = com.betaposlab.chainremote
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 Purslane Ltd. All rights reserved.
+// ChainRemote: 우리 fork 의 저작권 + AGPL v3 라이선스 명시. RustDesk 원본 저작권은
+// About 화면과 LICENCE 파일에서 별도로 표기.
+PRODUCT_COPYRIGHT = Copyright © 2026 BetaPosLab. Released under AGPL v3.
