@@ -64,6 +64,12 @@ Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\custom-hq.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.txt"; Flags: deleteafterinstall ignoreversion
 
 [Run]
+; 0. ★ Windows ephemeral port range 확장 (2026-05-25 사업화 안전망).
+;    동일 사유로 HQ 인스톨러도 적용 — Chang/재성이 PC 에 다른 SW (코이노 등) 깔려있을
+;    때 그쪽 SW 의 누수 영향에서 ChainRemote 보호. 자세히는 agent-installer.iss 참조.
+Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
+Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
+
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\RustDesk\ 로 모든 파일 복사 + 서비스 등록.
 ;    HQ 는 outgoing-only 이므로 서비스가 incoming 을 받을 일 없지만, install_me 의 기본 흐름 그대로 둠.
 Filename: "{tmp}\chainremote_payload\rustdesk.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
