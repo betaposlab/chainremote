@@ -70,9 +70,9 @@ Source: "..\custom-hq.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.t
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
 Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
 
-; 0.5. ★ Phase 3-Win 마이그레이션 prerequisite (2026-05-25).
-;     옛 RustDesk Service / 트레이 정리. agent-installer.iss 와 동일 사유.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service RustDesk -Force -ErrorAction SilentlyContinue }} catch {{}}; taskkill /F /T /IM RustDesk.exe *>$null; taskkill /F /T /IM rustdesk.exe *>$null; Start-Sleep -Seconds 1; try {{ sc.exe delete RustDesk *>$null }} catch {{}}"""; StatusMsg: "옛 RustDesk 잔재 정리 중..."; Flags: runhidden waituntilterminated
+; (Phase 3-Win v2 2026-05-25): 옛 'sc delete RustDesk' + 'taskkill rustdesk.exe' 단계 제거.
+;     Microsoft Defender false positive (Trojan:Win32/Bearfoos.B!ml) 트리거 회피.
+;     동일 정리 동작은 src/chainremote_migrate.rs 가 첫 실행 시 처리. agent 와 동일.
 
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\ChainRemote\ 로 모든 파일 복사
 ;    + ChainRemote Service 등록. HQ 는 outgoing-only 이므로 서비스가 incoming 을 받을 일 없지만,
@@ -108,8 +108,9 @@ Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\
 ; 8. 단축아이콘 IconLocation 갱신
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
-; 9. 설치 직후 실행 (재성이 검증용)
-Filename: "{app}\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
+; 9. 설치 직후 실행 (재성이 검증용) — 절대 경로 강제 (Phase 3-Win 사고 fix, 2026-05-25).
+;    옛 RustDesk 설치본의 {app} mismatch 회피. agent-installer 와 동일 사유.
+Filename: "{commonpf}\ChainRemote\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
 
 [Registry]
 ; 부팅 시 자동 시작 — HQ 도 재성이 편의상 유지 (트레이 아이콘으로 떠 있음).

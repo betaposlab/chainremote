@@ -128,13 +128,14 @@ impl Drop for SimpleCallOnReturn {
 /// `APP_DIR` 에 세팅함. 그래서 데스크톱에서 APP_DIR 가 비어있지 않으면
 /// = 포터블 = 호스트 PC 에 흔적 남기는 어떤 동작도 자동 트리거 금지.
 ///
-/// 정식 빌드는 APP_DIR 가 비어있어 false.
+/// ChainGo SFX 가 inner process 에 박은 env `CHAINREMOTE_PORTABLE_DIR` 로만 판별.
+/// APP_DIR 자체는 정식 Flutter UI 도 mainInit 시 박으므로 portable 판별 기준으로 못 씀
+/// (2026-05-26 사고 원인 — Phase 3-Win 영구비번 IPC 깨짐).
 #[inline]
 pub fn is_chainremote_portable() -> bool {
-    !hbb_common::config::APP_DIR
-        .read()
-        .map(|s| s.is_empty())
-        .unwrap_or(true)
+    std::env::var_os("CHAINREMOTE_PORTABLE_DIR")
+        .map(|v| !v.is_empty())
+        .unwrap_or(false)
 }
 
 pub fn global_init() -> bool {

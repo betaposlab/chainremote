@@ -75,6 +75,7 @@
 - **정석 구현**: 임시방편/Workaround 금지. 기술적으로 올바른 방식만.
 - **테스트 서버 우선**: 모든 배포는 테스트 → 본서버/GitHub push는 Chang 지시 시에만.
 - **결과만 보고**: 코드 덤프 X, 간결한 완료 보고만.
+- **잘 돌던 로직은 건들지 말 것**: ChainRemote 의 운영 중인 시스템 (영구비번, IPC, 거래처 5곳, NAS 패널, 자동업데이트 등) 을 *부수효과로* 망가뜨리는 변경은 절대 금지. Master variable (APP_NAME / BINARY_NAME / Bundle ID / IPC pipe 이름 등 cascade 영향이 큰 핵심값) 변경은 Chang 의 명시 OK 를 받았어도 별도 안전 게이트 발동: (1) 위험 한 번 더 명시 + 재확인 (2) cascade 영향 가지 다 grep / Read 로 추적 (3) 마이그레이션 코드는 step-by-step 검증. 2026-05-25 Phase 3-Win 사고 = 이 룰의 trigger. 자세히는 메모리 [feedback_dont_touch_working_logic].
 
 ### 앱 구조 불변 원칙 (2026-05-20 확정)
 이 셋은 어떤 상황·시나리오에서도 유지된다. UI/IA 설계 시 전제로 깔 것.

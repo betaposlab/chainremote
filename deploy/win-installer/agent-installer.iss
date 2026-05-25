@@ -91,13 +91,10 @@ Source: "watchdog.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignorever
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
 Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
 
-; 0.5. ★ Phase 3-Win 마이그레이션 prerequisite (2026-05-25).
-;     옛 RustDesk Service (RUNNING) + 옛 RustDesk.exe 트레이가 떠있을 때 새 ChainRemote.exe
-;     install_me 가 실행되면 (둘 다 hbbs 등록 시도해서) 충돌 가능. 새 ChainRemote.exe 가
-;     첫 실행될 때 src/chainremote_migrate 가 옛 서비스 stop + delete 처리하지만, 인스톨러
-;     [Run] 의 순서상 install_me 가 먼저 동작하므로 여기서 안전망으로 한 번 더 정리.
-;     옛 잔재 없는 깨끗한 PC 에서는 sc query 가 실패하지만 ErrorAction SilentlyContinue 로 무시.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service RustDesk -Force -ErrorAction SilentlyContinue }} catch {{}}; taskkill /F /T /IM RustDesk.exe *>$null; taskkill /F /T /IM rustdesk.exe *>$null; Start-Sleep -Seconds 1; try {{ sc.exe delete RustDesk *>$null }} catch {{}}"""; StatusMsg: "옛 RustDesk 잔재 정리 중..."; Flags: runhidden waituntilterminated
+; (Phase 3-Win v2 2026-05-25): 옛 'sc delete RustDesk' + 'taskkill rustdesk.exe' 단계 제거.
+;     Microsoft Defender ML (Trojan:Win32/Bearfoos.B!ml) false positive 의 트리거였음.
+;     동일 정리 동작은 src/chainremote_migrate.rs 가 ChainRemote.exe 첫 실행 시 Rust 코드로
+;     처리. 인스톨러는 자기 install 만 — ML 의심 패턴 감소.
 
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\ChainRemote\ 로 모든 파일 복사
 ;    + ChainRemote Service 등록 + 서비스 시작 + ChainRemote.lnk 단축아이콘 자동 생성.
@@ -163,8 +160,11 @@ Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\
 ;    Inno Setup constant 충돌 회피: PowerShell 의 { 들은 모두 {{ 로 이스케이프
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
-; 9. 설치 직후 ChainRemote 실행
-Filename: "{app}\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
+; 9. 설치 직후 ChainRemote 실행 — 절대 경로 강제 (Phase 3-Win 사고 fix, 2026-05-25).
+;    옛 v1.3.0 이 깔려있던 PC 는 Inno Setup 의 {app} 이 옛 'C:\Program Files\RustDesk\' 가리킴.
+;    install_me() 는 APP_NAME='ChainRemote' 따라 'C:\Program Files\ChainRemote\' 에 설치 →
+;    두 경로 mismatch → 'CreateProcess 실패 코드 2' 다이얼로그. 절대 경로로 회피.
+Filename: "{commonpf}\ChainRemote\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
 
 [Registry]
 ; 부팅 시 자동 시작 — Phase 3-Win 이후 실행파일은 ChainRemote.exe (BINARY_NAME=ChainRemote).

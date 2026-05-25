@@ -1,9 +1,12 @@
 name: Flutter Nightly Build
 
 on:
-  schedule:
-    # schedule build every night
-    - cron: "0 0 * * *"
+  # ChainRemote (2026-05-26): 매일 자동 nightly 빌드 비활성화. 우리는 nightly artifact 안 받고
+  # Mac 손빌드 + 윈컴 SSH 빌드만 사용. 매일 한국시간 오전 9시 자동 trigger 가 Free plan 의
+  # Actions minutes (Linux/Win/macOS 매트릭스 → 일일 ~$5~6 환산) + storage (~200 MB/빌드) 의
+  # 가장 큰 누수원이었음. 수동 실행 (workflow_dispatch) 만 유지.
+  # schedule:
+  #   - cron: "0 0 * * *"
   workflow_dispatch:
 
 jobs:

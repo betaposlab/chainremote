@@ -188,8 +188,28 @@ fn stop_and_delete_service(name: &str) {
     use std::process::Command;
     // stop (실패해도 무시 — 이미 중지된 상태일 수 있음).
     let _ = Command::new("sc").args(["stop", name]).output();
-    // 잠시 대기 — 서비스가 STOPPED 가 될 때까지.
-    std::thread::sleep(std::time::Duration::from_millis(1500));
+
+    // STOPPED 상태가 될 때까지 최대 30초 polling.
+    // 옛 1.5초 sleep 은 STOP_PENDING 상태에서 delete 거부 발생 → 옛 서비스 잔류 사고 (2026-05-25).
+    // sc query 출력은 영문 'STOPPED' 또는 한국어 윈도우 '중지됨' 둘 다 검사
+    // (메모리 [project_v127_build_pitfalls] 의 한국어 윈도우 sc 출력 함정 참조).
+    for _ in 0..30 {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        match Command::new("sc").args(["query", name]).output() {
+            Ok(out) => {
+                let s = String::from_utf8_lossy(&out.stdout);
+                if s.contains("STOPPED") || s.contains("중지됨") {
+                    break;
+                }
+                // 서비스 자체가 not found 면 이미 정리됨 → break (sc 의 1060 exit)
+                if !out.status.success() {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
+    }
+
     // delete.
     match Command::new("sc").args(["delete", name]).output() {
         Ok(out) if out.status.success() => {
@@ -227,7 +247,16 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
         let entry = entry?;
         let ft = entry.file_type()?;
         let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
+        // ★ 파일 이름의 RustDesk/rustdesk 접두사를 ChainRemote 로 rename (2026-05-25 v2 fix).
+        //
+        // 새 ChainRemote core 는 APP_NAME 따라 `ChainRemote.toml`, `ChainRemote2.toml`,
+        // `ChainRemote_default.toml` 같은 파일을 찾는다. 옛 RustDesk*.toml 을 그대로
+        // 옮기면 새 core 가 못 읽고 빈 toml 을 새로 만듦 → 영구비번 / peer config 잃음.
+        //
+        // v1 마이그레이션의 핵심 버그였음: 같은 이름으로 복사 → 옛 비번 무효화.
+        // v2 수정: 최상위 접두사만 변환. peers/ 안의 ID 기반 파일은 영향 없음.
+        let dst_name = rename_legacy(&entry.file_name());
+        let dst_path = dst.join(&dst_name);
         if ft.is_dir() {
             copy_dir_recursive(&src_path, &dst_path)?;
         } else if ft.is_file() {
@@ -247,6 +276,28 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
         // 심볼릭 링크 / 디바이스 등은 무시.
     }
     Ok(())
+}
+
+/// 파일 이름의 RustDesk/rustdesk 접두사를 ChainRemote 로 변환.
+/// - "RustDesk.toml" → "ChainRemote.toml"
+/// - "RustDesk2.toml" → "ChainRemote2.toml"
+/// - "RustDesk_r2026-05-25_19-52-03.log" → "ChainRemote_r2026-05-25_19-52-03.log"
+/// - "rustdesk_r..." → "ChainRemote_r..." (소문자도 동일 처리)
+/// - "peers" (디렉터리) / "445497548.toml" 등 prefix 없는 건 그대로.
+#[cfg(target_os = "windows")]
+fn rename_legacy(name: &std::ffi::OsStr) -> std::ffi::OsString {
+    let s = name.to_string_lossy();
+    if let Some(rest) = s.strip_prefix("RustDesk") {
+        let mut out = String::from("ChainRemote");
+        out.push_str(rest);
+        return out.into();
+    }
+    if let Some(rest) = s.strip_prefix("rustdesk") {
+        let mut out = String::from("ChainRemote");
+        out.push_str(rest);
+        return out.into();
+    }
+    name.to_owned()
 }
 
 #[cfg(target_os = "windows")]
