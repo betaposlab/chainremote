@@ -1028,7 +1028,14 @@ pub fn is_rustdesk() -> bool {
 
 #[inline]
 pub fn get_uri_prefix() -> String {
-    format!("{}://", get_app_name().to_lowercase())
+    // ChainRemote Phase 3-Win (2026-05-25): APP_NAME 이 "ChainRemote" 로 변경됐어도 URL scheme
+    // 은 "rustdesk://" 그대로 유지. 이유:
+    // - 관리 패널의 1클릭 deep link (rustdesk://<id>) + Mac Info.plist + Windows HKCR + Flutter
+    //   parseUriScheme 가 모두 'rustdesk' 로 등록되어 있음. 호환성 유지가 가장 단순.
+    // - URL scheme 자체는 사용자 눈에 안 띔 (OS 가 클릭만 받아 ShellExecute 처리). 영업/브랜딩
+    //   가치 낮음.
+    // - 미래에 모든 곳을 chainremote:// 로 일제 교체 시점에 이 함수도 같이 풀어줄 것.
+    "rustdesk://".to_string()
 }
 
 #[cfg(target_os = "macos")]

@@ -5,11 +5,13 @@
 ; Phase 1 분기: 거래처 빌드 = conn-type=incoming (custom-agent.txt → {app}\custom.txt).
 ; 본사 빌드는 hq-installer.iss 가 같은 Flutter Windows 산출물 + custom-hq.txt 로 따로 묶음.
 ;
-; 전략:
+; 전략 (Phase 3-Win 2026-05-25 이후):
 ;   1. 윈컴에서 빌드한 새 ChainRemote 빌드 폴더 (ChainRemote.exe + DLL + data) 통째로 묶음
 ;   2. 거래처 PC 에서 임시 폴더에 풀고 ChainRemote.exe --silent-install 실행
-;      → install_me() 가 C:\Program Files\RustDesk\ 에 모든 파일 복사 + 서비스 등록 + 단축아이콘 생성
-;   3. RustDesk → ChainRemote 로 단축아이콘 / Start Menu 폴더 / 자동시작 reg 모두 rename
+;      → install_me() 가 C:\Program Files\ChainRemote\ 에 모든 파일 복사 + ChainRemote Service
+;        등록 + ChainRemote.lnk 단축아이콘 자동 생성 (APP_NAME 따라감)
+;   3. ChainRemote.exe 가 첫 실행 시 src/chainremote_migrate.rs 가 옛 RustDesk →
+;      ChainRemote 데이터/서비스/레지스트리/단축아이콘 마이그레이션 (멱등성 마커).
 ;   4. NAS 설정(RustDesk2.toml) + 우리 .ico 배치 + 단축아이콘 IconLocation 갱신
 
 #define APP_NAME       "ChainRemote"
@@ -25,7 +27,7 @@ AppName={#APP_NAME}
 AppVersion={#APP_VERSION}
 AppPublisher={#APP_PUBLISHER}
 AppPublisherURL={#APP_URL}
-DefaultDirName={commonpf}\RustDesk
+DefaultDirName={commonpf}\ChainRemote
 DefaultGroupName={#APP_NAME}
 DisableDirPage=yes
 DisableProgramGroupPage=yes
@@ -89,9 +91,18 @@ Source: "watchdog.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignorever
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
 Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
 
-; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\RustDesk\ 로 모든 파일 복사 + 서비스 등록 + 서비스 시작
-;    BINARY_NAME=rustdesk 로 빌드해서 install_me 의 RustDesk.exe 가정과 호환됨
-Filename: "{tmp}\chainremote_payload\rustdesk.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
+; 0.5. ★ Phase 3-Win 마이그레이션 prerequisite (2026-05-25).
+;     옛 RustDesk Service (RUNNING) + 옛 RustDesk.exe 트레이가 떠있을 때 새 ChainRemote.exe
+;     install_me 가 실행되면 (둘 다 hbbs 등록 시도해서) 충돌 가능. 새 ChainRemote.exe 가
+;     첫 실행될 때 src/chainremote_migrate 가 옛 서비스 stop + delete 처리하지만, 인스톨러
+;     [Run] 의 순서상 install_me 가 먼저 동작하므로 여기서 안전망으로 한 번 더 정리.
+;     옛 잔재 없는 깨끗한 PC 에서는 sc query 가 실패하지만 ErrorAction SilentlyContinue 로 무시.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service RustDesk -Force -ErrorAction SilentlyContinue }} catch {{}}; taskkill /F /T /IM RustDesk.exe *>$null; taskkill /F /T /IM rustdesk.exe *>$null; Start-Sleep -Seconds 1; try {{ sc.exe delete RustDesk *>$null }} catch {{}}"""; StatusMsg: "옛 RustDesk 잔재 정리 중..."; Flags: runhidden waituntilterminated
+
+; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\ChainRemote\ 로 모든 파일 복사
+;    + ChainRemote Service 등록 + 서비스 시작 + ChainRemote.lnk 단축아이콘 자동 생성.
+;    Phase 3-Win 으로 BINARY_NAME=ChainRemote + APP_NAME=ChainRemote 모두 정렬됨.
+Filename: "{tmp}\chainremote_payload\ChainRemote.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
 ; 1.5. ★ custom.txt 박기 (silent-install 후) — ordering 버그 픽스 (2026-05-21).
 ;    silent-install 이 {app} 폴더를 클린업하면서 custom.txt 를 덮어쓰는 문제 해결.
@@ -102,7 +113,7 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;    원인: sc stop 만으론 STOP_PENDING 상태에서 file lock 유지 → 다음 copy 실패.
 ;    개선 (v1.2.4): Get-Service 의 .NET Status enum 비교 (한국어 Windows 의 sc.exe query 출력 "중지됨" 으로 인한
 ;                  "STOPPED" 문자열 미스매치 버그 수정). 최대 30초 폴링 → taskkill /F → 1초 wait.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service RustDesk -Force -ErrorAction SilentlyContinue }} catch {{}}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service RustDesk -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }}; Start-Sleep -Seconds 1 }}; taskkill /F /IM rustdesk.exe /T *>$null; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }}; Start-Sleep -Seconds 1 }}; taskkill /F /IM ChainRemote.exe /T *>$null; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
 
 ; 3. ★ toml 3종을 두 경로에 동시 배치 (LICENSE_MISMATCH 근본 해결, copy 실패 시 자동 재시도)
 ;    - 사용자 폴더 : %APPDATA%\RustDesk\config\           (RustDesk 가 user 모드일 때 읽음)
@@ -114,8 +125,8 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;    않음. 자동업데이트(silent install 재실행) 시 거래처가 자체 설정한 영구비번/approve-mode
 ;    /기타 옵션이 reset 되는 사고 회피. 신규 설치는 dst 비어있어 정상 박힘. 우리 NAS 서버/key
 ;    변경 시엔 거래처 재설치 필요 (현재 sepani.synology.me 고정이라 무관).
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\RustDesk\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\RustDesk2.toml"") {{ Write-Host 'preserved (auto-update mode, user toml exists)' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\RustDesk2.toml"") {{ Write-Host 'preserved (auto-update mode, user toml exists)' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\RustDesk2.toml"") {{ Write-Host 'preserved (auto-update mode, user toml exists)' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\RustDesk2.toml"") {{ Write-Host 'preserved (auto-update mode, user toml exists)' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
 
 ; 4. ★ 서비스 재시작 — 새 config 로 등록 (검증 + 재시도 + updater.log 기록)
 ;    배경: install_me 가 서비스를 start=auto 로 생성·시작하지만, 위 2단계가 강제 정지(taskkill 포함)함.
@@ -125,7 +136,7 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;    수정: Running 도달까지 폴링(.NET Status enum — 한국어 윈도우 "중지됨" 문자열 버그 회피),
 ;          최대 3회 재시도, 결과를 C:\ProgramData\ChainRemote\updater.log 에 append
 ;          → 서비스가 죽어도 installer 가 남긴 줄로 다음 진단 가능 (updater 는 죽은 서비스 안에선 못 남김).
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$log='C:\ProgramData\ChainRemote\updater.log'; New-Item -Path (Split-Path $log) -ItemType Directory -Force *>$null; $ok=$false; for ($a=0; $a -lt 3; $a++) {{ try {{ Start-Service RustDesk -ErrorAction Stop }} catch {{ sc.exe start RustDesk *>$null }}; for ($i=0; $i -lt 30; $i++) {{ $svc=Get-Service RustDesk -ErrorAction SilentlyContinue; if ($svc -ne $null -and $svc.Status -eq 'Running') {{ $ok=$true; break }}; Start-Sleep -Seconds 1 }}; if ($ok) {{ break }} }}; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $res= if ($ok) {{ 'Running OK' }} else {{ 'FAILED to reach Running after 3x30s' }}; Add-Content -Path $log -Value ($st + ' installer: sc start RustDesk -> ' + $res)"""; StatusMsg: "ChainRemote 서비스 시작 중..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$log='C:\ProgramData\ChainRemote\updater.log'; New-Item -Path (Split-Path $log) -ItemType Directory -Force *>$null; $ok=$false; for ($a=0; $a -lt 3; $a++) {{ try {{ Start-Service ChainRemote -ErrorAction Stop }} catch {{ sc.exe start ChainRemote *>$null }}; for ($i=0; $i -lt 30; $i++) {{ $svc=Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($svc -ne $null -and $svc.Status -eq 'Running') {{ $ok=$true; break }}; Start-Sleep -Seconds 1 }}; if ($ok) {{ break }} }}; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $res= if ($ok) {{ 'Running OK' }} else {{ 'FAILED to reach Running after 3x30s' }}; Add-Content -Path $log -Value ($st + ' installer: sc start ChainRemote -> ' + $res)"""; StatusMsg: "ChainRemote 서비스 시작 중..."; Flags: runhidden waituntilterminated
 
 ; 4b. ★ 서비스 watchdog 예약작업 등록 — 이미 죽은 서비스를 재부팅 없이 복구 (위 4단계의 안전망)
 ;     비권한 트레이 UI 는 UAC 없이 서비스를 못 켜므로 SYSTEM 예약작업이 정석.
@@ -135,12 +146,15 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 Filename: "schtasks.exe"; Parameters: "/Create /TN ChainRemoteServiceWatchdog /TR ""powershell -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\ChainRemote\watchdog.ps1"" /SC MINUTE /MO 10 /RU SYSTEM /RL HIGHEST /F"; StatusMsg: "ChainRemote 자동복구 등록 중..."; Flags: runhidden waituntilterminated
 Filename: "schtasks.exe"; Parameters: "/Run /TN ChainRemoteServiceWatchdog"; Flags: runhidden waituntilterminated
 
-; 5. install_me() 가 만든 RustDesk 단축아이콘들을 ChainRemote 로 RENAME
-Filename: "{cmd}"; Parameters: "/c if exist ""%PUBLIC%\Desktop\RustDesk.lnk"" (del /F /Q ""%PUBLIC%\Desktop\ChainRemote.lnk"" 2>nul & move /Y ""%PUBLIC%\Desktop\RustDesk.lnk"" ""%PUBLIC%\Desktop\ChainRemote.lnk"")"; Flags: runhidden waituntilterminated
-Filename: "{cmd}"; Parameters: "/c if exist ""%USERPROFILE%\Desktop\RustDesk.lnk"" (del /F /Q ""%USERPROFILE%\Desktop\ChainRemote.lnk"" 2>nul & move /Y ""%USERPROFILE%\Desktop\RustDesk.lnk"" ""%USERPROFILE%\Desktop\ChainRemote.lnk"")"; Flags: runhidden waituntilterminated
+; 5. 옛 RustDesk 단축아이콘 잔재 정리 (Phase 3-Win 마이그레이션 보조).
+;    Phase 3-Win 이후 install_me() 가 APP_NAME=ChainRemote 따라 ChainRemote.lnk 자동 생성하므로
+;    RENAME 불필요. 다만 옛 거래처 PC 에는 RustDesk.lnk 가 남아있을 가능성 → 제거.
+;    chainremote_migrate.rs 의 cleanup_old_shortcuts 도 같은 정리 수행 (안전 중첩).
+Filename: "{cmd}"; Parameters: "/c del /F /Q ""%PUBLIC%\Desktop\RustDesk.lnk"" 2>nul"; Flags: runhidden
+Filename: "{cmd}"; Parameters: "/c del /F /Q ""%USERPROFILE%\Desktop\RustDesk.lnk"" 2>nul"; Flags: runhidden
 
-; 6. Start Menu RustDesk 폴더 → ChainRemote 폴더 RENAME
-Filename: "{cmd}"; Parameters: "/c if exist ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\RustDesk"" (rmdir /S /Q ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\ChainRemote"" 2>nul & move /Y ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\RustDesk"" ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\ChainRemote"")"; Flags: runhidden waituntilterminated
+; 6. 옛 Start Menu RustDesk 폴더 정리 (Phase 3-Win 이후 install_me 가 ChainRemote 폴더 자동 생성).
+Filename: "{cmd}"; Parameters: "/c rmdir /S /Q ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\RustDesk"" 2>nul"; Flags: runhidden
 
 ; 7. RustDesk 자동시작 reg 항목 제거 (우리 [Registry] 에서 ChainRemote 로 별도 등록)
 Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\CurrentVersion\Run"" /v RustDesk /f 2>nul"; Flags: runhidden
@@ -150,13 +164,13 @@ Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
 ; 9. 설치 직후 ChainRemote 실행
-Filename: "{app}\rustdesk.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
 
 [Registry]
-; 부팅 시 자동 시작 — ChainRemote 키 이름 (실행파일은 rustdesk.exe)
+; 부팅 시 자동 시작 — Phase 3-Win 이후 실행파일은 ChainRemote.exe (BINARY_NAME=ChainRemote).
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
   ValueType: string; ValueName: "{#APP_NAME}"; \
-  ValueData: """{app}\rustdesk.exe"" --tray"; \
+  ValueData: """{app}\ChainRemote.exe"" --tray"; \
   Flags: uninsdeletevalue
 
 [UninstallRun]
