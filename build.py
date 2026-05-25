@@ -415,7 +415,9 @@ def build_flutter_dmg(version, features):
         "cp target/release/liblibrustdesk.dylib target/release/librustdesk.dylib")
     os.chdir('flutter')
     system2('flutter build macos --release --no-tree-shake-icons')
-    system2('cp -rf ../target/release/service ./build/macos/Build/Products/Release/RustDesk.app/Contents/MacOS/')
+    # ChainRemote (Phase 3-Mac, 2026-05-25): PRODUCT_NAME = ChainRemote 로 변경되어
+    # 빌드 출력이 ChainRemote.app. service binary 도 새 경로로.
+    system2('cp -rf ../target/release/service ./build/macos/Build/Products/Release/ChainRemote.app/Contents/MacOS/')
     '''
     system2(
         "create-dmg --volname \"RustDesk Installer\" --window-pos 200 120 --window-size 800 400 --icon-size 100 --app-drop-link 600 185 --icon RustDesk.app 200 190 --hide-extension RustDesk.app rustdesk.dmg ./build/macos/Build/Products/Release/RustDesk.app")

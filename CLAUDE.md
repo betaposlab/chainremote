@@ -474,7 +474,7 @@ RustDesk 의 두 HTTP 헬퍼가 서로 다른 헤더 형식을 요구하고, 응
 
 ### Mac 빌드 함정 11 — Flutter incremental 이 dart kernel 재컴파일을 skip (2026-05-20)
 - **증상**: `desktop_home_page.dart` 수정했는데 `python3 build.py --flutter` 가 통과하고 `.app` 도 갱신된 시점 박힘. 그러나 실행해보면 옛 UI 그대로. binary grep 으로 새 string 안 잡힘.
-- **확인 방법**: `stat -f "%Sm" flutter/build/macos/Build/Products/Release/RustDesk.app/Contents/Frameworks/App.framework/Versions/A/App` 의 mtime vs 소스 mtime. App snapshot 이 소스보다 옛것이면 hit.
+- **확인 방법**: `stat -f "%Sm" flutter/build/macos/Build/Products/Release/ChainRemote.app/Contents/Frameworks/App.framework/Versions/A/App` 의 mtime vs 소스 mtime. App snapshot 이 소스보다 옛것이면 hit.
 - **원인**: Flutter assemble 의 dart kernel snapshot 단계가 `.dart_tool/flutter_build/...stamp` 기반 incremental 판단 → 단일 파일 수정만으로 stamp 안 바뀌면 skip.
 - **픽스**: `cd flutter && flutter clean && rm -rf .dart_tool build && flutter pub get` 후 재빌드. 단 `flutter clean` 이 `.dart_tool` 을 brew Flutter 로 재생성하므로 (함정 8) PATH 가 `~/flutter-3.24.5/bin` 가장 앞이어야 함. **export 로 sub-shell 까지 전파**되도록 빌드 명령에 `export PATH=...` 박을 것 (한 줄 변수는 sub-shell 에 inherit 안 될 수 있음).
 
@@ -502,7 +502,7 @@ cd ~/내작업/ChainRemote && \
   python3 ./build.py --flutter --unix-file-copy-paste --screencapturekit && \
   pkill -9 RustDesk ChainRemote 2>/dev/null; \
   rm -rf /Applications/ChainRemote.app && \
-  cp -R flutter/build/macos/Build/Products/Release/RustDesk.app /Applications/ChainRemote.app && \
+  cp -R flutter/build/macos/Build/Products/Release/ChainRemote.app /Applications/ChainRemote.app && \
   cp deploy/custom-hq.txt /Applications/ChainRemote.app/Contents/Resources/custom.txt && \
   codesign --force --deep --sign - /Applications/ChainRemote.app && \
   open /Applications/ChainRemote.app
@@ -511,9 +511,11 @@ cd ~/내작업/ChainRemote && \
 **⚠️ `export` 필수 (2026-05-22 함정 12)**: 옛 명령은 `PATH=... VCPKG_ROOT=... bash -c '...'` 형태라 env 가 **그 `bash -c` 한 줄에만** 적용됐다. 그 뒤 `&& python3 ./build.py` 는 env 없이 기본 PATH 로 실행 → `build.py` 가 brew Flutter 3.41.8(`/opt/homebrew/bin/flutter`)을 잡아 빌드 실패(`DialogThemeData`/`TabBarThemeData`/`_SelectableFragment`/google_fonts 상수 에러 = 신버전 Flutter 증상). **반드시 `export` 로 셸 전체에 전파**시켜 build.py 가 `~/flutter-3.24.5/bin/flutter` 를 쓰게 할 것. 빌드 시작 직후 `which flutter` 가 `~/flutter-3.24.5/bin/flutter` 인지 확인.
 
 **왜 `/Applications/ChainRemote.app` 까지 복사하는가** (2026-05-20 함정):
-- `build/macos/Build/Products/Release/RustDesk.app` 가 새 빌드, `/Applications/ChainRemote.app` 가 매일 켜는 것 (Spotlight·Dock). 둘은 다른 파일.
+- `build/macos/Build/Products/Release/ChainRemote.app` 가 새 빌드, `/Applications/ChainRemote.app` 가 매일 켜는 것 (Spotlight·Dock). 둘은 다른 파일.
 - build dir 빌드만 갱신하고 `open` 하면 새 코드 검증 가능. 단, Chang/재성이가 평소 Launchpad 로 켜는 건 옛 .app → "코드 적용 안 됨" 착각.
 - 빌드 워크플로에 `/Applications` 복사 + 재서명까지 포함해야 두 vector 일치.
+
+**Phase 3-Mac (2026-05-25)**: `PRODUCT_NAME = ChainRemote` + Bundle ID `com.betaposlab.chainremote`. 빌드 출력이 `RustDesk.app` 에서 `ChainRemote.app` 으로 변경됨. 옛 빌드 캐시가 남아있으면 두 파일 다 나올 수 있음 — `flutter clean` 후 한 번 정리. macOS 가 새 bundle id 를 다른 앱으로 인식하므로 화면 기록/입력 모니터링/접근성 권한 재승인 필요 (첫 실행 시 OS 다이얼로그).
 
 ### 알려진 이슈/생략된 옵션
 - **`--hwcodec` 생략됨**: ffmpeg 컴파일 30~60분 소요. 필요해지면 `vcpkg install ffmpeg` 후 추가.
