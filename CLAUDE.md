@@ -380,6 +380,13 @@ Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/
 - 기존 거래처 5곳 영향 없음(자동업데이트가 toml 안 덮어씀). 새 거래처 배포부터 적용.
 - 운영 변화: 새 거래처 셋업 시 "수락 클릭 부탁드립니다" 안내. 자주 보는 거래처는 영구비번 가이드.
 
+**ephemeral port exhaustion 진단 + 사업화 안전망 (2026-05-25)**:
+- **증상**: Chang 윈컴 24h+ 가동 후 ChainRemote outbound 불가. 며칠 전엔 Chrome Remote Desktop, 오늘은 KoinoHost (코이노 AnySupport) 가 ephemeral port 49152~65535 (16,384개) 거의 다 Bound 상태로 점유 (RemoteAddress 0.0.0.0:0 = bind만 + connect 안 함 = SW 내부 socket pool leak). 일반 사용자 안 망함 = 매일 PC OFF/슬립 → leak reset. Chang 윈컴 24/7 가동만 누적 도달.
+- **외부+내부 4갈래 정밀 조사 결론** (출처+코드 fact 기반): 우리 fork **무관**. RustDesk repo 의 socket leak issue 0건, 코이노 leak 한국/영어 공개 보고 0건, 우리 fork 의 socket/WSA/network filter 추가 코드 0건. 한 SW 가 다른 프로세스 socket pool 트리거하는 메커니즘 자료 0건. 가장 자연스러운 해석 = Chang 윈컴의 환경 특이성 (NIC driver / AV / WinSock LSP 가 socket close 지연) + 24/7 가동 누적.
+- **HKCU Run 잔재 (`C:\Temp\ChainRemote-v3-extracted\ChainRemote.exe --tray`) 진범**: 옛 `deploy/win/setup.ps1` (2026-04~05 수동 셋업 스크립트) 이 HKCU Run 에 박은 흔적. ChainGo SFX 결백 (코드 grep 0건). 2026-05-25 `deploy/win/` 폴더 영구 삭제, README 만 보존(잔재 청소 명령 포함).
+- **인스톨러에 사업화 안전망 추가**: agent/hq 인스톨러 [Run] 첫 단계에 `netsh int ip set dynamicport tcp start=10000 num=55000` 자동 적용. ephemeral port 16K → 55K 확장. 거래처 PC 에 다른 원격 SW leak 가 있어도 24h 안 도달, ChainRemote 가 피해자 안 됨. MS KB 권장값. 일반 환경 무영향.
+- **Chang Mac 실측 시나리오**: 윈컴 재발 시 (1) `Stop-Process -Id <KoinoHost PID> -Force` 즉시 회복 + (2) ETW 추적 `netsh trace start scenario=netconnection` 으로 STATUS_TOO_MANY_ADDRESSES 호출 스택 잡아 코이노 본사(02-839-7500) 제보. **다른 SW (코이노/Chrome RD) 를 지우라고 안내 절대 금지** — Chang 의 강한 피드백.
+
 **알려진 이슈 (backlog)**:
 - **peer password decrypt race** (libs/hbb_common/src/password_security.rs:210 + lib.rs:318): `get_uuid()` 가 macOS 첫 호출 8회 retry 다 실패 시 fallback `Config::get_key_pair().1` 로 떨어짐 → 그 시점에 encrypt 된 peer password 는 fallback key 로 암호화. 그 다음 machine_uid 정상 fetch 시 decrypt 키 불일치 → "비밀번호 필요" 다이얼로그. 회복 = 거래처 영구비번 재입력 + "기억" 체크. **dual-decrypt 자체는 upstream 5d2acc7 (2026-02-03) 가 이미 적용** — decrypt 시 1순위 get_uuid() 실패 시 2순위 pk(key_pair.1) 자동 fallback (line 224-236). 그런데도 Chang 우리집 한 번 사고 (이미 회복돼서 reproduction 어려움) — 가설은 메모리 [project_peer_password_race]. 광범위 재현 시 깊이 진단.
 - **자동업데이트 실증 검증 안 됨** (B-1 코드만, 24h 자동 적용 실제 본 적 없음). 단 **toml 보존 가드는 코드 픽스 완료** (2026-05-24, agent-installer.iss line 102-103): `Test-Path "$dst\RustDesk2.toml"` → 존재 시 toml 박지 않음 → 자동업데이트(silent 재실행) 시 거래처 영구비번/approve-mode/기타 사용자 설정 보존. **신규 설치만 박음**. 우리 NAS 서버/key 변경 시엔 거래처 재설치 필요(현재 sepani.synology.me 고정이라 무관). 실증 검증은 Chang 이 다음 거래처 작업 시 안전하게 — `New-Item C:\ProgramData\ChainRemote\update_now.flag -Type File` 로 즉시 trigger (`MANUAL_TRIGGER_FLAG` in src/chainremote_updater.rs).
