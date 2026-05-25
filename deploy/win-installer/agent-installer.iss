@@ -79,6 +79,16 @@ Source: "custom-agent.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.t
 Source: "watchdog.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignoreversion
 
 [Run]
+; 0. ★ Windows ephemeral port range 확장 (2026-05-25 사업화 안전망).
+;    기본 49152~65535 (16,384 포트) → 10000~64999 (55,000 포트).
+;    근거: 거래처 PC 에 다른 원격 SW (코이노 AnySupport, Chrome Remote Desktop 등)
+;    가 같이 깔려있을 때, 그쪽 SW 가 ephemeral socket 누수 시 일반 16K 한계에
+;    24h 안 도달. 55K 면 3~4배 여유 → 우리 ChainRemote 가 그 누수의 *피해자*
+;    가 안 됨. 또한 일반 사용자 환경 무영향(여유만 늘림). 정석 근거: Microsoft
+;    KB ephemeral port exhaustion troubleshooting (MaxUserPort 권장값과 일치).
+Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
+Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
+
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\RustDesk\ 로 모든 파일 복사 + 서비스 등록 + 서비스 시작
 ;    BINARY_NAME=rustdesk 로 빌드해서 install_me 의 RustDesk.exe 가정과 호환됨
 Filename: "{tmp}\chainremote_payload\rustdesk.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
