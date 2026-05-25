@@ -72,6 +72,17 @@ pub fn core_main() -> Option<Vec<String>> {
     // 반드시 global_init() 보다 먼저: init_log, Config::path 호출 전에 박혀야 함.
     chainremote_portable_init();
 
+    // ChainRemote Phase 3-Win 마이그레이션 (옛 RustDesk → 새 ChainRemote 데이터/서비스/레지스트리).
+    // - 윈도우 한정 (Mac/Linux 는 빈 함수).
+    // - ChainGo 포터블 모드는 skip — 포터블은 호스트 PC 흔적 안 남기는 게 목적이라 옛 데이터
+    //   복사하면 모순. CHAINREMOTE_PORTABLE_DIR 환경 변수 유무로 분기.
+    // - global_init() 보다 먼저 호출해서 Config::path 등이 마이그레이션 후 데이터를 읽도록.
+    // - 멱등성 마커가 박혀있으면 두 번째 실행은 즉시 return — 무한 비용 0.
+    #[cfg(target_os = "windows")]
+    if std::env::var_os("CHAINREMOTE_PORTABLE_DIR").is_none() {
+        crate::chainremote_migrate::migrate_from_rustdesk_once();
+    }
+
     if !crate::common::global_init() {
         return None;
     }

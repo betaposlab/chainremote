@@ -90,12 +90,12 @@ if ($code -ne 0) {
 }
 
 $releaseDir = "$repoDir\flutter\build\windows\x64\runner\Release"
-if (-not (Test-Path "$releaseDir\rustdesk.exe")) {
-  Write-Host "BUILD output missing: $releaseDir\rustdesk.exe"
+if (-not (Test-Path "$releaseDir\ChainRemote.exe")) {
+  Write-Host "BUILD output missing: $releaseDir\ChainRemote.exe"
   Pop-Location
   exit 1
 }
-Write-Host "[1/5] OK. Release rustdesk.exe mtime: $((Get-Item "$releaseDir\rustdesk.exe").LastWriteTime)"
+Write-Host "[1/5] OK. Release ChainRemote.exe mtime: $((Get-Item "$releaseDir\ChainRemote.exe").LastWriteTime)"
 
 # 2) custom-portable.txt → Release\custom.txt
 Write-Host "[2/5] custom.txt 박기 (conn-type=outgoing)"
@@ -106,7 +106,7 @@ Push-Location "$repoDir\libs\portable"
 $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
 cmd /c "pip3 install -r requirements.txt" 2>&1 | Select-Object -Last 3
 Write-Host "[3/5] generate.py (페이로드 생성)"
-cmd /c "python generate.py -f ../../flutter/build/windows/x64/runner/Release -o . -e ../../flutter/build/windows/x64/runner/Release/rustdesk.exe" 2>&1 | Select-Object -Last 5
+cmd /c "python generate.py -f ../../flutter/build/windows/x64/runner/Release -o . -e ../../flutter/build/windows/x64/runner/Release/ChainRemote.exe" 2>&1 | Select-Object -Last 5
 $genCode = $LASTEXITCODE
 $ErrorActionPreference = $prevEAP
 if ($genCode -ne 0) {

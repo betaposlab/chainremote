@@ -1,15 +1,16 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(rustdesk LANGUAGES CXX)
+project(chainremote LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-# ChainRemote: 바이너리 이름은 "rustdesk" 유지 (RustDesk core 의 install_me() 가
-# {path}\{app_name}.exe = {path}\RustDesk.exe 를 가정함). 이름을 ChainRemote 로 바꾸면
-# install_me 의 단축아이콘/서비스/레지스트리 모두 RustDesk.exe 를 가리키지만 실제
-# 파일은 ChainRemote.exe 가 되어 미스매치 발생. 사용자 노출 브랜딩(단축아이콘 라벨,
-# 창 제목, 트레이 툴팁)은 다른 곳에서 처리.
-set(BINARY_NAME "rustdesk")
+# ChainRemote Phase 3-Win (2026-05-25): rustdesk → ChainRemote.
+# - APP_NAME (libs/hbb_common/src/config.rs) 도 동일하게 "ChainRemote" 로 변경됨.
+# - install_me() 가 {path}\{app_name}.exe 를 가정하므로 BINARY_NAME 과 APP_NAME 의
+#   대소문자가 정렬되어야 함. 빌드 출력 → ChainRemote.exe.
+# - 옛 거래처의 RustDesk.exe → ChainRemote.exe 마이그레이션은 src/chainremote_migrate
+#   가 처리 (옛 서비스/데이터/레지스트리 정리 + 복사).
+set(BINARY_NAME "ChainRemote")
 
 # Explicitly opt into modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

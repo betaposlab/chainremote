@@ -26,10 +26,10 @@ windows = { version = "0.61", features = [
 native-windows-gui = {version = "1.0", default-features = false, features = ["animation-timer", "image-decoder"]}
 
 [package.metadata.winres]
-LegalCopyright = "Copyright © 2025 Purslane Ltd. All rights reserved."
-ProductName = "RustDesk"
-OriginalFilename = "rustdesk.exe"
-FileDescription = "RustDesk Remote Desktop"
+LegalCopyright = "Copyright © 2026 BetaPosLab. Released under AGPL v3."
+ProductName = "ChainGo"
+OriginalFilename = "ChainGo.exe"
+FileDescription = "ChainGo — ChainRemote Portable"
 #ProductVersion = ""
 
 [target.'cfg(target_os="windows")'.build-dependencies]
