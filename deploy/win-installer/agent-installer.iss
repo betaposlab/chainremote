@@ -15,7 +15,7 @@
 ;   4. NAS 설정(RustDesk2.toml) + 우리 .ico 배치 + 단축아이콘 IconLocation 갱신
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.3.0"
+#define APP_VERSION    "1.3.1"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; 윈컴에서 빌드한 ChainRemote.exe 가 들어있는 폴더
@@ -101,10 +101,13 @@ Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num
 ;    Phase 3-Win 으로 BINARY_NAME=ChainRemote + APP_NAME=ChainRemote 모두 정렬됨.
 Filename: "{tmp}\chainremote_payload\ChainRemote.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
-; 1.5. ★ custom.txt 박기 (silent-install 후) — ordering 버그 픽스 (2026-05-21).
-;    silent-install 이 {app} 폴더를 클린업하면서 custom.txt 를 덮어쓰는 문제 해결.
-;    이제 silent-install 후 명시적으로 박아 conn-type=incoming 이 확실히 적용되게.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Copy-Item '{tmp}\custom_payload\custom.txt' '{app}\custom.txt' -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
+; 1.5. ★ custom.txt 박기 (silent-install 후) — Phase 3-Win 절대 경로 강제 (2026-05-26 fix).
+;    Phase 3-Win 으로 install_me() 는 APP_NAME=ChainRemote 따라 {commonpf}\ChainRemote\ 에
+;    ChainRemote.exe 설치. load_custom_client() 는 current_exe() 의 부모에서 custom.txt 읽음
+;    = {commonpf}\ChainRemote\custom.txt 만 인식. 옛 v1.2.x 의 Inno AppId 잔재로 {app} 이
+;    옛 RustDesk 폴더 가리키는 경우 mismatch → custom.txt 못 찾음 → conn-type 기본 (outgoing)
+;    → 거래처에 AuthGate 노출 사고 (2026-05-26 재성이 PC). 절대 경로로 영구 회피.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$dst='{commonpf}\ChainRemote'; New-Item -Path $dst -ItemType Directory -Force *>$null; Copy-Item '{tmp}\custom_payload\custom.txt' (Join-Path $dst 'custom.txt') -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
 
 ; 2. ★ 서비스 + UI/서비스 잔여 프로세스 강제 정지 — toml 박기 전 필수
 ;    원인: sc stop 만으론 STOP_PENDING 상태에서 file lock 유지 → 다음 copy 실패.

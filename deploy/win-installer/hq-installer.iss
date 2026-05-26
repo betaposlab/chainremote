@@ -10,7 +10,7 @@
 ; 사용처: 재성이 윈도우 본사 PC (jaesung 계정 로그인).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.3.0"
+#define APP_VERSION    "1.3.1"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; 윈컴에서 빌드한 ChainRemote.exe 가 들어있는 폴더 (agent 와 공유)
@@ -79,10 +79,11 @@ Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num
 ;    install_me 의 기본 흐름 그대로 둠 (옵션 B+ 토글 ON 시 incoming 도 가능).
 Filename: "{tmp}\chainremote_payload\ChainRemote.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
-; 1.5. ★ custom.txt 박기 (silent-install 후) — ordering 버그 픽스 (2026-05-21).
-;    silent-install 이 {app} 폴더를 클린업하면서 custom.txt 를 덮어쓰는 문제 해결.
-;    이제 silent-install 후 명시적으로 박아 conn-type=outgoing 이 확실히 적용되게.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Copy-Item '{tmp}\custom_payload\custom.txt' '{app}\custom.txt' -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
+; 1.5. ★ custom.txt 박기 (silent-install 후) — Phase 3-Win 절대 경로 강제 (2026-05-26 fix).
+;    agent-installer.iss 와 동일 사유: install_me() 가 {commonpf}\ChainRemote\ 에 설치하므로
+;    custom.txt 도 같은 위치여야 load_custom_client() 가 인식. {app} 은 옛 AppId 잔재로
+;    옛 RustDesk 폴더 가리킬 수 있음.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$dst='{commonpf}\ChainRemote'; New-Item -Path $dst -ItemType Directory -Force *>$null; Copy-Item '{tmp}\custom_payload\custom.txt' (Join-Path $dst 'custom.txt') -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
 
 ; 2. 서비스/UI 강제 정지 — toml 박기 전 file lock 해제
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }}; Start-Sleep -Seconds 1 }}; taskkill /F /IM ChainRemote.exe /T *>$null; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated

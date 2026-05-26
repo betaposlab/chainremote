@@ -1,15 +1,30 @@
 # ChainRemote (체인리모트)
 
-> RustDesk 포크 기반 자체 원격지원 솔루션. 코이노 AnySupport 대체 + 향후 B2B 사업화.
-> 상세 기획: `ChainRemote_기획서.md` / RustDesk 코드 가이드: `AGENTS.md`
+> RustDesk 포크 기반 자체 원격지원 솔루션. 코이노 AnySupport 대체 + B2B 사업화 진입.
+> 상세 기획: `ChainRemote_기획서.md` · RustDesk 코드 가이드: `AGENTS.md`
+
+## 문서 안내 (CLAUDE.md 슬림화, 2026-05-26)
+
+이 파일은 **매 세션 자동 인지되는 핵심**만. 자주 안 보는 정보는 `docs/chainremote/` 분리됨:
+
+- 옛 이슈 / 완료 history / 사업화 phase / ChainGo / 옵션 B+ → `docs/chainremote/HISTORY.md`
+- 거래처 운영 워크플로우 / NAS 셋업 / DB 접속 / 관리 패널 위치 → `docs/chainremote/OPERATION.md`
+- 작업 backlog / 알려진 이슈 → `docs/chainremote/BACKLOG.md`
+- Phase 1~3 작업 계획 / 청사진 / 결정된 스택 → `docs/chainremote/PHASES.md`
+- Mac/Windows 빌드 함정 8~12 / Next.js / TLS → `docs/chainremote/BUILD_PITFALLS.md`
+
+---
 
 ## 프로젝트 핵심
+
 - **베이스**: rustdesk/rustdesk (1.4.6+) 포크. 바닥부터 만들지 않음.
-- **목표**: 코이노 월 10만원+ → 자체 서버 월 1~3만원. 거래처 200+ POS/키오스크 원격 A/S.
-- **라이선스**: AGPL v3 (1단계 내부 사용). 사업화 시점에 재결정.
+- **목표**: 코이노 월 10만원/seat → 우리 월 2~3만원/대리점. 50개 대리점 판매 + 거래처 200+ POS/키오스크 원격 A/S.
+- **라이선스**: AGPL v3 (전체 소스 공개). About 화면에 출처 + 변경 내역 링크 명시.
 - **체인오더 시스템과 완전 분리** — 별도 프로젝트.
 
-## Chang 작업 환경 (2026-05-20 기준)
+---
+
+## Chang 작업 환경
 
 ### 데일리 드라이버
 - **MacBook Pro 16" M2 Max** — Chang 의 유일한 데일리 드라이버. 집/사무실 항상 들고 다님.
@@ -17,76 +32,64 @@
 
 ### 집 윈컴 (Chang 본인 — 빌드/HQ 겸용)
 - **위치**: 집. 사용자명 `zenta`. 절전 모드 기본.
-- **하드웨어**: Ryzen 9 9900X / Radeon RX 9070 / DDR5 64GB. **하이엔드. 빌드/메모리 부족이 빌드 실패의 원인일 가능성 거의 없음** — 진단 시 "윈컴 사양이 부족할 수도" 가설은 우선순위 최하.
-- **역할**: Windows 빌드 머신 (ChainRemote 풀빌드 환경 셋업 완료) + HQ 워크스테이션 (집에서 거래처 원격 볼 때 큰 모니터 활용).
-- **원격 접속 경로**:
-  - 사무실 Mac → 집 윈컴: **Chrome Remote Desktop** (백업/빌드용 원격). HQ 빌드라 ChainRemote 양방향 불가.
-  - WoL: `gogo` 명령어 (Tailscale 위로 매직패킷). 메모리 [[reference_home_infra]].
-- **빌드 환경**: `C:\src\ChainRemote\`. 풀빌드 도구 (Rust 1.81, Flutter 3.24.5, vcpkg, LLVM 18, Inno Setup 6) 셋업 완료. 함정 7가지 (메모리 [[project_v127_build_pitfalls]]) 영구 픽스됨.
+- **하드웨어**: Ryzen 9 9900X / Radeon RX 9070 / DDR5 64GB. 하이엔드. 빌드/메모리 부족이 빌드 실패 원인일 가능성 거의 0.
+- **역할**: Windows 빌드 머신 (ChainRemote 풀빌드 환경 셋업 완료) + HQ 워크스테이션.
+- **원격 접속**: 사무실 Mac → 집 윈컴 = ChainRemote HQ (옵션 B+ 토글 ON). 백업 = Chrome Remote Desktop. WoL: `gogo` 명령어 (Tailscale 위로 매직패킷). 메모리 [reference_home_infra].
+- **빌드 환경**: `C:\src\ChainRemote\`. 풀빌드 도구 (Rust 1.81, Flutter 3.24.5, vcpkg, LLVM 18, Inno Setup 6) 셋업 완료.
 
 ### 재성이 윈컴 (HQ 사용자)
 - **위치**: 사무실 또는 본인 집. Windows 데일리드라이버.
 - **역할**: 순수 HQ 사용자 — 거래처 원격만. 피지원자 아님.
-- **현재 상태 (2026-05-20)**: v1.3.0 HQ 인스톨러 본인 홈피에 게시됨. 내일(2026-05-21) 사무실에서 설치 + `jaesung/6002` 로그인 검증 예정.
+- **현재 상태**: 안정화 전까지 **테스트 용**. 자동업데이트 검증 진행 중 (2026-05-26).
 
 ### NAS (Synology DS220+ "kimfam")
 - **위치**: 집. KT 1Gbps. 192.168.68.103 (LAN). DDNS `sepani.synology.me`.
-- **서비스**:
-  - hbbs/hbbr (포트 21115~21118): RustDesk 시그널링/릴레이.
-  - PostgreSQL (포트 15432 LAN-only): chainremote DB.
-  - chainremote-admin (Next.js 컨테이너, 포트 3001/3443): 관리 패널 + 본사 앱 API.
-- **외부 접속**:
-  - 본사 앱 API (`http://sepani.synology.me:3001`): HTTP 직노출, 어디서나 도달.
-  - 관리 패널 브라우저 (`https://sepani.synology.me:3443`): HTTPS Reverse Proxy.
-  - DB 직접 노출 안 함.
-- **자세히**: 메모리 [[project_admin_panel]], [[reference_home_infra]].
+- **서비스**: hbbs/hbbr (21115~21118), PostgreSQL 15432 (LAN-only), chainremote-admin (3001/3443).
+- **외부 접속**: API HTTP 3001 직노출 (어디서나 도달), HTTPS 3443 (브라우저). DB 직접 노출 X.
+- **자세히**: 메모리 [project_admin_panel], [reference_home_infra], `docs/chainremote/OPERATION.md`.
 
 ### 거래처 PC (외부 사용자)
-- **OS**: 윈도우 (POS/키오스크). 100% Windows.
+- **OS**: 윈도우 (POS/키오스크) 100%.
 - **빌드**: Agent (`ChainRemote_Agent_Setup_v*.exe`). 영구비번 + watchdog + 자동업데이트.
 - **현재 셋업된 거래처 5곳**: 중앙리, 우리집(=Chang 집 윈컴, 옛 셋업 잔재), 진희씨 컴, 바다양푼이 동태찜, 재성이 컴.
 
-### 도구 분담 (2026-05-20 옵션 A 결정)
-- **ChainRemote**: 거래처 원격 (POS A/S 본업)
-- **Chrome Remote Desktop**: Chang 개인용 (사무실 Mac → 집 윈컴 빌드). 사업화 시 영향 0.
-- **Tailscale + SSH**: Mac → NAS / 집 윈컴 명령형 작업. 헤드리스 빌드 자동화는 폐기 (메모리 [[feedback_no_autobuild_workflow]]).
+### 도구 분담
+- **ChainRemote**: 거래처 원격 (본업) + 사무실 Mac → 집 윈컴 (옵션 B+ 토글 ON)
+- **Chrome Remote Desktop**: 백업용. 사업화 시 영향 0.
+- **Tailscale + SSH**: Mac → NAS / 집 윈컴 명령형 작업. 헤드리스 빌드 자동화는 폐기 (메모리 [feedback_no_autobuild_workflow]).
+
+---
 
 ## 절대 원칙
 
-### 고객 UX (★최우선) — 전략 변경 (2026-04-30)
-**채택**: 옵션 C — 네이티브 .exe 단순 실행. 웹 클라이언트는 포기.
+### 고객 UX (★최우선)
+**채택**: 옵션 C — 네이티브 .exe 단순 실행. 웹 클라이언트 폐기.
 
 **고객이 할 일은 딱 2가지**: ① 받은 .exe 더블클릭 ② 비밀번호 입력. 끝.
 - 코이노 4단계(988.co.kr 방문→세션입력→다운→실행)를 **2단계로 축소** = 핵심 차별화.
 - 자주 보는 거래처는 **무인 접속 모드** 1회 설정 → 그 후 거래처 PC 조작 불필요.
 - UX 단순화를 깨는 제안 거부.
 
-**왜 웹 클라이언트(WebRTC) 포기했나** (검증 결과, 2026-04-30):
-- RustDesk가 무료 v1 웹 클라이언트를 본 리포에서 **삭제** (커밋 5faf0ad3c).
-- v1 README 명시: "v1 is not compatible with current Flutter source code".
-- v1 복원 시도 → vendor 자산(`ogv.js`, `yuv-canvas.js`) 누락, 프로토콜 호환 의문.
-- v2는 **유료 상용** (RustDesk Server Pro). 자체 구현 시 1~3개월 작업.
-- 결론: 웹은 ROI 낮음. 거래처 99% Windows라 .exe로 충분.
-
-**향후 검토 보류**: 사업화 후 거래처 다양해지면 옵션 B(자체 웹) 재검토 가능.
+**왜 웹 클라이언트(WebRTC) 폐기**: RustDesk v1 소스 삭제됨 + v2 유료. ROI 낮음. 거래처 99% Windows라 .exe로 충분. 상세는 `docs/chainremote/PHASES.md`.
 
 ### 작업 방식
 - **단계별**: 기획서 §6 Step 1~8 순서 준수. 단계 완료 후 다음.
 - **정석 구현**: 임시방편/Workaround 금지. 기술적으로 올바른 방식만.
 - **테스트 서버 우선**: 모든 배포는 테스트 → 본서버/GitHub push는 Chang 지시 시에만.
 - **결과만 보고**: 코드 덤프 X, 간결한 완료 보고만.
-- **잘 돌던 로직은 건들지 말 것**: ChainRemote 의 운영 중인 시스템 (영구비번, IPC, 거래처 5곳, NAS 패널, 자동업데이트 등) 을 *부수효과로* 망가뜨리는 변경은 절대 금지. Master variable (APP_NAME / BINARY_NAME / Bundle ID / IPC pipe 이름 등 cascade 영향이 큰 핵심값) 변경은 Chang 의 명시 OK 를 받았어도 별도 안전 게이트 발동: (1) 위험 한 번 더 명시 + 재확인 (2) cascade 영향 가지 다 grep / Read 로 추적 (3) 마이그레이션 코드는 step-by-step 검증. 2026-05-25 Phase 3-Win 사고 = 이 룰의 trigger. 자세히는 메모리 [feedback_dont_touch_working_logic].
+- **잘 돌던 로직은 건들지 말 것**: ChainRemote 의 운영 중인 시스템 (영구비번, IPC, 거래처 5곳, NAS 패널, 자동업데이트 등) 을 *부수효과로* 망가뜨리는 변경은 절대 금지. Master variable (APP_NAME / BINARY_NAME / Bundle ID / IPC pipe 이름 등 cascade 영향이 큰 핵심값) 변경은 Chang 의 명시 OK 를 받았어도 별도 안전 게이트 발동: (1) 위험 한 번 더 명시 + 재확인 (2) cascade 영향 가지 다 grep / Read 로 추적 (3) 마이그레이션 코드는 step-by-step 검증. 자세히는 메모리 [feedback_dont_touch_working_logic].
 
-### 앱 구조 불변 원칙 (2026-05-20 확정)
+### 앱 구조 불변 원칙
+
 이 셋은 어떤 상황·시나리오에서도 유지된다. UI/IA 설계 시 전제로 깔 것.
 
-1. **본사 빌드는 한 벌, 거래처 빌드는 별도.** 본사 직원이 늘어도(Chang·재성·향후 더) 본사 빌드는 1개. 차이는 로그인 계정으로만 갈라짐.
-2. **거래처 풀의 진실 원천은 관리 패널 DB.** 로컬 peer 캐시 아님. Chang이 등록한 거래처를 재성이가 자기 본사 앱에서 그대로 봐야 함. ~~동시에 누가 어디 들어가 있는지(presence) 서로 보여야 사고 방지.~~ **presence 폐기 (2026-05-20)**: 거래처 200곳 중 동시 충돌 확률 ~0 + RustDesk multi-viewer 네이티브 지원 → over-engineering. 카톡 한 줄로 충분.
-3. ~~판매 대비 멀티테넌시~~ **폐기 (2026-05-20)**: 판매 안 함. 우리 팀(betaposlab) 전용. 단, DB 스키마의 tenant_id는 이미 들어있으니 그대로 둠(제거할 이유 없음).
+1. **본사 빌드는 한 벌, 거래처 빌드는 별도.** 본사 직원이 늘어도 본사 빌드는 1개. 차이는 로그인 계정으로만 갈라짐.
+2. **거래처 풀의 진실 원천은 관리 패널 DB.** 로컬 peer 캐시 아님. Chang 이 등록한 거래처를 재성이가 자기 본사 앱에서 그대로 봐야 함.
+3. **사업화 진입 (2026-05-24)**: 코이노 월 10만/seat 대비 월 2~3만/tenant 가격 차별로 소규모 밴 대리점(50개 목표) 에 판매. 1 카피 = 1 대리점(tenant) = 직원 N명 + 가맹점 무제한. Chang+재성이(betaposlab tenant) 는 별개 tenant 로 우리 본업 운영 그대로.
 
-### 앱 구조 청사진 (2026-05-20 8개 결정)
+---
 
-~~판매 없음~~ **사업화 진입 (2026-05-24)**: 코이노 월 10만/seat 대비 월 2~3만/tenant 가격 차별로 소규모 밴 대리점(50개 목표) 에 판매. 1 카피 = 1 대리점(tenant) = 직원 N명 + 가맹점 무제한. 자세히 ↓ "사업화 phase 1+2 완성" 섹션. **Chang+재성이(betaposlab tenant) 는 별개 tenant 로 우리 본업 운영 그대로**.
+## 앱 구조 청사진 (8개 결정 — 변경 시 전체 작전 재검토)
 
 ```
 ┌── 거래처 윈컴 (별도 빌드) ──┐
@@ -103,395 +106,47 @@
 │ [홈 = 즐겨찾기 탭 착지]  │  │ • 모든 거래처 표      │
 │ • 즐겨찾기 (내 것만)    │  │ • 모든 직원 즐겨찾기  │
 │ • 최근 세션 (네이티브)  │  │ • 지원이력           │
-│   (전체 거래처는 패널)  │  │ • 권한 관리          │
-│ • 1클릭 원격            │  │                      │
-│ • [업데이트 확인] 버튼   │  └──────┬───────────────┘
-└────────┬────────────────┘         │
+│ • 1클릭 원격            │  │ • 권한 관리          │
+│ • [업데이트 확인] 버튼   │  │                      │
+└────────┬────────────────┘  └──────┬───────────────┘
          └──── NAS PostgreSQL ◄─────┘
               (진실 원천)
-              • customers, users
-              • user_favorites ← 신설 필요
-              • support_sessions
 ```
 
-**8개 결정 (변경 시 전체 작전 재검토):**
-1. ~~판매 없음~~ **사업화 진입 (2026-05-24)**: 멀티테넌트 SaaS 활성화. 50개 대리점 목표. tenant_id 격리 코드/스키마 이미 있어서 활성화만 2~3일 작업으로 완성. ↓ "사업화 phase 1+2".
-2. 거래처 빌드 = 수신만. 별도 빌드(--role=agent).
+**8개 결정**:
+1. 사업화 진입 — 멀티테넌트 SaaS. 50 대리점 목표.
+2. 거래처 빌드 = 수신만. 별도 빌드(`custom-agent.txt` = `conn-type=incoming`).
 3. 본사 앱 로그인 (chang/jaesung 각자 비번 6002).
-4. 동시간 각자 다른 거래처 원격 가능. RustDesk 다중 viewer로 native 지원.
-5. **본사 앱 = 최근 세션 + 즐겨찾기 두 탭, 즐겨찾기 탭으로 착지** (2026-05-22 정정). **전체 거래처 마스터 뷰는 관리 패널 전용** (앱엔 없음). 
-   - **최근 세션**: 네이티브 최근 접속 기록(`mainLoadRecentPeers`). 과거분 무시, 앞으로 원격하면 쌓임. 여기서 우클릭 → 즐겨찾기 추가.
-   - **즐겨찾기**: `GET /api/me/favorites` (내 것만). 앱 열면 이 탭으로 착지.
-   - 즐겨찾기 추가 경로: 최근 세션 우클릭, 또는 상단 연결박스로 ID 접속 후. 추가 → `POST /api/me/favorites` → 같은 DB → 패널 자동 반영.
-   - 코드: [flutter/lib/models/peer_tab_model.dart](flutter/lib/models/peer_tab_model.dart) init `_currentTab=fav`. `chainremoteLoadCustomers`는 화면 안 뿌리고 remote_id→uuid 캐시만 silent 워밍([src/chainremote_data.rs](src/chainremote_data.rs) `fetch_customers_blocking`). (옛 표현 "전체 거래처 + 즐겨찾기 탭" 폐기.)
+4. 동시간 각자 다른 거래처 원격 가능. RustDesk 다중 viewer native 지원.
+5. **본사 앱 = 최근 세션 + 즐겨찾기 두 탭, 즐겨찾기 탭으로 착지**. 전체 거래처 마스터 뷰는 **관리 패널 전용**.
+   - 최근 세션: 네이티브 `mainLoadRecentPeers`. 우클릭 → 즐겨찾기 추가.
+   - 즐겨찾기: `GET /api/me/favorites` (내 것만). 앱 열면 이 탭으로 착지.
+   - 코드: [peer_tab_model.dart](flutter/lib/models/peer_tab_model.dart) init `_currentTab=fav`.
 6. 관리 패널 = 모든 직원의 즐겨찾기까지 조회 가능. user_favorites 테이블 신설.
-7. 권한: **chang = 모두**. **jaesung = 읽기 + 원격 + 거래처 추가 + 자기 즐겨찾기 관리**. 거래처 수정/삭제·직원 관리는 chang만.
-8. 업데이트 = 현재 방식 유지 (B-2 완성: 설정에 "업데이트 확인" 버튼 → 즉시 설치). 24h 자동 폴링도 그대로.
+7. 권한: chang = 모두. jaesung = 읽기 + 원격 + 거래처 추가 + 자기 즐겨찾기 관리. 거래처 수정/삭제·직원 관리는 chang만.
+8. 업데이트 = 설정에 "업데이트 확인" 버튼 + 24h 자동 폴링.
 
-**부수 결정:**
-- ~~본사 앱 메인의 "내 ID 큰 표시" 폐기~~ **부분 번복 (2026-05-22)**: 옵션 B+ 로 HQ 도 수신 대상이 될 수 있어 자기 9자리 ID 가 실사용에 필요(재성이 "내 번호 뭐야?"). 상단바 로고 옆에 **적당한 크기 칩 + 클릭 복사**로 부활([desktop_home_page.dart](flutter/lib/desktop/pages/desktop_home_page.dart) `_buildMyIdChip`, `bind.mainGetMyId()`). "큰 표시" 가 아니라 청사진 취지(본사 PC 를 피지원자로 강조 안 함)와 충돌 없음. Chang 결정: "이런 앱에 ID 표시가 무슨 대수냐, 코이노도 다 보여줌".
-- importPeer 유지하되 역할 변경: "자동 등록" → "신규 ID 발견 시 1클릭 등록 알림". 진실 원천 DB와 모순 없음.
+**부수 결정** — 본사 앱 상단바에 본인 9자리 ID 칩 + 클릭 복사 ([desktop_home_page.dart](flutter/lib/desktop/pages/desktop_home_page.dart) `_buildMyIdChip`).
 
-### 작업 순서 (Phase 1~3) — Phase 2 가 먼저 진행 중
+---
 
-- **Phase 1** (대기): 거래처 빌드 분리 (--role=agent). 거래처 UI = 트레이만 + ID/비번/정보 한 화면. "서비스 중지" 버튼 제거.
-- **Phase 2** (4/6 sub 완료, 2026-05-20):
-  - ✅ 2-A DB 토대: `user_favorites` 마이그레이션 + Bearer JWT 인증 (`lib/api-auth.ts`) + REST API 8개 라우트 + 패널 Server Actions 와 `lib/data/` 공유 레이어
-  - ✅ 2-B 본사 앱 로그인: `chainremote_auth.rs` + `ChainRemoteAuthGate` + FFI 7개. 토큰 LocalConfig 저장 (chainremote-token, chainremote-user)
-  - ✅ 2-C 거래처 목록 DB: `chainremote_data.rs::spawn_load_customers` → push_global_event("load_recent_peers"). Flutter 측 6개 호출 자리 `mainLoadRecentPeers` → `chainremoteLoadCustomers` 교체
-  - ✅ 2-D 즐겨찾기 user별: `user_favorites` 테이블 + load/add/remove + (remote_id→UUID) 캐시 + 8자리 Flutter 호출 교체. platform="Windows" cosmetic 픽스.
-  - ✅ 2-E "내 ID 큰 표시" 폐기 + 설정 "업데이트 확인" 버튼(B-2 마무리). **presence 폐기** (over-engineering, 위 청사진 #2 변경 참조).
-  - ✅ 2-F 외부망 검증 (Chang Mac 폰핫스팟 → 거래처 5건 로드). NAS Container Manager 패널 운영. **재성이 윈컴 검증은 Phase 1 (본사 윈도우 빌드) 후로 이월**.
-- **Phase 3** (대기): 진짜 윈도우 브랜딩 (BINARY_NAME, 서비스명, 아이콘, About).
+## 현재 단계 (2026-05-26 갱신)
 
-### Phase 2 의 협업 청사진 (2-D 시점 동작 검증됨)
-```
-Chang Mac (chang 로그인) ─┐
-재성이 Win (jaesung 로그인)─┤  POST /api/auth/token → Bearer JWT (7일)
-향후 직원 ─────────────────┘  ↓
-                              GET /api/customers (모두 같은 4 거래처 봄)
-                              GET /api/me/favorites (자기 것만)
-                              POST /api/me/favorites { customerId } (자기 즐겨찾기)
-                              ↓
-                      NAS PostgreSQL — 진실 원천 1개
+- ✅ **Phase 1** 거래처/본사 빌드 분리 — 단계 1~5 완료. 단계 6 검증 진행 중.
+- ✅ **Phase 2** 본사 협업 완성 (6/6).
+- ✅ **Phase 3** Mac + Windows 브랜딩 완성 (2026-05-25~26). BINARY_NAME / APP_NAME / Bundle ID 모두 ChainRemote.
+- ✅ **AGPL v3 준수** (About + README + CHANGES).
+- ✅ **사업화 phase 1+2** 완성.
+- ⏳ **자동업데이트 실증 검증** — 재성이 PC (테스트 용) 에서 v1.2.8 → v1.3.0 마이그레이션 검증 진행 중.
+- ⏳ **드래그앤드롭 파일전송** — backlog. macOS sub-window 의 desktop_drop 미동작 진단 후 native 코드 직접 박는 방향.
+- ⏳ **디자인 의뢰** — 메인/상단바/설정 페이지. 한국 B2B SaaS 톤 (토스/카카오뱅크 참고).
 
-## 이슈 트래커
+자세히: `docs/chainremote/HISTORY.md`, `docs/chainremote/BACKLOG.md`, `docs/chainremote/PHASES.md`.
 
-### ✅ 이슈 1: 인스톨러 toml 경로 (LICENSE_MISMATCH) — **해결 (v1.2.0, 2026-05-06)**
-- **증상이었던 것**: `ChainRemote_Setup.exe` 로 깐 PC가 ID/릴레이/Key 필드 비어 있음. POS→Mac 시도 시 "키가 일치하지 않습니다".
-- **근본 원인** ([config.rs:484-485](libs/hbb_common/src/config.rs:484)): RustDesk가 서비스 모드로 구동되면 `C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\config\` 를 읽는데, 옛 인스톨러는 `%APPDATA%\RustDesk\config\` 만 박았음 → 서비스가 빈 key로 등록 시도.
-- **영구 해결**: v1.2.0 인스톨러가 toml 3종(`RustDesk.toml`+`RustDesk2.toml`+`RustDesk_default.toml`)을 **사용자/LocalService 두 경로 동시 배치**. 인스톨 중 `sc stop`→toml 복사→`sc start` 순서. 영구 비번 평문→자동해싱, `access-mode=full`, 디스플레이/원격커서/음소거/파일복사 기본값도 같이 적용.
+---
 
-### ✅ 이슈 2: 외부망에서 관리 패널 도달 — **해결 (2026-05-20, HTTP 3001 직노출)**
-- **증상이었던 것**: Mac을 사무실로 가져가면 `localhost:3000/customers` 에서 `connect ETIMEDOUT 192.168.68.103:15432`. 또 재성이/총판이 Tailscale 셋업 불가 (컴맹).
-- **채택한 해결**: NAS 라우터에 포트 포워딩 `3001 → 192.168.68.103:3001` (TCP). 본사 앱 `DEFAULT_API_BASE = http://sepani.synology.me:3001`. Tailscale 불필요. 어디서나 도달 (집/사무실/PC방/폰핫스팟 동일).
-- **HTTPS 보류**: Synology Reverse Proxy 의 3443(HTTPS) 셋업은 이미 동작하지만, RustDesk core 의 `reqwest/rustls` 가 Synology nginx 와 TLS close_notify quirk 로 매번 끊김. native-tls fallback 도 실패 (Error -9806). HTTP 직노출이 안정적. Chang 의 보안 의지(낮음, 코이노/AnySupport 와 동급) 와 일치.
-- **DB 직접 노출 안 함**: PostgreSQL 15432 은 LAN/Tailscale 만. 패널(Next.js API)이 게이트.
-- **잔여**: 21114 hbbs heartbeat 외부 도달 (신규 POS 자동 등록) — 별도 결정 보류.
+## Mac 빌드 + 실행 명령 (재사용 가능)
 
-### ✅ AUTH_SECRET 통일 함정 (2026-05-20)
-- Mac 로컬 dev 패널 `.env.local` 의 `AUTH_SECRET` 이 NAS 컨테이너 `.env` 의 값과 달랐음 → 로컬 dev 가 발급한 토큰을 NAS 가 검증 실패 ("토큰 검증 실패" 401). NAS 의 secret 을 진실 원천으로 통일. **NAS 의 `.env` 가 master**. 로컬 dev 도 같은 값 박을 것.
-
-### ⏳ 이슈 3: 외부망 P2P / 릴레이 / Mac TCC 재검증 — **미해결**
-- 윈컴↔Mac 동작 확인은 같은 LAN(P2P 직결)에서만. 외부망(릴레이 경유)에서 검증 안 됨.
-- 이슈 2 해결 후 외부망에서 재검증 필요.
-
-## 현재 단계 (2026-05-20 갱신)
-
-### 완료된 것
-- ✅ Step 1 Mac: 빌드 환경 + 첫 빌드 + 윈컴 원격 테스트
-- ✅ Step 2 부분: UI 텍스트/아이콘/색상 (ChainRemote 가시화)
-- ❌ Step 4 웹클라: 검증 결과 폐기 (옵션 C로 전환)
-- ✅ Step 3 시그널링/릴레이: NAS Docker로 hbbs/hbbr 가동 (`sepani.synology.me`, 포트 21115-21118 외부 노출 검증)
-- ✅ Step 5 골격: Next.js 관리 패널, 멀티테넌시 DB 스키마, 거래처 목록
-- ✅ End-to-end 1-클릭 원격: 관리 패널 → rustdesk:// URL → Mac 앱 → 윈컴 연결
-- ✅ 무인 접속 모드: 영구 비번 + 부팅 자동 시작 + approve-mode=password
-- ✅ **Step C 거래처 배포 인스톨러**: Inno Setup 으로 `ChainRemote_Setup.exe` 단일 파일 (2026-05-02)
-- ✅ **첫 ChainRemote 자체 개선**: 원격 세션 툴바에 파일 전송 버튼 (Mac 빌드 검증) (2026-05-02)
-- ✅ **인스톨러 v1.2.0 — LICENSE_MISMATCH 근본 픽스** (2026-05-06): toml 3종을 사용자/LocalService 양쪽 배치 + 영구비번 평문→자동해싱 + `access-mode=full` 기본값.
-- ✅ **자동 업데이트 시스템 B-1** (2026-05-06): `src/chainremote_updater.rs` — 서비스에서 24h 폴링, SHA256 검증, 활성 세션 없을 때 사일런트 적용. 본사 측 `deploy/release.sh`로 NAS 푸시.
-- ✅ **v1.2.7 윈컴 풀빌드 함정 7가지 영구 픽스** (2026-05-14): vcpkg manifest 모드, host-triplet 강제, LLVM 18 핀, swresample 패치 Mac 전용 분기, build.py python3 stub 우회 등. 상세는 [deploy/win-build/README.md](deploy/win-build/README.md).
-- ✅ **툴바 아이콘 tofu 픽스** (2026-05-19, 02165c658): `build.py`의 `flutter build --release` 4개 라인에 `--no-tree-shake-icons` 추가.
-- ✅ **watchdog 강화 + v1.2.18 배포** (2026-05-20): 트레이 "서비스 중지"/서비스 삭제 케이스까지 자가치유. virtual_display 제거.
-- ✅ **빌드+배포 원샷 자동화** (2026-05-20, 커밋 8a7da53b9): SSH/Tailscale 경유.
-- ✅ **Phase 2-E/F 본사 협업 완성** (2026-05-20): 메인 "내 ID 큰 표시" 폐기. NAS Container Manager 패널 운영(`https://sepani.synology.me:3443` 브라우저, `http://sepani.synology.me:3001` 본사 앱 API). Mac 본사 앱 외부망 검증(폰 핫스팟 → 거래처 5건 로드). AUTH_SECRET 통일(NAS 가 master). Next 16 `proxy.ts` 대응. **presence 폐기** (over-engineering).
-- ✅ **Phase 1 단계 1~4 Mac 본사 빌드 완성** (2026-05-20): `desktop_tab_page.dart:53` AuthGate 조건부 wrap (incoming-only 빌드에서 게이트 제외) / 거래처용 `deploy/win-installer/custom-agent.txt` + 본사용 `deploy/custom-hq.txt` 생성 / Mac 빌드 워크플로에 `Resources/custom.txt` 자동 copy / `src/common.rs::read_custom_client` 에 plain JSON 경로 추가. Mac HQ 빌드 검증 통과 (거래처 5건 + outgoing-only UI). 단계 5~6 (윈컴 인스톨러 2종 + 거래처 자동업데이트 검증) 은 윈컴 깨울 때 묶음.
-
-### 거래처 배포 인스톨러 (Step C 정석, `deploy/win-installer/`, 2026-05-02 완성)
-**결과물**: `ChainRemote_Setup.exe` (~25MB) — 거래처가 더블클릭만으로 원격 셋업 완료.
-
-**파이프라인** (윈컴에서 빌드, 30초):
-```powershell
-cd C:\src\ChainRemote\deploy\win-installer
-Invoke-WebRequest "https://github.com/rustdesk/rustdesk/releases/download/1.4.6/rustdesk-1.4.6-x86_64.exe" -OutFile rustdesk-1.4.6-x86_64.exe
-& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
-```
-
-**인스톨러 동작** (거래처 PC):
-1. 공식 RustDesk 1.4.6 인스톨러를 임시 풀고 `--silent-install` (코드 서명 그대로 유지)
-2. `RustDesk2.toml` (NAS 서버 + 공개키)을 `%APPDATA%\RustDesk\config\`에 자동 배치
-3. RustDesk 가 만든 `RustDesk.lnk` 단축아이콘들을 **`ChainRemote.lnk`로 atomic rename** (바탕화면, 시작 메뉴)
-4. 자동시작 reg `RustDesk` → `ChainRemote`
-5. 첫 실행 → ID 발급 → 우리 NAS에 자동 등록
-
-**우회한 함정들** (이 길로 가다가 실패한 것들):
-- ❌ 파일명 `host=,key=` 인코딩 — 동작은 하지만 거래처 보기 흉함
-- ❌ Mac 빌드 NSIS — `makensis` macOS Tahoe std::bad_alloc 크래시
-- ❌ Mac 7-Zip SFX — 매니페스트 인젝션은 됐으나 SFX 모듈이 RunProgram 미지원 (7z.sfx vs 7zS.sfx)
-- ❌ `--silent-install` 권한 부재 → portable 모드로 떨어짐
-- ❌ `ChainRemote.exe` 별도 폴더 복사 → Flutter plugin DLL 못 찾음 (desktop_drop_plugin.dll 등)
-- ✅ Inno Setup (Chang 윈컴에 이미 설치) → atomic rename → 깨끗하게 동작
-
-### 첫 ChainRemote 자체 개선 — 원격 세션 파일 전송 버튼 (2026-05-02)
-- 변경 파일: `flutter/lib/desktop/widgets/remote_toolbar.dart` (+25줄)
-- `_FileTransferMenu` 신규 위젯 → 모니터/키보드 사이 툴바에 아이콘 추가
-- 한 번 클릭 → `connect(context, id, isFileTransfer: true)` → 새 파일 전송 창
-- 기존: 메인 창 가서 우클릭 → 파일 전송 (2단계). 이제 0이동, 1클릭.
-- Mac 빌드 검증 완료 (`/Applications/ChainRemote.app` 갱신됨)
-- ⚠️ 윈도우 적용은 진짜 ChainRemote 브랜딩 빌드 시점에 같이 (`deploy/win-build/` 환경)
-
-### NAS 시그널링 인프라 (2026-05-01 가동)
-- **DDNS**: `sepani.synology.me` (Synology 무료, 자동 갱신)
-- **공인 IP**: `112.186.209.131` (KT)
-- **공개키**: `C2bqeqG0Nb0EQgmtomhzcykw69gRvbSLKfm019r1C8Y=`
-- **컨테이너**: `chainremote-hbbs`, `chainremote-hbbr` (rustdesk-server:latest)
-- **포트 포워딩** (TP-Link Deco): 21115/21116(TCP+UDP)/21117/21118 → 192.168.68.103
-- 하드코딩 → 클라이언트 toml은 `deploy/win-installer/RustDesk2.toml` 참조
-
-### 거래처 운영 워크플로우 (검증됨)
-1. **본사**: `ChainRemote_Setup.exe` 카톡/USB로 거래처 전달
-2. **거래처**: 더블클릭 → UAC 예 → 자동 설치 (RustDesk silent + 우리 config + 단축아이콘 rename)
-3. **거래처**: ChainRemote 자동 실행 → 화면 ID 본사에 알림
-4. **본사**: 관리 패널에 거래처 정보 + ID 등록 + 영구 비번 발급
-5. **거래처**: 받은 비번을 [설정 > 보안 > 영구 비밀번호 설정] 에 1회 입력
-6. **그 후 영원히**: 거래처 PC 켜져 있으면 본사가 0클릭 무인 접속
-
-### ID 시스템 — 머신 고정
-- ID는 머신 UUID 기반 deterministic 생성 (`hbb_common::machine_uid`)
-- 같은 PC 재설치 → 같은 ID (피어 등록 안정성)
-- 다른 PC → 자동으로 다른 ID (충돌 0)
-- 메인보드/펌웨어 변경 시에만 ID 변경
-
-### Mac 측 디스플레이 권장 (4K 거래처 대응)
-- ChainRemote 메인 창 → 설정 → 디스플레이 (전역 기본값)
-  - 기본 보기 스타일 = "크기 조정 가능"
-  - 기본 이미지 품질 = "반응 시간 최적화"
-- 또는 `~/Library/Preferences/com.carriez.RustDesk/peers/<ID>.toml` 직접 편집
-  - `view_style = 'adaptive'`, `image_quality = 'low'`
-
-### B-2 (다음 세션) — 자동 업데이트 시스템 마무리
-- Flutter "업데이트 확인" 버튼 + 현재/최신 버전 표시 (설정 페이지 "정보" 탭)
-- IPC 로 UI → 서비스 "지금 체크" 메시지
-- 본사 강제 푸시 채널 (`push.json` 별도 5~10분 폴링) + 관리 패널의 "긴급 업데이트 푸시" 버튼
-- B-1 만 가지고도 핵심은 동작 — 거래처 PC 부팅 → 24h 안에 새 버전 자동 설치
-
-### NAS Web Station 셋업 (B-1 동작 전제, Chang 1회 작업)
-1. DSM → 패키지 센터 → **Web Station** 설치 (없으면)
-2. SSH 로 디렉터리 생성: `mkdir -p /volume1/web/chainremote && chmod 755 /volume1/web/chainremote`
-3. Web Station → 가상 호스트 → `sepani.synology.me` (HTTPS, Let's Encrypt 무료 인증서)
-4. 라우팅 검증: `curl -I https://sepani.synology.me/chainremote/` → 200 (디렉터리 인덱스 또는 빈 응답)
-5. 첫 릴리즈 푸시 (윈컴에서 v1.2.0 인스톨러 빌드 후):
-   ```bash
-   ./deploy/release.sh ~/Downloads/ChainRemote_Setup.exe 1.2.0 "기본 설정 자동 적용"
-   ```
-
-### v1.2.5+ 보류 항목 (다음 버전 묶을 때 같이)
-- **창/트레이/Alt+Tab 아이콘 RustDesk → ChainRemote 교체** (2026-05-07 발견): `flutter/windows/runner/resources/app_icon.ico` 가 RustDesk 기본값. `deploy/win-installer/chainremote.ico` 로 덮어쓰기 + 재빌드면 끝. 동작 무관 cosmetic — 재성이 PC v1.2.4 검증 후 다른 픽스 모일 때 묶어서 진행.
-
-### 작업 backlog (사업화 launch 진행 중, 2026-05-25 갱신)
-
-**코드 작업 (Claude 측, 우선순위 순):**
-1. **드래그앤드롭 파일전송** (Chang 명시 필수) — 원격 세션 창에 OS 파일 드롭 → 즉시 전송. RustDesk core 의 file transfer 흐름에 drop handler 추가. 0.5~1일.
-2. **AGPL 준수** — repo public 전환 (현재 betaposlab/chainremote private) + HQ/ChainGo 의 About 화면에 "AGPL v3 + 출처 URL" 표시. 사업화 합법화. 0.5일.
-3. **Phase 3 브랜딩** — rustdesk.exe → ChainRemote.exe (binary 이름), 서비스명, 레지스트리 키, About 등 RustDesk 상표 잔재 제거. 상표권 회피 + heartbeat 의 prerequisite. 1~2일.
-4. **거래처 heartbeat** — agent 가 NAS API `/api/customers/heartbeat` 호출 → 패널 거래처 표에 "v1.x.x · 마지막 N분 전" 컬럼. Phase 3 의 우리 fork binary 활용. 0.5~1일.
-5. **단위테스트** — 버전비교(Rust+Dart 일관성)/sha256/json 파싱. 자동업뎃 무음정지 방지. 0.5일.
-6. **설치 후 self-test 스모크** — 인스톨러 끝나면 자가진단 → updater.log PASS/FAIL.
-
-**외부/Chang 작업 (사업화 launch):**
-- 재성이 컴 v1.3.0 HQ 설치 (다음 사무실 출근 시).
-- 첫 영업 (진희씨 외) — 회사 관리 패널에서 사업자 정보 등록 → 인스톨러 배포.
-- 코드 서명 인증서 (EV $300~600/년) — 매출 발생 후 영업 본격화 시점. 그 전엔 "더 보기→실행" 안내.
-- 결제 시스템 (Stripe/토스/수동) — 첫 결제 시점에 결정.
-- 약관/개인정보처리방침 — SaaS 운영자 책임.
-
-**낮은 우선순위:**
-- 외부망 P2P/릴레이/Mac TCC 재검증 — 옵션 B+ 로 사실상 검증됨.
-- 거래처별 비번 자동 생성 — agent click 디폴트로 약화됨 (영구비번 거래처 자율).
-- build-all.ps1 codegen 거짓 OK 보고 버그.
-
-### Phase 1 작업 계획 — 거래처/본사 빌드 분리 (단계 1~4 완료 2026-05-20)
-
-**핵심 메커니즘**: 분기는 **`custom.txt` 파일 1개** 로 결정. RustDesk 의 HARD_SETTINGS 활용.
-
-- `.app/Contents/Resources/custom.txt` (Mac) 또는 윈도우 binary 옆 `custom.txt` → `src/common.rs::load_custom_client()` 가 자동 로드.
-- **conn-type 은 top-level 키** (override-settings 안 X). RustDesk 코드는 HARD_SETTINGS 에서 conn-type 을 읽고, custom.txt 의 top-level key/value 만 HARD_SETTINGS 로 들어감 ([common.rs:2245-2252](src/common.rs:2245)).
-- 본사 모드 = `{"conn-type":"outgoing"}` / 거래처 모드 = `{"conn-type":"incoming"}`.
-
-**서명 함정** (정찰 단계에서 놓쳤던 것):
-- 원본 RustDesk 의 `read_custom_client` 는 base64+ed25519 서명만 허용 (상용 anti-tamper). plain JSON 박으면 "Failed to decode" 로 silent fail.
-- **우리 포크 패치**: [src/common.rs::read_custom_client](src/common.rs) 가 `{` 로 시작하면 plain JSON 직접 파싱. 서명 경로는 그대로 fallback. 우리 빌드는 우리가 통제하므로 안전.
-
-**단계 1~4 (완료, 2026-05-20)**:
-1. ✅ [flutter/lib/desktop/pages/desktop_tab_page.dart](flutter/lib/desktop/pages/desktop_tab_page.dart) — `bind.isIncomingOnly() ? homePage : ChainRemoteAuthGate(child: homePage)` 조건부 wrap.
-2. ✅ [deploy/win-installer/custom-agent.txt](deploy/win-installer/custom-agent.txt) — `{"conn-type":"incoming"}`.
-3. ✅ [deploy/custom-hq.txt](deploy/custom-hq.txt) — `{"conn-type":"outgoing"}`.
-4. ✅ Mac 빌드 워크플로 (CLAUDE.md "빌드 + 실행 명령") — `cp deploy/custom-hq.txt /Applications/ChainRemote.app/Contents/Resources/custom.txt` 추가.
-- **Mac HQ 빌드 검증 완료**: 거래처 5건 로드 + ID/비번 보드 없는 outgoing-only UI.
-
-**단계 5 (Mac-side prep 완료 2026-05-20, 실제 ISCC 컴파일은 윈컴 필요)**:
-- ✅ `deploy/win-installer/installer.iss` → [agent-installer.iss](deploy/win-installer/agent-installer.iss) git rename. `custom-agent.txt` 를 `{app}\custom.txt` 로 박는 `[Files]` 항목 추가. OutputBaseFilename → `ChainRemote_Agent_Setup_v{version}`.
-- ✅ [deploy/win-installer/hq-installer.iss](deploy/win-installer/hq-installer.iss) 신규 — `custom-hq.txt` → `custom.txt`, RustDesk.toml(영구비번) 제외, watchdog 예약작업 제외, 간단한 서비스 시작. OutputBaseFilename `ChainRemote_HQ_Setup_v{version}`. AppId 별도.
-- ✅ [build-iss.ps1](deploy/win-installer/build-iss.ps1) `-Target agent|hq|both` 파라미터 지원 (기본 agent).
-- ✅ [release.sh](deploy/release.sh) — ISS 파일 경로 갱신, REMOTE_FILENAME → `ChainRemote_Agent_Setup_v{version}.exe`. 본사 채널은 자동업데이트 푸시 X (재성이 수동 설치 1회).
-- ✅ 윈컴에서 build-all → ISCC → 두 .exe (HQ + Agent) 산출. 윈컴 dogfooding 완료.
-
-**단계 6 부분 완료 (2026-05-20, Chang 윈컴 dogfooding)**:
-- ✅ Chang 윈컴 v1.3.0 HQ 빌드 설치 검증 — 로그인 + 거래처 5건 + outgoing-only UI 정상.
-- ⏳ **재성이 윈컴** — 사무실 방문 시 새 v1.3.0 HQ Setup (비번변경 UI + ChainGo 배지 포함) 설치 + `jaesung` 로그인 검증. (Chang 외부 작업, 다음 사무실 출근 때)
-- ✅ **ChainGo.exe 홈피 업로드 완료** (2026-05-25). 외부 비상 도구 공개 배포.
-- ⏳ **첫 영업 (진희씨 외)** — 회사 관리 패널에서 사업자 정보 등록 → HQ/Agent 배포 → 운영 시작. (Chang 외부 작업)
-- ⏳ **한 거래처 자동업데이트 실증 검증** — 진희씨 컴 작업 시 `New-Item C:\ProgramData\ChainRemote\update_now.flag -Type File` 로 즉시 trigger. toml 보존 가드(2026-05-24 픽스) 동작 확인.
-
-**옵션 B+ 완성 (2026-05-22)**: 집 윈컴 v1.3.0 HQ 에 옵션 B+ 빌드 설치 + 검증 통과. Mac(사무실)→집 윈컴 ChainRemote 양방향 원격 성공. hbbs ESTABLISHED + custom.txt outgoing + 보안탭 토글 노출 확인. 빌드는 Mac→집윈컴 Tailscale SSH 자동화로 진행 (메모리 [[project_win_remote_build_ssh]] — 함정 6가지 + commit 누락 교훈). 잔여: 재성이 컴 배포 + Mac 본사 빌드도 동일 코드 동기(현재 Mac 은 옵션 B+ 빌드 + 토글 동작 검증됨).
-
-**HQ 앱 인증/UX 4종 완성 (2026-05-22, Mac+집윈컴 검증)**:
-- **토큰 메모리 전용**: 로그인 토큰/사용자정보를 LocalConfig(디스크) 대신 `lazy_static`+`RwLock` 인메모리 static 에만 보관([src/chainremote_auth.rs](src/chainremote_auth.rs)). 앱 종료 시 증발 → 디스크 잔재 0(빌린 PC 안전), 매 실행 재로그인. 메모리 전용이라 TTL 무관해져 패널 JWT TTL 7d→24h([chainremote-admin/lib/api-auth.ts](chainremote-admin/lib/api-auth.ts)). **단 윈도우는 트레이 프로세스가 살아있어 "창 닫기" 로는 토큰이 안 비워짐** — 계정 비우기는 로그아웃 버튼이 정답.
-- **로그아웃 버튼**: 상단바에 사용자명 + 로그아웃(확인 다이얼로그). `ChainRemoteAuth` 전역 핸들(`authed` ValueNotifier)을 게이트가 구독 → 로그아웃 시 즉시 로그인 화면 복귀. 계정 전환(chang↔jaesung) 가능. ([chainremote_auth_gate.dart](flutter/lib/desktop/pages/chainremote_auth_gate.dart))
-- **원격 세션 종료 확인 (2경로)**: 원격 중 무경고 끊김(코이노 페인포인트: 끊기면 거래처에 앱 실행→ID 불러주기→재접속 재안내) 해결. **두 종료 경로 모두** 확인 다이얼로그: ① 원격 제어 **창 X**([remote_tab_page.dart](flutter/lib/desktop/pages/remote_tab_page.dart) `handleWindowCloseButton`/`_chainremoteConfirmCloseDuringSession`, 활성 세션 1개라도 있으면), ② 세션 **툴바 빨간 X**([remote_toolbar.dart](flutter/lib/desktop/widgets/remote_toolbar.dart) `_CloseMenu`/`_chainremoteConfirmEndSession` — `closeConnection` 직전). 둘은 별개 경로라 둘 다 막아야 함. 로그인만 한 메인 창 X 는 hide 라 무확인 유지(Chang 결정: 종료 무확인, 원격중만 경고).
-- **자기 ID 칩**: 위 부수결정 참조.
-
-**ChainGo (다운로드형 무흔적 포터블 HQ) 완성 (2026-05-23)**: 홈피에 올려두고 빌린 PC 에서 다운→더블클릭→로그인→1클릭 원격→닫기 하면 호스트 PC %APPDATA%/레지스트리에 흔적 0 인 비상용 HQ. 출력: [deploy/portable/ChainGo.exe](deploy/portable/ChainGo.exe) (24MB 단일 SFX).
-- **격리 4중**: ① `Config::path()` 데스크톱에서도 `APP_DIR` honor ([libs/hbb_common/src/config.rs](libs/hbb_common/src/config.rs)) ② `Config::ipc_path()` 윈도우 파이프에 APP_DIR 해시 접미 ③ `chainremote_portable_init()` 에서 APP_NAME="ChainGo" 변경 → Flutter runner FindWindowW 가 호스트 "ChainRemote" 못 찾고 자기 창 새로 띄움([src/core_main.rs](src/core_main.rs)) ④ core_main 가드: `is_chainremote_portable()` 시 quick_support 자동 추론·`start_portable_service` 자동 호출 차단 (호스트 흔적 가능 경로).
-- **SFX 래퍼** ([libs/portable/src/main.rs](libs/portable/src/main.rs)): `%TEMP%\ChainGo_<랜덤16hex>\` 에 페이로드 풀고 env `CHAINREMOTE_PORTABLE_DIR` 박은 채 inner 동기 실행 → 종료 시 `TempGuard` Drop 으로 재귀 삭제. 시작 시 1시간 이상 된 `ChainGo_*` 잔재 회수(비정상 종료/AV 잠금 대비). std 만 사용(rand/signal-hook 의존성 X).
-- **시각 구별 배지** ([desktop_home_page.dart](flutter/lib/desktop/pages/desktop_home_page.dart) `_buildChainGoBadge`): 호스트 HQ 와 ChainGo 가 동시 가동 시 UI 가 완전 동일해 헷갈림(Chang 발견 → 즉시 픽스). env 검사로 ChainGo 시 로고 옆 주황색 "ChainGo" 칩 표시. 새 FFI 없이 `Platform.environment` 한 줄.
-- **빌드 파이프라인** ([deploy/portable/build-chaingo.ps1](deploy/portable/build-chaingo.ps1)): build.py `--skip-portable-pack` 활용 → Flutter Release 에 `deploy/custom-portable.txt`(conn-type=outgoing) 박고 → `generate.py` 로 페이로드 만든 뒤 cargo SFX → workspace target 에서 `deploy/portable/ChainGo.exe` 로 복사. 함정 5종 픽스: pub `.cache` advisories 정리(readAdvisoriesFromCache null panic) / `flutter clean`+pub get 섹션 EAP=Continue / pip+generate.py EAP=Continue / packer.exe 경로 workspace target / 이전 ChainGo 프로세스 kill 후 복사(파일 잠금 회피).
-- **검증 통과 (2026-05-23, 윈컴)**: 호스트 HQ 가 떠있는 상태에서 ChainGo 더블클릭 → 별도 로그인창 + 별도 즐겨찾기, %TEMP%\ChainGo_xxx 폴더 살아있다가 종료 시 사라짐, %APPDATA%\RustDesk mtime 변동 0(호스트 완전 무흔적).
-- **알려진 한계 — Mac↔윈컴 H264/H265 안 뜸** (2026-05-23 결론: 받아들임): 세션 툴바 코덱 메뉴는 decoder_ability(this) AND encoder_capability(peer). Mac 빌드가 `--hwcodec` 없이 컴파일(CLAUDE.md 빌드 환경 참조 — ffmpeg 30~60분 회피) → Mac decoder ability_h264=0 → AND 결과 H264 안 뜸. 본업(윈컴 HQ → 거래처 윈컴) 은 양쪽 hwcodec 라 H264/H265 잘 동작. Chang 결정: AV1 충분(체감 차이 없음 + 4K 캡처 한계는 코덱 아닌 캡처 측 본질), Mac 에 ffmpeg 추가 안 함. **재진단 금지** — toml 의 `enable-hwcodec` 검사는 무관(Mac 측 빌드 자체 누락).
-- **배포**: ChainGo.exe 를 재성이 홈피(또는 NAS 공개 URL) 에 올려두면 끝. 단일 .exe 24MB. SmartScreen 첫 실행 경고 "더 보기→실행" (코드 서명 인증서 사기 전까지 어쩔 수 없음 — 사업화 단계 항목).
-
-**사업화 phase 1+2 완성 (2026-05-24)**: 멀티테넌트 SaaS 활성화 + HQ 비번 변경 + Agent 디폴트 정책 변경. 50개 대리점 판매 가능 상태 진입.
-
-**비즈니스 모델**:
-- **1 카피 = 1 대리점(tenant) = 직원 N명 동시 사용 + 가맹점 무제한**. 코이노 ("카피=seat, 2명 동시 = 카피 추가") 와 차별. JWT stateless 라 우리 기술적으로 가능.
-- 가격: 코이노 월 10만/seat 대비 우리 월 2~3만/tenant (1/3~1/5).
-- 50개 × 월 2.5만 = 월 125만, 연 1500만 (사이드 수익).
-- Chang 본업 (chang/jaesung 의 betaposlab tenant) 은 그대로. 다른 회사 데이터는 *Chang 도 조회 안 함* (코이노식, super_admin 권한은 tenant 라이프사이클 한정).
-
-**phase 1 (멀티테넌트 활성화)**:
-- DB migration 006: tenants 에 사업자정보(번호/대표자/주소/업태/종목) + 연락처(회사/대표/담당) + 결제계좌(은행/계좌/예금주) + 구독요금(월정액 공급가액/결제일/결제방식 CMS-bank_transfer-credit_card/시작일/상태 active-suspended-cancelled/비고) 컬럼 추가. 모두 nullable. user_role enum 에 `super_admin` 추가. chang user 격상.
-- `lib/data/tenants.ts` + `lib/actions/tenants.ts` — createTenant/listTenants/updateTenant/setSubscriptionStatus/resetTenantOwnerPassword. requireSuperAdmin 가드.
-- `/admin/tenants` 페이지 (super_admin 전용 메뉴 "플랫폼 운영 > 회사 관리"):
-  - 회사 목록 (등록일/요금/결제일/결제방식/상태/관리 액션). 수정/비번리셋(=1234)/일시정지/재개/해지.
-  - `/admin/tenants/new` 신규 등록 폼 — 사업자 정보 + 연락처 + 통장 + 구독 + 관리자 계정. 등록 후 임시비번(default 1234) + 다운로드 URL 카톡 메시지 자동 생성.
-  - `/admin/tenants/[id]/edit` 수정 — slug 와 관리자 계정 제외 전부 수정 가능.
-- `FormattedInput` 컴포넌트: 한국 자동 하이픈 (사업자번호 XXX-XX-XXXXX / 서울02 / 지방0XX / 휴대폰 / 070 / 050X 평생번호).
-- 비번 정책: 신규 default 1234 + 비번 리셋도 1234 통일 (Chang: 단순/일관성 우선).
-
-**phase 2 (HQ 본인 비번 변경)**:
-- `POST /api/me/password` — Bearer JWT 인증 + bcrypt.compareSync 현재 비번 검증 + 새 hash 저장.
-- Rust `chainremote_auth::change_password` — http_request_sync 로 Bearer 헤더 + JSON body POST. 응답 wrapper 풀어 status_code 체크. 에러는 한글 + status_code 기반 단순 메시지(HTML 덤프 회피).
-- FFI `chainremote_change_password` → `{"ok":true}` 또는 `{"ok":false,"error":"..."}`.
-- Flutter UI: 상단바 lock_reset 아이콘 → 다이얼로그(현재/새/새 확인) → 성공 시 토스트 "비밀번호가 변경되었습니다". 토큰 그대로 — 재로그인 불필요.
-- 검증 통과 (2026-05-24, Mac HQ).
-
-**Agent 인스톨러 정책 변경 (2026-05-24)**:
-- 기존: 영구비번 평문(`Ch042558~`) + approve-mode='password' + verification-method='use-permanent-password' 박혀 거래처 자동 무인 접속. → 공유 비번 보안 약점 + 모든 거래처 동일.
-- 신규: `RustDesk2-agent.toml` 분리. approve-mode='click', verification-method='', 영구비번 미박힘. 거래처가 매번 수락 클릭 또는 자기 알아서 영구비번 켬. HQ 인스톨러는 옛 RustDesk2.toml + RustDesk.toml(영구비번) 유지(옵션 B+ 토글 ON 시 즉시 무인 incoming).
-- 기존 거래처 5곳 영향 없음(자동업데이트가 toml 안 덮어씀). 새 거래처 배포부터 적용.
-- 운영 변화: 새 거래처 셋업 시 "수락 클릭 부탁드립니다" 안내. 자주 보는 거래처는 영구비번 가이드.
-
-**ephemeral port exhaustion 진단 + 사업화 안전망 (2026-05-25)**:
-- **증상**: Chang 윈컴 24h+ 가동 후 ChainRemote outbound 불가. 며칠 전엔 Chrome Remote Desktop, 오늘은 KoinoHost (코이노 AnySupport) 가 ephemeral port 49152~65535 (16,384개) 거의 다 Bound 상태로 점유 (RemoteAddress 0.0.0.0:0 = bind만 + connect 안 함 = SW 내부 socket pool leak). 일반 사용자 안 망함 = 매일 PC OFF/슬립 → leak reset. Chang 윈컴 24/7 가동만 누적 도달.
-- **외부+내부 4갈래 정밀 조사 결론** (출처+코드 fact 기반): 우리 fork **무관**. RustDesk repo 의 socket leak issue 0건, 코이노 leak 한국/영어 공개 보고 0건, 우리 fork 의 socket/WSA/network filter 추가 코드 0건. 한 SW 가 다른 프로세스 socket pool 트리거하는 메커니즘 자료 0건. 가장 자연스러운 해석 = Chang 윈컴의 환경 특이성 (NIC driver / AV / WinSock LSP 가 socket close 지연) + 24/7 가동 누적.
-- **HKCU Run 잔재 (`C:\Temp\ChainRemote-v3-extracted\ChainRemote.exe --tray`) 진범**: 옛 `deploy/win/setup.ps1` (2026-04~05 수동 셋업 스크립트) 이 HKCU Run 에 박은 흔적. ChainGo SFX 결백 (코드 grep 0건). 2026-05-25 `deploy/win/` 폴더 영구 삭제, README 만 보존(잔재 청소 명령 포함).
-- **인스톨러에 사업화 안전망 추가**: agent/hq 인스톨러 [Run] 첫 단계에 `netsh int ip set dynamicport tcp start=10000 num=55000` 자동 적용. ephemeral port 16K → 55K 확장. 거래처 PC 에 다른 원격 SW leak 가 있어도 24h 안 도달, ChainRemote 가 피해자 안 됨. MS KB 권장값. 일반 환경 무영향.
-- **Chang Mac 실측 시나리오**: 윈컴 재발 시 (1) `Stop-Process -Id <KoinoHost PID> -Force` 즉시 회복 + (2) ETW 추적 `netsh trace start scenario=netconnection` 으로 STATUS_TOO_MANY_ADDRESSES 호출 스택 잡아 코이노 본사(02-839-7500) 제보. **다른 SW (코이노/Chrome RD) 를 지우라고 안내 절대 금지** — Chang 의 강한 피드백.
-
-**알려진 이슈 (backlog)**:
-- **peer password decrypt race** (libs/hbb_common/src/password_security.rs:210 + lib.rs:318): `get_uuid()` 가 macOS 첫 호출 8회 retry 다 실패 시 fallback `Config::get_key_pair().1` 로 떨어짐 → 그 시점에 encrypt 된 peer password 는 fallback key 로 암호화. 그 다음 machine_uid 정상 fetch 시 decrypt 키 불일치 → "비밀번호 필요" 다이얼로그. 회복 = 거래처 영구비번 재입력 + "기억" 체크. **dual-decrypt 자체는 upstream 5d2acc7 (2026-02-03) 가 이미 적용** — decrypt 시 1순위 get_uuid() 실패 시 2순위 pk(key_pair.1) 자동 fallback (line 224-236). 그런데도 Chang 우리집 한 번 사고 (이미 회복돼서 reproduction 어려움) — 가설은 메모리 [project_peer_password_race]. 광범위 재현 시 깊이 진단.
-- **자동업데이트 실증 검증 안 됨** (B-1 코드만, 24h 자동 적용 실제 본 적 없음). 단 **toml 보존 가드는 코드 픽스 완료** (2026-05-24, agent-installer.iss line 102-103): `Test-Path "$dst\RustDesk2.toml"` → 존재 시 toml 박지 않음 → 자동업데이트(silent 재실행) 시 거래처 영구비번/approve-mode/기타 사용자 설정 보존. **신규 설치만 박음**. 우리 NAS 서버/key 변경 시엔 거래처 재설치 필요(현재 sepani.synology.me 고정이라 무관). 실증 검증은 Chang 이 다음 거래처 작업 시 안전하게 — `New-Item C:\ProgramData\ChainRemote\update_now.flag -Type File` 로 즉시 trigger (`MANUAL_TRIGGER_FLAG` in src/chainremote_updater.rs).
-- **super_admin 도 자기 tenant(betaposlab) 의 customers/sessions 조회는 정상** — owner 권한 통과(lib/actions/users.ts:11 requireOwner 가 owner 또는 super_admin 통과). Chang 의 본업 운영 그대로.
-- **NAS 패널 배포 함정**: docker compose build 가 EOF 로 중간 끊기는 경우 있음 → 옛 이미지 그대로. 해결: `docker compose build` 단독 → 끝까지 대기 → 그 다음 `up -d`. 또한 build 가 *dependent containers(postgres/hbbs/hbbr) 도 함께 죽일 수 있음* → 수동 `docker start chainremote-postgres chainremote-hbbs chainremote-hbbr`.
-- **NAS 코드 동기 = tar over SSH** (rsync 가 `-o`/`-g` 권한 거부): `tar -czf - --exclude=... -C ~/내작업/ChainRemote chainremote-admin/ | ssh chang@192.168.68.103 "cd /volume1/docker && tar -xzf -"`.
-
-**옵션 B+ 채택 결정 (2026-05-21, 옵션 A 번복)**: HQ 빌드에 사용자 토글 "외부 원격 접속 허용" 추가.
-- 번복 이유: 재성이/구매자 컴맹 시 IT 자기지원 불가 = 원격 SW 자체 모순. 판매 시 신뢰 문제.
-- 산업 표준 (TeamViewer Host / AnyDesk 수신 토글) 패턴. 6가지 우려 다 해소.
-- 코드: `src/rendezvous_mediator.rs::start_all()` 의 outgoing-only 차단 조건에 `chainremote-allow-incoming` 옵션 추가. 디폴트 OFF (안전 디폴트).
-- FFI: `chainremote_get_allow_incoming` / `chainremote_set_allow_incoming` 2개. Codegen 재생성됨.
-- UI: 설정 → 보안 탭에 "외부 원격 접속 허용" 체크박스 카드 추가 (`_chainremoteAllowIncomingCard`). 토글 변경 시 ChainRemote 재시작 안내.
-- 인스톨러: HQ 인스톨러에 `RustDesk.toml` (영구비번) 박기 추가. 사용자가 토글만 ON 하면 별도 비번 설정 없이 즉시 무인 incoming 가능.
-- 도구 분담 수정: Mac → 재성이 컴 원격 = ChainRemote HQ 로 통일 (Chrome RD 불필요). 사무실 Mac → 집 윈컴 빌드 원격도 ChainRemote 단일 운용 가능.
-
-**Phase 1 후속 backlog (안정화 후)**:
-- 거래처 PC 사용자/서비스 모드 toml 분리 문제 — UI 보안탭 빈 칸이지만 서비스 동작 OK. 메모리 [[project_user_vs_service_toml]]. 인스톨러 [Run] step 3 robustness 확인 또는 fork 코드에서 inherit.
-- 거래처별 chainremote_version heartbeat — NAS API `/api/customers/heartbeat` → 관리 패널 + 본사 앱 거래처 목록에 "v1.x.x · 마지막 보고 N분 전" 컬럼.
-- 자동업데이트 실패 진단 — 중앙리 PC 의 `C:\ProgramData\ChainRemote\updater.log` 확인 (내일).
-- build-all.ps1 의 [3.5/5] codegen 단계 거짓 OK 보고 버그 — 진단/실패 보고하도록 보강.
-
-### 관리 패널 코드 위치
-- `/Users/changsmac/내작업/ChainRemote/chainremote-admin/` (서브폴더, Next.js 16)
-- DB 스키마: `/Users/changsmac/내작업/ChainRemote/db/migrations/*.sql`
-- Drizzle ORM 모델: `chainremote-admin/lib/schema.ts`
-- 데이터 레이어 (본사 앱·패널 공유): `chainremote-admin/lib/data/{customers,favorites,sessions}.ts`
-- 인증 미들웨어: `chainremote-admin/proxy.ts` (Next 16 이름. matcher + 함수내 `/api` 명시 통과)
-- 실행 모드:
-  - **NAS 운영 (정식)**: `https://sepani.synology.me:3443` 브라우저 / `http://sepani.synology.me:3001` 본사 앱 API. `/volume1/docker/chainremote-admin/` + `docker compose up -d`. AUTH_SECRET 진실 원천.
-  - **Mac 로컬 dev**: `npm run dev` → http://localhost:3001. `.env.local` 의 `AUTH_SECRET` 은 NAS `.env` 와 동일하게.
-
-## 빌드 환경 (Step 1에서 구축됨)
-
-### 설치된 도구
-| 도구 | 버전 | 위치 |
-|------|------|------|
-| Rust (default) | 1.81 | `~/.cargo` |
-| Rust (stable) | 1.95 | `~/.cargo` |
-| Flutter (RustDesk용) | 3.24.5 | `~/flutter-3.24.5` |
-| Flutter (기타) | 3.41.8 | `/opt/homebrew/bin/flutter` |
-| vcpkg + libs (vpx/yuv/opus/aom) | latest | `~/vcpkg` |
-| NASM | 2.16.03 | `~/.local/bin/nasm` |
-| flutter_rust_bridge_codegen | 1.80.1 | `~/.cargo/bin` |
-| Xcode (정식) | 26.2 | `/Applications/Xcode.app` |
-| CocoaPods | 1.16.2 | brew |
-| llvm, create-dmg, pkg-config | latest | brew |
-
-### Flutter 패치 (필수)
-RustDesk가 Flutter 3.24.5의 issue #133533을 회피하기 위해 패치 적용됨:
-```bash
-sed -i '' 's|_setFramesEnabledState(false);|//_setFramesEnabledState(false);|g' \
-  ~/flutter-3.24.5/packages/flutter/lib/src/scheduler/binding.dart
-```
-Flutter SDK 재설치 시 다시 적용 필요.
-
-### Mac 빌드 함정 8 — `.dart_tool` 의 homebrew Flutter SDK 누수 (2026-05-20)
-- **증상**: PATH 에 `~/flutter-3.24.5/bin` 박았는데도 빌드 도중 `/opt/homebrew/share/flutter/packages/flutter/...:engineId` 에러로 실패.
-- **원인**: `flutter/.dart_tool/package_config.json` 의 `flutter` 패키지 rootUri 가 과거 어떤 시점(brew Flutter 3.41.8 로 pub get 한 흔적)에서 `file:///opt/homebrew/share/flutter/packages/flutter` 로 캐시됨. PATH 1순위라도 캐시가 우선.
-- **픽스**: 빌드 전 `rm -rf flutter/.dart_tool` 한 줄 추가 후 `flutter pub get` 재실행. package_config.json 의 rootUri 가 우리 SDK 로 다시 박힘. 확인: `python3 -c "import json; d=json.load(open('flutter/.dart_tool/package_config.json')); [print(p['name'],'→',p['rootUri']) for p in d['packages'] if p['name']=='flutter']"` 가 `~/flutter-3.24.5/packages/flutter` 가리켜야 정상.
-
-### Mac 빌드 함정 9 — `flutter_rust_bridge_codegen` 이 `.dart_tool` 을 brew SDK 로 오염 (2026-05-20)
-- **증상**: 함정 8 픽스 직후 `flutter pub get` 으로 package_config.json 을 우리 SDK 로 박았음에도, codegen 한 번 돌리면 brew Flutter 로 다시 바뀜.
-- **원인**: `flutter_rust_bridge_codegen` 1.80.1 이 내부적으로 dart 도구 호출. dart 가 brew Flutter 일 경우 `.dart_tool` 을 brew 기준으로 재생성.
-- **픽스**: 빌드 워크플로에서 **codegen 직후에도** `rm -rf flutter/.dart_tool && flutter pub get` 박을 것. 즉, 함정 8 의 클린 단계를 codegen 뒤에 한 번 더. CLAUDE.md 의 빌드 + 실행 명령 (위) 이 이미 빌드 직전에 박고 있어서 첫 빌드 정상 작동.
-
-### Mac 빌드 함정 10 — `http_request_sync` 의 헤더 형식 + 응답 wrapper (2026-05-20)
-RustDesk 의 두 HTTP 헬퍼가 서로 다른 헤더 형식을 요구하고, 응답을 다르게 감싼다. 새 API 호출 추가 시 반드시 매칭.
-
-| 함수 | 헤더 입력 형식 | 응답 형식 |
-|---|---|---|
-| `post_request_sync` (common.rs:1494) | `"Name: value"` 단순 split (라인 1425). 그 외 무시 + Content-Type 자동 application/json | raw body 문자열 |
-| `http_request_sync` (common.rs:1648) | **JSON object** `{"Name":"value"}` (라인 1313 `parse_json_header_entries`). array `[{...}]` 는 실패 → "HTTP header information parsing failed!" | **wrapper** `{"body":"<json string>"}` |
-
-- **예전 실수**: 두 함수 모두에 array `[{"name":"Authorization","value":"..."}]` 박았다가 GET 인증 호출이 헤더 없이 가서 401, body 파싱도 wrapper 못 풀어서 `missing field 'customers'` 실패.
-- **정석 패턴**:
-  ```rust
-  // 인증 헤더가 필요한 GET
-  let header = format!(r#"{{"Authorization":"Bearer {}"}}"#, token);
-  let raw = crate::http_request_sync(url, "GET".into(), None, header)?;
-  let inner = serde_json::from_str::<HttpWrapper>(&raw).map(|w| w.body).unwrap_or(raw);
-  let parsed: MyType = serde_json::from_str(&inner)?;
-  ```
-  `HttpWrapper { body: String }` 같은 wrapper 구조체 필수. body 가 stringified JSON 이므로 두 단계 파싱.
-
-### Mac 빌드 함정 11 — Flutter incremental 이 dart kernel 재컴파일을 skip (2026-05-20)
-- **증상**: `desktop_home_page.dart` 수정했는데 `python3 build.py --flutter` 가 통과하고 `.app` 도 갱신된 시점 박힘. 그러나 실행해보면 옛 UI 그대로. binary grep 으로 새 string 안 잡힘.
-- **확인 방법**: `stat -f "%Sm" flutter/build/macos/Build/Products/Release/ChainRemote.app/Contents/Frameworks/App.framework/Versions/A/App` 의 mtime vs 소스 mtime. App snapshot 이 소스보다 옛것이면 hit.
-- **원인**: Flutter assemble 의 dart kernel snapshot 단계가 `.dart_tool/flutter_build/...stamp` 기반 incremental 판단 → 단일 파일 수정만으로 stamp 안 바뀌면 skip.
-- **픽스**: `cd flutter && flutter clean && rm -rf .dart_tool build && flutter pub get` 후 재빌드. 단 `flutter clean` 이 `.dart_tool` 을 brew Flutter 로 재생성하므로 (함정 8) PATH 가 `~/flutter-3.24.5/bin` 가장 앞이어야 함. **export 로 sub-shell 까지 전파**되도록 빌드 명령에 `export PATH=...` 박을 것 (한 줄 변수는 sub-shell 에 inherit 안 될 수 있음).
-
-### Next.js 16 함정 — middleware.ts → proxy.ts 이름 변경 (2026-05-20)
-- **증상**: 패널의 `middleware.ts` matcher 가 `/api/*` 제외했는데도 Bearer 요청이 NextAuth 쿠키 미들웨어 307 리디렉트 → `/login?next=...` 로 떨어짐 → 본사 앱 401/거래처 0건.
-- **원인**: Next 16 부터 `middleware.ts` → `proxy.ts` 로 이름 변경 (`node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md`). 옛 `middleware.ts` 가 어떤 경로로든 동작하면서 matcher 처리 변동 발생.
-- **픽스**: 파일명 `proxy.ts` 로 변경 + 내부에 이중 안전망 `if (req.nextUrl.pathname.startsWith("/api")) return NextResponse.next();` 명시 박음. matcher 만 믿지 말고 함수 진입부에서 한 번 더 거름.
-- 기능 자체는 동일 (auth callback, NextAuth v5 edge runtime).
-
-### TLS 함정 — RustDesk reqwest/rustls + Synology nginx 호환 (2026-05-20)
-- **증상**: `curl https://sepani.synology.me:3443/api/customers` 는 통과(HTTP/2 200, 거래처 5건). 같은 URL 을 Mac 본사 앱이 호출하면 `peer closed connection without sending TLS close_notify` (rustls) → `Error -9806 connection closed via error` (native-tls fallback) → 둘 다 실패 → RustDesk fallback 으로 `sepani.synology.me:21116` TCP proxy 까지 떨어짐(무관한 hbbs relay 포트).
-- **원인**: rustls 와 Synology DSM 의 nginx (Reverse Proxy 의 자체 nginx) 가 TLS 1.3 close_notify 처리에서 호환 불안정. native-tls (SecureTransport) 도 같은 양상.
-- **채택한 해결**: HTTPS 포기 + HTTP 3001 직노출 (이슈 2 참조). Chang 의 보안 의지(낮음)와 정합.
-- **향후 HTTPS 가 필요해지면**: Cloudflare Tunnel 또는 별도 nginx 컨테이너(certbot) 로 TLS termination 우회. Synology 의 Reverse Proxy 는 rustls 와 안 맞음을 전제.
-
-### 빌드 + 실행 명령 (재사용 가능)
 ```bash
 cd ~/내작업/ChainRemote && \
   source $HOME/.cargo/env && rustup default 1.81 && \
@@ -509,96 +164,30 @@ cd ~/내작업/ChainRemote && \
   open /Applications/ChainRemote.app
 ```
 
-**⚠️ `export` 필수 (2026-05-22 함정 12)**: 옛 명령은 `PATH=... VCPKG_ROOT=... bash -c '...'` 형태라 env 가 **그 `bash -c` 한 줄에만** 적용됐다. 그 뒤 `&& python3 ./build.py` 는 env 없이 기본 PATH 로 실행 → `build.py` 가 brew Flutter 3.41.8(`/opt/homebrew/bin/flutter`)을 잡아 빌드 실패(`DialogThemeData`/`TabBarThemeData`/`_SelectableFragment`/google_fonts 상수 에러 = 신버전 Flutter 증상). **반드시 `export` 로 셸 전체에 전파**시켜 build.py 가 `~/flutter-3.24.5/bin/flutter` 를 쓰게 할 것. 빌드 시작 직후 `which flutter` 가 `~/flutter-3.24.5/bin/flutter` 인지 확인.
+**핵심 주의사항** (자세히는 `docs/chainremote/BUILD_PITFALLS.md`):
+- ⚠️ `export` 필수 (sub-shell 까지 전파). 빌드 시작 직후 `which flutter` 가 `~/flutter-3.24.5/bin/flutter` 인지 확인.
+- ⚠️ `.dart_tool` 클린 (homebrew Flutter SDK 누수 + codegen 오염 회피).
+- ⚠️ `/Applications/ChainRemote.app` 까지 복사 + 재서명 (Spotlight·Dock 이 매일 켜는 것).
+- Phase 3-Mac: macOS 가 새 bundle id (`com.betaposlab.chainremote`) 를 다른 앱으로 인식 → 화면 기록/입력 모니터링/접근성 권한 첫 실행 시 재승인.
 
-**왜 `/Applications/ChainRemote.app` 까지 복사하는가** (2026-05-20 함정):
-- `build/macos/Build/Products/Release/ChainRemote.app` 가 새 빌드, `/Applications/ChainRemote.app` 가 매일 켜는 것 (Spotlight·Dock). 둘은 다른 파일.
-- build dir 빌드만 갱신하고 `open` 하면 새 코드 검증 가능. 단, Chang/재성이가 평소 Launchpad 로 켜는 건 옛 .app → "코드 적용 안 됨" 착각.
-- 빌드 워크플로에 `/Applications` 복사 + 재서명까지 포함해야 두 vector 일치.
+## Windows 빌드 (윈컴 SSH)
 
-**Phase 3-Mac (2026-05-25)**: `PRODUCT_NAME = ChainRemote` + Bundle ID `com.betaposlab.chainremote`. 빌드 출력이 `RustDesk.app` 에서 `ChainRemote.app` 으로 변경됨. 옛 빌드 캐시가 남아있으면 두 파일 다 나올 수 있음 — `flutter clean` 후 한 번 정리. macOS 가 새 bundle id 를 다른 앱으로 인식하므로 화면 기록/입력 모니터링/접근성 권한 재승인 필요 (첫 실행 시 OS 다이얼로그).
+자세히는 메모리 [project_win_remote_build_ssh]. Mac → Tailscale `zenta@100.120.242.67` SSH 빌드.
 
-### 알려진 이슈/생략된 옵션
-- **`--hwcodec` 생략됨**: ffmpeg 컴파일 30~60분 소요. 필요해지면 `vcpkg install ffmpeg` 후 추가.
-- **ad-hoc 서명**: 개발용. 배포 시 Apple Developer 인증서로 정식 서명 + notarization 필요.
-- **git submodule**: `libs/hbb_common` 첫 클론 시 빠짐 → `git submodule update --init --recursive` 필수.
+윈컴 직접 빌드 (Chang 윈컴 앞):
+```powershell
+cd C:\src\ChainRemote
+.\deploy\win-build\build-all.ps1   # Rust + Flutter 풀빌드
+cd deploy\win-installer
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" agent-installer.iss
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" hq-installer.iss
+```
 
-## 첫 실행 검증 (2026-04-30)
-- Mac에서 ChainRemote 빌드본 실행 ✅
-- 옆자리 윈컴(공식 RustDesk)과 원격 연결 성공 ✅
-- 다만 **공개 RustDesk 서버 사용 + 소프트웨어 코덱**이라 AnySupport보다 느린 체감.
-- → Step 3 한국 자체 서버 구축 시 큰 개선 예상 (P2P 성공률↑, 레이턴시↓).
-
-## Web Client v1 검증 (2026-04-30, 폐기)
-- v1 코드를 git history(커밋 5faf0ad3c^)에서 복원해봄
-- 빌드 환경(yarn/protoc)까지 갖춤, 경로 문제 패치까지 마침
-- vendor 자산 누락 + protobuf 호환 의문 + RustDesk 공식 deprecated 경고
-- **결론: v1은 사용 불가, 옵션 C(.exe)로 전략 전환**
-- 복원된 코드는 `flutter/web/v1/`에 있으나 사용하지 않음 (참고용으로만 보존)
-
-## 기술 스택 빠른 참조
-| 영역 | 스택 | 위치 |
-|------|------|------|
-| 코어 엔진 | Rust | `src/`, `libs/` |
-| UI | Flutter (데스크톱+모바일) | `flutter/` |
-| 레거시 UI | Sciter (deprecated, 무시) | `src/ui/` |
-| 시그널링 서버 | hbbs (TCP 21115-21116) | 별도 배포 |
-| 릴레이 서버 | hbbr (TCP 21117, UDP 21116) | 별도 배포 |
-| 코덱 | VP8/VP9/AV1 SW, H.264/H.265 HW | `libs/scrap/` |
-
-## 플랫폼 우선순위
-- **관리자**: macOS, Windows (Phase 1) → iPhone, iPad (Phase 3)
-- **고객**: Windows + 웹브라우저만 (Phase 1)
-
-## 결정된 스택 (2026-04-30, **NAS 자체 호스팅으로 수정**)
-
-### 관리 웹 패널 (Step 5)
-- **Frontend + Backend**: Next.js (TypeScript) — 풀스택
-- **DB**: PostgreSQL 16 — **Chang 댁 DS220+ NAS의 도커 컨테이너** (Supabase 폐기)
-- **Auth**: NextAuth.js 또는 Auth.js — 나중에 추가
-- **개발 단계 호스팅**: 로컬 Mac에서 `npm run dev` (DB는 NAS)
-- **운영 단계 호스팅**: NAS Container Manager 또는 사무실 PC (TBD)
-- **설계 원칙**: 첫날부터 **멀티테넌시(SaaS) 구조** (고객사 격리, RBAC, 감사 로그)
-
-### 시그널링/릴레이 서버 (Step 3)
-- **hbbs + hbbr**: RustDesk Rust 바이너리, 도커
-- **호스팅 후보 1**: Chang 댁 NAS (KT 1Gbps, 24/7 ON, 외부 노출 가능)
-- **호스팅 후보 2**: 한국 VPS ($5/월) — NAS 안정성 검증 후 결정
-- 결정 시점: Step 3 착수 시
-
-### 도메인 (기존 자산 재사용)
-- `remote.betaposlab.com` → 거래처 가이드 페이지 (옵션 C: .exe 다운로드)
-- `admin.betaposlab.com` → 관리 패널 (NAS 또는 Vercel — TBD)
-- 기존 betaposlab.com과 충돌 없이 공존
-
-### NAS PostgreSQL 접속 정보
-- **호스트**: 192.168.68.103 (사내 LAN), Synology 호스트명 `kimfam`
-- **포트**: 15432 (5432는 Synology 자체 사용 중)
-- **DB명**: chainremote
-- **사용자**: chainremote
-- **비번**: `/Users/changsmac/내작업/ChainRemote/.nas-db-password` (gitignored)
-- **접속 검증**: `psql -h 192.168.68.103 -p 15432 -U chainremote -d chainremote`
-- **컨테이너 이름**: chainremote-postgres
-- **외부 노출**: 안 됨 (LAN 내부만, 보안상 OK)
-- **외부 접속 시**: SSH 터널 또는 향후 VPN
-
-### NAS 자동화 셋업 (2026-04-30 완료)
-- SSH 키 인증 (`~/.ssh/id_ed25519`) — Mac → NAS 무비번
-- 패스워드리스 sudo: `chang` 사용자에게 docker/docker-compose만 한정
-- 명령 예: `ssh chang@192.168.68.103 "sudo /var/packages/ContainerManager/target/usr/bin/docker ps"`
-
-### 확장성 가정
-- **현재**: 사무실 직원 + 하루 10건
-- **목표**: 고객사 100개 × 일 20건(=2,000건/일)까지 코드 재작성 0회, 플랜 업그레이드만으로 대응
-- 영상은 P2P이므로 서버 부하 미미. 동시 수십 세션도 $5 VPS로 감당.
-
-## 미정 (Chang 지시 대기)
-최종 브랜드명, 사업화 라이선스 전략(AGPL 유지 vs Server Pro 구매), 과금 모델 구체 금액.
-
-## RustDesk 코드 규칙
-`AGENTS.md` 참조 — Rust(unwrap 금지/clone 최소화), Tokio(중첩 런타임 금지/await 락 금지), 편집 위생(최소 diff).
+---
 
 ## 토큰 절약
+
 - 큰 파일 전체 읽지 말고 grep/Read offset 활용.
 - 광범위 탐색은 Explore 서브에이전트로 위임.
 - 결과 보고는 짧게.
+- 옛 기록 필요할 때만 `docs/chainremote/*.md` 명시 Read.
