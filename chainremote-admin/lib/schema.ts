@@ -107,6 +107,13 @@ export const customers = pgTable(
     // 볼 수 있도록 필터 강제는 안 함 (사내 운영 정책). 향후 SaaS 격리 시점에 정책 변경.
     assignedUserId: uuid("assigned_user_id").references(() => users.id, { onDelete: "set null" }),
     isActive: boolean("is_active").notNull().default(true),
+    // 거래처 heartbeat (마이그레이션 007, 2026-05-26).
+    // 거래처 (agent) 가 5~15분 주기로 NAS 에 자기 상태 보고. 관리 패널 / 본사 앱이
+    // 마지막 접속 + 버전 가시화. 모든 컬럼 nullable — 옛 거래처는 lazy 채워짐.
+    lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
+    lastVersion: text("last_version"),
+    // 거래처별 random secret. 자가 발급 + 1회 제약 (NULL 일 때만 INSERT).
+    heartbeatToken: text("heartbeat_token"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

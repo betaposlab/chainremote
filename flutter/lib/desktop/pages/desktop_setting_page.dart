@@ -64,6 +64,9 @@ enum SettingsTabKey {
 
 class DesktopSettingPage extends StatefulWidget {
   final SettingsTabKey initialTabkey;
+  // ChainRemote 임베드 모드 — DesktopHomePage 우측 페인에 인라인 렌더될 때 true.
+  // 브랜드 헤더와 가로 탭 스트립을 숨기고 본문만 노출(사이드바에서 탭 선택).
+  final bool embedded;
   // ChainRemote: 거래처 운영에 불필요한 탭들(계정/플러그인/프린터) 비활성화.
   static final List<SettingsTabKey> tabKeys = [
     SettingsTabKey.general,
@@ -80,7 +83,9 @@ class DesktopSettingPage extends StatefulWidget {
     SettingsTabKey.about,
   ];
 
-  DesktopSettingPage({Key? key, required this.initialTabkey}) : super(key: key);
+  DesktopSettingPage(
+      {Key? key, required this.initialTabkey, this.embedded = false})
+      : super(key: key);
 
   @override
   State<DesktopSettingPage> createState() =>
@@ -103,6 +108,26 @@ class DesktopSettingPage extends StatefulWidget {
       } else {
         DesktopTabPage.onAddSetting(initialPage: page);
       }
+    } catch (e) {
+      debugPrintStack(label: '$e');
+    }
+  }
+
+  /// 임베드 모드에서 사이드바 탭 클릭 시 호출 — 상단 탭바에 "설정" 새로 추가하지
+  /// 않고 이미 마운트된 DesktopSettingPage 의 PageController 만 jump.
+  static void switchEmbeddedPage(SettingsTabKey page) {
+    try {
+      final index = tabKeys.indexOf(page);
+      if (index == -1) return;
+      if (!Get.isRegistered<PageController>(tag: _kSettingPageControllerTag)) {
+        return;
+      }
+      final controller =
+          Get.find<PageController>(tag: _kSettingPageControllerTag);
+      final selected =
+          Get.find<Rx<SettingsTabKey>>(tag: _kSettingPageTabKeyTag);
+      selected.value = page;
+      controller.jumpToPage(index);
     } catch (e) {
       debugPrintStack(label: '$e');
     }
@@ -271,9 +296,11 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   }
 
   // ChainRemote: 사이드바 폐기 → 브랜드 헤더 + 가로 칩 탭 + 본문 스타일.
+  // embedded=true 면 헤더/탭 스트립 숨김 — DesktopHomePage 사이드바가 탭 선택 담당.
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final embedded = widget.embedded;
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
       body: _buildBlock(
@@ -281,8 +308,8 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
           Expanded(
             child: Column(
               children: [
-                _brandHeader(context),
-                _topTabStrip(context),
+                if (!embedded) _brandHeader(context),
+                if (!embedded) _topTabStrip(context),
                 Expanded(
                   child: Container(
                     color: const Color(0xFFF6F8FB),
