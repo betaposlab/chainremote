@@ -57,6 +57,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
   final GlobalKey _childKey = GlobalKey();
 
+  // ChainRemote 사이드바 네비 상태 (2026-05-27).
+  // _inSettings=true → 우측 페인이 임베드 DesktopSettingPage. 사이드바도 설정 서브탭 표시.
+  bool _inSettings = false;
+  SettingsTabKey _settingsTab = SettingsTabKey.general;
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -65,22 +70,282 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       // Server-only build keeps the original layout.
       return _buildBlock(child: buildLeftPane(context));
     }
-    // ChainRemote — single-pane layout: top brand bar + connection page.
+    // ChainRemote — sidebar layout: 좌측 네비 사이드바 + 우측 메인 영역.
+    // (2026-05-27 디자인 개편 — Claude Design 시안 톤 반영. 상단 탭바
+    //  중복 회피를 위해 DesktopHomePage 내부에서만 사이드바 적용. 멀티
+    //  윈도우/원격세션 핵심인 DesktopTabPage 의 상단 탭은 그대로.)
     return _buildBlock(
       child: ChangeNotifierProvider.value(
         value: gFFI.serverModel,
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            buildChainRemoteTopBar(context),
-            const Divider(height: 1, thickness: 1),
-            Expanded(child: buildRightPane(context)),
+            buildChainRemoteSidebar(context),
+            const VerticalDivider(width: 1, thickness: 1),
+            Expanded(
+              child: _inSettings
+                  ? DesktopSettingPage(
+                      key: ValueKey('chainremote-embedded-settings'),
+                      initialTabkey: _settingsTab,
+                      embedded: true,
+                    )
+                  : buildRightPane(context),
+            ),
           ],
         ),
       ),
     );
   }
 
+  // 설정 서브탭 라벨 — 사이드바 표시용.
+  String _settingsTabLabel(SettingsTabKey k) {
+    switch (k) {
+      case SettingsTabKey.general:
+        return '일반';
+      case SettingsTabKey.safety:
+        return '보안';
+      case SettingsTabKey.network:
+        return '네트워크';
+      case SettingsTabKey.display:
+        return '디스플레이';
+      case SettingsTabKey.about:
+        return '정보';
+      case SettingsTabKey.plugin:
+        return '플러그인';
+      case SettingsTabKey.account:
+        return '계정';
+      case SettingsTabKey.printer:
+        return '프린터';
+    }
+  }
+
+  IconData _settingsTabIcon(SettingsTabKey k) {
+    switch (k) {
+      case SettingsTabKey.general:
+        return Icons.tune_outlined;
+      case SettingsTabKey.safety:
+        return Icons.security_outlined;
+      case SettingsTabKey.network:
+        return Icons.link_outlined;
+      case SettingsTabKey.display:
+        return Icons.desktop_windows_outlined;
+      case SettingsTabKey.about:
+        return Icons.info_outline;
+      case SettingsTabKey.plugin:
+        return Icons.extension_outlined;
+      case SettingsTabKey.account:
+        return Icons.person_outline;
+      case SettingsTabKey.printer:
+        return Icons.print_outlined;
+    }
+  }
+
+  // 좌측 네비 사이드바 — 로고(상단) / 홈·설정(중단) / 본인ID·사용자·로그아웃(하단).
+  // 슬랙/Linear 스타일 정돈. 폭 220px.
+  Widget buildChainRemoteSidebar(BuildContext context) {
+    final isPortable =
+        (Platform.environment['CHAINREMOTE_PORTABLE_DIR'] ?? '').isNotEmpty;
+    return Container(
+      width: 240,
+      color: const Color(0xFFF7F8FA),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // (1) 로고 영역 — 사이드바 폭에 맞춰 시각적 무게감 확보(2026-05-27 Chang 피드백).
+          // 워드마크(chainremote 텍스트)가 사이드바 가로 중앙에 오도록 심볼은 좌측으로 빠짐.
+          // 구현: ClipRect 로 안전선 + Transform.translate 로 이미지 좌측 이동.
+          Padding(
+            padding: const EdgeInsets.only(bottom: 22),
+            child: ClipRect(
+              child: SizedBox(
+                height: 56,
+                child: Transform.translate(
+                  offset: const Offset(-22, 0),
+                  child: Image.asset('assets/chainremote_logo.png',
+                      fit: BoxFit.contain,
+                      height: 56,
+                      errorBuilder: (_, __, ___) =>
+                          const SizedBox(height: 56)),
+                ),
+              ),
+            ),
+          ),
+          if (isPortable)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 12),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _buildChainGoBadge(),
+              ),
+            ),
+          // (2) 메뉴 영역
+          //   - 평상시: 홈 / 설정
+          //   - 설정 활성화: ← 뒤로(홈) + 설정 서브탭(일반/보안/네트워크/디스플레이/정보)
+          if (!_inSettings) ...[
+            _sidebarItem(
+              context,
+              icon: Icons.home_outlined,
+              label: '홈',
+              selected: true,
+              onTap: () {},
+            ),
+            _sidebarItem(
+              context,
+              icon: Icons.settings_outlined,
+              label: '설정',
+              selected: false,
+              onTap: () {
+                setState(() {
+                  _inSettings = true;
+                  _settingsTab = DesktopSettingPage.tabKeys.isNotEmpty
+                      ? DesktopSettingPage.tabKeys[0]
+                      : SettingsTabKey.general;
+                });
+              },
+            ),
+          ] else ...[
+            _sidebarItem(
+              context,
+              icon: Icons.arrow_back,
+              label: '홈으로',
+              selected: false,
+              onTap: () {
+                setState(() {
+                  _inSettings = false;
+                });
+              },
+            ),
+            const SizedBox(height: 6),
+            const Padding(
+              padding: EdgeInsets.only(left: 14, bottom: 4, top: 4),
+              child: Text('설정',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: Color(0xFF6B7280))),
+            ),
+            for (final k in DesktopSettingPage.tabKeys)
+              _sidebarItem(
+                context,
+                icon: _settingsTabIcon(k),
+                label: _settingsTabLabel(k),
+                selected: _settingsTab == k,
+                onTap: () {
+                  setState(() {
+                    _settingsTab = k;
+                  });
+                  // 마운트된 PageController 가 있으면 jump (헤더 없는 임베드 모드).
+                  DesktopSettingPage.switchEmbeddedPage(k);
+                },
+              ),
+          ],
+          const Spacer(),
+          // (3) 하단 사용자 영역 — 본인 ID 칩 + 사용자명 + 비번변경 + 로그아웃.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildMyIdChip(),
+                const SizedBox(height: 10),
+                Builder(builder: (_) {
+                  final name = ChainRemoteAuth.currentDisplayName();
+                  if (name.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6, left: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.account_circle_outlined,
+                            size: 18, color: Colors.black54),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(name,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 13, color: Colors.black87)),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _sidebarItem(
+                        context,
+                        icon: Icons.lock_reset_outlined,
+                        label: '비번 변경',
+                        selected: false,
+                        compact: true,
+                        onTap: () => _openChangePasswordDialog(context),
+                      ),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _sidebarItem(
+                        context,
+                        icon: Icons.logout,
+                        label: '로그아웃',
+                        selected: false,
+                        compact: true,
+                        onTap: () => _confirmLogout(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sidebarItem(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    bool compact = false,
+  }) {
+    final fg = selected ? const Color(0xFF1E40AF) : Colors.black87;
+    final bg = selected ? const Color(0xFFE6ECF8) : Colors.transparent;
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+              horizontal: 12, vertical: compact ? 8 : 10),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: fg),
+              const SizedBox(width: 10),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: compact ? 13 : 14,
+                      fontWeight:
+                          selected ? FontWeight.w600 : FontWeight.w500,
+                      color: fg)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // (구) 상단 브랜드 바 — 사이드바 레이아웃 도입(2026-05-27)으로 더 이상 호출되지
+  // 않지만, 안전판으로 코드 보존 (롤백 시 즉시 복귀 가능).
+  // ignore: unused_element
   Widget buildChainRemoteTopBar(BuildContext context) {
     // 본사 빌드 — 자기 ID/비번 표시 없음 (피지원자 아님).
     // 로고 좌측 + 설정 우측만.

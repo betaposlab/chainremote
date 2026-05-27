@@ -74,6 +74,10 @@ mod updater;
 #[cfg(target_os = "windows")]
 mod chainremote_updater;
 
+// ChainRemote 거래처 heartbeat (Agent 빌드만 — incoming-only 검사) — 윈도우만
+#[cfg(target_os = "windows")]
+mod chainremote_heartbeat;
+
 // ChainRemote Phase 3-Win 마이그레이션 (옛 RustDesk → 새 ChainRemote 데이터/서비스/레지스트리)
 // 모든 플랫폼에서 컴파일 (Mac/Linux 는 빈 함수, Windows 만 실제 로직).
 pub mod chainremote_migrate;

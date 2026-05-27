@@ -5,6 +5,7 @@ import { eq, desc, and, isNull } from "drizzle-orm";
 import { discoverPeers } from "@/lib/peer-discovery";
 import { DiscoveredPeerBanner } from "./_discovered";
 import { RemoteButton } from "./_remote-button";
+import { CustomerStatus } from "./_status";
 import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,8 @@ export default async function CustomersPage() {
       notes: customers.notes,
       assignedUserId: customers.assignedUserId,
       assignedUserName: users.displayName,
+      lastHeartbeatAt: customers.lastHeartbeatAt,
+      lastVersion: customers.lastVersion,
     })
     .from(customers)
     .leftJoin(users, eq(users.id, customers.assignedUserId))
@@ -79,6 +82,7 @@ export default async function CustomersPage() {
               <th className="text-left px-4 py-3 font-medium">거래처 담당자</th>
               <th className="text-left px-4 py-3 font-medium">연락처</th>
               <th className="text-left px-4 py-3 font-medium">원격 ID</th>
+              <th className="text-left px-4 py-3 font-medium">상태</th>
               <th className="text-left px-4 py-3 font-medium">메모</th>
               <th className="text-right px-4 py-3 font-medium">작업</th>
             </tr>
@@ -124,6 +128,12 @@ export default async function CustomersPage() {
                     ) : (
                       <span className="text-slate-400">미등록</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    <CustomerStatus
+                      lastHeartbeatAt={c.lastHeartbeatAt}
+                      lastVersion={c.lastVersion}
+                    />
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs max-w-[16ch] truncate">
                     {c.notes ?? ""}

@@ -65,7 +65,7 @@ var isMobile = isAndroid || isIOS;
 var version = ''; // RustDesk 코어 버전 (bind.mainGetVersion)
 // ChainRemote 자체 버전. src/chainremote_version.rs 의 CHAINREMOTE_VERSION +
 // deploy/win-installer/{agent,hq}-installer.iss 의 APP_VERSION 과 항상 동기화.
-const chainRemoteVersion = '1.3.1';
+const chainRemoteVersion = '1.3.2';
 int androidVersion = 0;
 
 // Only used on Linux.
@@ -1664,6 +1664,49 @@ Future<bool> matchPeer(
 }
 
 /// Get the image for the current [platform].
+/// ChainRemote 거래처 카드 아바타 — 첫글자 원형(스샷2 톤). 한국 B2B SaaS 룩.
+///
+/// 입력: displayName (peer.alias 비어있으면 peer.id 로 fallback). 빈 문자열이면
+/// '?' 표시. 색상은 displayName 의 hash 로 결정 → 같은 거래처는 항상 같은 색.
+///
+/// 함의: peer_card.dart 의 `getPlatformImage(peer.platform, ...)` 자리에 끼움.
+/// OS 윈도우/맥/리눅스 로고 대신 거래처를 시각 인지하기 위함. (Chang 피드백:
+/// "윈도우 로고라 이상함. 가맹점 상호 첫글자 둥근 원 안에.")
+Widget getChainRemoteAvatar(String displayName, {double size = 50}) {
+  final s = displayName.trim();
+  final ch = s.isEmpty ? '?' : String.fromCharCode(s.runes.first);
+  // 파스텔 팔레트 12색 — 한국 B2B SaaS 톤(채도 낮고 따뜻함).
+  const palette = <int>[
+    0xFFFFE3D5, 0xFFFFD9B7, 0xFFFFEFC0, 0xFFE3F1D0, 0xFFCDE9D2,
+    0xFFC8E6E0, 0xFFCFE3F2, 0xFFD9DCF5, 0xFFE5D5F2, 0xFFF5D5E1,
+    0xFFFFD5D5, 0xFFE8E0D2,
+  ];
+  const textPalette = <int>[
+    0xFFC2410C, 0xFF9A3412, 0xFF92400E, 0xFF4D7C0F, 0xFF166534,
+    0xFF115E59, 0xFF1D4ED8, 0xFF4338CA, 0xFF7C3AED, 0xFFBE185D,
+    0xFF991B1B, 0xFF78716C,
+  ];
+  final idx = s.isEmpty ? 0 : (s.hashCode.abs() % palette.length);
+  return Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: Color(palette[idx]),
+      shape: BoxShape.circle,
+    ),
+    alignment: Alignment.center,
+    child: Text(
+      ch,
+      style: TextStyle(
+        fontSize: size * 0.42,
+        fontWeight: FontWeight.w700,
+        color: Color(textPalette[idx]),
+        height: 1.0,
+      ),
+    ),
+  );
+}
+
 Widget getPlatformImage(String platform, {double size = 50}) {
   if (platform.isEmpty) {
     return Container(width: size, height: size);

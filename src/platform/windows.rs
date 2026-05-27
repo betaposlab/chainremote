@@ -574,6 +574,10 @@ async fn run_service(_arguments: Vec<OsString>) -> ResultType<()> {
     // ChainRemote 자체 업데이트 데몬 — LocalSystem 권한으로 NAS 폴링 + setup.exe 사일런트 적용
     crate::chainremote_updater::start_in_service();
 
+    // ChainRemote 거래처 heartbeat — Agent 빌드만 (is_incoming_only 검사). HQ 는 skip.
+    // 첫 실행 register-token + 10분 polling heartbeat.
+    crate::chainremote_heartbeat::start_in_service();
+
     let event_handler = move |control_event| -> ServiceControlHandlerResult {
         log::info!("Got service control event: {:?}", control_event);
         match control_event {

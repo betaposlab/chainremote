@@ -160,21 +160,15 @@ class _PeerCardState extends State<_PeerCard>
       mainAxisSize: MainAxisSize.max,
       children: [
         Container(
-            decoration: BoxDecoration(
-              color: _platformBgColor(peer.platform),
-              borderRadius: isPortrait
-                  ? BorderRadius.circular(_tileRadius)
-                  : BorderRadius.only(
-                      topLeft: Radius.circular(_tileRadius),
-                      bottomLeft: Radius.circular(_tileRadius),
-                    ),
-            ),
+            // ChainRemote: OS 로고 시절의 컬러풀한 사각 배경 제거 — 원형 아바타만 살림(2026-05-27 Chang 피드백).
             alignment: Alignment.center,
             width: isPortrait ? 50 : 42,
             height: isPortrait ? 50 : null,
             child: Stack(
               children: [
-                getPlatformImage(peer.platform, size: isPortrait ? 38 : 30)
+                getChainRemoteAvatar(
+                        peer.alias.isEmpty ? peer.id : peer.alias,
+                        size: isPortrait ? 38 : 30)
                     .paddingAll(6),
                 if (_shouldBuildPasswordIcon(peer))
                   Positioned(
@@ -320,7 +314,8 @@ class _PeerCardState extends State<_PeerCard>
               children: [
                 Expanded(
                   child: Container(
-                    color: _platformBgColor(peer.platform),
+                    // ChainRemote: 그리드 카드 상단 컬러풀 배경 제거 — 흰 배경에 원형 아바타만(2026-05-27).
+                    color: Colors.white,
                     child: Row(
                       children: [
                         Expanded(
@@ -329,8 +324,11 @@ class _PeerCardState extends State<_PeerCard>
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(6),
-                                child:
-                                    getPlatformImage(peer.platform, size: 60),
+                                child: getChainRemoteAvatar(
+                                    peer.alias.isEmpty
+                                        ? peer.id
+                                        : peer.alias,
+                                    size: 60),
                               ),
                               Row(
                                 children: [
@@ -341,7 +339,7 @@ class _PeerCardState extends State<_PeerCard>
                                       child: Text(
                                         name,
                                         style: const TextStyle(
-                                            color: Colors.white70,
+                                            color: Colors.black87,
                                             fontSize: 12),
                                         textAlign: TextAlign.center,
                                         overflow: TextOverflow.ellipsis,

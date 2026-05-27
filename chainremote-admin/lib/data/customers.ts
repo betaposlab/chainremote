@@ -3,7 +3,8 @@
 //
 // 모든 함수는 tenantId 격리 강제 — 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
+import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { customers } from "@/lib/schema";
 
@@ -100,4 +101,44 @@ export async function importPeer(
     })
     .returning();
   return row;
+}
+
+/**
+ * 거래처 heartbeat 토큰 발급 (자가 발급 + 1회 제약).
+ *
+ * Agent 가 첫 실행 시 호출. customers.heartbeat_token IS NULL 일 때만 생성·저장.
+ * 이미 토큰 있거나 remote_id 매칭 customer 없으면 null 반환 (409 처리는 route 측).
+ *
+ * 보안 모델 (사업화 초기): 인스톨러에 토큰 못 박는 환경이라 자가 발급 우회. 공격자가
+ * agent 첫 install 보다 먼저 register 호출하면 토큰 탈취 가능 — 단 install 직후 ~ 첫
+ * heartbeat 사이 윈도우가 짧고 remote_id (9자리 숫자) 도 추측 필요. 매출 후 인스톨러
+ * 토큰 박기 / OAuth-like 로 강화 검토.
+ *
+ * tenant 격리 없음 — remote_id 가 머신 UUID 기반 deterministic 이라 글로벌 unique 가정.
+ */
+export async function registerHeartbeatToken(remoteId: string): Promise<string | null> {
+  const newToken = crypto.randomBytes(32).toString("hex");
+  const [row] = await db
+    .update(customers)
+    .set({ heartbeatToken: newToken })
+    .where(and(eq(customers.remoteId, remoteId), isNull(customers.heartbeatToken)))
+    .returning({ token: customers.heartbeatToken });
+  return row?.token ?? null;
+}
+
+/**
+ * Heartbeat 기록. 토큰 검증 + last_heartbeat_at + last_version update.
+ * 매칭 customer (remote_id + token 동시 일치) 없으면 false → route 가 403.
+ */
+export async function recordHeartbeat(
+  remoteId: string,
+  token: string,
+  version: string,
+): Promise<boolean> {
+  const [row] = await db
+    .update(customers)
+    .set({ lastHeartbeatAt: new Date(), lastVersion: version })
+    .where(and(eq(customers.remoteId, remoteId), eq(customers.heartbeatToken, token)))
+    .returning({ id: customers.id });
+  return !!row;
 }
