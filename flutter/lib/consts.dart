@@ -7,7 +7,8 @@ import 'package:get/get.dart';
 const int kMaxVirtualDisplayCount = 4;
 const int kAllVirtualDisplay = -1;
 
-const double kDesktopRemoteTabBarHeight = 28.0;
+// ChainRemote 2026-05-27: 28 → 38 — toolbar 가 tab bar tail 슬롯에 박혀서 라벨+아이콘 fit.
+const double kDesktopRemoteTabBarHeight = 38.0;
 const int kInvalidWindowId = -1;
 const int kMainWindowId = 0;
 

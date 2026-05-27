@@ -135,13 +135,42 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
       body: DesktopTab(
         controller: tabController,
         onWindowCloseButton: handleWindowCloseButton,
-        tail: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _RelativeMouseModeHint(tabController: tabController),
-            const AddButton(),
-          ],
-        ),
+        // ChainRemote 2026-05-27 v4: toolbar 를 탭바 라인의 tail 슬롯에 박음 — 거래처 화면 위
+        // floating 안 함. tab 의 label "424... @ ..." 와 같은 행에 컨트롤 노출.
+        tail: Obx(() {
+          final state = tabController.state.value;
+          if (state.tabs.isEmpty || state.selected < 0 ||
+              state.selected >= state.tabs.length) {
+            return Row(mainAxisSize: MainAxisSize.min, children: [
+              _RelativeMouseModeHint(tabController: tabController),
+              const AddButton(),
+            ]);
+          }
+          final activeTab = state.tabs[state.selected];
+          final activePage = activeTab.page;
+          if (activePage is! RemotePage) {
+            return Row(mainAxisSize: MainAxisSize.min, children: [
+              _RelativeMouseModeHint(tabController: tabController),
+              const AddButton(),
+            ]);
+          }
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RemoteToolbar(
+                key: ValueKey('toolbar-${activeTab.key}'),
+                id: activePage.id,
+                ffi: activePage.ffi,
+                state: activePage.toolbarState,
+                onEnterOrLeaveImageSetter: (_, __) {},
+                onEnterOrLeaveImageCleaner: (_) {},
+                setRemoteState: (_) {},
+              ),
+              _RelativeMouseModeHint(tabController: tabController),
+              const AddButton(),
+            ],
+          );
+        }),
         selectedBorderColor: MyTheme.accent,
         pageViewBuilder: (pageView) => pageView,
         labelGetter: DesktopTab.tablabelGetter,

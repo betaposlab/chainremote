@@ -270,18 +270,7 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
           blockInput.value = !blockInput.value;
         }));
   }
-  // switchSides
-  if (isDefaultConn &&
-      isDesktop &&
-      ffiModel.keyboard &&
-      pi.platform != kPeerPlatformAndroid &&
-      versionCmp(pi.version, '1.2.0') >= 0 &&
-      bind.peerGetSessionsCount(id: id, connType: ffi.connType.index) == 1) {
-    v.add(TTextMenu(
-        child: Text(translate('Switch Sides')),
-        onPressed: () =>
-            showConfirmSwitchSidesDialog(sessionId, id, ffi.dialogManager)));
-  }
+  // ChainRemote 2026-05-27: 역할 전환(Switch Sides) — 본사↔거래처 역할 뒤집기, 우리 시나리오에 무용 → 숨김.
   // refresh
   if (pi.version.isNotEmpty) {
     v.add(TTextMenu(
@@ -652,20 +641,8 @@ Future<List<TToggleMenu>> toolbarDisplayToggle(
   }
   // disable clipboard
   if (isDefaultConn && ffiModel.keyboard && perms['clipboard'] != false) {
-    final enabled = !ffiModel.viewOnly;
-    final option = 'disable-clipboard';
-    var value =
-        bind.sessionGetToggleOptionSync(sessionId: sessionId, arg: option);
-    if (ffiModel.viewOnly) value = true;
-    v.add(TToggleMenu(
-        value: value,
-        onChanged: enabled
-            ? (value) {
-                if (value == null) return;
-                bind.sessionToggleOption(sessionId: sessionId, value: option);
-              }
-            : null,
-        child: Text(translate('Disable clipboard'))));
+    // ChainRemote 2026-05-27: 클립보드 사용 안 함 — 권한 탭의 "복사·붙여넣기 공유 허용"과 중복 → toolbar 에서 숨김.
+    final _ = ffiModel.viewOnly; // ignore: unused_local_variable
   }
   // lock after session end
   if (isDefaultConn && ffiModel.keyboard && !ffiModel.isPeerAndroid) {
@@ -716,22 +693,7 @@ Future<List<TToggleMenu>> toolbarDisplayToggle(
         child: Text(translate('Use all my displays for the remote session'))));
   }
 
-  // 444
-  final codec_format = ffi.qualityMonitorModel.data.codecFormat;
-  if (versionCmp(pi.version, "1.2.4") >= 0 &&
-      (codec_format == "AV1" || codec_format == "VP9")) {
-    final option = 'i444';
-    final value =
-        bind.sessionGetToggleOptionSync(sessionId: sessionId, arg: option);
-    v.add(TToggleMenu(
-        value: value,
-        onChanged: (value) async {
-          if (value == null) return;
-          await bind.sessionToggleOption(sessionId: sessionId, value: option);
-          bind.sessionChangePreferCodec(sessionId: sessionId);
-        },
-        child: Text(translate('True color (4:4:4)'))));
-  }
+  // ChainRemote 2026-05-27: 트루컬러 (4:4:4) — 성능 영향, 우리 환경 무용 → 숨김.
 
   if (isDefaultConn && isMobile) {
     v.addAll(toolbarKeyboardToggles(ffi));
@@ -880,42 +842,7 @@ List<TToggleMenu> toolbarKeyboardToggles(FFI ffi) {
         child: Text(translate('Relative mouse mode'))));
   }
 
-  // reverse mouse wheel
-  if (ffiModel.keyboard) {
-    var optionValue =
-        bind.sessionGetReverseMouseWheelSync(sessionId: sessionId) ?? '';
-    if (optionValue == '') {
-      optionValue = bind.mainGetUserDefaultOption(key: kKeyReverseMouseWheel);
-    }
-    onChanged(bool? value) async {
-      if (value == null) return;
-      await bind.sessionSetReverseMouseWheel(
-          sessionId: sessionId, value: value ? 'Y' : 'N');
-    }
-
-    final enabled = !ffi.ffiModel.viewOnly;
-    v.add(TToggleMenu(
-        value: optionValue == 'Y',
-        onChanged: enabled ? onChanged : null,
-        child: Text(translate('Reverse mouse wheel'))));
-  }
-
-  // swap left right mouse
-  if (ffiModel.keyboard) {
-    final option = 'swap-left-right-mouse';
-    final value =
-        bind.sessionGetToggleOptionSync(sessionId: sessionId, arg: option);
-    onChanged(bool? value) {
-      if (value == null) return;
-      bind.sessionToggleOption(sessionId: sessionId, value: option);
-    }
-
-    final enabled = !ffi.ffiModel.viewOnly;
-    v.add(TToggleMenu(
-        value: value,
-        onChanged: enabled ? onChanged : null,
-        child: Text(translate('swap-left-right-mouse'))));
-  }
+  // ChainRemote 2026-05-27: 마우스 휠 반전 / 좌우 버튼 교체 — 특이 케이스, 우리 환경 무용 → 숨김.
   return v;
 }
 
