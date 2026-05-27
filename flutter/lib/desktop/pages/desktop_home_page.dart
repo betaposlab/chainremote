@@ -171,6 +171,15 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               ),
             ),
           ),
+          // ChainRemote 빌드 종류 배지 (2026-05-27 Chang 피드백).
+          // HQ/Agent 한눈 구분 — 같은 PC 에 다른 빌드 설치된 경우 직관 확인용.
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 14),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _buildBuildKindBadge(),
+            ),
+          ),
           if (isPortable)
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),
@@ -408,6 +417,36 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             },
           ),
         ],
+      ),
+    );
+  }
+
+  // 빌드 종류 배지 — 본사용(HQ) / 거래처용(Agent) 한눈 구분 (2026-05-27).
+  // 같은 PC 에 다른 빌드가 잔재로 설치될 수 있어 명시 필요.
+  Widget _buildBuildKindBadge() {
+    final isAgent = bind.isIncomingOnly();
+    final label = isAgent ? '거래처용 (Agent)' : '본사용 (HQ)';
+    final bgColor = isAgent
+        ? const Color(0xFFFFE4E1) // 거래처용 = 옅은 빨강
+        : const Color(0xFFE0F2FE); // 본사용 = 옅은 파랑
+    final fgColor = isAgent
+        ? const Color(0xFFB91C1C) // 거래처용 진한 빨강
+        : const Color(0xFF0369A1); // 본사용 진한 파랑
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: fgColor.withOpacity(0.3), width: 1),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: fgColor,
+          letterSpacing: 0.2,
+        ),
       ),
     );
   }
