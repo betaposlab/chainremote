@@ -287,8 +287,9 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       widget.state.init(widget.ffi.sessionId);
     });
 
+    // ChainRemote 2026-05-27: 자동숨김 5s → 2.5s 단축(Chang 피드백).
     _debouncerHide = Debouncer<int>(
-      Duration(milliseconds: 5000),
+      Duration(milliseconds: 2500),
       onChanged: _debouncerHideProc,
       initialValue: 0,
     );
@@ -327,12 +328,9 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       if (hide.value) {
         return const SizedBox.shrink();
       }
-      return Align(
-        alignment: Alignment.topCenter,
-        child: collapse.isFalse
-            ? _buildToolbar(context)
-            : _buildDraggableCollapse(context),
-      );
+      // ChainRemote 2026-05-27 v4: toolbar 가 DesktopTab.tail (항상 보이는 탭바 라인)에
+      // 박혀있으므로 auto-hide/collapse 무효화 — 항상 표시.
+      return _buildToolbar(context);
     });
   }
 
@@ -370,7 +368,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
 
   Widget _buildToolbar(BuildContext context) {
     final List<Widget> toolbarItems = [];
-    toolbarItems.add(_PinMenu(state: widget.state));
+    // ChainRemote 2026-05-27 v4: 핀 메뉴 제거 — toolbar 가 탭바에 박혀 항상 보임, 핀 무용.
     if (!isWebDesktop) {
       toolbarItems.add(_MobileActionMenu(ffi: widget.ffi));
     }
@@ -406,43 +404,28 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       toolbarItems.add(_KeyboardMenu(id: widget.id, ffi: widget.ffi));
     }
     toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));
-    if (!isWeb) {
-      toolbarItems.add(_VoiceCallMenu(id: widget.id, ffi: widget.ffi));
-    }
-    if (!isWeb) toolbarItems.add(_RecordMenu());
+    // ChainRemote 2026-05-27: 거래처와 음성 통화 + 수동 녹화 toolbar 노출 제거(Chang 결정).
+    // 분쟁 증거가 필요하면 일반 설정 → "내가 거래처 원격할 때 영상 자동 저장" 토글로 대체.
     toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));
-    final toolbarBorderRadius = BorderRadius.all(Radius.circular(4.0));
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Material(
-          elevation: _ToolbarTheme.elevation,
-          shadowColor: MyTheme.color(context).shadow,
-          borderRadius: toolbarBorderRadius,
-          color: Theme.of(context)
-              .menuBarTheme
-              .style
-              ?.backgroundColor
-              ?.resolve(MaterialState.values.toSet()),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Theme(
-              data: themeData(),
-              child: _ToolbarTheme.borderWrapper(
-                  context,
-                  Row(
-                    children: [
-                      SizedBox(width: _ToolbarTheme.buttonHMargin * 2),
-                      ...toolbarItems,
-                      SizedBox(width: _ToolbarTheme.buttonHMargin * 2)
-                    ],
-                  ),
-                  toolbarBorderRadius),
+    // ChainRemote 2026-05-27 v4: 탭바 라인의 tail 슬롯에 박힘 — 배경/보더 없이 자연스럽게.
+    return Theme(
+      data: themeData(),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 4, right: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 1,
+              height: 16,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              color: const Color(0xFFE5E8EB),
             ),
-          ),
+            ...toolbarItems,
+          ],
         ),
-        _buildDraggableCollapse(context),
-      ],
+      ),
     );
   }
 
@@ -508,6 +491,7 @@ class _FileTransferMenu extends StatelessWidget {
     return _IconMenuButton(
       assetName: 'assets/file_transfer.svg',
       tooltip: 'Transfer file',
+      label: '파일전송',
       onPressed: () => connect(context, id, isFileTransfer: true),
       color: _ToolbarTheme.inactiveColor,
       hoverColor: _ToolbarTheme.hoverInactiveColor,
@@ -780,6 +764,7 @@ class _ControlMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return _IconSubmenuButton(
         tooltip: 'Control Actions',
+        label: '빠른 액션',
         svg: "assets/actions.svg",
         color: _ToolbarTheme.blueColor,
         hoverColor: _ToolbarTheme.hoverBlueColor,
@@ -1020,35 +1005,7 @@ class _DisplayMenuState extends State<_DisplayMenu> {
         Divider(),
         toggles(),
       ];
-      // privacy mode
-      if (ffi.connType == ConnType.defaultConn &&
-          ffiModel.keyboard &&
-          pi.features.privacyMode) {
-        final privacyModeState = PrivacyModeState.find(id);
-        final privacyModeList =
-            toolbarPrivacyMode(privacyModeState, context, id, ffi);
-        if (privacyModeList.length == 1) {
-          menuChildren.add(CkbMenuButton(
-              value: privacyModeList[0].value,
-              onChanged: privacyModeList[0].onChanged,
-              child: privacyModeList[0].child,
-              ffi: ffi));
-        } else if (privacyModeList.length > 1) {
-          menuChildren.addAll([
-            Divider(),
-            _SubmenuButton(
-                ffi: widget.ffi,
-                child: Text(translate('Privacy mode')),
-                menuChildren: privacyModeList
-                    .map((e) => CkbMenuButton(
-                        value: e.value,
-                        onChanged: e.onChanged,
-                        child: e.child,
-                        ffi: ffi))
-                    .toList()),
-          ]);
-        }
-      }
+      // ChainRemote 2026-05-27: 개인정보 보호 모드 — RustDesk 유료 클라우드 기능, 우리 무용 → 숨김.
       if (ffi.connType == ConnType.defaultConn) {
         menuChildren.add(widget.pluginItem);
       }
@@ -1057,6 +1014,7 @@ class _DisplayMenuState extends State<_DisplayMenu> {
 
     return _IconSubmenuButton(
       tooltip: 'Display Settings',
+      label: '디스플레이',
       svg: "assets/display.svg",
       ffi: widget.ffi,
       color: _ToolbarTheme.blueColor,
@@ -1806,6 +1764,7 @@ class _KeyboardMenu extends StatelessWidget {
 
     return _IconSubmenuButton(
         tooltip: 'Keyboard Settings',
+        label: '키보드',
         svg: "assets/keyboard_mouse.svg",
         ffi: ffi,
         color: _ToolbarTheme.blueColor,
@@ -2080,6 +2039,7 @@ class _ChatMenuState extends State<_ChatMenu> {
     } else {
       return _IconSubmenuButton(
           tooltip: 'Chat',
+          label: '채팅',
           key: chatButtonKey,
           svg: 'assets/chat.svg',
           ffi: widget.ffi,
@@ -2225,6 +2185,7 @@ class _RecordMenu extends StatelessWidget {
       tooltip: recordingModel.start
           ? 'Stop session recording'
           : 'Start session recording',
+      label: recordingModel.start ? '녹화 중' : '녹화',
       onPressed: () => recordingModel.toggle(),
       color: recordingModel.start
           ? _ToolbarTheme.redColor
@@ -2296,6 +2257,8 @@ class _IconMenuButton extends StatefulWidget {
   final double? vMargin;
   final bool topLevel;
   final double? width;
+  // ChainRemote 2026-05-27: 인라인 toolbar 라벨 (옵션). null 이면 아이콘만.
+  final String? label;
   const _IconMenuButton({
     Key? key,
     this.assetName,
@@ -2308,6 +2271,7 @@ class _IconMenuButton extends StatefulWidget {
     this.vMargin,
     this.topLevel = true,
     this.width,
+    this.label,
   }) : super(key: key);
 
   @override
@@ -2320,16 +2284,43 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
   @override
   Widget build(BuildContext context) {
     assert(widget.assetName != null || widget.icon != null);
-    final icon = widget.icon ??
+    // ChainRemote 2026-05-27: label 있으면 아이콘 + 텍스트 가로배치.
+    final hasLabel = widget.label != null;
+    final iconColor = hasLabel ? const Color(0xFF3182F6) : Colors.white;
+    final iconSize = hasLabel ? 16.0 : _ToolbarTheme.buttonSize;
+    final iconWidget = widget.icon ??
         SvgPicture.asset(
           widget.assetName!,
-          colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
-          width: _ToolbarTheme.buttonSize,
-          height: _ToolbarTheme.buttonSize,
+          colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+          width: iconSize,
+          height: iconSize,
         );
+    final bgColor = hasLabel
+        ? (hover ? const Color(0xFFF1F5FB) : Colors.transparent)
+        : (hover ? widget.hoverColor : widget.color);
+    final innerChild = hasLabel
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                iconWidget,
+                const SizedBox(width: 5),
+                Text(
+                  widget.label!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF191F28),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : iconWidget;
     var button = SizedBox(
-      width: widget.width ?? _ToolbarTheme.buttonSize,
-      height: _ToolbarTheme.buttonSize,
+      width: hasLabel ? null : (widget.width ?? _ToolbarTheme.buttonSize),
+      height: hasLabel ? 34 : _ToolbarTheme.buttonSize,
       child: MenuItemButton(
           style: ButtonStyle(
               backgroundColor: MaterialStatePropertyAll(Colors.transparent),
@@ -2345,11 +2336,11 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
                 type: MaterialType.transparency,
                 child: Ink(
                     decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(_ToolbarTheme.iconRadius),
-                      color: hover ? widget.hoverColor : widget.color,
+                      borderRadius: BorderRadius.circular(
+                          hasLabel ? 8 : _ToolbarTheme.iconRadius),
+                      color: bgColor,
                     ),
-                    child: icon)),
+                    child: innerChild)),
           )),
     ).marginSymmetric(
         horizontal: widget.hMargin ?? _ToolbarTheme.buttonHMargin,
@@ -2376,6 +2367,8 @@ class _IconSubmenuButton extends StatefulWidget {
   final MenuStyle? menuStyle;
   final FFI? ffi;
   final double? width;
+  // ChainRemote 2026-05-27: 인라인 toolbar 라벨 (옵션). null 이면 아이콘만.
+  final String? label;
 
   _IconSubmenuButton({
     Key? key,
@@ -2388,6 +2381,7 @@ class _IconSubmenuButton extends StatefulWidget {
     this.ffi,
     this.menuStyle,
     this.width,
+    this.label,
   }) : super(key: key);
 
   @override
@@ -2405,16 +2399,44 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
   @override
   Widget build(BuildContext context) {
     assert(widget.svg != null || widget.icon != null);
-    final icon = widget.icon ??
+    // ChainRemote 2026-05-27: 인라인 모드 — label 있으면 아이콘 + 텍스트 가로배치.
+    final hasLabel = widget.label != null;
+    final iconColor =
+        hasLabel ? const Color(0xFF3182F6) : Colors.white; // 인라인: 브랜드 컬러 아이콘
+    final iconSize = hasLabel ? 16.0 : _ToolbarTheme.buttonSize;
+    final iconWidget = widget.icon ??
         SvgPicture.asset(
           widget.svg!,
-          colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
-          width: _ToolbarTheme.buttonSize,
-          height: _ToolbarTheme.buttonSize,
+          colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+          width: iconSize,
+          height: iconSize,
         );
+    final bgColor = hasLabel
+        ? (hover ? const Color(0xFFF1F5FB) : Colors.transparent)
+        : (hover ? widget.hoverColor : widget.color);
+    final innerChild = hasLabel
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                iconWidget,
+                const SizedBox(width: 5),
+                Text(
+                  widget.label!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF191F28),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : iconWidget;
     final button = SizedBox(
-        width: widget.width ?? _ToolbarTheme.buttonSize,
-        height: _ToolbarTheme.buttonSize,
+        width: hasLabel ? null : (widget.width ?? _ToolbarTheme.buttonSize),
+        height: hasLabel ? 26 : _ToolbarTheme.buttonSize,
         child: SubmenuButton(
             menuStyle:
                 widget.menuStyle ?? _ToolbarTheme.defaultMenuStyle(context),
@@ -2428,11 +2450,11 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
                     type: MaterialType.transparency,
                     child: Ink(
                         decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(_ToolbarTheme.iconRadius),
-                          color: hover ? widget.hoverColor : widget.color,
+                          borderRadius: BorderRadius.circular(
+                              hasLabel ? 8 : _ToolbarTheme.iconRadius),
+                          color: bgColor,
                         ),
-                        child: icon))),
+                        child: innerChild))),
             menuChildren: widget
                 .menuChildrenGetter(this)
                 .map((e) => _buildPointerTrackWidget(e, widget.ffi))
