@@ -1,1 +1,1 @@
-{"conn-type":"outgoing"}
+{"conn-type":"outgoing","default-settings":{"allow-remote-config-modification":"Y"}}

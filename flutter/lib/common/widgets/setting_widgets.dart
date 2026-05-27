@@ -214,8 +214,15 @@ List<Widget> ServerConfigImportExportWidgets(
 }
 
 List<(String, String)> otherDefaultSettings() {
+  // ChainRemote 2026-05-27 정리 — 거래처 운영에 무용한 7개 항목 제거:
+  //   - View Mode (보기 전용 — 조작 목적인 우리 운영에 무용)
+  //   - Disable clipboard (권한 탭에서 이미 제어, 중복)
+  //   - Privacy mode (RustDesk 유료 클라우드 기능)
+  //   - True color 4:4:4 (성능 영향, 우리 무용)
+  //   - Reverse mouse wheel (특이 케이스)
+  //   - swap-left-right-mouse (특이 케이스)
+  //   - Keep terminal sessions on disconnect (터미널 거의 안 씀)
   List<(String, String)> v = [
-    ('View Mode', kOptionViewOnly),
     if ((isDesktop || isWebDesktop))
       ('show_monitors_tip', kKeyShowMonitorsToolbar),
     if ((isDesktop || isWebDesktop))
@@ -227,12 +234,7 @@ List<(String, String)> otherDefaultSettings() {
     ('Show quality monitor', kOptionShowQualityMonitor),
     ('Mute', kOptionDisableAudio),
     if (isDesktop) ('Enable file copy and paste', kOptionEnableFileCopyPaste),
-    ('Disable clipboard', kOptionDisableClipboard),
     ('Lock after session end', kOptionLockAfterSessionEnd),
-    ('Privacy mode', kOptionPrivacyMode),
-    ('True color (4:4:4)', kOptionI444),
-    ('Reverse mouse wheel', kKeyReverseMouseWheel),
-    ('swap-left-right-mouse', kOptionSwapLeftRightMouse),
     if (isDesktop)
       (
         'Show displays as individual windows',
@@ -243,7 +245,6 @@ List<(String, String)> otherDefaultSettings() {
         'Use all my displays for the remote session',
         kKeyUseAllMyDisplaysForTheRemoteSession
       ),
-    ('Keep terminal sessions on disconnect', kOptionTerminalPersistent),
   ];
 
   return v;

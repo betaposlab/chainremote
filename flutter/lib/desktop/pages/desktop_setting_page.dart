@@ -586,7 +586,7 @@ class _GeneralState extends State<_General> {
     }
 
     final isOptFixed = isOptionFixed(kCommConfKeyTheme);
-    return _Card(title: 'Theme', hint: '본사·거래처 모두 밝은 모드 권장 — 매장 시인성 좋음.', children: [
+    return _Card(title: 'Theme', hint: '밝은 모드 권장 — 매장 환경 시인성이 좋습니다.', children: [
       _Radio<String>(context,
           value: 'light',
           groupValue: current,
@@ -618,7 +618,7 @@ class _GeneralState extends State<_General> {
         return const Offstage();
       }
 
-      return _Card(title: 'Service', hint: '거래처 PC는 항상 실행(연결 수신 상태) 권장. 중지하면 본사가 접속 불가.', children: [
+      return _Card(title: 'Service', hint: '항상 켜둬야 본사에서 접속 가능합니다. 중지하면 원격 지원 불가.', children: [
         _Button(serviceStop.value ? 'Start' : 'Stop', () {
           () async {
             serviceBtnEnabled.value = false;
@@ -659,18 +659,7 @@ class _GeneralState extends State<_General> {
               kOptionAllowAlwaysSoftwareRender,
             ),
           ),
-        if (!isWeb)
-          Tooltip(
-            message: translate('texture_render_tip'),
-            child: _OptionCheckBox(
-              context,
-              "Use texture rendering",
-              kOptionTextureRender,
-              optGetter: bind.mainGetUseTextureRender,
-              optSetter: (k, v) async =>
-                  await bind.mainSetLocalOption(key: k, value: v ? 'Y' : 'N'),
-            ),
-          ),
+        // ChainRemote 2026-05-27: 텍스처 렌더링 제거 — 디버그/실험 옵션, 일반 사용자 무용.
         if (isWindows)
           Tooltip(
             message: translate('d3d_render_tip'),
@@ -701,20 +690,7 @@ class _GeneralState extends State<_General> {
             'Capture screen using DirectX',
             kOptionDirectxCapture,
           ),
-        if (!bind.isIncomingOnly()) ...[
-          _OptionCheckBox(
-            context,
-            'Enable UDP hole punching',
-            kOptionEnableUdpPunch,
-            isServer: false,
-          ),
-          _OptionCheckBox(
-            context,
-            'Enable IPv6 P2P connection',
-            kOptionEnableIpv6Punch,
-            isServer: false,
-          ),
-        ],
+        // ChainRemote 2026-05-27: UDP 홀 펀칭 / IPv6 P2P 제거 — hbbs 경유 환경에서 무용.
       ],
     ];
 
@@ -851,7 +827,7 @@ class _GeneralState extends State<_General> {
       String root_dir = map['root_dir']!;
       bool root_dir_exists = map['root_dir_exists']!;
       bool user_dir_exists = map['user_dir_exists']!;
-      return _Card(title: 'Recording', hint: '분쟁 시 증거가 됩니다. 거래처 운영용으로 자동 녹화(수신) 권장.', children: [
+      return _Card(title: 'Recording', hint: '거래처와 분쟁이 생기면 증거가 됩니다. 자동 저장 권장.', children: [
         if (!bind.isOutgoingOnly())
           _OptionCheckBox(context, 'Automatically record incoming sessions',
               kOptionAllowAutoRecordIncoming),
@@ -976,7 +952,8 @@ class _Safety extends StatefulWidget {
 class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-  bool locked = bind.mainIsInstalled();
+  // ChainRemote 2026-05-27: 잠금 해제 버튼 폐기 — 항상 편집 가능(Chang 피드백).
+  bool locked = false;
   final scrollController = ScrollController();
 
   @override
@@ -986,22 +963,15 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
         controller: scrollController,
         child: Column(
           children: [
-            _lock(locked, 'Unlock Security Settings', () {
-              locked = false;
-              setState(() => {});
-            }),
-            preventMouseKeyBuilder(
-              block: locked,
-              child: Column(children: [
-                permissions(context),
-                _chainremoteAllowIncomingCard(),
-                password(context),
-                _Card(title: '2FA', hint: 'RustDesk 클라우드 계정용. 우리는 안 씁니다 — 끔(OFF) 권장.', children: [tfa()]),
-                if (!isChangeIdDisabled())
-                  _Card(title: 'ID', hint: '⚠️ ID 변경 금지. 머신 UUID 기반으로 자동 발급됨. 변경 시 거래처 재등록 필요.', children: [changeId()]),
-                more(context),
-              ]),
-            ),
+            // ChainRemote 2026-05-27: 보안 잠금 해제 버튼 제거(Chang 피드백).
+            // 본사 직원만 쓰는 HQ + 거래처는 사용자 UI 없는 서비스라 잠금 무의미.
+            // ChainRemote 2026-05-27: 2FA(클라우드 계정용 무용) + ID 변경(거래처 재등록 위험) 카드 제거.
+            Column(children: [
+              permissions(context),
+              _chainremoteAllowIncomingCard(),
+              password(context),
+              more(context),
+            ]),
           ],
         )).marginOnly(bottom: _kListViewBottomMargin);
   }
@@ -1217,7 +1187,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           break;
       }
 
-      return _Card(title: 'Permissions', hint: '본사가 거래처 PC에 접속했을 때 허용할 동작들. 거래처 운영은 모두 켬.', children: [
+      return _Card(title: 'Permissions', hint: '본사가 거래처 PC 에 접속했을 때 무엇을 할 수 있는지. 거래처 운영은 "모든 권한 허용" 권장.', children: [
         ComboBox(
             keys: [
               defaultOptionAccessMode,
@@ -1405,7 +1375,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           final usePassword = model.approveMode != 'click';
 
           final isApproveModeFixed = isOptionFixed(kOptionApproveMode);
-          return _Card(title: 'Password', hint: '거래처 운영 정공 = "영구 비밀번호 사용". 한번 설정하면 본사가 0클릭 무인 접속.', children: [
+          return _Card(title: 'Password', hint: '거래처 접속 비밀번호 방식 — "영구 비밀번호" 권장. 한 번 설정하면 본사가 0클릭으로 접속.', children: [
             ComboBox(
               enabled: !locked && !isApproveModeFixed,
               keys: modeKeys,
@@ -1438,7 +1408,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
 
   Widget more(BuildContext context) {
     bool enabled = !locked;
-    return _Card(title: 'Security', hint: '거래처 운영 권장 = "수신 세션 중 화면 켜짐 유지" 만 ON, 나머지 OFF.', children: [
+    return _Card(title: 'Security', hint: '거래처 운영 권장 = "내가 원격당하는 동안 내 화면 안 꺼짐" 만 ON, 나머지 OFF.', children: [
       shareRdp(context, enabled),
       _OptionCheckBox(context, 'Deny LAN discovery', 'enable-lan-discovery',
           reverse: true, enabled: enabled),
@@ -1448,11 +1418,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
       _OptionCheckBox(context, 'keep-awake-during-incoming-sessions-label',
           kOptionKeepAwakeDuringIncomingSessions,
           reverse: false, enabled: enabled),
-      if (bind.mainIsInstalled())
-        _OptionCheckBox(context, 'allow-only-conn-window-open-tip',
-            'allow-only-conn-window-open',
-            reverse: false, enabled: enabled),
-      if (bind.mainIsInstalled() && !isUnlockPinDisabled()) unlockPin()
+      // ChainRemote 2026-05-27: "창 열려있을 때만 연결 허용" + PIN 잠금 해제 제거 — 거래처는 트레이만, 본사는 무의미.
     ]);
   }
 
@@ -1746,24 +1712,19 @@ class _Network extends StatefulWidget {
 class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-  bool locked = !isWeb && bind.mainIsInstalled();
+  // ChainRemote 2026-05-27: 잠금 해제 버튼 폐기 — 항상 편집 가능.
+  bool locked = false;
 
   final scrollController = ScrollController();
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    // ChainRemote 2026-05-27: 네트워크 잠금 해제 버튼 제거(Chang 피드백).
     return ListView(controller: scrollController, children: [
-      _lock(locked, 'Unlock Network Settings', () {
-        locked = false;
-        setState(() => {});
-      }),
-      preventMouseKeyBuilder(
-        block: locked,
-        child: Column(children: [
-          network(context),
-        ]),
-      ),
+      Column(children: [
+        network(context),
+      ]),
     ]).marginOnly(bottom: _kListViewBottomMargin);
   }
 
@@ -1858,7 +1819,7 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
     final divider = const Divider(height: 1, indent: 16, endIndent: 16);
     return _Card(
       title: 'Network',
-      hint: '⚠️ ID/릴레이 서버는 인스톨러가 자동 설정 (sepani.synology.me). 절대 손대지 마세요. 나머지(프록시·웹소켓·TLS·UDP)는 거래처 운영에서 거의 안 씁니다.',
+      hint: '⚠️ 본사 서버는 설치할 때 자동으로 박혀있습니다. 절대 손대지 마세요. 프록시·웹소켓 등은 특수 망 환경에서만 사용.',
       children: [
         Container(
           child: Column(
@@ -1966,7 +1927,7 @@ class _DisplayState extends State<_Display> {
     }
 
     final groupValue = bind.mainGetUserDefaultOption(key: kOptionViewStyle);
-    return _Card(title: 'Default View Style', hint: '거래처 운영 권장: "크기 조정 가능". 4K 거래처 PC도 본사 창 크기에 맞춤.', children: [
+    return _Card(title: 'Default View Style', hint: '권장: "본사 창 크기에 맞춤". 4K 거래처 PC 도 내 창 크기로 맞춤.', children: [
       _Radio(context,
           value: kRemoteViewStyleOriginal,
           groupValue: groupValue,
@@ -2036,7 +1997,7 @@ class _DisplayState extends State<_Display> {
 
     final isOptFixed = isOptionFixed(kOptionImageQuality);
     final groupValue = bind.mainGetUserDefaultOption(key: kOptionImageQuality);
-    return _Card(title: 'Default Image Quality', hint: '거래처 운영 권장: "반응 시간 최적화". 살짝 흐려도 끊김 없이 빠르게.', children: [
+    return _Card(title: 'Default Image Quality', hint: '권장: "빠른 반응". 살짝 흐려도 끊김 없이 빠르게 — 매장 환경에서 답답함 적음.', children: [
       _Radio(context,
           value: kRemoteImageQualityBest,
           groupValue: groupValue,
@@ -2116,7 +2077,7 @@ class _DisplayState extends State<_Display> {
     } catch (e) {
       debugPrint("failed to parse supported hwdecodings, err=$e");
     }
-    return _Card(title: 'Default Codec', hint: 'Auto 권장. 본사·거래처 환경 따라 자동으로 최선 선택.', children: [
+    return _Card(title: 'Default Codec', hint: '자동 권장. 본사·거래처 환경에 따라 알아서 최선 선택.', children: [
       _Radio(context,
           value: 'auto',
           groupValue: groupValue,
@@ -2582,34 +2543,62 @@ class _AboutState extends State<_About> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 8.0),
-              // ChainRemote 브랜드 헤더
+              // ChainRemote 브랜드 헤더 — 심볼 + 워드마크 + 부제 (2026-05-27 Chang 피드백).
               Container(
                 padding: const EdgeInsets.symmetric(
-                    vertical: 16, horizontal: 12),
+                    vertical: 20, horizontal: 20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [Color(0xFF1E5BFF), Color(0xFF00B894)],
                   ),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: const SelectionArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                child: SelectionArea(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        'ChainRemote',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800),
+                      // 심볼만 (체인 아이콘) — 흰 배경 원 안에.
+                      Container(
+                        width: 56,
+                        height: 56,
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Image.asset(
+                          'assets/chainremote_mark.png',
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) =>
+                              const SizedBox(width: 44, height: 44),
+                        ),
                       ),
-                      SizedBox(height: 4),
-                      Text(
-                        '체인리모트 — 베타포스랩 자체 원격지원 솔루션',
-                        style: TextStyle(
-                            color: Colors.white, fontSize: 13),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Text(
+                              'ChainRemote',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.3),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              '체인리모트 — 베타포스랩 자체 원격지원 솔루션',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  height: 1.3),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -2816,6 +2805,17 @@ Widget _Card(
 }
 
 // ignore: non_constant_identifier_names
+// ChainRemote 2026-05-27: 컨트롤 위젯 톤 개편 — Claude Design 시안 적용.
+//   - _OptionCheckBox: 체크박스 → 토글 스위치 (label 좌측, switch 우측)
+//   - _Radio:        라디오 → 알약 칩 (활성 = brand 채움, 비활성 = 보더만)
+// 함수 시그니처 동일 — 호출부 30+ 곳 무수정. 시각만 교체.
+
+const _kChainBrand = Color(0xFF3182F6);
+const _kChainTextPrimary = Color(0xFF191F28);
+const _kChainTextSecondary = Color(0xFF6B7684);
+const _kChainBorder = Color(0xFFE5E8EB);
+const _kChainTrackOff = Color(0xFFD1D6DB);
+
 Widget _OptionCheckBox(
   BuildContext context,
   String label,
@@ -2859,32 +2859,100 @@ Widget _OptionCheckBox(
     enabled = false;
   }
 
-  return GestureDetector(
-    child: Obx(
-      () => Row(
-        children: [
-          Checkbox(
-                  value: ref.value,
-                  onChanged: enabled && !isOptFixed ? onChanged : null)
-              .marginOnly(right: 5),
-          Offstage(
-            offstage: !ref.value || checkedIcon == null,
-            child: checkedIcon?.marginOnly(right: 5),
-          ),
-          Expanded(
+  final canToggle = enabled && !isOptFixed;
+  return Obx(() {
+    final on = ref.value;
+    final textColor = canToggle
+        ? _kChainTextPrimary
+        : _kChainTextPrimary.withOpacity(0.4);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: canToggle ? () => onChanged(!on) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8)
+            .add(EdgeInsets.only(left: _kCheckBoxLeftMargin - 8)),
+        child: Row(
+          children: [
+            Expanded(
               child: Text(
-            translate(label),
-            style: TextStyle(color: disabledTextColor(context, enabled)),
-          ))
-        ],
+                translate(label),
+                style: TextStyle(
+                  fontSize: _kContentFontSize,
+                  color: textColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _ChainSwitch(
+              value: on,
+              enabled: canToggle,
+              onChanged: canToggle ? () => onChanged(!on) : null,
+            ),
+            if (checkedIcon != null && on)
+              checkedIcon.marginOnly(left: 6),
+          ],
+        ),
       ),
-    ).marginOnly(left: _kCheckBoxLeftMargin),
-    onTap: enabled && !isOptFixed
-        ? () {
-            onChanged(!ref.value);
-          }
-        : null,
-  );
+    );
+  });
+}
+
+/// Claude Design 시안 기반 토글 스위치 — 토스 블루 #3182F6, pill 모양.
+class _ChainSwitch extends StatelessWidget {
+  final bool value;
+  final bool enabled;
+  final VoidCallback? onChanged;
+  const _ChainSwitch({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const w = 40.0;
+    const h = 24.0;
+    final trackColor = value
+        ? (enabled ? _kChainBrand : _kChainBrand.withOpacity(0.4))
+        : (enabled ? _kChainTrackOff : _kChainTrackOff.withOpacity(0.5));
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: onChanged,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          width: w,
+          height: h,
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: trackColor,
+            borderRadius: BorderRadius.circular(h),
+          ),
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOut,
+            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              width: h - 4,
+              height: h - 4,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x33000000),
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ignore: non_constant_identifier_names
@@ -2894,28 +2962,57 @@ Widget _Radio<T>(BuildContext context,
     required String label,
     required Function(T value)? onChanged,
     bool autoNewLine = true}) {
-  final onChange2 = onChanged != null
-      ? (T? value) {
-          if (value != null) {
-            onChanged(value);
-          }
-        }
-      : null;
-  return GestureDetector(
-    child: Row(
-      children: [
-        Radio<T>(value: value, groupValue: groupValue, onChanged: onChange2),
-        Expanded(
-          child: Text(translate(label),
-                  overflow: autoNewLine ? null : TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: _kContentFontSize,
-                      color: disabledTextColor(context, onChange2 != null)))
-              .marginOnly(left: 5),
+  // ChainRemote 2026-05-27: 라디오 → 알약 칩(세그먼티드 컨트롤 룩).
+  final selected = value == groupValue;
+  final canTap = onChanged != null;
+  final bgColor = selected
+      ? (canTap ? _kChainBrand : _kChainBrand.withOpacity(0.4))
+      : Colors.white;
+  final fgColor = selected
+      ? Colors.white
+      : (canTap ? _kChainTextPrimary : _kChainTextPrimary.withOpacity(0.4));
+  return Padding(
+    padding: const EdgeInsets.only(left: _kRadioLeftMargin, right: 8, bottom: 6),
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: MouseRegion(
+        cursor: canTap ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: GestureDetector(
+          onTap: canTap ? () => onChanged(value) : null,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected ? _kChainBrand : _kChainBorder,
+                width: 1,
+              ),
+              boxShadow: selected
+                  ? [
+                      const BoxShadow(
+                        color: Color(0x1F3182F6),
+                        blurRadius: 3,
+                        spreadRadius: 0,
+                      )
+                    ]
+                  : null,
+            ),
+            child: Text(
+              translate(label),
+              overflow: autoNewLine ? null : TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: _kContentFontSize,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: fgColor,
+              ),
+            ),
+          ),
         ),
-      ],
-    ).marginOnly(left: _kRadioLeftMargin),
-    onTap: () => onChange2?.call(value),
+      ),
+    ),
   );
 }
 
