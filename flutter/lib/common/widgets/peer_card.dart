@@ -294,8 +294,15 @@ class _PeerCardState extends State<_PeerCard>
       BuildContext context, Peer peer, Rx<BoxDecoration?> deco) {
     hideUsernameOnCard ??=
         bind.mainGetBuildinOption(key: kHideUsernameOnCard) == 'Y';
-    // ChainRemote: 그리드 카드도 부제 = 9자리 ID. 별칭 없으면 부제 비움.
-    final name = peer.alias.isEmpty ? '' : formatID(peer.id);
+    // ChainRemote 그리드 카드 (2026-05-27 톤 개편 — Claude Design 시안2 반영).
+    //   ┌────────────────────────┐
+    //   │ [아바타] 거래처 이름   │
+    //   │         323 533 778    │
+    //   │                        │
+    //   │ ● 온라인         [v]   │  ← 하단 상태바
+    //   └────────────────────────┘
+    final displayName = peer.alias.isEmpty ? formatID(peer.id) : peer.alias;
+    final subtitle = peer.alias.isEmpty ? '' : formatID(peer.id);
     final child = Card(
       color: Colors.transparent,
       elevation: 0,
@@ -306,93 +313,89 @@ class _PeerCardState extends State<_PeerCard>
       child: Obx(
         () => Container(
           foregroundDecoration: deco.value,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius:
+                BorderRadius.circular(_cardRadius - _borderWidth),
+            border: Border.all(
+                color: const Color(0xFFE5E7EB), width: 1),
+          ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(_cardRadius - _borderWidth),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Container(
-                    // ChainRemote: 그리드 카드 상단 컬러풀 배경 제거 — 흰 배경에 원형 아바타만(2026-05-27).
-                    color: Colors.white,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                child: getChainRemoteAvatar(
-                                    peer.alias.isEmpty
-                                        ? peer.id
-                                        : peer.alias,
-                                    size: 60),
-                              ),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Tooltip(
-                                      message: name,
-                                      waitDuration: const Duration(seconds: 1),
-                                      child: Text(
-                                        name,
-                                        style: const TextStyle(
-                                            color: Colors.black87,
-                                            fontSize: 12),
-                                        textAlign: TextAlign.center,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (_showNote(peer))
-                                Row(
-                                  children: [
-                                    Expanded(
-                                        child: Tooltip(
-                                      message: peer.note,
-                                      waitDuration: const Duration(seconds: 1),
-                                      child: Text(
-                                        peer.note,
-                                        style: const TextStyle(
-                                            color: Colors.white38,
-                                            fontSize: 10),
-                                        textAlign: TextAlign.center,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ))
-                                  ],
-                                ),
-                            ],
-                          ).paddingOnly(top: 4.0, left: 4.0, right: 4.0),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Container(
-                  color: Theme.of(context).colorScheme.background,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            borderRadius:
+                BorderRadius.circular(_cardRadius - _borderWidth),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 12, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 상단: 아바타 + 이름/ID
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      getChainRemoteAvatar(displayName, size: 44),
+                      const SizedBox(width: 10),
                       Expanded(
-                          child: Row(children: [
-                        getOnline(8, peer.online),
-                        Expanded(
-                            child: Text(
-                          peer.alias.isEmpty ? formatID(peer.id) : peer.alias,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Tooltip(
+                              message: displayName,
+                              waitDuration: const Duration(seconds: 1),
+                              child: Text(
+                                displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                            ),
+                            if (subtitle.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF6B7280),
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  // 하단: 온라인 dot + (note 또는 alias subtitle) + 더보기
+                  Row(
+                    children: [
+                      getOnline(8, peer.online),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          peer.online ? '온라인' : '오프라인',
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        )),
-                      ]).paddingSymmetric(vertical: 8)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: peer.online
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFF9CA3AF),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                       checkBoxOrActionMoreLandscape(peer, isTile: false),
                     ],
-                  ).paddingSymmetric(horizontal: 12.0),
-                )
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
