@@ -125,19 +125,24 @@ export const customers = pgTable(
 
 // 직원별 즐겨찾기 — 본사 앱의 "즐겨찾기" 탭은 로그인한 직원 본인의 것만,
 // 관리 패널에서는 모든 직원의 즐겨찾기를 모두 조회 가능.
-// 마이그레이션: db/migrations/005_user_favorites.sql
+// 마이그레이션: 005_user_favorites.sql (최초), 008_user_favorites_orphan.sql (remote_id 기반 개편).
+//
+// 2026-05-27 개편: customers 에 없는 머신(HQ workstation, 옵션 B+ 본사 PC)도 즐겨찾기 가능하도록
+// remote_id 를 primary 식별자로 사용. customer_id 는 customers 에 있는 경우에만 채움.
 export const userFavorites = pgTable(
   "user_favorites",
   {
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    customerId: uuid("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+    remoteId: text("remote_id").notNull(),
+    customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
     tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    pk: primaryKey({ columns: [t.userId, t.customerId] }),
+    pk: primaryKey({ columns: [t.userId, t.remoteId] }),
     userIdx: index("idx_user_favorites_user").on(t.userId),
     customerIdx: index("idx_user_favorites_customer").on(t.customerId),
+    remoteIdx: index("idx_user_favorites_remote_id").on(t.remoteId),
     tenantIdx: index("idx_user_favorites_tenant").on(t.tenantId),
   }),
 );

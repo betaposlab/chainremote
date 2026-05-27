@@ -33,7 +33,10 @@ struct CustomerRow {
 
 #[derive(Debug, Deserialize)]
 struct FavoriteRow {
-    customer: CustomerRow,
+    // 2026-05-27 개편: remote_id 가 primary, customer 는 orphan(customers 미등록 머신)일 때 None.
+    #[serde(rename = "remoteId")]
+    remote_id: String,
+    customer: Option<CustomerRow>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -112,6 +115,29 @@ fn customer_to_peer_json(c: &CustomerRow) -> Option<serde_json::Value> {
         "note": c.notes.clone().unwrap_or_default(),
         "same_server": serde_json::Value::Null,
     }))
+}
+
+/// customers 에 등록 안 된 머신(orphan) peer placeholder — remote_id 만 있고 별칭/메모는 빈 값.
+/// 2026-05-27: HQ workstation 등 옵션 B+ 본사 PC 즐겨찾기 지원용.
+fn orphan_peer_json(remote_id: &str) -> serde_json::Value {
+    let empty_tags: Vec<String> = Vec::new();
+    serde_json::json!({
+        "id": remote_id,
+        "hash": "",
+        "password": "",
+        "username": "",
+        "hostname": "",
+        "platform": "Windows",
+        "alias": "",
+        "tags": empty_tags,
+        "forceAlwaysRelay": "false",
+        "rdpPort": "",
+        "rdpUsername": "",
+        "loginName": "",
+        "device_group_name": "",
+        "note": "",
+        "same_server": serde_json::Value::Null,
+    })
 }
 
 fn push_event(name: &str, peers_json: String) {
@@ -198,23 +224,31 @@ fn fetch_favorites_blocking() -> bool {
     match authed_get(url) {
         Ok(inner) => match serde_json::from_str::<FavoritesResponse>(&inner) {
             Ok(resp) => {
-                // 캐시 갱신
+                // 캐시 갱신 — remote_id 가 primary (orphan 도 포함).
                 let mut fav_remote_ids = std::collections::HashSet::new();
-                let customers: Vec<&CustomerRow> =
-                    resp.favorites.iter().map(|f| &f.customer).collect();
-                for c in &customers {
-                    if let Some(rid) = c.remote_id.as_ref() {
-                        if !rid.is_empty() {
-                            fav_remote_ids.insert(rid.clone());
-                        }
+                for f in &resp.favorites {
+                    if !f.remote_id.is_empty() {
+                        fav_remote_ids.insert(f.remote_id.clone());
                     }
                 }
                 *MY_FAV_REMOTE_IDS.lock().unwrap() = Some(fav_remote_ids);
-                update_remote_to_uuid(&customers);
 
-                let peers: Vec<_> = customers
+                // customers 매핑 가능한 항목만 update_remote_to_uuid 에 사용.
+                let mapped_customers: Vec<&CustomerRow> = resp
+                    .favorites
                     .iter()
-                    .filter_map(|c| customer_to_peer_json(c))
+                    .filter_map(|f| f.customer.as_ref())
+                    .collect();
+                update_remote_to_uuid(&mapped_customers);
+
+                // peer 리스트 — customer 정보 있는 건 그대로, orphan 은 remote_id 만으로 placeholder.
+                let peers: Vec<_> = resp
+                    .favorites
+                    .iter()
+                    .filter_map(|f| match &f.customer {
+                        Some(c) => customer_to_peer_json(c),
+                        None => Some(orphan_peer_json(&f.remote_id)),
+                    })
                     .collect();
                 let json = serde_json::ser::to_string(&peers).unwrap_or_default();
                 push_event("load_fav_peers", json);
@@ -234,25 +268,11 @@ fn fetch_favorites_blocking() -> bool {
     }
 }
 
-/// 즐겨찾기 추가 (POST). remote_id → uuid 변환 후 호출.
-/// 캐시에 없으면 먼저 customers 한 번 fetch (자동 신선화).
+/// 즐겨찾기 추가 (POST). 2026-05-27 개편: remote_id 만 보내고 서버가 customer_id 매칭.
+/// customers 에 없는 머신(HQ workstation, 옵션 B+ 본사 PC)도 orphan 으로 즐겨찾기 가능.
 fn add_favorite_blocking(remote_id: String) -> bool {
-    let uuid = match remote_to_uuid(&remote_id) {
-        Some(u) => u,
-        None => {
-            // 캐시 미스 — customers 한 번 가져와서 다시 시도.
-            fetch_customers_blocking();
-            match remote_to_uuid(&remote_id) {
-                Some(u) => u,
-                None => {
-                    log::warn!("ChainRemote add_favorite: remote_id 매핑 없음 {}", remote_id);
-                    return false;
-                }
-            }
-        }
-    };
     let url = format!("{}/api/me/favorites", chainremote_auth::api_base());
-    let body = serde_json::json!({ "customerId": uuid }).to_string();
+    let body = serde_json::json!({ "remoteId": remote_id }).to_string();
     match authed_post(url, body) {
         Ok(_) => {
             // 캐시 즉시 업데이트 → UI 가 다음 read 에서 정확.
@@ -265,7 +285,6 @@ fn add_favorite_blocking(remote_id: String) -> bool {
                 }
             }
             // 서버 반영 후 즐겨찾기 탭 재푸시 → 앱 홈(즐겨찾기) 즉시 갱신.
-            // 같은 스레드라 POST 완료 후 실행 = 레이스 없음.
             fetch_favorites_blocking();
             true
         }
@@ -278,17 +297,11 @@ fn add_favorite_blocking(remote_id: String) -> bool {
 
 /// 즐겨찾기 제거 (DELETE).
 fn remove_favorite_blocking(remote_id: String) -> bool {
-    let uuid = match remote_to_uuid(&remote_id) {
-        Some(u) => u,
-        None => {
-            log::warn!("ChainRemote remove_favorite: remote_id 매핑 없음 {}", remote_id);
-            return false;
-        }
-    };
+    // 2026-05-27 개편: remote_id 직접 사용. customer_id 매핑 불필요.
     let url = format!(
         "{}/api/me/favorites/{}",
         chainremote_auth::api_base(),
-        uuid
+        remote_id
     );
     match authed_delete(url) {
         Ok(_) => {
@@ -335,6 +348,15 @@ pub fn spawn_add_favorite(remote_id: String) {
     std::thread::spawn(move || {
         add_favorite_blocking(remote_id);
     });
+}
+
+/// FFI sync 진입점 — 결과를 토스트로 정확히 표시 위해 UI thread 가 결과 기다림.
+pub fn add_favorite_blocking_pub(remote_id: String) -> bool {
+    add_favorite_blocking(remote_id)
+}
+
+pub fn remove_favorite_blocking_pub(remote_id: String) -> bool {
+    remove_favorite_blocking(remote_id)
 }
 
 pub fn spawn_remove_favorite(remote_id: String) {

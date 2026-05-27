@@ -2799,16 +2799,15 @@ pub fn chainremote_load_favorites() {
     crate::chainremote_data::spawn_load_favorites();
 }
 
-/// 즐겨찾기 토글 — peer_card 의 별표 클릭 핸들러에서 호출.
-/// remote_id 는 RustDesk peer.id (9자리). 내부에서 UUID 매핑 후 POST.
+/// 즐겨찾기 토글 — peer_card 의 별표/메뉴 클릭 핸들러에서 호출.
+/// remote_id 는 RustDesk peer.id (9자리). 2026-05-27 개편: 서버가 remote_id 기준 처리.
+/// 동기 blocking — UI thread 가 결과 기다림 (~300ms). 토스트 메시지 정확성 위해 필요.
 pub fn chainremote_add_favorite(remote_id: String) -> SyncReturn<bool> {
-    crate::chainremote_data::spawn_add_favorite(remote_id);
-    SyncReturn(true)
+    SyncReturn(crate::chainremote_data::add_favorite_blocking_pub(remote_id))
 }
 
 pub fn chainremote_remove_favorite(remote_id: String) -> SyncReturn<bool> {
-    crate::chainremote_data::spawn_remove_favorite(remote_id);
-    SyncReturn(true)
+    SyncReturn(crate::chainremote_data::remove_favorite_blocking_pub(remote_id))
 }
 
 /// UI 동기 호출 — "이 거래처가 내 즐겨찾기인가" 빠른 체크.
