@@ -308,9 +308,13 @@ void runConnectionManagerScreen() async {
 bool _isCmReadyToShow = false;
 
 showCmWindow({bool isStartup = false}) async {
+  // ChainRemote: Agent 빌드는 "원격지원 중" 작은 배너 크기로.
+  final cmSize = bind.isIncomingOnly()
+      ? kAgentSupportBannerSize
+      : kConnectionManagerWindowSizeClosedChat;
   if (isStartup) {
-    WindowOptions windowOptions = getHiddenTitleBarWindowOptions(
-        size: kConnectionManagerWindowSizeClosedChat, alwaysOnTop: true);
+    WindowOptions windowOptions =
+        getHiddenTitleBarWindowOptions(size: cmSize, alwaysOnTop: true);
     await windowManager.waitUntilReadyToShow(windowOptions, null);
     bind.mainHideDock();
     await Future.wait([
@@ -319,25 +323,26 @@ showCmWindow({bool isStartup = false}) async {
       windowManager.setOpacity(1)
     ]);
     // ensure initial window size to be changed
-    await windowManager.setSizeAlignment(
-        kConnectionManagerWindowSizeClosedChat, Alignment.topRight);
+    await windowManager.setSizeAlignment(cmSize, Alignment.topRight);
     _isCmReadyToShow = true;
   } else if (_isCmReadyToShow) {
     if (await windowManager.getOpacity() != 1) {
       await windowManager.setOpacity(1);
       await windowManager.focus();
       await windowManager.minimize(); //needed
-      await windowManager.setSizeAlignment(
-          kConnectionManagerWindowSizeClosedChat, Alignment.topRight);
+      await windowManager.setSizeAlignment(cmSize, Alignment.topRight);
       windowOnTop(null);
     }
   }
 }
 
 hideCmWindow({bool isStartup = false}) async {
+  // ChainRemote: Agent 빌드는 배너 사이즈로 hidden 시작.
+  final cmSize = bind.isIncomingOnly()
+      ? kAgentSupportBannerSize
+      : kConnectionManagerWindowSizeClosedChat;
   if (isStartup) {
-    WindowOptions windowOptions = getHiddenTitleBarWindowOptions(
-        size: kConnectionManagerWindowSizeClosedChat);
+    WindowOptions windowOptions = getHiddenTitleBarWindowOptions(size: cmSize);
     windowManager.setOpacity(0);
     await windowManager.waitUntilReadyToShow(windowOptions, null);
     bind.mainHideDock();

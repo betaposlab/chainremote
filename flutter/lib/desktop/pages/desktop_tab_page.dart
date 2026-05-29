@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common.dart' hide Dialog;
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
@@ -22,6 +22,12 @@ class DesktopTabPage extends StatefulWidget {
   static void onAddSetting(
       {SettingsTabKey initialPage = SettingsTabKey.general}) {
     try {
+      // ChainRemote: Agent(incoming-only) 빌드는 상단 탭이 1개만 유지되도록
+      // 설정을 새 탭이 아닌 모달 다이얼로그로 띄운다. 헤더 일관성.
+      if (bind.isIncomingOnly()) {
+        _showAgentSettingsDialog(initialPage);
+        return;
+      }
       DesktopTabController tabController = Get.find<DesktopTabController>();
       tabController.add(TabInfo(
           key: kTabLabelSettingPage,
@@ -35,6 +41,47 @@ class DesktopTabPage extends StatefulWidget {
     } catch (e) {
       debugPrintStack(label: '$e');
     }
+  }
+
+  static void _showAgentSettingsDialog(SettingsTabKey initialPage) {
+    final ctx = Get.context ?? Get.overlayContext;
+    if (ctx == null) return;
+    showDialog(
+      context: ctx,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10)),
+          child: SizedBox(
+            width: 820,
+            height: 560,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: DesktopSettingPage(
+                    key: const ValueKey('chainremote-agent-modal-settings'),
+                    initialTabkey: initialPage,
+                  ),
+                ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(dialogCtx).pop(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -104,7 +151,10 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
             body: DesktopTab(
               controller: tabController,
               tail: Offstage(
-                offstage: bind.isIncomingOnly() || bind.isDisableSettings(),
+                // ChainRemote: 상단 탭바 톱니 영구 숨김.
+                // HQ=사이드바, Agent=incoming-only 라 어차피 숨김 →
+                // 설정은 새 탭이 아닌 임베드/팝업으로만 진입. 헤더 일관성.
+                offstage: true,
                 child: ActionIcon(
                   message: 'Settings',
                   icon: IconFont.menu,

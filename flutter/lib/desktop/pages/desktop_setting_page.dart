@@ -98,7 +98,8 @@ class DesktopSettingPage extends StatefulWidget {
         return;
       }
       if (Get.isRegistered<PageController>(tag: _kSettingPageControllerTag)) {
-        DesktopTabPage.onAddSetting(initialPage: page);
+        // ChainRemote: 임베드 모드(또는 기존 설정 탭) 이미 마운트됨.
+        // onAddSetting 새 탭 생성 호출 제거 — 헤더 일관성 위해 jump 만.
         PageController controller =
             Get.find<PageController>(tag: _kSettingPageControllerTag);
         Rx<SettingsTabKey> selected =
