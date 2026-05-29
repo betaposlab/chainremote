@@ -271,7 +271,12 @@ pub struct Connection {
     lr: LoginRequest,
     peer_argb: u32,
     session_last_recv_time: Option<Arc<Mutex<Instant>>>,
+    // ChainRemote: 세션 종료 시 항상 CM 창을 닫도록 바꾸면서(on_close) 이 두 플래그의
+    // 유일한 reader(Disconnected-vs-Close 판단)가 사라졌다. 기록(write)은 upstream
+    // 동작 보존을 위해 그대로 두되, never-read dead_code 경고만 억제한다.
+    #[allow(dead_code)]
     chat_unanswered: bool,
+    #[allow(dead_code)]
     file_transferred: bool,
     #[cfg(windows)]
     portable: PortableState,
@@ -4281,13 +4286,12 @@ impl Connection {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             lock_screen().await;
         }
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
-        let data = if self.chat_unanswered || self.file_transferred && cfg!(feature = "flutter") {
-            ipc::Data::Disconnected
-        } else {
-            ipc::Data::Close
-        };
-        #[cfg(any(target_os = "android", target_os = "ios"))]
+        // ChainRemote 변경: 세션 종료 시 항상 CM 창을 닫는다(피지원자 화면 잔존 방지).
+        // upstream 은 파일전송 이력/미답 채팅이 있으면 Disconnected 를 보내 CM 창을 남겨
+        // 내역을 확인시키지만(파워유저/유인 지원 가정), 무인 거래처 PC 엔 클러터이고
+        // Agent(incoming-only) 빌드는 disconnected 클라이언트가 제거되지 않아 "원격지원 중"
+        // 배너가 세션 종료 후에도 잔존하는 문제가 있다. 그래서 모든 플랫폼에서 Close 로 통일.
+        // (android/ios 는 upstream 도 원래 Close)
         let data = ipc::Data::Close;
         self.tx_to_cm.send(data).ok();
         self.port_forward_socket.take();
