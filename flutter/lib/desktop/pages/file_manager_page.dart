@@ -212,16 +212,37 @@ class _FileManagerPageState extends State<FileManagerPage>
   }
 
   Widget dropArea(FileManagerView fileView) {
+    final bool isLocalPane = fileView.controller.isLocal;
     return DropTarget(
-        onDragDone: (detail) =>
-            handleDragDone(detail, fileView.controller.isLocal),
+        onDragDone: (detail) => handleDragDone(detail, isLocalPane),
         onDragEntered: (enter) {
           _dropMaskVisible.value = true;
         },
         onDragExited: (exit) {
           _dropMaskVisible.value = false;
         },
-        child: fileView);
+        // ChainRemote (방식1, 2026-05-29): 앱 내부 드래그앤드롭.
+        // 반대편 패널에서 끌어온 파일을 받아 기존 sendFiles 로 전송.
+        // desktop_drop(OS 파일 드롭)과 중첩 — 둘은 서로 다른 이벤트.
+        child: DragTarget<SelectedItems>(
+          onWillAcceptWithDetails: (details) =>
+              details.data.isLocal != isLocalPane &&
+              SelectedItems.valid(details.data.items),
+          onAcceptWithDetails: (details) =>
+              _handleInAppDrop(details.data, isLocalPane),
+          builder: (context, candidateData, rejectedData) {
+            final highlight = candidateData.isNotEmpty;
+            return Container(
+              decoration: highlight
+                  ? BoxDecoration(
+                      border: Border.all(color: MyTheme.button, width: 2.0),
+                      borderRadius: BorderRadius.circular(8.0),
+                    )
+                  : null,
+              child: fileView,
+            );
+          },
+        ));
   }
 
   Widget generateCard(Widget child) {
@@ -410,6 +431,25 @@ class _FileManagerPageState extends State<FileManagerPage>
     }
     final otherSideData = model.localController.directoryData();
     model.remoteController.sendFiles(items, otherSideData);
+  }
+
+  // ChainRemote (방식1, 2026-05-29): 파일전송 창 내부 드래그앤드롭.
+  // 한 패널에서 끌어온 선택 파일을 반대편 패널로 전송. 보내기/받기 버튼과
+  // 완전히 동일한 sendFiles 규약 (보내는 controller.isLocal == items.isLocal).
+  void _handleInAppDrop(SelectedItems dropped, bool targetIsLocal) {
+    if (dropped.isLocal == targetIsLocal) return; // 같은 패널 → 무시
+    if (!SelectedItems.valid(dropped.items)) return;
+    if (dropped.isLocal) {
+      // 로컬 → 원격
+      model.localController
+          .sendFiles(dropped, model.remoteController.directoryData());
+      model.localController.selectedItems.clear();
+    } else {
+      // 원격 → 로컬
+      model.remoteController
+          .sendFiles(dropped, model.localController.directoryData());
+      model.remoteController.selectedItems.clear();
+    }
   }
 }
 
@@ -1179,7 +1219,13 @@ class _FileManagerViewState extends State<FileManagerView> {
 
           return Padding(
             padding: EdgeInsets.symmetric(vertical: 1),
-            child: Obx(() => Container(
+            // ChainRemote (방식1): 파일 row 를 끌 수 있게 — 반대편 패널로 드롭 시 전송.
+            child: Draggable<SelectedItems>(
+              data: _buildDragPayload(entry, selectedItems, isLocal),
+              dragAnchorStrategy: pointerDragAnchorStrategy,
+              maxSimultaneousDrags: entry.isDrive ? 0 : null,
+              feedback: _buildDragFeedback(context, entry, selectedItems),
+              child: Obx(() => Container(
                 decoration: BoxDecoration(
                   color: selectedItems.items.contains(entry)
                       ? MyTheme.button
@@ -1306,7 +1352,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                       ),
                     ),
                   ],
-                ))),
+                )))),
           );
         }).toList(growable: false);
 
@@ -1410,6 +1456,53 @@ class _FileManagerViewState extends State<FileManagerView> {
       _lastClickEntry = entry;
     }
     return false;
+  }
+
+  // ChainRemote (방식1, 2026-05-29): 드래그 시작 payload.
+  // entry 가 현재 선택에 포함돼 있으면 선택 전체, 아니면 그 entry 하나.
+  // 원본 selectedItems 를 건드리지 않도록 새 객체로 복제.
+  SelectedItems _buildDragPayload(
+      Entry entry, SelectedItems current, bool isLocal) {
+    final payload = SelectedItems(isLocal: isLocal);
+    if (current.items.contains(entry)) {
+      for (final e in current.items) {
+        payload.add(e);
+      }
+    } else {
+      payload.add(entry);
+    }
+    return payload;
+  }
+
+  // 드래그 중 마우스를 따라다니는 미리보기.
+  Widget _buildDragFeedback(
+      BuildContext context, Entry entry, SelectedItems current) {
+    final count = current.items.contains(entry) ? current.items.length : 1;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: MyTheme.button,
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: const [
+            BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.drive_file_move_outline,
+                color: Colors.white, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              count > 1 ? '$count개 항목' : entry.name,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _onDrag(double dx, RxDouble column1, RxDouble column2) {
