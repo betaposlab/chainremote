@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:extended_text/extended_text.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/desktop/widgets/dragable_divider.dart';
+import 'package:flutter_hbb/desktop/pages/file_manager_tree.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/gestures.dart';
@@ -164,51 +165,31 @@ class _FileManagerPageState extends State<FileManagerPage>
       OverlayEntry(builder: (_) {
         return willPopScope(Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: Row(
+          // ChainRemote: 전송 패널 제거 → 로컬/원격 창 최대 확보.
+          // 전송 진행 중일 때만 하단에 얇은 진행바 표시.
+          body: Column(
             children: [
-              if (!isWeb)
-                Flexible(
-                    flex: 3,
-                    child: dropArea(FileManagerView(
-                        model.localController, _ffi, _mouseFocusScope))),
-              if (!isWeb) _panelDivider(),
-              Flexible(
-                  flex: 3,
-                  child: dropArea(FileManagerView(
-                      model.remoteController, _ffi, _mouseFocusScope))),
-              _panelDivider(),
-              Flexible(flex: 2, child: statusList())
+              Expanded(
+                child: Row(
+                  children: [
+                    if (!isWeb)
+                      Flexible(
+                          flex: 1,
+                          child: dropArea(FileManagerView(
+                              model.localController, _ffi, _mouseFocusScope))),
+                    Flexible(
+                        flex: 1,
+                        child: dropArea(FileManagerView(
+                            model.remoteController, _ffi, _mouseFocusScope))),
+                  ],
+                ),
+              ),
+              _bottomTransferBar(),
             ],
           ),
         ));
       })
     ]);
-  }
-
-  // ChainRemote: 로컬↔원격 패널 사이 세련된 세로 구분선.
-  // 1.5px 라인 + 위/아래로 페이드아웃 그라디언트 + 좌우 여백.
-  Widget _panelDivider() {
-    return Container(
-      width: 17,
-      alignment: Alignment.center,
-      child: Container(
-        width: 1.5,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              const Color(0xFF1E5BFF).withOpacity(0.18),
-              const Color(0xFF1E5BFF).withOpacity(0.28),
-              const Color(0xFF1E5BFF).withOpacity(0.18),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.12, 0.5, 0.88, 1.0],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget dropArea(FileManagerView fileView) {
@@ -255,6 +236,74 @@ class _FileManagerPageState extends State<FileManagerPage>
       ),
       child: child,
     );
+  }
+
+  // ChainRemote: 하단 전송 진행바 — 전송 중(inProgress)일 때만 표시.
+  // 전송 패널을 대체. 평소엔 높이 0 → 로컬/원격 창 최대.
+  Widget _bottomTransferBar() {
+    return Obx(() {
+      final active = jobController.jobTable
+          .where((j) => j.state == JobState.inProgress)
+          .toList();
+      if (active.isEmpty) return const SizedBox.shrink();
+      final total = active.fold<int>(0, (s, j) => s + j.totalSize);
+      final done = active.fold<int>(0, (s, j) => s + j.finishedSize);
+      final pct = total > 0 ? (done / total).clamp(0.0, 1.0) : 0.0;
+      final speed = active.fold<double>(0, (s, j) => s + j.speed);
+      final label = active.length == 1
+          ? (active.first.fileName.isNotEmpty
+              ? active.first.fileName
+              : active.first.jobName)
+          : '${active.length}개 파일 전송 중';
+      return Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          border: Border(
+            top: BorderSide(
+                color: Theme.of(context).dividerColor.withOpacity(0.5)),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.swap_horiz, size: 18, color: Color(0xFF3182F6)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: pct,
+                      minHeight: 4,
+                      backgroundColor: const Color(0xFFEAEDF1),
+                      color: const Color(0xFF3182F6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '${(pct * 100).toStringAsFixed(0)}%  ·  ${readableFileSize(speed)}/s',
+              style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF8B95A1),
+                  fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   /// transfer status list
@@ -512,17 +561,28 @@ class _FileManagerViewState extends State<FileManagerView> {
   @override
   Widget build(BuildContext context) {
     _handleColumnPorportions();
+    // ChainRemote (A안): 로컬=파랑 / 원격=빨강 박스로 영역 구분.
+    final accent =
+        isLocal ? const Color(0xFF3182F6) : const Color(0xFFE5484D);
     return Container(
-      margin: const EdgeInsets.all(16.0),
+      margin: const EdgeInsets.all(12.0),
       padding: const EdgeInsets.all(8.0),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: BorderRadius.circular(12.0),
+        border: Border.all(color: accent, width: 2.0),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           headTools(),
           Expanded(
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // ChainRemote: 좌측 폴더 트리 (코이노/탐색기식 빠른 폴더 이동).
+                FolderTreePane(controller: controller, accentColor: accent),
                 Expanded(
                     child: MouseRegion(
                   onEnter: (evt) {
@@ -547,11 +607,11 @@ class _FileManagerViewState extends State<FileManagerView> {
     final windowWidthNow = MediaQuery.of(context).size.width;
     if (_windowWidthPrev == null) {
       _windowWidthPrev = windowWidthNow;
-      final defaultColumnWidth = windowWidthNow * 0.115;
-      _fileTransferMinimumWidth = defaultColumnWidth / 3;
-      _nameColWidth.value = defaultColumnWidth;
-      _modifiedColWidth.value = defaultColumnWidth;
-      _sizeColWidth.value = defaultColumnWidth;
+      // ChainRemote: 이름 칸을 넓게 — 확장자까지 보이게. 수정일/크기는 좁게.
+      _fileTransferMinimumWidth = windowWidthNow * 0.04;
+      _nameColWidth.value = windowWidthNow * 0.19;
+      _modifiedColWidth.value = windowWidthNow * 0.10;
+      _sizeColWidth.value = windowWidthNow * 0.055;
     }
 
     if (_windowWidthPrev != windowWidthNow) {
@@ -578,6 +638,9 @@ class _FileManagerViewState extends State<FileManagerView> {
 
   Widget headTools() {
     var uploadButtonTapPosition = RelativeRect.fill;
+    // ChainRemote (A안): 로컬=파랑 / 원격=빨강 헤더 톤.
+    final accent = isLocal ? const Color(0xFF3182F6) : const Color(0xFFE5484D);
+    final headerBg = isLocal ? const Color(0xFFEAF2FE) : const Color(0xFFFDECEC);
     RxBool isUploadFolder =
         (bind.mainGetLocalOption(key: 'upload-folder-button') == 'Y').obs;
     return Container(
@@ -585,16 +648,24 @@ class _FileManagerViewState extends State<FileManagerView> {
         children: [
           // symbols
           PreferredSize(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.all(Radius.circular(8)),
-                            color: MyTheme.accent,
-                          ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: headerBg,
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                    ),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(8)),
+                              color: accent,
+                            ),
                           padding: EdgeInsets.all(8.0),
                           child: FutureBuilder<String>(
                               future: bind.sessionGetPlatform(
@@ -618,6 +689,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                           .marginOnly(left: 8.0)
                     ],
                   ),
+                  ),
                   preferredSize: Size(double.infinity, 70))
               .paddingOnly(bottom: 15),
           // buttons
@@ -630,13 +702,10 @@ class _FileManagerViewState extends State<FileManagerView> {
                     padding: EdgeInsets.only(
                       right: 3,
                     ),
-                    child: RotatedBox(
-                      quarterTurns: 2,
-                      child: SvgPicture.asset(
-                        "assets/arrow.svg",
-                        colorFilter:
-                            svgColor(Theme.of(context).tabBarTheme.labelColor),
-                      ),
+                    child: Icon(
+                      Icons.arrow_back,
+                      size: 18,
+                      color: Theme.of(context).tabBarTheme.labelColor,
                     ),
                     color: Theme.of(context).cardColor,
                     hoverColor: Theme.of(context).hoverColor,
@@ -647,13 +716,10 @@ class _FileManagerViewState extends State<FileManagerView> {
                   ),
                   MenuButton(
                     tooltip: translate('Parent directory'),
-                    child: RotatedBox(
-                      quarterTurns: 3,
-                      child: SvgPicture.asset(
-                        "assets/arrow.svg",
-                        colorFilter:
-                            svgColor(Theme.of(context).tabBarTheme.labelColor),
-                      ),
+                    child: Icon(
+                      Icons.arrow_upward,
+                      size: 18,
+                      color: Theme.of(context).tabBarTheme.labelColor,
                     ),
                     color: Theme.of(context).cardColor,
                     hoverColor: Theme.of(context).hoverColor,
@@ -753,22 +819,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                     );
                 }
               }),
-              MenuButton(
-                tooltip: translate('Refresh File'),
-                padding: EdgeInsets.only(
-                  left: 3,
-                ),
-                onPressed: () {
-                  controller.refresh();
-                },
-                child: SvgPicture.asset(
-                  "assets/refresh.svg",
-                  colorFilter:
-                      svgColor(Theme.of(context).tabBarTheme.labelColor),
-                ),
-                color: Theme.of(context).cardColor,
-                hoverColor: Theme.of(context).hoverColor,
-              ),
+              // ChainRemote: 새로고침 버튼 제거(미사용). 돋보기만 유지.
             ],
           ),
           Row(
@@ -858,13 +909,13 @@ class _FileManagerViewState extends State<FileManagerView> {
                             actions: [
                               dialogButton(
                                 "Cancel",
-                                icon: Icon(Icons.close_rounded),
+                                icon: Icon(Icons.close_sharp),
                                 onPressed: cancel,
                                 isOutline: true,
                               ),
                               dialogButton(
                                 "Ok",
-                                icon: Icon(Icons.done_rounded),
+                                icon: Icon(Icons.done_sharp),
                                 onPressed: submit,
                               ),
                             ],
@@ -1524,8 +1575,9 @@ class _FileManagerViewState extends State<FileManagerView> {
       child: Row(
         children: [
           Obx(
-            () => headerItemFunc(
-                _nameColWidth.value, SortBy.name, translate("Name")),
+            // ChainRemote: translate("Name")=="거래처 이름"(거래처 등록용 오역)이라
+            // 파일전송 컬럼은 "이름"으로 직접 표기.
+            () => headerItemFunc(_nameColWidth.value, SortBy.name, '이름'),
           ),
           DraggableDivider(
             axis: Axis.vertical,
@@ -1579,8 +1631,8 @@ class _FileManagerViewState extends State<FileManagerView> {
                     ascending.value != null
                         ? Icon(
                             ascending.value!
-                                ? Icons.keyboard_arrow_up_rounded
-                                : Icons.keyboard_arrow_down_rounded,
+                                ? Icons.keyboard_arrow_up_sharp
+                                : Icons.keyboard_arrow_down_sharp,
                           )
                         : SizedBox()
                   ],
@@ -1622,7 +1674,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                     },
                     child: BreadCrumb(
                       items: items,
-                      divider: const Icon(Icons.keyboard_arrow_right_rounded),
+                      divider: const Icon(Icons.keyboard_arrow_right_sharp),
                       overflow: ScrollableOverflow(
                         controller: _breadCrumbScroller,
                       ),
@@ -1631,7 +1683,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                 ),
                 ActionIcon(
                   message: "",
-                  icon: Icons.keyboard_arrow_down_rounded,
+                  icon: Icons.keyboard_arrow_down_sharp,
                   onTap: () async {
                     final renderBox = _locationBarKey.currentContext
                         ?.findRenderObject() as RenderBox;
@@ -1820,34 +1872,34 @@ Widget buildWindowsThisPC(BuildContext context, [TextStyle? textStyle]) {
 
 // ChainRemote: 윈도우 탐색기풍 컬러 아이콘.
 IconData _fileIconFor(String name, {required bool isFile}) {
-  if (!isFile) return Icons.folder_rounded;
+  if (!isFile) return Icons.folder_sharp;
   final ext = name.contains('.')
       ? name.substring(name.lastIndexOf('.') + 1).toLowerCase()
       : '';
   switch (ext) {
     case 'pdf':
-      return Icons.picture_as_pdf_rounded;
+      return Icons.picture_as_pdf_sharp;
     case 'doc':
     case 'docx':
     case 'rtf':
     case 'odt':
-      return Icons.description_rounded;
+      return Icons.description_sharp;
     case 'xls':
     case 'xlsx':
     case 'csv':
     case 'ods':
-      return Icons.table_chart_rounded;
+      return Icons.table_chart_sharp;
     case 'ppt':
     case 'pptx':
     case 'odp':
-      return Icons.slideshow_rounded;
+      return Icons.slideshow_sharp;
     case 'zip':
     case 'rar':
     case '7z':
     case 'tar':
     case 'gz':
     case 'bz2':
-      return Icons.folder_zip_rounded;
+      return Icons.folder_zip_sharp;
     case 'jpg':
     case 'jpeg':
     case 'png':
@@ -1857,7 +1909,7 @@ IconData _fileIconFor(String name, {required bool isFile}) {
     case 'svg':
     case 'tiff':
     case 'ico':
-      return Icons.image_rounded;
+      return Icons.image_sharp;
     case 'mp4':
     case 'mkv':
     case 'avi':
@@ -1865,20 +1917,20 @@ IconData _fileIconFor(String name, {required bool isFile}) {
     case 'wmv':
     case 'flv':
     case 'webm':
-      return Icons.movie_rounded;
+      return Icons.movie_sharp;
     case 'mp3':
     case 'wav':
     case 'flac':
     case 'aac':
     case 'ogg':
     case 'm4a':
-      return Icons.audio_file_rounded;
+      return Icons.audio_file_sharp;
     case 'exe':
     case 'msi':
     case 'bat':
     case 'cmd':
     case 'sh':
-      return Icons.settings_applications_rounded;
+      return Icons.settings_applications_sharp;
     case 'txt':
     case 'md':
     case 'log':
@@ -1888,7 +1940,7 @@ IconData _fileIconFor(String name, {required bool isFile}) {
     case 'toml':
     case 'yaml':
     case 'yml':
-      return Icons.article_rounded;
+      return Icons.article_sharp;
     case 'py':
     case 'js':
     case 'ts':
@@ -1908,13 +1960,13 @@ IconData _fileIconFor(String name, {required bool isFile}) {
     case 'dart':
     case 'json':
     case 'xml':
-      return Icons.code_rounded;
+      return Icons.code_sharp;
     case 'iso':
     case 'img':
     case 'dmg':
-      return Icons.album_rounded;
+      return Icons.album_sharp;
     default:
-      return Icons.insert_drive_file_rounded;
+      return Icons.insert_drive_file_sharp;
   }
 }
 
