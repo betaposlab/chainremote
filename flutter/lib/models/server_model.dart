@@ -170,7 +170,8 @@ class ServerModel with ChangeNotifier {
             }
           } else {
             _zeroClientLengthCounter = 0;
-            if (!hideCm) showCmWindow();
+            // ChainRemote: Agent 빌드는 hide_cm 설정 무시하고 항상 "원격지원 중" 배너 표시.
+            if (!hideCm || bind.isIncomingOnly()) showCmWindow();
           }
         }
       }

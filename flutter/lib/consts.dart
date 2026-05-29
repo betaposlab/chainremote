@@ -324,6 +324,8 @@ extension StringExtension on String {
 
 const Size kConnectionManagerWindowSizeClosedChat = Size(300, 490);
 const Size kConnectionManagerWindowSizeOpenChat = Size(700, 490);
+// ChainRemote: Agent(incoming-only) 빌드에서 CM 창은 "원격지원 중" 작은 배너만.
+const Size kAgentSupportBannerSize = Size(220, 56);
 // Tabbar transition duration, now we remove the duration
 const Duration kTabTransitionDuration = Duration.zero;
 const double kEmptyMarginTop = 50;

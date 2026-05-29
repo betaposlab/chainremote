@@ -179,6 +179,12 @@ class ConnectionManagerState extends State<ConnectionManager>
       }
     }
 
+    // ChainRemote: Agent(incoming-only) 빌드는 우상단에 "원격지원 중" 한 줄 배너만.
+    // 사장님께 책임지원 진행 알림용. 탭/채팅/끊기 버튼 없음.
+    if (bind.isIncomingOnly()) {
+      return _buildAgentSupportBanner(serverModel);
+    }
+
     return serverModel.clients.isEmpty
         ? Column(
             children: [
@@ -349,6 +355,44 @@ class ConnectionManagerState extends State<ConnectionManager>
       }
       return res;
     }
+  }
+
+  // ChainRemote — Agent 전용 "원격지원 중" 배너.
+  // 활성 세션 동안만 화면 우상단에 떠 있는 미니 인디케이터.
+  Widget _buildAgentSupportBanner(ServerModel serverModel) {
+    final hasClients = serverModel.clients.isNotEmpty;
+    return Material(
+      color: const Color(0xFF1F2937), // 짙은 슬레이트, 사장님 화면에서 도드라지게
+      child: Center(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 빨간 점 — 활성 세션이면 진하게, 아니면 회색.
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: hasClients
+                    ? const Color(0xFFE53935)
+                    : const Color(0xFF6B7280),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              hasClients ? '원격지원 중' : '원격지원 대기',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
