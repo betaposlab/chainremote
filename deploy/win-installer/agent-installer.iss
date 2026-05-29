@@ -91,6 +91,14 @@ Source: "watchdog.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignorever
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
 Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
 
+; 0.5. ★ silent-install 직전 옛 ChainRemote.exe 강제 종료 (v1.3.6 신규, 2026-05-29).
+;     배경: v1.3.4 → v1.3.5 마이그레이션 후 재성이 PC 트레이에 ChainRemote 아이콘 2개 잔재
+;           발견 (Inno CloseApplications=yes 가 RestartManager 신호 응답 안 함). silent-install
+;           이 옛 file 잠금 상태에서 진행되어 옛 + 새 process 공존 사고.
+;     수정: silent-install 전에 명시 taskkill — 옛 file 잠금 해제 + 옛 트레이 UI 즉시 종료.
+;     서비스 (SessionId=0) 도 죽이는데 [Run] 4번 sc start 가 다시 살림.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; taskkill /F /IM ChainRemote.exe /T *>$null; Start-Sleep -Seconds 2"""; StatusMsg: "옛 ChainRemote 프로세스 정리 중..."; Flags: runhidden waituntilterminated
+
 ; (Phase 3-Win v2 2026-05-25): 옛 'sc delete RustDesk' + 'taskkill rustdesk.exe' 단계 제거.
 ;     Microsoft Defender ML (Trojan:Win32/Bearfoos.B!ml) false positive 의 트리거였음.
 ;     동일 정리 동작은 src/chainremote_migrate.rs 가 ChainRemote.exe 첫 실행 시 Rust 코드로

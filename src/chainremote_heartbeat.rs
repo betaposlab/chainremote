@@ -31,15 +31,25 @@ const HTTP_TIMEOUT: Duration = Duration::from_secs(30);
 /// LocalConfig 의 토큰 저장 키. 한 번 발급 받으면 평생 유지 (sustain across reboots).
 const TOKEN_KEY: &str = "chainremote-heartbeat-token";
 
-/// 서비스 진입점에서 호출 (windows.rs::run_service). Agent 빌드가 아니면 즉시 return.
+/// 서비스 진입점에서 호출 (windows.rs::run_service). Agent 또는 옵션 B+ HQ 가 아니면 즉시 return.
+///
+/// 2026-05-29 게이트 확장:
+///   - Agent (`is_incoming_only`) — 기존
+///   - 옵션 B+ HQ (`is_option_b_plus`) — 신규: Chang/재성이 PC 처럼 HQ + 거래처 풀 등록 시.
+///     custom.txt 의 `"option-b-plus": "Y"` 마커.
 pub fn start_in_service() {
-    if !hbb_common::config::is_incoming_only() {
+    let is_agent = hbb_common::config::is_incoming_only();
+    let is_b_plus = hbb_common::config::is_option_b_plus();
+    if !is_agent && !is_b_plus {
         log::info!(
-            "[chainremote_heartbeat] not agent (incoming-only) build → skip heartbeat loop"
+            "[chainremote_heartbeat] not agent and not option-B+ → skip heartbeat loop"
         );
         return;
     }
-    log::info!("[chainremote_heartbeat] agent build → starting heartbeat loop");
+    log::info!(
+        "[chainremote_heartbeat] {} → starting heartbeat loop",
+        if is_agent { "agent build" } else { "option-B+ HQ" }
+    );
     std::thread::spawn(|| {
         run_loop();
     });
