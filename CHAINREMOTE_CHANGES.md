@@ -20,9 +20,12 @@
 - 격리 4 중: `Config::path()` APP_DIR honor / `Config::ipc_path()` 윈도우 파이프 접미사 / FindWindowW 분리 / quick_support 자동 추론 가드.
 - 출력: `deploy/portable/ChainGo.exe`.
 
-### 1-3. 자동 업데이트 — `src/chainremote_updater.rs`
-- 거래처 PC 에서 24 시간 폴링. SHA-256 검증 후 활성 세션이 없을 때 사일런트 재설치.
-- `MANUAL_TRIGGER_FLAG` 파일을 통한 즉시 트리거 지원.
+### 1-3. 자동 업데이트 — `src/chainremote_updater.rs` + `src/chainremote_push_agent.rs`
+- **HQ 채널** (`chainremote_updater.rs`): 24 시간 latest.json 폴링. dual-channel manifest (`{ hq, agent }`) 로 HQ ↔ Agent 분리. SHA-256 검증 후 활성 세션 없을 때 `/VERYSILENT` 사일런트 재설치.
+- **Agent 채널** (`chainremote_push_agent.rs`, v1.3.5+ 신규): Agent (incoming-only) 빌드 전용. latest.json 자동 채널 폐기, 본사 관리 패널의 수동 푸시만 폴링 (`/api/customers/pending-update`, 5 분 주기).
+  - 영업시간 가드 (default 00:00~07:00) + 무작위지연 (default 0~7시간) + 원격세션 가드 = 영업 중 사고 방지.
+  - 2026-05-28 중앙리 거래처 영업시간 자동 인스톨러 마법사 사고 (12:50PM) 영구 차단.
+- `MANUAL_TRIGGER_FLAG` 파일을 통한 즉시 트리거 지원 (HQ 채널).
 - 본사 측 푸시 스크립트: `deploy/release.sh`.
 
 ### 1-4. 인스톨러 (Windows) — `deploy/win-installer/`
@@ -34,6 +37,12 @@
 - `tenants` 테이블에 사업자 등록번호 · 대표자 · 연락처 · 결제 계좌 · 구독 정보 컬럼 추가.
 - `user_role` enum 에 `super_admin` 추가.
 - 신규 테넌트 등록 / 비밀번호 리셋 / 일시정지 / 해지 흐름을 패널에서 처리.
+
+### 1-6. 거래처 push 시스템 — `db/migrations/009_pending_updates.sql` + 패널 API + Agent (v1.3.5+)
+- `pending_updates` 테이블 + 부분 unique 인덱스로 거래처별 1행씩 push 큐. 일괄 푸시는 `bulk_batch_id` 로 N행 묶음.
+- 관리 패널 거래처 표에서 행별 [⬆ 푸시] / 상단 [⬆ 전체 일괄 푸시] 버튼.
+- 거래처 Agent 는 `chainremote_push_agent` 가 5 분 주기 GET 폴링. 영업시간/무작위지연/원격세션 가드 통과 시 사일런트 설치 → POST applied 보고.
+- Pull 모델: NAS 가 신호 쏘지 않음. 2000+ 거래처에도 NAS 부하 = INSERT 1회.
 
 ---
 

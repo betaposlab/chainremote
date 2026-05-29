@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { customers, supportSessions, tenants, users } from "@/lib/schema";
+import { customers, pendingUpdates, supportSessions, tenants, users } from "@/lib/schema";
 import { eq, desc, and, isNull } from "drizzle-orm";
 import { discoverPeers } from "@/lib/peer-discovery";
 import { DiscoveredPeerBanner } from "./_discovered";
 import { RemoteButton } from "./_remote-button";
 import { CustomerStatus } from "./_status";
+import { CustomerPushButton, BulkPushButton } from "./_push-buttons";
 import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,26 @@ export default async function CustomersPage() {
     .leftJoin(users, eq(users.id, customers.assignedUserId))
     .where(eq(customers.tenantId, tenant.id))
     .orderBy(desc(customers.createdAt));
+
+  // 거래처별 대기 중 푸시 (있으면 행에 표시).
+  const pendingRows = await db
+    .select({
+      id: pendingUpdates.id,
+      customerId: pendingUpdates.customerId,
+      targetVersion: pendingUpdates.targetVersion,
+      bulkBatchId: pendingUpdates.bulkBatchId,
+      createdAt: pendingUpdates.createdAt,
+    })
+    .from(pendingUpdates)
+    .where(
+      and(
+        eq(pendingUpdates.tenantId, tenant.id),
+        isNull(pendingUpdates.appliedAt),
+        isNull(pendingUpdates.cancelledAt),
+        isNull(pendingUpdates.failedAt),
+      ),
+    );
+  const pendingByCustomer = new Map(pendingRows.map((p) => [p.customerId, p]));
 
   const activeSessions = await db
     .select({
@@ -63,12 +84,15 @@ export default async function CustomersPage() {
             등록된 거래처 {rows.length}곳 · ID 등록된 곳은 클릭 한 번으로 원격 접속
           </p>
         </div>
-        <Link
-          href="/customers/new"
-          className="rounded-lg bg-[#00A0E5] hover:bg-[#0090d0] text-white px-4 py-2 text-sm font-medium"
-        >
-          + 거래처 추가
-        </Link>
+        <div className="flex items-center gap-2">
+          <BulkPushButton />
+          <Link
+            href="/customers/new"
+            className="rounded-lg bg-[#00A0E5] hover:bg-[#0090d0] text-white px-4 py-2 text-sm font-medium"
+          >
+            + 거래처 추가
+          </Link>
+        </div>
       </header>
 
       <DiscoveredPeerBanner peers={newPeers} />
@@ -153,6 +177,14 @@ export default async function CustomersPage() {
                       >
                         ID 등록
                       </Link>
+                    )}
+                    {c.remoteId && (
+                      <CustomerPushButton
+                        customerId={c.id}
+                        customerName={c.name}
+                        currentVersion={c.lastVersion}
+                        pending={pendingByCustomer.get(c.id) ?? null}
+                      />
                     )}
                     <Link
                       href={`/customers/${c.id}/edit`}

@@ -578,6 +578,11 @@ async fn run_service(_arguments: Vec<OsString>) -> ResultType<()> {
     // 첫 실행 register-token + 10분 polling heartbeat.
     crate::chainremote_heartbeat::start_in_service();
 
+    // ChainRemote Agent 푸시 폴링 — Agent 빌드만. 관리 패널의 수동 푸시 트리거를 5분 주기 GET.
+    // 영업시간 가드 (default 00~07) + 무작위지연 (default 0~7시간) 으로 무인 사일런트 설치.
+    // 2026-05-29 신규. 중앙리 사고 (영업시간 자동 마법사) 영구 차단.
+    crate::chainremote_push_agent::start_in_service();
+
     let event_handler = move |control_event| -> ServiceControlHandlerResult {
         log::info!("Got service control event: {:?}", control_event);
         match control_event {
