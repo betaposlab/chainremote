@@ -300,6 +300,25 @@ class _FileManagerPageState extends State<FileManagerPage>
                   color: Color(0xFF8B95A1),
                   fontWeight: FontWeight.w600),
             ),
+            const SizedBox(width: 10),
+            // ChainRemote: 전송 중지(취소) — 진행 중인 작업을 모두 취소하고 목록에서 제거.
+            Tooltip(
+              message: translate('Cancel'),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () {
+                  for (final j in active) {
+                    jobController.cancelJob(j.id);
+                  }
+                  jobController.jobTable
+                      .removeWhere((j) => j.state == JobState.inProgress);
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(5),
+                  child: Icon(Icons.close, size: 18, color: Color(0xFFE5484D)),
+                ),
+              ),
+            ),
           ],
         ),
       );
