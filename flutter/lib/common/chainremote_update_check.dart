@@ -51,8 +51,18 @@ Future<ChainRemoteRelease?> fetchLatestChainRemoteRelease() async {
         .get(Uri.parse(_kUpdateChannelUrl))
         .timeout(_kFetchTimeout);
     if (resp.statusCode != 200) return null;
-    return ChainRemoteRelease.fromJson(
-        jsonDecode(resp.body) as Map<String, dynamic>);
+    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+
+    // 2026-05-28+ dual-channel schema: { hq: {...}, agent: {...} }.
+    // HQ 빌드 (이 UI 가 동작하는 곳) 는 hq 채널만 본다.
+    // Agent 빌드는 그냥 정적 chainremoteVersion 표시 + 새 push API 만 씀
+    //   → 이 함수 호출 안 함. 안전상 fallback 으로 hq 채널 우선.
+    if (body['hq'] is Map) {
+      return ChainRemoteRelease.fromJson(
+          body['hq'] as Map<String, dynamic>);
+    }
+    // 옛 flat schema 안전망 (v1.3.4 미만 latest.json 호환).
+    return ChainRemoteRelease.fromJson(body);
   } catch (_) {
     return null;
   }

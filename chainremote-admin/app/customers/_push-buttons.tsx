@@ -1,0 +1,370 @@
+"use client";
+
+// 푸시 버튼 + 다이얼로그. 거래처 표의 행별 [푸시] 버튼 (개별) 과 상단 [일괄 푸시] 버튼.
+//
+// 다이얼로그에 직접 입력: targetVersion / assetUrl / assetSha256 / assetSize.
+// 영업시간 가드: 00:00~07:00 default, Chang 이 거래처 영업패턴에 따라 조정 가능.
+// 무작위지연: 0~7시간 default (= 7시간 창 전체 분산).
+//
+// 자동 fetch (NAS 의 agent-latest.json) 은 backlog. 일단 수동 입력.
+
+import { useState, useTransition } from "react";
+import {
+  pushToCustomerAction,
+  pushBulkAction,
+  cancelPushAction,
+} from "@/lib/actions/push";
+
+type PendingMeta = {
+  id: string;
+  targetVersion: string;
+  bulkBatchId: string | null;
+  createdAt: Date | string;
+} | null;
+
+interface PushFormState {
+  targetVersion: string;
+  assetUrl: string;
+  assetSha256: string;
+  assetSize: string;
+  windowStartHour: string;
+  windowEndHour: string;
+  randomizeMaxSec: string;
+}
+
+const INITIAL: PushFormState = {
+  targetVersion: "",
+  assetUrl: "",
+  assetSha256: "",
+  assetSize: "",
+  windowStartHour: "0",
+  windowEndHour: "7",
+  randomizeMaxSec: "25200",
+};
+
+function buildFormData(state: PushFormState): FormData {
+  const fd = new FormData();
+  fd.set("targetVersion", state.targetVersion.trim());
+  fd.set("assetUrl", state.assetUrl.trim());
+  fd.set("assetSha256", state.assetSha256.trim());
+  fd.set("assetSize", state.assetSize.trim());
+  fd.set("windowStartHour", state.windowStartHour);
+  fd.set("windowEndHour", state.windowEndHour);
+  fd.set("randomizeMaxSec", state.randomizeMaxSec);
+  return fd;
+}
+
+function validate(state: PushFormState): string | null {
+  if (!state.targetVersion.trim()) return "타겟 버전 필수 (예: 1.3.5)";
+  if (!state.assetUrl.trim()) return "asset URL 필수";
+  if (!state.assetSha256.trim() || state.assetSha256.trim().length !== 64) {
+    return "sha256 은 64자 hex 여야 함";
+  }
+  const size = Number(state.assetSize);
+  if (!Number.isFinite(size) || size <= 0) return "asset size 가 유효하지 않음";
+  const ws = Number(state.windowStartHour);
+  const we = Number(state.windowEndHour);
+  if (!Number.isInteger(ws) || ws < 0 || ws > 23) return "시작 시간 0~23";
+  if (!Number.isInteger(we) || we < 0 || we > 23) return "종료 시간 0~23";
+  return null;
+}
+
+/** 거래처 표 행별 [푸시] 버튼 + 다이얼로그. */
+export function CustomerPushButton({
+  customerId,
+  customerName,
+  currentVersion,
+  pending,
+}: {
+  customerId: string;
+  customerName: string;
+  currentVersion: string | null;
+  pending: PendingMeta;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<PushFormState>(INITIAL);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  // 이미 대기 중인 경우 = [대기 중 v1.x.x · 취소] 버튼.
+  if (pending) {
+    return (
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={() => {
+          if (!confirm(`${customerName} 의 v${pending.targetVersion} 푸시를 취소합니다.`)) return;
+          startTransition(async () => {
+            await cancelPushAction(pending.id);
+          });
+        }}
+        className="inline-flex items-center gap-1 rounded bg-amber-50 text-amber-700 text-xs px-2 py-1 hover:bg-amber-100 disabled:opacity-50"
+        title={`대기 중 v${pending.targetVersion} (${new Date(pending.createdAt).toLocaleString("ko-KR")})`}
+      >
+        ⏳ 대기 v{pending.targetVersion}
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setState(INITIAL);
+          setError(null);
+          setOpen(true);
+        }}
+        className="inline-flex items-center text-xs text-slate-500 hover:text-[#00A0E5] px-2 py-1.5"
+        title={currentVersion ? `현재 v${currentVersion}` : "버전 미보고"}
+      >
+        ⬆ 푸시
+      </button>
+      {open && (
+        <PushDialog
+          title={`${customerName} 푸시`}
+          subtitle={currentVersion ? `현재 v${currentVersion}` : "버전 미보고"}
+          state={state}
+          setState={setState}
+          error={error}
+          submitting={isPending}
+          onCancel={() => setOpen(false)}
+          onSubmit={() => {
+            const err = validate(state);
+            if (err) {
+              setError(err);
+              return;
+            }
+            setError(null);
+            startTransition(async () => {
+              const result = await pushToCustomerAction(customerId, buildFormData(state));
+              if (result.alreadyQueued) {
+                setError("이미 대기 중인 푸시가 있습니다 — 표 새로고침 후 확인.");
+                return;
+              }
+              setOpen(false);
+            });
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/** 거래처 표 상단의 [일괄 푸시] 버튼 + 다이얼로그. */
+export function BulkPushButton() {
+  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<PushFormState>(INITIAL);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ inserted: number; eligible: number } | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setState(INITIAL);
+          setError(null);
+          setResult(null);
+          setOpen(true);
+        }}
+        className="rounded-lg border border-[#00A0E5] text-[#00A0E5] hover:bg-[#00A0E5]/10 px-4 py-2 text-sm font-medium"
+      >
+        ⬆ 전체 일괄 푸시
+      </button>
+      {open && (
+        <PushDialog
+          title="전체 거래처 일괄 푸시"
+          subtitle="활성 거래처 전체 (영업시간 가드 + 무작위지연 자동 분산)"
+          state={state}
+          setState={setState}
+          error={error}
+          submitting={isPending}
+          extraTail={
+            result ? (
+              <div className="mt-3 rounded bg-emerald-50 text-emerald-800 text-sm px-3 py-2">
+                ✓ 일괄 푸시 등록됨 — 신규 {result.inserted} 행 / 대상 {result.eligible} 거래처.
+                {result.inserted < result.eligible &&
+                  ` ${result.eligible - result.inserted} 거래처는 이미 대기 중이라 skip.`}
+              </div>
+            ) : null
+          }
+          onCancel={() => setOpen(false)}
+          onSubmit={() => {
+            const err = validate(state);
+            if (err) {
+              setError(err);
+              return;
+            }
+            setError(null);
+            startTransition(async () => {
+              const r = await pushBulkAction(buildFormData(state));
+              setResult({ inserted: r.inserted, eligible: r.eligible });
+              // 다이얼로그는 열어둠 → 사용자가 결과 확인 후 닫음.
+            });
+          }}
+          submitLabel="일괄 푸시 시작"
+        />
+      )}
+    </>
+  );
+}
+
+function PushDialog({
+  title,
+  subtitle,
+  state,
+  setState,
+  error,
+  submitting,
+  onCancel,
+  onSubmit,
+  submitLabel = "푸시 등록",
+  extraTail,
+}: {
+  title: string;
+  subtitle: string;
+  state: PushFormState;
+  setState: (s: PushFormState) => void;
+  error: string | null;
+  submitting: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+  submitLabel?: string;
+  extraTail?: React.ReactNode;
+}) {
+  const set = <K extends keyof PushFormState>(k: K, v: string) =>
+    setState({ ...state, [k]: v });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/40 p-4 flex items-start justify-center overflow-y-auto">
+      <div className="mt-12 w-full max-w-lg rounded-xl bg-white shadow-2xl">
+        <header className="border-b border-slate-200 px-5 py-3">
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
+        </header>
+        <div className="px-5 py-4 space-y-3">
+          <Field label="타겟 버전" hint="예: 1.3.5">
+            <input
+              type="text"
+              value={state.targetVersion}
+              onChange={(e) => set("targetVersion", e.target.value)}
+              placeholder="1.3.5"
+              className="w-full rounded border border-slate-300 px-2 py-1 text-sm font-mono"
+            />
+          </Field>
+          <Field label=".exe URL" hint="NAS 또는 외부 호스팅의 직접 다운로드 URL">
+            <input
+              type="text"
+              value={state.assetUrl}
+              onChange={(e) => set("assetUrl", e.target.value)}
+              placeholder="https://sepani.synology.me/chainremote/ChainRemote_Agent_Setup_v1.3.5.exe"
+              className="w-full rounded border border-slate-300 px-2 py-1 text-sm font-mono"
+            />
+          </Field>
+          <div className="grid grid-cols-3 gap-2">
+            <Field label="sha256" hint="64자 hex" colSpan={2}>
+              <input
+                type="text"
+                value={state.assetSha256}
+                onChange={(e) => set("assetSha256", e.target.value)}
+                placeholder="abc123..."
+                className="w-full rounded border border-slate-300 px-2 py-1 text-xs font-mono"
+              />
+            </Field>
+            <Field label="크기 (bytes)">
+              <input
+                type="number"
+                value={state.assetSize}
+                onChange={(e) => set("assetSize", e.target.value)}
+                placeholder="12345678"
+                className="w-full rounded border border-slate-300 px-2 py-1 text-sm font-mono"
+              />
+            </Field>
+          </div>
+          <div className="border-t border-slate-200 pt-3 mt-3">
+            <p className="text-xs text-slate-500 mb-2">
+              영업시간 가드 (시 단위, 24h). default 00:00~07:00 = 자정~새벽7시.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="시작 시간">
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={state.windowStartHour}
+                  onChange={(e) => set("windowStartHour", e.target.value)}
+                  className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                />
+              </Field>
+              <Field label="종료 시간">
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  value={state.windowEndHour}
+                  onChange={(e) => set("windowEndHour", e.target.value)}
+                  className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                />
+              </Field>
+              <Field label="무작위지연 (초)" hint="기본 25200 = 7시간">
+                <input
+                  type="number"
+                  min={0}
+                  value={state.randomizeMaxSec}
+                  onChange={(e) => set("randomizeMaxSec", e.target.value)}
+                  className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                />
+              </Field>
+            </div>
+          </div>
+          {error && (
+            <div className="rounded bg-red-50 text-red-700 text-sm px-3 py-2">{error}</div>
+          )}
+          {extraTail}
+        </div>
+        <footer className="border-t border-slate-200 px-5 py-3 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={submitting}
+            className="rounded border border-slate-300 hover:bg-slate-50 px-3 py-1.5 text-sm disabled:opacity-50"
+          >
+            닫기
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={submitting}
+            className="rounded bg-[#00A0E5] hover:bg-[#0090d0] text-white px-3 py-1.5 text-sm disabled:opacity-50"
+          >
+            {submitting ? "처리 중..." : submitLabel}
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  colSpan,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  colSpan?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={colSpan === 2 ? "col-span-2" : undefined}>
+      <label className="block text-xs font-medium text-slate-700 mb-1">
+        {label}
+        {hint && <span className="font-normal text-slate-400 ml-1">· {hint}</span>}
+      </label>
+      {children}
+    </div>
+  );
+}

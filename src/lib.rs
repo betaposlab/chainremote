@@ -78,6 +78,11 @@ mod chainremote_updater;
 #[cfg(target_os = "windows")]
 mod chainremote_heartbeat;
 
+// ChainRemote Agent 푸시 폴링 (Agent 빌드만) — 관리 패널의 수동 푸시 트리거 수신.
+// 2026-05-29 신규. 옛 latest.json 자동 채널 (영업시간 사고 원인) 폐기 대체.
+#[cfg(target_os = "windows")]
+mod chainremote_push_agent;
+
 // ChainRemote Phase 3-Win 마이그레이션 (옛 RustDesk → 새 ChainRemote 데이터/서비스/레지스트리)
 // 모든 플랫폼에서 컴파일 (Mac/Linux 는 빈 함수, Windows 만 실제 로직).
 pub mod chainremote_migrate;

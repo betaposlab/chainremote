@@ -676,7 +676,20 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         ),
       Align(
         alignment: Alignment.center,
-        child: loadLogo(),
+        // ChainRemote 2026-05-28: 이스터 에그 — 거래처 PC(Agent)의 로고 1초 길게 누르면
+        // 설정 페이지 열림. 거래처 사용자는 모르고 본사 직원만 알아서 사용 (자동업데이트
+        // 검증 등 긴급 시 우회 경로). 햄버거 메뉴는 평상시 숨김.
+        child: GestureDetector(
+          onLongPress: isIncomingOnly
+              ? () {
+                  if (DesktopSettingPage.tabKeys.isNotEmpty) {
+                    DesktopSettingPage.switch2page(
+                        DesktopSettingPage.tabKeys[0]);
+                  }
+                }
+              : null,
+          child: loadLogo(),
+        ),
       ),
       buildTip(context),
       if (!isOutgoingOnly) buildIDBoard(context),

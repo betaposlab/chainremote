@@ -167,6 +167,52 @@ export const supportSessions = pgTable(
   (t) => ({ startedIdx: index("idx_sessions_tenant_started").on(t.tenantId, t.startedAt) }),
 );
 
+// 거래처 PC 푸시 업데이트 큐 (마이그레이션 009, 2026-05-29).
+// Chang 이 관리 패널에서 "v1.3.5 푸시" 클릭 시 거래처별 1행 INSERT.
+// Agent 가 자기 token + remote_id 로 5분 폴링 → 자기 행 발견하면 영업시간 가드 통과 후
+// 사일런트 설치 → applied_at 채워서 보고. 일괄 푸시는 bulk_batch_id 로 N행 묶음.
+//
+// Pull 모델: NAS 가 Agent 에게 push 신호 안 쏨. Agent 가 자기 페이스로 폴링.
+// → 2000+ 거래처 일괄 푸시해도 NAS 부하 = N개 INSERT 1회. 트래픽 분산은 Agent 무작위지연.
+export const pendingUpdates = pgTable(
+  "pending_updates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+    // 타겟 버전 + 인스톨러 자산. NAS 에 호스팅된 .exe 메타.
+    targetVersion: text("target_version").notNull(),
+    assetUrl: text("asset_url").notNull(),
+    assetSha256: text("asset_sha256").notNull(),
+    assetSize: integer("asset_size").notNull(),
+    // 영업시간 가드 (0~23 시). default 00:00~07:00 = 자정~새벽7시 무인적용.
+    // 24시간 영업/심야영업 거래처 보호 (Chang 결정 2026-05-29).
+    windowStartHour: integer("window_start_hour").notNull().default(0),
+    windowEndHour: integer("window_end_hour").notNull().default(7),
+    // 무작위지연 상한 (초). Agent 가 푸시 감지 후 rand(0..randomizeMaxSec) 대기.
+    // default 25200 = 7시간 창 전체. 2000+ 거래처 NAS/회선 부하 분산.
+    randomizeMaxSec: integer("randomize_max_sec").notNull().default(25200),
+    // 일괄 푸시 그룹 ID. 일괄=N행이 같은 UUID, 개별=NULL.
+    bulkBatchId: uuid("bulk_batch_id"),
+    requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
+    // 상태 timestamp — applied/cancelled/failed 중 1개만 채워짐. 미채워짐 = 대기 중.
+    appliedAt: timestamp("applied_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    failedAt: timestamp("failed_at", { withTimezone: true }),
+    failureReason: text("failure_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // Agent 폴링은 (tenant, customer, status=대기) 로 1행만 픽업.
+    customerIdx: index("idx_pending_updates_customer").on(t.tenantId, t.customerId),
+    // 관리 패널의 일괄 진행률 조회 ("v1.3.5 적용 1847/2000").
+    bulkIdx: index("idx_pending_updates_bulk").on(t.bulkBatchId),
+    // 거래처 표의 "대기 중 업데이트 있음" 배지 조회.
+    tenantIdx: index("idx_pending_updates_tenant").on(t.tenantId),
+  }),
+);
+
 export const auditLogs = pgTable("audit_logs", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "set null" }),

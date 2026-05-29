@@ -66,7 +66,7 @@ fn flog(msg: &str) {
     log::info!("chainremote_updater: {}", msg);
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, Debug, Clone)]
 struct LatestRelease {
     version: String,
     url: String,
@@ -80,6 +80,22 @@ struct LatestRelease {
     #[serde(default)]
     #[allow(dead_code)]
     notes: String,
+}
+
+/// 2026-05-28 dual-channel 개편 — HQ 와 Agent 가 서로 다른 인스톨러로 업데이트되게 함.
+/// 단일 채널이던 옛 schema 에서 HQ 가 Agent 인스톨러로 덮어쓰는 사고 (2026-05-28 오전) 재발 방지.
+///
+/// 새 latest.json schema:
+/// ```json
+/// {
+///   "hq":    { "version": "...", "url": "...", "sha256": "...", "size": ..., "released_at": "...", "notes": "..." },
+///   "agent": { "version": "...", "url": "...", "sha256": "...", "size": ..., "released_at": "...", "notes": "..." }
+/// }
+/// ```
+#[derive(serde::Deserialize, Debug)]
+struct DualChannelManifest {
+    hq: LatestRelease,
+    agent: LatestRelease,
 }
 
 /// 본사가 latest.json 외에 별도로 박는 "지금 즉시 폴링하라" 신호.
@@ -98,7 +114,16 @@ struct PushSignal {
 
 /// 서비스(LocalSystem)에서 호출. 부팅 후 5분 → 그 다음 5분 주기로 push.json 폴링,
 /// 24h 마다 latest.json 정기 체크 (단 Deferred 시 15분 후 재시도). `run_service()` 의 진입부에서 한 번만 호출.
+///
+/// 2026-05-29 변경 — Agent (incoming-only) 빌드는 이 채널 안 씀. 대신 `chainremote_push_agent`
+/// 가 관리 패널 API (`/api/customers/pending-update`) 폴링으로 본사 수동 푸시만 수신.
+/// 배경: 2026-05-28 중앙리 사고 (영업시간 12:50PM 자동 인스톨러 마법사) 의 영구 차단.
+/// 본사가 새벽 0~7시 영업시간 가드 박은 푸시만 받게 함.
 pub fn start_in_service() {
+    if hbb_common::config::is_incoming_only() {
+        flog("agent build → skip latest.json updater (push API handles updates)");
+        return;
+    }
     std::thread::spawn(|| {
         flog(&format!(
             "thread started, first_check_delay={:?}, push_poll={:?}, full_check={:?}, deferred_retry={:?}",
@@ -265,7 +290,30 @@ fn fetch_latest() -> ResultType<LatestRelease> {
     if !resp.status().is_success() {
         bail!("HTTP {}", resp.status());
     }
-    let release: LatestRelease = resp.json()?;
+    let body = resp.text()?;
+
+    // 2026-05-28 dual-channel: 새 schema { hq:{...}, agent:{...} } 우선 시도.
+    // 실패 시 옛 schema (flat) 폴백 — 점진 마이그레이션 안전망.
+    let is_agent = hbb_common::config::is_incoming_only();
+    if let Ok(dual) = serde_json::from_str::<DualChannelManifest>(&body) {
+        let chan = if is_agent { dual.agent } else { dual.hq };
+        flog(&format!(
+            "dual-channel: selected '{}' (version={})",
+            if is_agent { "agent" } else { "hq" },
+            chan.version
+        ));
+        return Ok(chan);
+    }
+    // 옛 단일 schema 폴백.
+    let release: LatestRelease = match serde_json::from_str(&body) {
+        Ok(r) => r,
+        Err(e) => bail!("latest.json parse fail (dual & flat both): {}", e),
+    };
+    flog(&format!(
+        "legacy single-channel schema (version={}) — build={}",
+        release.version,
+        if is_agent { "agent" } else { "hq" }
+    ));
     Ok(release)
 }
 
@@ -355,10 +403,10 @@ fn verify_sha256(path: &PathBuf, expected_hex: &str) -> ResultType<()> {
 ///   그대로 사용. updater.rs 의 네이티브 경로와 동일 메커니즘.
 ///   - 세션: `get_current_session_id(false)` = WTS 활성 콘솔(로그인 사용자) 세션.
 ///     무인(로그인 사용자 없음)이면 0xFFFFFFFF → 서비스 자기 세션으로 폴백
-///     (/SILENT 라 UI 불필요, SYSTEM 토큰이라 UAC 도 불필요).
+///     (/VERYSILENT 라 UI 불필요, SYSTEM 토큰이라 UAC 도 불필요).
 ///   - 네이티브 `--update` 자가교체는 안 씀: 우리 Inno 인스톨러의 필수 작업
 ///     (toml→LocalService, 단축아이콘, watchdog, sc start 견고화)을 보존해야 함.
-fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
+pub(crate) fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
     let setup_str = setup_path.to_string_lossy().to_string();
     let log_path = std::path::Path::new(&setup_str)
         .parent()
@@ -367,7 +415,7 @@ fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
 
     // 일반 Windows 인용(실제 큰따옴표). 경로 공백 대비 exe·LOG 경로 인용.
     let cmd = format!(
-        "\"{}\" /SILENT /SUPPRESSMSGBOXES /NORESTART /LOG=\"{}\"",
+        "\"{}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=\"{}\"",
         setup_str, log_path
     );
 
