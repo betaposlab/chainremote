@@ -104,7 +104,7 @@ def main():
         )
         patch_file(f3, "PATCHED-swresample", find3, replace3, "[3/3] build.rs")
     else:
-        print("  [3/3] build.rs : Windows — swresample 패치 skip (ffmpeg overlay 와 맞음)")
+        print("  [3/3] build.rs : Windows - swresample 패치 skip (ffmpeg overlay 와 맞음)")
 
     print("=== 패치 종료 ===")
 
