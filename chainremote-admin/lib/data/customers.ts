@@ -3,7 +3,7 @@
 //
 // 모든 함수는 tenantId 격리 강제 — 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { customers } from "@/lib/schema";
@@ -104,24 +104,24 @@ export async function importPeer(
 }
 
 /**
- * 거래처 heartbeat 토큰 발급 (자가 발급 + 1회 제약).
+ * 거래처 heartbeat 토큰 발급 (자가 발급, idempotent rotation).
  *
- * Agent 가 첫 실행 시 호출. customers.heartbeat_token IS NULL 일 때만 생성·저장.
- * 이미 토큰 있거나 remote_id 매칭 customer 없으면 null 반환 (409 처리는 route 측).
+ * Agent 가 첫 실행 시 + heartbeat 403 회복 시 호출. customer 가 remoteId 로 존재하면
+ * 무조건 새 토큰 발급 + DB 갱신 + 반환. 이전 버전(2026-05-29 까지)은 isNull 조건으로
+ * 1회 제약 — 인스톨 후 Agent 가 LocalConfig 토큰 잃으면 영원히 409 stuck 되는 결함.
+ * 거래처 50~200곳 자동업데이트 사업화 인프라 핵심이라 idempotent 회복으로 전환.
  *
- * 보안 모델 (사업화 초기): 인스톨러에 토큰 못 박는 환경이라 자가 발급 우회. 공격자가
- * agent 첫 install 보다 먼저 register 호출하면 토큰 탈취 가능 — 단 install 직후 ~ 첫
- * heartbeat 사이 윈도우가 짧고 remote_id (9자리 숫자) 도 추측 필요. 매출 후 인스톨러
- * 토큰 박기 / OAuth-like 로 강화 검토.
- *
- * tenant 격리 없음 — remote_id 가 머신 UUID 기반 deterministic 이라 글로벌 unique 가정.
+ * 보안 모델: 인스톨러에 토큰 못 박는 환경 자가 발급 그대로 유지. 공격자가 같은 remote_id
+ * 로 register 호출하면 토큰 탈취 가능 (legit Agent 는 다음 tick 에서 다시 회복) — 단
+ * remote_id (9자리) + HTTP only + 9시간 lock-out 등 향후 강화 검토.
+ * Customer 미존재 시 null 반환 (route 가 409).
  */
 export async function registerHeartbeatToken(remoteId: string): Promise<string | null> {
   const newToken = crypto.randomBytes(32).toString("hex");
   const [row] = await db
     .update(customers)
     .set({ heartbeatToken: newToken })
-    .where(and(eq(customers.remoteId, remoteId), isNull(customers.heartbeatToken)))
+    .where(eq(customers.remoteId, remoteId))
     .returning({ token: customers.heartbeatToken });
   return row?.token ?? null;
 }

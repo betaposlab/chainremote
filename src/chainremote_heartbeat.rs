@@ -4,16 +4,18 @@
 //! 가시성. 코이노 대비 차별 포인트.
 //!
 //! 설계:
-//!   - 첫 실행: POST /api/customers/register-heartbeat-token { remoteId } (1회만 성공)
+//!   - 첫 실행: POST /api/customers/register-heartbeat-token { remoteId }
 //!     → 받은 token 을 LocalConfig 에 저장 (key: "chainremote-heartbeat-token")
 //!   - 그 후 10분 마다: POST /api/customers/heartbeat with X-ChainRemote-Token header
 //!     body: { remoteId, version }
+//!   - v1.3.7 자가회복: heartbeat 401/403 이면 LocalConfig 토큰 비우고 즉시 re-register
+//!     + 1회 재시도. 서버는 idempotent rotation (1회 제약 폐기) — 인스톨 후 토큰 분실해도
+//!     자동 회복. "업데이트 지옥" 탈출의 핵심.
 //!
-//! Agent 빌드만 동작. HQ (outgoing-only) / 정식 builds 는 skip — `is_incoming_only()` 검사.
-//! 단 ChainGo 포터블도 incoming-only 가 아니므로 자동 skip.
+//! Agent + 옵션 B+ HQ 빌드만 동작. 일반 HQ/정식 builds 는 skip.
 //!
 //! 권한: Windows 서비스(LocalSystem) 컨텍스트에서 실행. UAC 없음.
-//! 보안 모델: lib/data/customers.ts::registerHeartbeatToken 의 doc 참조 (자가 발급 + 1회 제약).
+//! 보안 모델: lib/data/customers.ts::registerHeartbeatToken 의 doc 참조 (자가 발급 + idempotent).
 
 #![cfg(target_os = "windows")]
 
@@ -65,6 +67,13 @@ fn run_loop() {
     }
 }
 
+/// heartbeat HTTP 결과 분류 — 401/403 만 별도로 잡아 재등록 회복 경로 트리거.
+enum BeatOutcome {
+    Ok,
+    /// 401 (token 헤더 미보유) 또는 403 (token/remoteId 불일치). 토큰 분실/회전 의심.
+    AuthRejected,
+}
+
 fn tick() -> ResultType<()> {
     let remote_id = hbb_common::config::Config::get_id();
     if remote_id.is_empty() {
@@ -82,14 +91,40 @@ fn tick() -> ResultType<()> {
         stored
     };
 
-    // 2) heartbeat 전송.
-    send_heartbeat(&remote_id, &token, crate::CHAINREMOTE_VERSION)?;
-    log::info!(
-        "[chainremote_heartbeat] beat ok (remote_id={}, version={})",
-        remote_id,
-        crate::CHAINREMOTE_VERSION
-    );
-    Ok(())
+    // 2) heartbeat 전송. 401/403 = 토큰 미스매치 → 즉시 re-register + 1회 재시도.
+    //    v1.3.7 자가회복 핵심 — 매 릴리즈마다 수동 설치 강요하던 "업데이트 지옥" 탈출.
+    //    (인스톨 후 LocalConfig 토큰 분실 / 서버 토큰 회전 모두 자동 회복.)
+    match send_heartbeat(&remote_id, &token, crate::CHAINREMOTE_VERSION)? {
+        BeatOutcome::Ok => {
+            log::info!(
+                "[chainremote_heartbeat] beat ok (remote_id={}, version={})",
+                remote_id,
+                crate::CHAINREMOTE_VERSION
+            );
+            Ok(())
+        }
+        BeatOutcome::AuthRejected => {
+            log::warn!(
+                "[chainremote_heartbeat] auth rejected → clear local token + re-register"
+            );
+            hbb_common::config::LocalConfig::set_option(TOKEN_KEY.to_string(), String::new());
+            let fresh = register_token(&remote_id)?;
+            hbb_common::config::LocalConfig::set_option(TOKEN_KEY.to_string(), fresh.clone());
+            match send_heartbeat(&remote_id, &fresh, crate::CHAINREMOTE_VERSION)? {
+                BeatOutcome::Ok => {
+                    log::info!(
+                        "[chainremote_heartbeat] beat ok after recovery (remote_id={})",
+                        remote_id
+                    );
+                    Ok(())
+                }
+                BeatOutcome::AuthRejected => {
+                    // 재발급 직후에도 거부 = 서버/네트워크 이상. 다음 tick 에서 재시도.
+                    bail!("heartbeat auth rejected even after fresh register");
+                }
+            }
+        }
+    }
 }
 
 fn register_token(remote_id: &str) -> ResultType<String> {
@@ -104,9 +139,8 @@ fn register_token(remote_id: &str) -> ResultType<String> {
         .send()?;
     let status = resp.status();
     if !status.is_success() {
-        // 409 = 이미 등록됨 또는 거래처 미등록.
-        //   - "이미 등록됨" → 관리 패널에서 토큰 reset 필요 (super_admin 작업).
-        //   - "거래처 미등록" → Chang 이 패널에 그 remote_id 거래처 등록 전. 다음 tick 재시도.
+        // v1.3.7 부터 서버는 idempotent rotation → customer 존재하면 항상 200.
+        // 409 = 거래처 미등록 (Chang 이 패널에 등록 전). 다음 tick 재시도.
         bail!("register HTTP {}", status);
     }
     #[derive(serde::Deserialize)]
@@ -117,7 +151,7 @@ fn register_token(remote_id: &str) -> ResultType<String> {
     Ok(r.token)
 }
 
-fn send_heartbeat(remote_id: &str, token: &str, version: &str) -> ResultType<()> {
+fn send_heartbeat(remote_id: &str, token: &str, version: &str) -> ResultType<BeatOutcome> {
     let body = serde_json::json!({ "remoteId": remote_id, "version": version }).to_string();
     let client = reqwest::blocking::Client::builder()
         .timeout(HTTP_TIMEOUT)
@@ -129,10 +163,11 @@ fn send_heartbeat(remote_id: &str, token: &str, version: &str) -> ResultType<()>
         .body(body)
         .send()?;
     let status = resp.status();
-    if !status.is_success() {
-        // 403 = token 또는 remoteId 불일치. 토큰 만료/리셋 의심 → 다음 tick 에서 register 재시도?
-        // 현재는 단순 log + 재시도 안 함. 매출 후 token rotation 정책 추가 검토.
-        bail!("heartbeat HTTP {}", status);
+    if status.is_success() {
+        return Ok(BeatOutcome::Ok);
     }
-    Ok(())
+    if status.as_u16() == 401 || status.as_u16() == 403 {
+        return Ok(BeatOutcome::AuthRejected);
+    }
+    bail!("heartbeat HTTP {}", status);
 }
