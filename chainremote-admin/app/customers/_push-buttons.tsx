@@ -6,9 +6,38 @@
 // 영업시간 가드: 00:00~07:00 default, Chang 이 거래처 영업패턴에 따라 조정 가능.
 // 무작위지연: 0~7시간 default (= 7시간 창 전체 분산).
 //
-// 자동 fetch (NAS 의 agent-latest.json) 은 backlog. 일단 수동 입력.
+// 자동 fetch: NAS 의 `agent-push.json` (별도 메타 파일) 에서 sha256/URL/size 자동 채움.
+// 옛 latest.json 의 agent 채널은 옛 v1.3.4 Agent 호환 위해 0.0.0 영구 유지.
+// agent-push.json 은 v1.3.6+ 패널에서만 fetch — 옛 Agent 안 봄.
 
 import { useState, useTransition } from "react";
+
+const AGENT_PUSH_META_URL =
+  "https://sepani.synology.me/chainremote/agent-push.json";
+
+async function fetchAgentPushMeta(): Promise<
+  | {
+      version: string;
+      url: string;
+      sha256: string;
+      size: number;
+    }
+  | null
+> {
+  try {
+    const resp = await fetch(AGENT_PUSH_META_URL, { cache: "no-store" });
+    if (!resp.ok) return null;
+    const j = (await resp.json()) as Record<string, unknown>;
+    const version = typeof j.version === "string" ? j.version : "";
+    const url = typeof j.url === "string" ? j.url : "";
+    const sha256 = typeof j.sha256 === "string" ? j.sha256 : "";
+    const size = typeof j.size === "number" ? j.size : 0;
+    if (!version || !url || !sha256 || size <= 0) return null;
+    return { version, url, sha256, size };
+  } catch {
+    return null;
+  }
+}
 import {
   pushToCustomerAction,
   pushBulkAction,
@@ -237,13 +266,51 @@ function PushDialog({
   const set = <K extends keyof PushFormState>(k: K, v: string) =>
     setState({ ...state, [k]: v });
 
+  const [fetching, setFetching] = useState(false);
+  const [fetchMsg, setFetchMsg] = useState<string | null>(null);
+
+  const handleAutoFill = async () => {
+    setFetching(true);
+    setFetchMsg(null);
+    const meta = await fetchAgentPushMeta();
+    setFetching(false);
+    if (!meta) {
+      setFetchMsg("agent-push.json 못 가져옴 (NAS 미배포 또는 형식 오류)");
+      return;
+    }
+    setState({
+      ...state,
+      targetVersion: meta.version,
+      assetUrl: meta.url,
+      assetSha256: meta.sha256,
+      assetSize: String(meta.size),
+    });
+    setFetchMsg(`✓ v${meta.version} 자동 채움 완료`);
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 p-4 flex items-start justify-center overflow-y-auto">
       <div className="mt-12 w-full max-w-lg rounded-xl bg-white shadow-2xl">
-        <header className="border-b border-slate-200 px-5 py-3">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
+        <header className="border-b border-slate-200 px-5 py-3 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">{title}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleAutoFill}
+            disabled={fetching}
+            className="shrink-0 rounded border border-[#00A0E5] text-[#00A0E5] hover:bg-[#00A0E5]/10 text-xs px-2 py-1 disabled:opacity-50"
+            title="NAS agent-push.json 에서 최신 메타 가져오기"
+          >
+            {fetching ? "가져오는 중..." : "⤓ 최신 가져오기"}
+          </button>
         </header>
+        {fetchMsg && (
+          <div className={`px-5 pt-3 text-xs ${fetchMsg.startsWith("✓") ? "text-emerald-700" : "text-amber-700"}`}>
+            {fetchMsg}
+          </div>
+        )}
         <div className="px-5 py-4 space-y-3">
           <Field label="타겟 버전" hint="예: 1.3.5">
             <input

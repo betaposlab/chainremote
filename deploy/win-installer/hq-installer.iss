@@ -70,6 +70,10 @@ Source: "..\custom-hq.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.t
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
 Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
 
+; 0.5. ★ silent-install 직전 옛 ChainRemote.exe 강제 종료 (v1.3.6 신규, 2026-05-29).
+;     v1.3.4 → v1.3.5 마이그레이션 후 트레이 아이콘 2개 잔재 해소. 자세히는 agent-installer.iss.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; taskkill /F /IM ChainRemote.exe /T *>$null; Start-Sleep -Seconds 2"""; StatusMsg: "옛 ChainRemote 프로세스 정리 중..."; Flags: runhidden waituntilterminated
+
 ; (Phase 3-Win v2 2026-05-25): 옛 'sc delete RustDesk' + 'taskkill rustdesk.exe' 단계 제거.
 ;     Microsoft Defender false positive (Trojan:Win32/Bearfoos.B!ml) 트리거 회피.
 ;     동일 정리 동작은 src/chainremote_migrate.rs 가 첫 실행 시 처리. agent 와 동일.
