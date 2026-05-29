@@ -469,7 +469,11 @@ def build_flutter_windows(version, features, skip_portable_pack):
                   './rustdesk_portable.exe')
     print(
         f'output location: {os.path.abspath(os.curdir)}/rustdesk_portable.exe')
-    os.rename('./rustdesk_portable.exe', f'./rustdesk-{version}-install.exe')
+    # ChainRemote: 재빌드 시 기존 install.exe 잔재로 rename 실패하던 함정 fix (2026-05-29).
+    final_install = f'./rustdesk-{version}-install.exe'
+    if os.path.exists(final_install):
+        os.remove(final_install)
+    os.rename('./rustdesk_portable.exe', final_install)
     print(
         f'output location: {os.path.abspath(os.curdir)}/rustdesk-{version}-install.exe')
 

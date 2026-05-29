@@ -113,6 +113,10 @@ Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\
 ; 8. 단축아이콘 IconLocation 갱신
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
+; 8.5. ★ 인스톨 후 self-test 스모크 (v1.3.7 신규, 2026-05-29).
+;     자세히는 agent-installer.iss 의 동일 단계 doc 참조.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Start-Sleep -Seconds 8; $log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $svc=(Get-Service ChainRemote -EA SilentlyContinue).Status; $procs=(Get-Process ChainRemote -EA SilentlyContinue).Count; $exe='C:\Program Files\ChainRemote\ChainRemote.exe'; $exists=(Test-Path $exe); $verdict='FAIL'; if (($svc -eq 'Running') -and ($procs -ge 1) -and $exists) {{ $verdict='PASS' }}; Add-Content -Path $log -Value ($st + ' installer: SELFTEST v{#APP_VERSION} svc=' + $svc + ' procs=' + $procs + ' exe=' + $exists + ' -> ' + $verdict)"""; StatusMsg: "ChainRemote 설치 self-test 중..."; Flags: runhidden waituntilterminated
+
 ; 9. 설치 직후 실행 (재성이 검증용) — 절대 경로 강제 (Phase 3-Win 사고 fix, 2026-05-25).
 ;    옛 RustDesk 설치본의 {app} mismatch 회피. agent-installer 와 동일 사유.
 Filename: "{commonpf}\ChainRemote\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent

@@ -438,3 +438,153 @@ pub(crate) fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    //! ChainRemote 자동업데이트 핵심 로직 단위테스트 (2026-05-29).
+    //! 매 빌드마다 버전비교/sha256/json 파싱이 깨지면 자동 알리는 그물망.
+    //! Windows 한정 모듈이라 cargo test 는 윈컴 빌드 머신에서만 의미.
+    use super::*;
+
+    #[test]
+    fn parse_version_basic() {
+        assert_eq!(parse_version("1.3.5").unwrap(), (1, 3, 5));
+        assert_eq!(parse_version("10.20.30").unwrap(), (10, 20, 30));
+        assert_eq!(parse_version("0.0.0").unwrap(), (0, 0, 0));
+    }
+
+    #[test]
+    fn parse_version_trims_whitespace() {
+        assert_eq!(parse_version("  1.3.7\n").unwrap(), (1, 3, 7));
+    }
+
+    #[test]
+    fn parse_version_strips_suffix() {
+        // build 부분의 알파/베타/rc suffix 는 숫자 prefix 만 취함.
+        assert_eq!(parse_version("1.3.5-rc1").unwrap(), (1, 3, 5));
+        assert_eq!(parse_version("1.3.7-pushtest").unwrap(), (1, 3, 7));
+        assert_eq!(parse_version("1.3.0beta").unwrap(), (1, 3, 0));
+    }
+
+    #[test]
+    fn parse_version_rejects_too_few_parts() {
+        assert!(parse_version("1.3").is_err());
+        assert!(parse_version("1").is_err());
+        assert!(parse_version("").is_err());
+    }
+
+    #[test]
+    fn parse_version_rejects_non_numeric_major_minor() {
+        assert!(parse_version("x.3.5").is_err());
+        assert!(parse_version("1.y.5").is_err());
+    }
+
+    #[test]
+    fn is_newer_strict_ordering() {
+        assert!(is_newer((1, 3, 7), (1, 3, 5)));
+        assert!(is_newer((1, 4, 0), (1, 3, 99)));
+        assert!(is_newer((2, 0, 0), (1, 999, 999)));
+        assert!(!is_newer((1, 3, 5), (1, 3, 5)));
+        assert!(!is_newer((1, 3, 5), (1, 3, 7)));
+        assert!(!is_newer((0, 0, 0), (1, 3, 7))); // agent 채널 영구 락 케이스
+    }
+
+    fn write_tmp(name: &str, bytes: &[u8]) -> PathBuf {
+        let p = std::env::temp_dir().join(format!("cr_test_{}_{}", std::process::id(), name));
+        std::fs::write(&p, bytes).expect("write tmp");
+        p
+    }
+
+    #[test]
+    fn verify_sha256_ok_when_matching() {
+        // sha256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+        let p = write_tmp("hello.bin", b"hello");
+        let expected = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+        let r = verify_sha256(&p, expected);
+        let _ = std::fs::remove_file(&p);
+        assert!(r.is_ok(), "verify failed unexpectedly: {:?}", r.err());
+    }
+
+    #[test]
+    fn verify_sha256_accepts_mixed_case_and_whitespace() {
+        let p = write_tmp("hello2.bin", b"hello");
+        let expected = "  2CF24DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824  ";
+        let r = verify_sha256(&p, expected);
+        let _ = std::fs::remove_file(&p);
+        assert!(r.is_ok());
+    }
+
+    #[test]
+    fn verify_sha256_err_and_deletes_on_mismatch() {
+        let p = write_tmp("bad.bin", b"hello");
+        // 일부러 mismatch 한 sha
+        let wrong = "0000000000000000000000000000000000000000000000000000000000000000";
+        let r = verify_sha256(&p, wrong);
+        assert!(r.is_err());
+        // 손상 파일 정리 동작 검증 — verify_sha256 가 remove 호출함.
+        assert!(!p.exists(), "mismatch 파일이 자동 정리되지 않음");
+    }
+
+    #[test]
+    fn verify_sha256_err_on_missing_file() {
+        let p = std::env::temp_dir().join(format!("cr_test_missing_{}.bin", std::process::id()));
+        let _ = std::fs::remove_file(&p);
+        let r = verify_sha256(&p, "0".repeat(64).as_str());
+        assert!(r.is_err());
+    }
+
+    #[test]
+    fn dual_channel_manifest_parses_v137() {
+        // 운영 latest.json 의 실제 schema. agent 채널은 0.0.0 영구 락.
+        let body = r#"{
+            "hq": {
+                "version": "1.3.7",
+                "url": "https://sepani.synology.me/chainremote/ChainRemote_HQ_Setup_v1.3.7.exe",
+                "sha256": "95c9310f499f90175b59f91acce15476d0db415d2020e8eaac0ec5247fe3a8a2",
+                "size": 24099858,
+                "released_at": "2026-05-29T18:30:00Z",
+                "notes": "v1.3.7"
+            },
+            "agent": {
+                "version": "0.0.0",
+                "url": "",
+                "sha256": "",
+                "size": 0,
+                "released_at": "2026-05-29T08:11:00Z",
+                "notes": "agent 채널 영구 비활성"
+            }
+        }"#;
+        let dual: DualChannelManifest = serde_json::from_str(body).expect("parse fail");
+        assert_eq!(dual.hq.version, "1.3.7");
+        assert_eq!(dual.agent.version, "0.0.0");
+        assert_eq!(dual.agent.url, "");
+    }
+
+    #[test]
+    fn legacy_single_channel_manifest_still_parses() {
+        // 옛 단일 채널 schema 도 LatestRelease 로 fallback 파싱 되어야 함.
+        let body = r#"{
+            "version": "1.3.0",
+            "url": "https://example.com/setup.exe",
+            "sha256": "deadbeef"
+        }"#;
+        let release: LatestRelease = serde_json::from_str(body).expect("parse fail");
+        assert_eq!(release.version, "1.3.0");
+        assert_eq!(release.sha256, "deadbeef");
+    }
+
+    #[test]
+    fn manifest_missing_required_field_errs() {
+        // version 빠지면 둘 다 실패.
+        let body = r#"{ "url": "x", "sha256": "y" }"#;
+        assert!(serde_json::from_str::<LatestRelease>(body).is_err());
+        assert!(serde_json::from_str::<DualChannelManifest>(body).is_err());
+    }
+
+    #[test]
+    fn empty_or_malformed_body_errs() {
+        assert!(serde_json::from_str::<LatestRelease>("").is_err());
+        assert!(serde_json::from_str::<LatestRelease>("not json").is_err());
+        assert!(serde_json::from_str::<DualChannelManifest>("[]").is_err());
+    }
+}

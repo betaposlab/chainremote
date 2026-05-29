@@ -171,6 +171,14 @@ Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\
 ;    Inno Setup constant 충돌 회피: PowerShell 의 { 들은 모두 {{ 로 이스케이프
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
+; 8.5. ★ 인스톨 후 self-test 스모크 (v1.3.7 신규, 2026-05-29).
+;     배경: 자동 푸시 사이클에서 silent install 끝났는데 서비스가 죽거나 .exe 가 안 깔린
+;           "조용한 실패" 케이스가 패널 입장에서 보이지 않음. updater.log 에 PASS/FAIL 줄을
+;           남겨, 다음 진단 사이클 + 운영 가시성 강화.
+;     체크 3종: Service=Running / Process count>=1 / Exe file exists.
+;     실패해도 인스톨 자체는 성공 처리 — rollback 안 함 (이미 박힌 파일 검증만 추가).
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Start-Sleep -Seconds 8; $log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $svc=(Get-Service ChainRemote -EA SilentlyContinue).Status; $procs=(Get-Process ChainRemote -EA SilentlyContinue).Count; $exe='C:\Program Files\ChainRemote\ChainRemote.exe'; $exists=(Test-Path $exe); $verdict='FAIL'; if (($svc -eq 'Running') -and ($procs -ge 1) -and $exists) {{ $verdict='PASS' }}; Add-Content -Path $log -Value ($st + ' installer: SELFTEST v{#APP_VERSION} svc=' + $svc + ' procs=' + $procs + ' exe=' + $exists + ' -> ' + $verdict)"""; StatusMsg: "ChainRemote 설치 self-test 중..."; Flags: runhidden waituntilterminated
+
 ; 9. 설치 직후 ChainRemote 실행 — 절대 경로 강제 (Phase 3-Win 사고 fix, 2026-05-25).
 ;    옛 v1.3.0 이 깔려있던 PC 는 Inno Setup 의 {app} 이 옛 'C:\Program Files\RustDesk\' 가리킴.
 ;    install_me() 는 APP_NAME='ChainRemote' 따라 'C:\Program Files\ChainRemote\' 에 설치 →
