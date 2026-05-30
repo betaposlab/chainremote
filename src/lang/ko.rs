@@ -190,6 +190,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Auto Login", "자동 로그인"),
         ("Enable direct IP access", "직접 IP 액세스 허용"),
         ("Rename", "거래처 이름 변경"),
+        ("Rename File", "이름 변경"),
         ("Space", "공백"),
         ("Create desktop shortcut", "바탕 화면 바로가기 만들기"),
         ("Change Path", "경로 변경"),

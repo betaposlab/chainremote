@@ -534,7 +534,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                                             "1.3.0") >=
                                         0)
                                   PopupMenuItem(
-                                    child: Text(translate("Rename")),
+                                    child: Text(translate("Rename File")),
                                     value: "rename",
                                   )
                               ];

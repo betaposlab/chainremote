@@ -860,7 +860,7 @@ class FileController {
         content: Column(
           children: [
             DialogTextField(
-              title: '${translate('Rename')} ${item.name}',
+              title: '${translate('Rename File')} ${item.name}',
               controller: textEditingController,
               errorText: errorText,
             ),
