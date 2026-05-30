@@ -1256,7 +1256,7 @@ class _FileManagerViewState extends State<FileManagerView> {
               if (!entry.isDrive &&
                   versionCmp(_ffi.ffiModel.pi.version, "1.3.0") >= 0)
                 mod_menu.PopupMenuItem(
-                  child: Text(translate("Rename")),
+                  child: Text(translate("Rename File")),
                   height: CustomPopupMenuTheme.height,
                   onTap: () {
                     controller.renameAction(entry, isLocal);
