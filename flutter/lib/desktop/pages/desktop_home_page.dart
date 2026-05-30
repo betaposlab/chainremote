@@ -173,13 +173,15 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           ),
           // ChainRemote 빌드 종류 배지 (2026-05-27 Chang 피드백).
           // HQ/Agent 한눈 구분 — 같은 PC 에 다른 빌드 설치된 경우 직관 확인용.
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 14),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: _buildBuildKindBadge(),
+          // 포터블(ChainGo)면 ChainGo 배지만 — HQ 배지와 중복 방지 (2026-05-30).
+          if (!isPortable)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 14),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _buildBuildKindBadge(),
+              ),
             ),
-          ),
           if (isPortable)
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),
