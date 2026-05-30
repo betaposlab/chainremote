@@ -90,33 +90,41 @@ class _FolderTreePaneState extends State<FolderTreePane> {
 
   void _initRoots() {
     final home = controller.options.value.home;
-    // 윈도우 드라이브 루트('C:\\','C:')면 '내 컴퓨터 > C:' 와 중복 + 사용자 프로필이
-    // 아니다. 원격 Agent 는 서비스 계정으로 도는 탓에 home 이 C:\\ 로 온다.
-    final isWinDriveRoot = RegExp(r'^[A-Za-z]:[\\/]?$').hasMatch(home);
-    if (isWinDriveRoot) {
-      // C:\\Users 에서 실제 사용자 프로필을 찾아 탐색기식 진입점을 구성한다.
-      // 거래처 원격자는 다운로드·바탕화면 실제 경로를 모르는 경우가 태반이라 필수.
-      _initWinRoots(profileFromUsers: true, home: home);
+    final dirPath = controller.directory.value.path;
+    // 윈도우 판정: 플래그 + 현재 경로/홈 형태(드라이브문자·역슬래시) 종합 — 플래그 race 회피.
+    final isWin = controller.options.value.isWindows ||
+        _looksWindows(dirPath) ||
+        _looksWindows(home);
+
+    // ★ 원격의 home 은 '마지막 방문 폴더'(remote_dir)라 변동값이다(예: D:\\무한도전).
+    //   절대 트리 뿌리로 쓰면 안 된다 → 항상 C:\\Users 에서 실제 프로필을 찾아 고정.
+    if (!isLocal) {
+      if (isWin) {
+        _initWinRoots(profileFromUsers: true, home: '');
+      } else {
+        // 원격 유닉스(드묾): 신뢰할 프로필 경로 없음 → 내 컴퓨터만.
+        setState(
+            () => _roots = [_TreeNode('/', '내 컴퓨터', Icons.computer_sharp)]);
+        _expand(_roots!.first);
+      }
       return;
     }
-    if (home == '/') {
-      // 유닉스 루트가 home 인 비정상 케이스 — 내 컴퓨터만.
-      setState(() => _roots = [_TreeNode('/', '내 컴퓨터', Icons.computer_sharp)]);
-      _expand(_roots!.first);
-      return;
-    }
-    if (_looksWindows(home)) {
-      // 로컬 윈도우(HQ): home = 실제 프로필. 홈 노드 + 빠른 진입점.
+
+    // 로컬: home 은 mainGetHomeDir 로 안정적 = 실제 프로필.
+    if (isWin) {
       _initWinRoots(profileFromUsers: false, home: home);
       return;
     }
-    // Mac/유닉스: 리디렉션 없음 → home 기준 표준 경로 직접 구성.
+    // 로컬 Mac/유닉스: home 기준 표준 경로 직접 구성.
     final roots = <_TreeNode>[];
-    final segs = home.split('/').where((s) => s.isNotEmpty).toList();
-    roots.add(_TreeNode(home, segs.isNotEmpty ? segs.last : '홈', Icons.home_sharp));
-    roots.add(_TreeNode('$home/Desktop', '바탕화면', Icons.desktop_windows_sharp));
-    roots.add(_TreeNode('$home/Downloads', '다운로드', Icons.download_sharp));
-    roots.add(_TreeNode('$home/Documents', '문서', Icons.description_sharp));
+    if (home.isNotEmpty) {
+      final segs = home.split('/').where((s) => s.isNotEmpty).toList();
+      roots.add(
+          _TreeNode(home, segs.isNotEmpty ? segs.last : '홈', Icons.home_sharp));
+      roots.add(_TreeNode('$home/Desktop', '바탕화면', Icons.desktop_windows_sharp));
+      roots.add(_TreeNode('$home/Downloads', '다운로드', Icons.download_sharp));
+      roots.add(_TreeNode('$home/Documents', '문서', Icons.description_sharp));
+    }
     roots.add(_TreeNode('/', '내 컴퓨터', Icons.computer_sharp));
     setState(() => _roots = roots);
     _expand(roots.first);
