@@ -135,7 +135,19 @@ class PlatformFFI {
       _session_get_rgba = dylib.lookupFunction<F3Dart, F3>("session_get_rgba");
       try {
         // SYSTEM user failed
-        _dir = (await getApplicationDocumentsDirectory()).path;
+        // ChainRemote: macOS 에선 app_dir 를 비워둬, Rust 가 네이티브 config 경로
+        // (~/Library/Preferences/<bundle> = config.rs Config::path 의 ProjectDirs+patch)를
+        // *모든 시점에 일관되게* 쓰게 한다. 이유:
+        //  - getApplicationDocumentsDirectory()(=~/Documents)는 iCloud "데스크탑·문서" 동기화
+        //    대상이라 config(영구비번·id)가 기기 간 클로버됨.
+        //  - getApplicationSupportDirectory() 로 바꿔도 APP_DIR 은 Flutter init(늦음)에서만 set 되어,
+        //    core_main(이른 시점)은 Preferences, 이후는 ApplicationSupport 로 경로가 갈려
+        //    영구비번이 startup 에 유실됨(단계 간 config 분리).
+        //  - app_dir 를 비우면 이른·늦은 시점 모두 Rust ProjectDirs 경로(Preferences, iCloud 무관)로 통일.
+        //  - Windows 서비스도 SYSTEM 에서 이 호출이 실패해 빈 app_dir 로 동일 동작(=정상).
+        if (!isMacOS) {
+          _dir = (await getApplicationDocumentsDirectory()).path;
+        }
       } catch (e) {
         debugPrint('Failed to get documents directory: $e');
       }
