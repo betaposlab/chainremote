@@ -121,6 +121,15 @@ fn customer_to_peer_json(c: &CustomerRow) -> Option<serde_json::Value> {
 /// 2026-05-27: HQ workstation 등 옵션 B+ 본사 PC 즐겨찾기 지원용.
 fn orphan_peer_json(remote_id: &str) -> serde_json::Value {
     let empty_tags: Vec<String> = Vec::new();
+    // ChainRemote: orphan(미등록) 즐겨찾기는 서버에 이름이 없어 즐겨찾기 탭에 ID만 떴다.
+    // 이 기기에 로컬 별칭(우클릭 이름변경 → set_peer_option id "alias")이 있으면 폴백으로 채워
+    // 최근세션 표시('내 맥미니' 등)와 즐겨찾기 표시를 한 기기 안에서 일치시킨다.
+    // (별칭은 로컬 저장 → 별칭을 붙이지 않은 다른 기기에선 여전히 ID. 서버 동기화는 별도 과제.)
+    let alias = hbb_common::config::PeerConfig::load(remote_id)
+        .options
+        .get("alias")
+        .cloned()
+        .unwrap_or_default();
     serde_json::json!({
         "id": remote_id,
         "hash": "",
@@ -128,7 +137,7 @@ fn orphan_peer_json(remote_id: &str) -> serde_json::Value {
         "username": "",
         "hostname": "",
         "platform": "Windows",
-        "alias": "",
+        "alias": alias,
         "tags": empty_tags,
         "forceAlwaysRelay": "false",
         "rdpPort": "",
