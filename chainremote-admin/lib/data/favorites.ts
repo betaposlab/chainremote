@@ -4,9 +4,9 @@
 // 2026-05-27 개편: remote_id 가 primary 식별자. customer_id 는 customers 에 등록된 경우만 채움.
 // 옵션 B+ HQ workstation 처럼 customers 에 없는 머신도 즐겨찾기 가능.
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { customers, userFavorites } from "@/lib/schema";
+import { customers, userFavorites, users } from "@/lib/schema";
 
 /** 본사 앱의 "즐겨찾기" 탭 — 내가 즐겨찾기한 머신 전체.
  * customer 가 customers 에 등록돼 있으면 customer 정보, 아니면 orphan(null). */
@@ -94,4 +94,71 @@ export async function listFavoritersOfCustomer(customerId: string, tenantId: str
       ),
     )
     .orderBy(desc(userFavorites.createdAt));
+}
+
+/** 관리 패널 "신규 거래처 후보" 배너의 데이터 출처.
+ * customers 에 아직 없는 orphan 즐겨찾기(customer_id NULL)를 remote_id 로 묶어 반환한다.
+ * 출처가 DB(진실 원천)이므로 패널이 NAS 에서 돌든 로컬이든 동일하게 작동한다.
+ * (구 lib/peer-discovery.ts 의 로컬 .toml 스캔 방식을 대체 — 그건 패널이 Chang Mac 에서
+ *  직접 실행될 때만 동작했고, NAS 컨테이너에선 항상 빈 배열이었음.) */
+export type OrphanFavorite = {
+  remoteId: string;
+  favoritedBy: string[]; // 즐겨찾기한 직원 displayName 목록
+  favoritedAt: Date; // 가장 최근 즐겨찾기 시각
+};
+
+export async function listOrphanFavorites(
+  tenantId: string,
+): Promise<OrphanFavorite[]> {
+  const rows = await db
+    .select({
+      remoteId: userFavorites.remoteId,
+      displayName: users.displayName,
+      favoritedAt: userFavorites.createdAt,
+    })
+    .from(userFavorites)
+    .leftJoin(users, eq(users.id, userFavorites.userId))
+    .where(
+      and(eq(userFavorites.tenantId, tenantId), isNull(userFavorites.customerId)),
+    )
+    .orderBy(desc(userFavorites.createdAt));
+
+  // 같은 머신을 여러 직원이 즐겨찾기했을 수 있으니 remote_id 로 그룹핑.
+  // rows 가 createdAt desc → 첫 등장이 최신, Map 삽입 순서로 최신순 유지.
+  const byRemote = new Map<string, OrphanFavorite>();
+  for (const r of rows) {
+    const existing = byRemote.get(r.remoteId);
+    if (existing) {
+      if (r.displayName && !existing.favoritedBy.includes(r.displayName)) {
+        existing.favoritedBy.push(r.displayName);
+      }
+    } else {
+      byRemote.set(r.remoteId, {
+        remoteId: r.remoteId,
+        favoritedBy: r.displayName ? [r.displayName] : [],
+        favoritedAt: r.favoritedAt,
+      });
+    }
+  }
+  return [...byRemote.values()];
+}
+
+/** importPeer/createCustomer 가 remote_id 로 거래처를 만들 때, 같은 remote_id 의
+ * orphan 즐겨찾기(customer_id NULL)들을 새 customer 에 연결한다.
+ * → "신규 거래처 후보" 배너에서 사라지고, 직원 즐겨찾기 탭엔 거래처 정보가 채워진다. */
+export async function linkFavoritesToCustomer(
+  remoteId: string,
+  customerId: string,
+  tenantId: string,
+): Promise<void> {
+  await db
+    .update(userFavorites)
+    .set({ customerId })
+    .where(
+      and(
+        eq(userFavorites.tenantId, tenantId),
+        eq(userFavorites.remoteId, remoteId),
+        isNull(userFavorites.customerId),
+      ),
+    );
 }

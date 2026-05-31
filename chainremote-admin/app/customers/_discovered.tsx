@@ -3,24 +3,19 @@
 import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { importPeer } from "@/lib/actions/customers";
-import type { DiscoveredPeer } from "@/lib/peer-discovery";
+import type { OrphanFavorite } from "@/lib/data/favorites";
 
-export function DiscoveredPeerBanner({ peers }: { peers: DiscoveredPeer[] }) {
+export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
 
   if (!peers.length) return null;
 
-  const onAdd = (p: DiscoveredPeer) => {
+  const onAdd = (p: OrphanFavorite) => {
     setBusyId(p.remoteId);
     start(async () => {
-      await importPeer({
-        remoteId: p.remoteId,
-        hostname: p.hostname,
-        username: p.username,
-        platform: p.platform,
-      });
+      await importPeer({ remoteId: p.remoteId });
       setBusyId(null);
       router.refresh();
     });
@@ -34,7 +29,7 @@ export function DiscoveredPeerBanner({ peers }: { peers: DiscoveredPeer[] }) {
             ✨ 신규 거래처 후보 {peers.length}곳 발견
           </h3>
           <p className="text-xs text-amber-800 mt-0.5">
-            Mac에서 한 번이라도 원격 접속한 PC 중 아직 거래처로 등록 안 된 ID들이에요.
+            직원이 즐겨찾기했지만 아직 거래처로 등록 안 된 ID들이에요.
           </p>
         </div>
       </div>
@@ -49,14 +44,10 @@ export function DiscoveredPeerBanner({ peers }: { peers: DiscoveredPeer[] }) {
                 <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">
                   {p.remoteId}
                 </span>
-                {p.hostname && (
-                  <span className="text-slate-700">{p.hostname}</span>
-                )}
-                {p.username && (
-                  <span className="text-slate-400 text-xs">@{p.username}</span>
-                )}
-                {p.platform && (
-                  <span className="text-slate-400 text-xs">· {p.platform}</span>
+                {p.favoritedBy.length > 0 && (
+                  <span className="text-slate-400 text-xs">
+                    즐겨찾기: {p.favoritedBy.join(", ")}
+                  </span>
                 )}
               </div>
             </div>
