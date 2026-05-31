@@ -7,6 +7,7 @@ import { and, desc, eq } from "drizzle-orm";
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { customers } from "@/lib/schema";
+import { linkFavoritesToCustomer } from "@/lib/data/favorites";
 
 export interface CustomerFields {
   name: string;
@@ -47,6 +48,10 @@ export async function createCustomer(
       ...fields,
     })
     .returning();
+  // remote_id 로 등록했다면, 그 ID 의 orphan 즐겨찾기를 새 거래처에 연결.
+  if (row.remoteId) {
+    await linkFavoritesToCustomer(row.remoteId, row.id, ctx.tenantId);
+  }
   return row;
 }
 
@@ -72,8 +77,9 @@ export async function deleteCustomer(id: string, ctx: { tenantId: string }) {
 }
 
 /**
- * Mac peer 폴더에서 발견된 신규 ID 를 거래처로 등록.
- * 상호명은 placeholder, Chang 이 나중에 수정.
+ * "신규 거래처 후보"(orphan 즐겨찾기)를 거래처로 등록.
+ * 상호명은 placeholder, Chang 이 나중에 수정. 등록 후 같은 remote_id 의
+ * orphan 즐겨찾기를 새 거래처에 연결한다(배너에서 사라지도록).
  */
 export async function importPeer(
   input: { remoteId: string; hostname?: string; username?: string; platform?: string },
@@ -100,6 +106,7 @@ export async function importPeer(
       notes,
     })
     .returning();
+  await linkFavoritesToCustomer(input.remoteId, row.id, ctx.tenantId);
   return row;
 }
 

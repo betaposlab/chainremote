@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { customers, pendingUpdates, supportSessions, tenants, users } from "@/lib/schema";
 import { eq, desc, and, isNull } from "drizzle-orm";
-import { discoverPeers } from "@/lib/peer-discovery";
+import { listOrphanFavorites } from "@/lib/data/favorites";
 import { DiscoveredPeerBanner } from "./_discovered";
 import { RemoteButton } from "./_remote-button";
 import { CustomerStatus } from "./_status";
@@ -71,9 +71,11 @@ export default async function CustomersPage() {
       .map((s) => [s.customerId, s]),
   );
 
+  // "신규 거래처 후보" — DB 의 orphan 즐겨찾기(아직 customers 에 등록 안 된 ID).
+  // (구: 로컬 .toml 스캔 → 패널이 NAS 컨테이너에서 돌면 항상 빈 배열이라 폐기)
   const knownIds = new Set(rows.map((r) => r.remoteId).filter((x): x is string => !!x));
-  const allPeers = await discoverPeers();
-  const newPeers = allPeers.filter((p) => !knownIds.has(p.remoteId));
+  const orphanFavorites = await listOrphanFavorites(tenant.id);
+  const newPeers = orphanFavorites.filter((p) => !knownIds.has(p.remoteId));
 
   return (
     <div className="px-8 py-6 max-w-6xl">
