@@ -1100,6 +1100,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           watchIsInputMonitoring = true;
         }, help: 'Help', link: translate("doc_mac_permission"));
       } else if (!isOutgoingOnly &&
+          !bind.isIncomingOnly() && // ChainRemote: 거래처 에이전트(incoming)엔 '부팅 서비스 설치' 배너 숨김. macOS 서비스는 로그인화면 캡처 제약+서비스 TCC 재요구로 불안정 → 거래처가 누르면 원격 불능. 무인은 자동로그인+로그인항목+영구비번으로.
           !svcStopped.value &&
           bind.mainIsInstalled() &&
           !bind.mainIsInstalledDaemon(prompt: false)) {
