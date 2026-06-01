@@ -330,7 +330,7 @@ showCmWindow({bool isStartup = false}) async {
       await windowManager.setOpacity(1);
       await windowManager.focus();
       await windowManager.minimize(); //needed
-      await windowManager.setSizeAlignment(cmSize, Alignment.topRight);
+      await windowManager.setSizeAlignment(cmSize, bind.isIncomingOnly() ? Alignment.topCenter : Alignment.topRight);
       windowOnTop(null);
     }
   }
