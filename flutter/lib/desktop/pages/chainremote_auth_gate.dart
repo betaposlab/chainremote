@@ -17,11 +17,21 @@ import 'package:flutter_hbb/models/platform_model.dart';
 class ChainRemoteAuth {
   ChainRemoteAuth._();
 
+  // 로그인 정보 저장(자동완성) LocalConfig 키 — B 방식(prefill, opt-in).
+  // RustDesk 계정 저장(user_model 의 access_token/user_info)과 동일 메커니즘.
+  static const kRemember = 'chainremote-remember';
+  static const kSavedEmail = 'chainremote-saved-email';
+  static const kSavedPassword = 'chainremote-saved-password';
+
   static final ValueNotifier<bool> authed = ValueNotifier<bool>(false);
 
-  /// 로그아웃: 메모리 자격증명 삭제(Rust static) + 게이트를 로그인 화면으로 전환.
+  /// 로그아웃: 메모리 자격증명 삭제(Rust static) + 저장된 자동완성 정보 삭제 + 로그인 화면 전환.
   static void logout() {
     bind.chainremoteLogout();
+    // 저장된 자동완성 자격증명도 함께 삭제 (Chang 결정: 로그아웃 시 저장정보 제거).
+    bind.mainSetLocalOption(key: kRemember, value: '');
+    bind.mainSetLocalOption(key: kSavedEmail, value: '');
+    bind.mainSetLocalOption(key: kSavedPassword, value: '');
     authed.value = false;
   }
 
@@ -113,7 +123,20 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _busy = false;
+  bool _remember = false;
   String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    // B 방식 prefill: '저장'이 켜져 있었으면 저장된 ID/비번을 미리 채움 (자동 로그인은 안 함).
+    if (bind.mainGetLocalOption(key: ChainRemoteAuth.kRemember) == 'Y') {
+      _remember = true;
+      _emailCtrl.text = bind.mainGetLocalOption(key: ChainRemoteAuth.kSavedEmail);
+      _passwordCtrl.text =
+          bind.mainGetLocalOption(key: ChainRemoteAuth.kSavedPassword);
+    }
+  }
 
   @override
   void dispose() {
@@ -138,6 +161,22 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     try {
       final parsed = jsonDecode(raw) as Map<String, dynamic>;
       if (parsed['ok'] == true) {
+        // B 방식: '저장' 체크 시 ID/비번 저장(다음 실행 prefill), 해제 시 삭제.
+        if (_remember) {
+          await bind.mainSetLocalOption(
+              key: ChainRemoteAuth.kRemember, value: 'Y');
+          await bind.mainSetLocalOption(
+              key: ChainRemoteAuth.kSavedEmail, value: email);
+          await bind.mainSetLocalOption(
+              key: ChainRemoteAuth.kSavedPassword, value: password);
+        } else {
+          await bind.mainSetLocalOption(
+              key: ChainRemoteAuth.kRemember, value: '');
+          await bind.mainSetLocalOption(
+              key: ChainRemoteAuth.kSavedEmail, value: '');
+          await bind.mainSetLocalOption(
+              key: ChainRemoteAuth.kSavedPassword, value: '');
+        }
         widget.onLoggedIn();
         return;
       }
@@ -277,7 +316,9 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
                               ],
                             ),
                           ],
-                          const SizedBox(height: 22),
+                          const SizedBox(height: 14),
+                          _buildRememberCheckbox(),
+                          const SizedBox(height: 18),
                           _buildLoginButton(),
                         ],
                       ),
@@ -374,6 +415,34 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
           borderSide: const BorderSide(color: _brandPrimary, width: 1.5),
         ),
       ),
+    );
+  }
+
+  /// "아이디·비밀번호 저장" 체크박스 (B 방식 opt-in). 체크 시 다음 실행에서 prefill.
+  Widget _buildRememberCheckbox() {
+    return Row(
+      children: [
+        SizedBox(
+          width: 22,
+          height: 22,
+          child: Checkbox(
+            value: _remember,
+            onChanged:
+                _busy ? null : (v) => setState(() => _remember = v ?? false),
+            activeColor: _brandPrimary,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: _busy ? null : () => setState(() => _remember = !_remember),
+          child: const Text(
+            '아이디·비밀번호 저장',
+            style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          ),
+        ),
+      ],
     );
   }
 

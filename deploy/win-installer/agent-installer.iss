@@ -15,7 +15,7 @@
 ;   4. NAS 설정(RustDesk2.toml) + 우리 .ico 배치 + 단축아이콘 IconLocation 갱신
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.3.7"
+#define APP_VERSION    "1.3.8"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; 윈컴에서 빌드한 ChainRemote.exe 가 들어있는 폴더
@@ -64,8 +64,10 @@ Source: "{#BUILD_DIR}\*"; DestDir: "{tmp}\chainremote_payload"; Flags: deleteaft
 ;   거래처 PC 디폴트 = "클릭으로 세션 수락". 영구비번 평문(RustDesk.toml) 박지 않음.
 ;   거래처가 자기 사용성에 따라 자율적으로 영구비번 켜거나 click 그대로 사용.
 ;   HQ 인스톨러는 RustDesk2.toml (영구비번 모드) 그대로 유지 (옵션 B+).
-Source: "RustDesk2-agent.toml";  DestDir: "{tmp}\chainremote_config"; DestName: "RustDesk2.toml"; Flags: deleteafterinstall ignoreversion
-Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; Flags: deleteafterinstall ignoreversion
+; ★ 2026-06-01 fix: APP_NAME=ChainRemote 라 에이전트는 ChainRemote2.toml/ChainRemote_default.toml 을 읽음.
+;   (기존 RustDesk2.toml 이름으로 박으면 에이전트가 안 읽어 인스톨러 설정 전부 무시됐음 — clean 설치 거래처 먹통 원인.)
+Source: "RustDesk2-agent.toml";  DestDir: "{tmp}\chainremote_config"; DestName: "ChainRemote2.toml"; Flags: deleteafterinstall ignoreversion
+Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; DestName: "ChainRemote_default.toml"; Flags: deleteafterinstall ignoreversion
 
 ; ChainRemote 단축아이콘에 쓸 .ico (Program Files 안에 영구 보관)
 Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
@@ -133,8 +135,8 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;    않음. 자동업데이트(silent install 재실행) 시 거래처가 자체 설정한 영구비번/approve-mode
 ;    /기타 옵션이 reset 되는 사고 회피. 신규 설치는 dst 비어있어 정상 박힘. 우리 NAS 서버/key
 ;    변경 시엔 거래처 재설치 필요 (현재 sepani.synology.me 고정이라 무관).
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\RustDesk2.toml"") {{ Write-Host 'preserved (auto-update mode, user toml exists)' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\RustDesk2.toml"") {{ Write-Host 'preserved (auto-update mode, user toml exists)' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved (auto-update mode, user toml exists)' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\ChainRemote2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved (auto-update mode, user toml exists)' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\ChainRemote2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
 
 ; 4. ★ 서비스 재시작 — 새 config 로 등록 (검증 + 재시도 + updater.log 기록)
 ;    배경: install_me 가 서비스를 start=auto 로 생성·시작하지만, 위 2단계가 강제 정지(taskkill 포함)함.

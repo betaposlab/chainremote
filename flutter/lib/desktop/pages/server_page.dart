@@ -357,31 +357,123 @@ class ConnectionManagerState extends State<ConnectionManager>
     }
   }
 
-  // ChainRemote — Agent 전용 "원격지원 중" 배너.
-  // 활성 세션 동안만 화면 우상단에 떠 있는 미니 인디케이터.
+  // ChainRemote — Agent 전용 CM UI (클릭수락 모드).
+  //  - 대기 중(미승인) 연결이 있으면: [수락]/[거부] 카드 (거래처가 직접 수락).
+  //  - 활성 세션이면: "원격지원 중" 인디케이터.
+  // 상태에 따라 CM 창 크기/위치(상단중앙 — 우상단 X 안 가림)를 맞춘다.
+  bool _agentPendingShown = false;
+
   Widget _buildAgentSupportBanner(ServerModel serverModel) {
-    final hasClients = serverModel.clients.isNotEmpty;
+    final pending = serverModel.clients
+        .firstWhereOrNull((c) => !c.authorized && !c.disconnected);
+    final hasActive =
+        serverModel.clients.any((c) => c.authorized && !c.disconnected);
+    final wantPending = pending != null;
+    // 대기↔활성 전환 시에만 CM 창 크기/위치 조정 (build 부작용 회피 위해 post-frame).
+    if (_agentPendingShown != wantPending) {
+      _agentPendingShown = wantPending;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          await windowManager.setSizeAlignment(
+            wantPending ? kAgentAcceptCardSize : kAgentSupportBannerSize,
+            Alignment.topCenter,
+          );
+        } catch (_) {}
+      });
+    }
+    if (wantPending) {
+      return _buildAgentAcceptCard(serverModel, pending);
+    }
+    return _buildAgentIndicator(hasActive);
+  }
+
+  // 본사 원격 요청 — 거래처가 직접 [수락]/[거부].
+  Widget _buildAgentAcceptCard(ServerModel serverModel, Client client) {
+    final who = client.peerId.isNotEmpty ? client.peerId : client.name;
     return Material(
-      color: const Color(0xFF1F2937), // 짙은 슬레이트, 사장님 화면에서 도드라지게
+      color: const Color(0xFFF7F9FC),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('원격지원 요청',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1F2937))),
+            const SizedBox(height: 6),
+            Text('본사($who)에서 이 PC 에 원격 접속을 요청했습니다.',
+                textAlign: TextAlign.center,
+                style:
+                    const TextStyle(fontSize: 13, color: Color(0xFF4B5563))),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () =>
+                        serverModel.sendLoginResponse(client, false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF6B7280),
+                      side: const BorderSide(color: Color(0xFFD1D5DB)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('거부',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () =>
+                        serverModel.sendLoginResponse(client, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E5BFF),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: const Text('수락',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 활성 세션 인디케이터 — 상단중앙(X 안 가림).
+  Widget _buildAgentIndicator(bool hasActive) {
+    return Material(
+      color: const Color(0xFF1F2937),
       child: Center(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 빨간 점 — 활성 세션이면 진하게, 아니면 회색.
             Container(
               width: 10,
               height: 10,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: hasClients
+                color: hasActive
                     ? const Color(0xFFE53935)
                     : const Color(0xFF6B7280),
               ),
             ),
             const SizedBox(width: 10),
             Text(
-              hasClients ? '원격지원 중' : '원격지원 대기',
+              hasActive ? '원격지원 중' : '원격지원 대기',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
