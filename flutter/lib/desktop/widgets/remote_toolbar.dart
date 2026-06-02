@@ -234,6 +234,11 @@ class RemoteToolbar extends StatefulWidget {
   final Function(int, Function(bool)) onEnterOrLeaveImageSetter;
   final Function(int) onEnterOrLeaveImageCleaner;
   final Function(VoidCallback) setRemoteState;
+  // ChainRemote: tab-tail 에 박힌 '항상 표시' 툴바는 업스트림의 async `initialized`
+  // 게이트(깜빡임 방지)를 건너뜀. 그 게이트가 cold 첫 접속에 안 풀려, 툴바가 첫
+  // 세션 내내 안 뜨고 재접속해야 보이던 버그의 원인이었음. 표시는 즉시,
+  // collapse/hide 는 init() 이 로드되면 반영(hide 기본 false 라 즉시 표시 안전).
+  final bool alwaysShow;
 
   RemoteToolbar({
     Key? key,
@@ -243,6 +248,7 @@ class RemoteToolbar extends StatefulWidget {
     required this.onEnterOrLeaveImageSetter,
     required this.onEnterOrLeaveImageCleaner,
     required this.setRemoteState,
+    this.alwaysShow = false,
   }) : super(key: key);
 
   @override
@@ -322,8 +328,10 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      // Wait for initialization to complete to prevent flickering
-      if (!widget.state.initialized.value) {
+      // Wait for initialization to complete to prevent flickering.
+      // ChainRemote: alwaysShow(=tab-tail 툴바)면 이 게이트를 건너뜀 — cold 첫 접속에
+      // initialized 가 안 풀려 툴바가 첫 세션 내내 안 뜨던 버그 회피.
+      if (!widget.alwaysShow && !widget.state.initialized.value) {
         return const SizedBox.shrink();
       }
       // If toolbar is hidden, return empty widget
