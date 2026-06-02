@@ -165,6 +165,8 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
                 onEnterOrLeaveImageSetter: (_, __) {},
                 onEnterOrLeaveImageCleaner: (_) {},
                 setRemoteState: (_) {},
+                // ChainRemote: tab-tail 툴바는 첫 접속에도 즉시 표시(initialized 게이트 우회).
+                alwaysShow: true,
               ),
               _RelativeMouseModeHint(tabController: tabController),
               const AddButton(),

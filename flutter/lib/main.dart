@@ -330,7 +330,14 @@ showCmWindow({bool isStartup = false}) async {
       await windowManager.setOpacity(1);
       await windowManager.focus();
       await windowManager.minimize(); //needed
-      await windowManager.setSizeAlignment(cmSize, bind.isIncomingOnly() ? Alignment.topCenter : Alignment.topRight);
+      // ChainRemote: 연결 수신 reveal — incoming(거래처)이면 '수락 카드' 크기(360x200)로.
+      // 배너 크기(220x34)로 reveal 하면 수락 카드 내용이 창 밖으로 잘려 '흰 빈 박스'가
+      // 되던 버그(특히 거래처가 전체화면일 때 postFrame resize 가 안 먹어 고착).
+      // 카드 크기로 reveal 하면 불안정한 배너→카드 resize 의존이 사라짐. 수락 후
+      // 활성 상태에서 server_page 가 배너 크기로 줄임(그땐 창이 전면이라 안정적).
+      await windowManager.setSizeAlignment(
+          bind.isIncomingOnly() ? kAgentAcceptCardSize : cmSize,
+          bind.isIncomingOnly() ? Alignment.topCenter : Alignment.topRight);
       windowOnTop(null);
     }
   }
