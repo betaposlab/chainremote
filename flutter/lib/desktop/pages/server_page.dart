@@ -179,11 +179,10 @@ class ConnectionManagerState extends State<ConnectionManager>
       }
     }
 
-    // ChainRemote: Agent(incoming-only) 빌드는 우상단에 "원격지원 중" 한 줄 배너만.
-    // 사장님께 책임지원 진행 알림용. 탭/채팅/끊기 버튼 없음.
-    if (bind.isIncomingOnly()) {
-      return _buildAgentSupportBanner(serverModel);
-    }
+    // ChainRemote: 피제어 시(거래처 Agent + 본사 HQ 옵션B+ 양방향 모두) 우상단 슬림
+    // 수락카드 → "원격지원 중" 배너 + 종료만 표시. 본사 HQ 도 피제어될 때 피지원자가
+    // 원격 진행을 인지/차단할 수 있어야 하므로 RustDesk 기본 CM(아래)이 아닌 이 배너로 통일.
+    return _buildAgentSupportBanner(serverModel);
 
     return serverModel.clients.isEmpty
         ? Column(

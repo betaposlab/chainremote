@@ -308,10 +308,8 @@ void runConnectionManagerScreen() async {
 bool _isCmReadyToShow = false;
 
 showCmWindow({bool isStartup = false}) async {
-  // ChainRemote: Agent 빌드는 "원격지원 중" 작은 배너 크기로.
-  final cmSize = bind.isIncomingOnly()
-      ? kAgentSupportBannerSize
-      : kConnectionManagerWindowSizeClosedChat;
+  // ChainRemote: 거래처 Agent + 본사 HQ 모두 피제어 CM 은 슬림 배너 크기로 통일.
+  final cmSize = kAgentSupportBannerSize;
   if (isStartup) {
     WindowOptions windowOptions =
         getHiddenTitleBarWindowOptions(size: cmSize, alwaysOnTop: true);
@@ -336,18 +334,15 @@ showCmWindow({bool isStartup = false}) async {
       // 카드 크기로 reveal 하면 불안정한 배너→카드 resize 의존이 사라짐. 수락 후
       // 활성 상태에서 server_page 가 배너 크기로 줄임(그땐 창이 전면이라 안정적).
       await windowManager.setSizeAlignment(
-          bind.isIncomingOnly() ? kAgentAcceptCardSize : cmSize,
-          bind.isIncomingOnly() ? Alignment.topCenter : Alignment.topRight);
+          kAgentAcceptCardSize, Alignment.topCenter);
       windowOnTop(null);
     }
   }
 }
 
 hideCmWindow({bool isStartup = false}) async {
-  // ChainRemote: Agent 빌드는 배너 사이즈로 hidden 시작.
-  final cmSize = bind.isIncomingOnly()
-      ? kAgentSupportBannerSize
-      : kConnectionManagerWindowSizeClosedChat;
+  // ChainRemote: 거래처 Agent + 본사 HQ 모두 피제어 CM 은 슬림 배너 크기로 통일.
+  final cmSize = kAgentSupportBannerSize;
   if (isStartup) {
     WindowOptions windowOptions = getHiddenTitleBarWindowOptions(size: cmSize);
     windowManager.setOpacity(0);
