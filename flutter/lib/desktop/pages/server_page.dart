@@ -361,13 +361,13 @@ class ConnectionManagerState extends State<ConnectionManager>
   //  - 대기 중(미승인) 연결이 있으면: [수락]/[거부] 카드 (거래처가 직접 수락).
   //  - 활성 세션이면: "원격지원 중" 인디케이터.
   // 상태에 따라 CM 창 크기/위치(상단중앙 — 우상단 X 안 가림)를 맞춘다.
-  bool _agentPendingShown = false;
+  bool? _agentPendingShown;
 
   Widget _buildAgentSupportBanner(ServerModel serverModel) {
     final pending = serverModel.clients
         .firstWhereOrNull((c) => !c.authorized && !c.disconnected);
-    final hasActive =
-        serverModel.clients.any((c) => c.authorized && !c.disconnected);
+    final activeClient = serverModel.clients
+        .firstWhereOrNull((c) => c.authorized && !c.disconnected);
     final wantPending = pending != null;
     // 대기↔활성 전환 시에만 CM 창 크기/위치 조정 (build 부작용 회피 위해 post-frame).
     if (_agentPendingShown != wantPending) {
@@ -384,7 +384,7 @@ class ConnectionManagerState extends State<ConnectionManager>
     if (wantPending) {
       return _buildAgentAcceptCard(serverModel, pending);
     }
-    return _buildAgentIndicator(hasActive);
+    return _buildAgentIndicator(activeClient);
   }
 
   // 본사 원격 요청 — 거래처가 직접 [수락]/[거부].
@@ -452,36 +452,72 @@ class ConnectionManagerState extends State<ConnectionManager>
     );
   }
 
-  // 활성 세션 인디케이터 — 상단중앙(X 안 가림).
-  Widget _buildAgentIndicator(bool hasActive) {
-    return Material(
-      color: const Color(0xFF1F2937),
-      child: Center(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: hasActive
-                    ? const Color(0xFFE53935)
-                    : const Color(0xFF6B7280),
-              ),
+  // 활성 세션 인디케이터 — 슬림 다크 배너 + 종료 버튼. 드래그로 위치 이동
+  // (windowManager.startDragging). 종료 버튼 = 피지원자가 직접 연결 끊기.
+  Widget _buildAgentIndicator(Client? activeClient) {
+    final hasActive = activeClient != null;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onPanStart: (_) => windowManager.startDragging(),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.move,
+        child: Material(
+          color: const Color(0xFF1F2937),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: hasActive
+                        ? const Color(0xFFE53935)
+                        : const Color(0xFF6B7280),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  hasActive ? '원격지원 중' : '원격지원 대기',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                if (activeClient != null) ...[
+                  const SizedBox(width: 12),
+                  _buildEndButton(activeClient),
+                ],
+              ],
             ),
-            const SizedBox(width: 10),
-            Text(
-              hasActive ? '원격지원 중' : '원격지원 대기',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 종료 버튼 — 피지원자가 현재 원격 세션을 직접 끊는다. (RustDesk CM 의 cmCloseConnection)
+  Widget _buildEndButton(Client client) {
+    return InkWell(
+      onTap: () => bind.cmCloseConnection(connId: client.id),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE53935),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text(
+          '종료',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

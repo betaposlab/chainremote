@@ -19,7 +19,8 @@ class ChainRemoteAuth {
 
   // 로그인 정보 저장(자동완성) LocalConfig 키 — B 방식(prefill, opt-in).
   // RustDesk 계정 저장(user_model 의 access_token/user_info)과 동일 메커니즘.
-  static const kRemember = 'chainremote-remember';
+  static const kRememberId = 'chainremote-remember-id';
+  static const kRememberPw = 'chainremote-remember-pw';
   static const kSavedEmail = 'chainremote-saved-email';
   static const kSavedPassword = 'chainremote-saved-password';
 
@@ -29,7 +30,8 @@ class ChainRemoteAuth {
   static void logout() {
     bind.chainremoteLogout();
     // 저장된 자동완성 자격증명도 함께 삭제 (Chang 결정: 로그아웃 시 저장정보 제거).
-    bind.mainSetLocalOption(key: kRemember, value: '');
+    bind.mainSetLocalOption(key: kRememberId, value: '');
+    bind.mainSetLocalOption(key: kRememberPw, value: '');
     bind.mainSetLocalOption(key: kSavedEmail, value: '');
     bind.mainSetLocalOption(key: kSavedPassword, value: '');
     authed.value = false;
@@ -123,16 +125,21 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _busy = false;
-  bool _remember = false;
+  bool _rememberId = false;
+  bool _rememberPw = false;
   String? _errorText;
 
   @override
   void initState() {
     super.initState();
-    // B 방식 prefill: '저장'이 켜져 있었으면 저장된 ID/비번을 미리 채움 (자동 로그인은 안 함).
-    if (bind.mainGetLocalOption(key: ChainRemoteAuth.kRemember) == 'Y') {
-      _remember = true;
+    // B 방식 prefill: '저장'이 켜져 있던 항목만 미리 채움 (자동 로그인은 안 함).
+    // 아이디·비밀번호 각각 독립.
+    if (bind.mainGetLocalOption(key: ChainRemoteAuth.kRememberId) == 'Y') {
+      _rememberId = true;
       _emailCtrl.text = bind.mainGetLocalOption(key: ChainRemoteAuth.kSavedEmail);
+    }
+    if (bind.mainGetLocalOption(key: ChainRemoteAuth.kRememberPw) == 'Y') {
+      _rememberPw = true;
       _passwordCtrl.text =
           bind.mainGetLocalOption(key: ChainRemoteAuth.kSavedPassword);
     }
@@ -161,19 +168,26 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     try {
       final parsed = jsonDecode(raw) as Map<String, dynamic>;
       if (parsed['ok'] == true) {
-        // B 방식: '저장' 체크 시 ID/비번 저장(다음 실행 prefill), 해제 시 삭제.
-        if (_remember) {
+        // B 방식: 아이디·비밀번호 각각 독립 저장/삭제.
+        if (_rememberId) {
           await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kRemember, value: 'Y');
+              key: ChainRemoteAuth.kRememberId, value: 'Y');
           await bind.mainSetLocalOption(
               key: ChainRemoteAuth.kSavedEmail, value: email);
+        } else {
+          await bind.mainSetLocalOption(
+              key: ChainRemoteAuth.kRememberId, value: '');
+          await bind.mainSetLocalOption(
+              key: ChainRemoteAuth.kSavedEmail, value: '');
+        }
+        if (_rememberPw) {
+          await bind.mainSetLocalOption(
+              key: ChainRemoteAuth.kRememberPw, value: 'Y');
           await bind.mainSetLocalOption(
               key: ChainRemoteAuth.kSavedPassword, value: password);
         } else {
           await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kRemember, value: '');
-          await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kSavedEmail, value: '');
+              key: ChainRemoteAuth.kRememberPw, value: '');
           await bind.mainSetLocalOption(
               key: ChainRemoteAuth.kSavedPassword, value: '');
         }
@@ -418,28 +432,41 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     );
   }
 
-  /// "아이디·비밀번호 저장" 체크박스 (B 방식 opt-in). 체크 시 다음 실행에서 prefill.
+  /// 아이디 저장 / 비밀번호 저장 — 각각 독립 (B 방식 opt-in). 체크된 항목만 다음 실행 prefill.
   Widget _buildRememberCheckbox() {
     return Row(
+      children: [
+        _buildCheckItem(
+            '아이디 저장', _rememberId, (v) => setState(() => _rememberId = v)),
+        const SizedBox(width: 20),
+        _buildCheckItem(
+            '비밀번호 저장', _rememberPw, (v) => setState(() => _rememberPw = v)),
+      ],
+    );
+  }
+
+  Widget _buildCheckItem(
+      String label, bool value, ValueChanged<bool> onChanged) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
           width: 22,
           height: 22,
           child: Checkbox(
-            value: _remember,
-            onChanged:
-                _busy ? null : (v) => setState(() => _remember = v ?? false),
+            value: value,
+            onChanged: _busy ? null : (v) => onChanged(v ?? false),
             activeColor: _brandPrimary,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         GestureDetector(
-          onTap: _busy ? null : () => setState(() => _remember = !_remember),
-          child: const Text(
-            '아이디·비밀번호 저장',
-            style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+          onTap: _busy ? null : () => onChanged(!value),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
           ),
         ),
       ],

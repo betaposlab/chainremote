@@ -325,7 +325,7 @@ extension StringExtension on String {
 const Size kConnectionManagerWindowSizeClosedChat = Size(300, 490);
 const Size kConnectionManagerWindowSizeOpenChat = Size(700, 490);
 // ChainRemote: Agent(incoming-only) 빌드에서 CM 창은 "원격지원 중" 작은 배너만.
-const Size kAgentSupportBannerSize = Size(220, 56);
+const Size kAgentSupportBannerSize = Size(220, 34);
 // ChainRemote: 클릭수락 대기 시 [수락]/[거부] 카드 크기 (배너보다 큼). server_page 가 상태에 따라 전환.
 const Size kAgentAcceptCardSize = Size(360, 200);
 // Tabbar transition duration, now we remove the duration

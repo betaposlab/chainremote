@@ -2121,6 +2121,14 @@ impl Connection {
         false
     }
 
+    // ChainRemote: 같은 피어가 이미 활성 Remote(전체 제어) 인증 세션을 갖고 있는지.
+    // 파일전송 재수락 제거용 — 이미 전체 제어를 수락한 피어라 파일전송은 권한 상승 아님(안전).
+    fn has_active_remote_session(&self, peer_id: &str) -> bool {
+        AUTHED_CONNS.lock().unwrap().iter().any(|c| {
+            c.conn_type == AuthConnType::Remote && c.session_key.peer_id.as_str() == peer_id
+        })
+    }
+
     fn is_recent_session(&mut self, tfa: bool) -> bool {
         SESSIONS
             .lock()
@@ -2420,6 +2428,20 @@ impl Connection {
                 self.send_login_error(crate::client::LOGIN_MSG_OFFLINE)
                     .await;
                 return false;
+            } else if self.file_transfer.is_some()
+                && self.has_active_remote_session(&lr.my_id)
+            {
+                // ChainRemote: 같은 피어가 이미 활성 제어 세션 중 → 파일전송 자동 수락(두 번째 수락 제거).
+                if err_msg.is_empty() {
+                    #[cfg(target_os = "linux")]
+                    self.linux_headless_handle.wait_desktop_cm_ready().await;
+                    if !self.send_logon_response_and_keep_alive().await {
+                        return false;
+                    }
+                    self.try_start_cm(lr.my_id.clone(), lr.my_name.clone(), self.authorized);
+                } else {
+                    self.send_login_error(err_msg).await;
+                }
             } else if (password::approve_mode() == ApproveMode::Click
                 && !allow_logon_screen_password)
                 || password::approve_mode() == ApproveMode::Both && !password::has_valid_password()
