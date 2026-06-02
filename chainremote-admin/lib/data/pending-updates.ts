@@ -84,42 +84,35 @@ export async function pushBulk(
   const merged = { ...DEFAULT_OPTIONS, ...opts };
   const bulkBatchId = crypto.randomUUID();
 
-  // 활성 거래처만 (is_active = true).
-  const eligibleRows = await db
-    .select({ id: customers.id })
+  // ChainRemote 2026-06-02: 행별 루프 → 단일 bulk INSERT 로 교체 (스케일 대비).
+  // 활성 거래처 전체에 1쿼리로 INSERT. 이미 같은 (customer_id, target_version) 의 대기 행이
+  // 있으면 partial unique index `uq_pending_updates_customer_version_active`
+  //   (= UNIQUE (customer_id, target_version) WHERE applied/cancelled/failed 모두 NULL)
+  // 가 잡아 ON CONFLICT DO NOTHING 으로 skip. 1만 거래처도 쿼리 1번(O(1)).
+  const result = await db.execute(sql`
+    INSERT INTO pending_updates
+      (tenant_id, customer_id, target_version, asset_url, asset_sha256, asset_size,
+       window_start_hour, window_end_hour, randomize_max_sec, bulk_batch_id, requested_by)
+    SELECT ${ctx.tenantId}::uuid, c.id, ${asset.targetVersion}::text, ${asset.assetUrl}::text,
+           ${asset.assetSha256}::text, ${asset.assetSize}::int, ${merged.windowStartHour}::int,
+           ${merged.windowEndHour}::int, ${merged.randomizeMaxSec}::int,
+           ${bulkBatchId}::uuid, ${ctx.requestedBy}::uuid
+    FROM customers c
+    WHERE c.tenant_id = ${ctx.tenantId}::uuid AND c.is_active = true
+    ON CONFLICT (customer_id, target_version)
+      WHERE (applied_at IS NULL AND cancelled_at IS NULL AND failed_at IS NULL)
+      DO NOTHING
+    RETURNING customer_id
+  `);
+  const inserted = (result as unknown as { rows: unknown[] }).rows.length;
+
+  // 활성 거래처 총수 ("신규 N / 대상 M" 표시용).
+  const [eligibleRow] = await db
+    .select({ cnt: count() })
     .from(customers)
     .where(and(eq(customers.tenantId, ctx.tenantId), eq(customers.isActive, true)));
 
-  if (eligibleRows.length === 0) {
-    return { bulkBatchId, inserted: 0, eligible: 0 };
-  }
-
-  // ON CONFLICT DO NOTHING — partial unique index 가 잡아내도록 raw SQL.
-  // drizzle 의 onConflictDoNothing 은 unique constraint 만 인식해서 partial 은 미지원 → try/catch 행별.
-  let inserted = 0;
-  for (const c of eligibleRows) {
-    try {
-      await db.insert(pendingUpdates).values({
-        tenantId: ctx.tenantId,
-        customerId: c.id,
-        targetVersion: asset.targetVersion,
-        assetUrl: asset.assetUrl,
-        assetSha256: asset.assetSha256,
-        assetSize: asset.assetSize,
-        windowStartHour: merged.windowStartHour,
-        windowEndHour: merged.windowEndHour,
-        randomizeMaxSec: merged.randomizeMaxSec,
-        bulkBatchId,
-        requestedBy: ctx.requestedBy,
-      });
-      inserted++;
-    } catch (e) {
-      if (e instanceof Error && /duplicate key|unique/i.test(e.message)) continue;
-      throw e;
-    }
-  }
-
-  return { bulkBatchId, inserted, eligible: eligibleRows.length };
+  return { bulkBatchId, inserted, eligible: Number(eligibleRow?.cnt ?? 0) };
 }
 
 /**
