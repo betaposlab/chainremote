@@ -12,8 +12,9 @@
 
 import { useState, useTransition } from "react";
 
-const AGENT_PUSH_META_URL =
-  "https://sepani.synology.me/chainremote/agent-push.json";
+// 같은 출처(패널) 프록시 라우트 호출 → 브라우저 CORS 회피.
+// 실제 NAS agent-push.json fetch 는 서버사이드(app/api/agent-push-meta)에서 수행.
+const AGENT_PUSH_META_URL = "/api/agent-push-meta";
 
 async function fetchAgentPushMeta(): Promise<
   | {
