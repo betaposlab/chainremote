@@ -23,8 +23,8 @@ use hbb_common::{bail, log, ResultType};
 use std::time::Duration;
 
 const REGISTER_URL: &str =
-    "http://sepani.synology.me:3001/api/customers/register-heartbeat-token";
-const HEARTBEAT_URL: &str = "http://sepani.synology.me:3001/api/customers/heartbeat";
+    "https://sepani.synology.me:3443/api/customers/register-heartbeat-token";
+const HEARTBEAT_URL: &str = "https://sepani.synology.me:3443/api/customers/heartbeat";
 /// 부팅 후 첫 heartbeat 까지 대기 — 네트워크 안정 + hbbs ID 발급 대기.
 const FIRST_DELAY: Duration = Duration::from_secs(60 * 2);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60 * 10);

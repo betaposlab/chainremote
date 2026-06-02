@@ -27,16 +27,16 @@ lazy_static::lazy_static! {
     static ref USER_JSON: RwLock<String> = RwLock::new(String::new());
 }
 
-// NAS chainremote-admin 컨테이너 (port 3001 직접 노출).
-// 외부: http://sepani.synology.me:3001 (라우터 포트포워딩 3001 → 192.168.68.103:3001).
-// 인터넷 어디서나 도달 (집/사무실/PC방 모두 같음). Tailscale 불필요.
-// HTTPS X — RustDesk core 의 reqwest/rustls 가 Synology nginx Reverse Proxy 와
-// TLS 호환 불안정 (close_notify 누락 quirk). HTTP 직노출이 안정적이고 Chang 의
-// 보안 의지 (비중 낮음 + UX 우선) 와 일치. 비번 평문 전송이지만 코이노/AnySupport
-// 도 같은 수준이라 사업적 격차 없음.
+// NAS chainremote-admin 컨테이너. HTTPS(3443) — Synology 발급 유효 인증서.
+// 외부: https://sepani.synology.me:3443 (라우터 포트포워딩 3443 → NAS HTTPS).
+// 인터넷 어디서나 도달 (집/사무실/PC방 동일). Tailscale 불필요.
+// 2026-06-02: 토큰/로그인 비번 평문 노출 제거 위해 HTTP(3001)→HTTPS(3443) 전환 (Codex 리뷰 반영).
+// reqwest 기본 백엔드 = native-tls (Win=SChannel) 이라 옛 'rustls close_notify quirk' 무관
+// (이전 주석의 HTTPS 불안정 근거는 rustls 기준 옛 설정이었음).
+// HTTP(3001) 은 옛 에이전트(≤1.4.1) 호환용으로 당분간 살려둠 — 신빌드만 HTTPS.
 // 사용자 정의: LocalConfig::set_option("chainremote-api-base", ...) 또는
 //             설정 UI 의 "관리 패널 주소" 필드 (있을 시).
-const DEFAULT_API_BASE: &str = "http://sepani.synology.me:3001";
+const DEFAULT_API_BASE: &str = "https://sepani.synology.me:3443";
 const KEY_API_BASE: &str = "chainremote-api-base";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
