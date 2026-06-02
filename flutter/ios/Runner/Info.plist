@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>RustDesk</string>
+    <string>ChainRemote</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
 	<key>CFBundleName</key>
-	<string>RustDesk</string>
+	<string>ChainRemote</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -32,7 +32,9 @@
 			<key>CFBundleURLIconFile</key>
 			<string></string>
 			<key>CFBundleURLName</key>
-			<string>com.carriez.rustdesk</string>
+			<string>com.betaposlab.chainremote</string>
+			<!-- ChainRemote: URLName 라벨만 우리 것으로. scheme 은 rustdesk:// 유지
+			     (기존 peer 링크/딥링크 호환. macOS Info.plist 와 동일 정책). -->
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>rustdesk</string>
