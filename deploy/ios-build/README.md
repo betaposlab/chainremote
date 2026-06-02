@@ -18,11 +18,10 @@
 
 ## Chang 가 Mac 에서 할 일
 
-### 1. 서명 팀 설정 (필수 — 현재 RustDesk 팀 `HZF9JMC8YN` 으로 박혀 있음)
-- `flutter/ios/Runner.xcodeproj` 를 Xcode 로 열기
-- Runner 타깃 → Signing & Capabilities → Team = **본인 Apple Developer 계정**
-- Automatic signing 켜면 `DEVELOPMENT_TEAM` 자동 갱신됨
-- (TestFlight/App Store 배포 시) `flutter/ios/exportOptions.plist` 의 `teamID` + 프로비저닝 프로필명도 본인 것으로
+### 1. 서명 팀 (이미 박힘 — `DEVELOPMENT_TEAM = 5Q25RTUTDW`, changhyun kim 개인)
+- Xcode 로 `flutter/ios/Runner.xcodeproj` 열면 Signing & Capabilities 에 본인 팀 자동 선택됨
+- 처음 한 번은 Xcode 가 개발 인증서/프로비저닝 프로필을 자동 발급 (로그인 상태면 자동)
+- (App Store/TestFlight 배포 시) `flutter/ios/exportOptions.plist` 의 프로비저닝 프로필명만 실제 것으로
 
 ### 2. 아이콘 생성 (1회)
 ```bash
