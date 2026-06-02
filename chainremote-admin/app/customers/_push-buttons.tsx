@@ -3,8 +3,9 @@
 // 푸시 버튼 + 다이얼로그. 거래처 표의 행별 [푸시] 버튼 (개별) 과 상단 [일괄 푸시] 버튼.
 //
 // 다이얼로그에 직접 입력: targetVersion / assetUrl / assetSha256 / assetSize.
-// 영업시간 가드: 00:00~07:00 default, Chang 이 거래처 영업패턴에 따라 조정 가능.
-// 무작위지연: 0~7시간 default (= 7시간 창 전체 분산).
+// 설치 허용 시간대: 기본 0~23(하루 종일). 거래처는 퇴근 시 PC 를 꺼서 새벽(0~7)과 안 겹침
+//   → 하루 종일로 둬야 출근 후 켜진 시점에 적용됨. 24h 켜진 PC 만 0~7(새벽) 권장.
+// 무작위지연: 7시간(25200초) default — 설치 시각을 분산해 대규모 동시 다운로드(NAS 대역폭) 방지.
 //
 // 자동 fetch: NAS 의 `agent-push.json` (별도 메타 파일) 에서 sha256/URL/size 자동 채움.
 // 옛 latest.json 의 agent 채널은 옛 v1.3.4 Agent 호환 위해 0.0.0 영구 유지.
@@ -68,7 +69,7 @@ const INITIAL: PushFormState = {
   assetSha256: "",
   assetSize: "",
   windowStartHour: "0",
-  windowEndHour: "7",
+  windowEndHour: "23",
   randomizeMaxSec: "25200",
 };
 
@@ -353,7 +354,7 @@ function PushDialog({
           </div>
           <div className="border-t border-slate-200 pt-3 mt-3">
             <p className="text-xs text-slate-500 mb-2">
-              영업시간 가드 (시 단위, 24h). default 00:00~07:00 = 자정~새벽7시.
+              설치 허용 시간대 (시 단위, 24h). 기본 0~23 = 하루 종일(퇴근 시 끄는 거래처 권장). 24h 켜진 PC 만 0~7.
             </p>
             <div className="grid grid-cols-3 gap-2">
               <Field label="시작 시간">
