@@ -1376,7 +1376,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           final usePassword = model.approveMode != 'click';
 
           final isApproveModeFixed = isOptionFixed(kOptionApproveMode);
-          return _Card(title: 'Password', hint: '거래처 접속 비밀번호 방식 — "영구 비밀번호" 권장. 한 번 설정하면 본사가 0클릭으로 접속.', children: [
+          return _Card(title: 'Password', hint: '원격 접속 수락 방식 — 기본 "클릭 수락". 본사가 접속하면 이 PC 화면에 뜨는 수락 버튼을 눌러야 연결됩니다. (영구 비밀번호 미사용)', children: [
             ComboBox(
               enabled: !locked && !isApproveModeFixed,
               keys: modeKeys,
