@@ -39,7 +39,9 @@ class ToolbarState {
   bool _isInitializing = false;
 
   ToolbarState() {
-    _pin = RxBool(false);
+    // ChainRemote: 본사 HQ 원격 툴바는 기본 '핀 고정(항상 보임)'.
+    // (RustDesk 기본 false=자동숨김 — 본사 운영자가 매번 안 보여 불편. 거래처는 이 툴바 없음.)
+    _pin = RxBool(true);
     final s = bind.getLocalFlutterOption(k: kOptionRemoteMenubarState);
     if (s.isEmpty) {
       return;
@@ -48,7 +50,7 @@ class ToolbarState {
     try {
       final m = jsonDecode(s);
       if (m != null) {
-        _pin = RxBool(m['pin'] ?? false);
+        _pin = RxBool(m['pin'] ?? true);
       }
     } catch (e) {
       debugPrint('Failed to decode toolbar state ${e.toString()}');
@@ -393,6 +395,12 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       state: widget.state,
       setFullscreen: _setFullscreen,
     ));
+    // ChainRemote: 음소거 빠른 토글 — 디스플레이 메뉴에도 있지만 눈에 띄는 최상위 아이콘으로.
+    // (기본 원격 연결 + 오디오 권한 있을 때만)
+    if (widget.ffi.connType == ConnType.defaultConn &&
+        widget.ffi.ffiModel.permissions['audio'] != false) {
+      toolbarItems.add(_MuteMenu(id: widget.id, ffi: widget.ffi));
+    }
     // ChainRemote: in-session file transfer button (opens a new file transfer
     // session to the same peer). Only for default remote-control sessions and
     // not on web (web has no file transfer support).
@@ -454,6 +462,39 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       ).copyWith(
               backgroundColor:
                   Theme.of(context).menuBarTheme.style?.backgroundColor)),
+    );
+  }
+}
+
+// ChainRemote: 원격 오디오 음소거 빠른 토글 (disable-audio). 최상위 아이콘.
+class _MuteMenu extends StatefulWidget {
+  final String id;
+  final FFI ffi;
+  const _MuteMenu({Key? key, required this.id, required this.ffi})
+      : super(key: key);
+  @override
+  State<_MuteMenu> createState() => _MuteMenuState();
+}
+
+class _MuteMenuState extends State<_MuteMenu> {
+  @override
+  Widget build(BuildContext context) {
+    final sessionId = widget.ffi.sessionId;
+    final muted = bind.sessionGetToggleOptionSync(
+        sessionId: sessionId, arg: 'disable-audio');
+    return _IconMenuButton(
+      icon: Icon(
+        muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+        size: 19,
+        color: muted ? const Color(0xFFE53935) : const Color(0xFF6B7280),
+      ),
+      tooltip: muted ? 'Unmute' : 'Mute',
+      color: Colors.transparent,
+      hoverColor: const Color(0xFFF1F5FB),
+      onPressed: () {
+        bind.sessionToggleOption(sessionId: sessionId, value: 'disable-audio');
+        setState(() {});
+      },
     );
   }
 }
