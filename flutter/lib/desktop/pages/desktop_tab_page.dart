@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart' hide Dialog;
 import 'package:flutter_hbb/consts.dart';
-import 'package:flutter_hbb/desktop/pages/chainremote_auth_gate.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
