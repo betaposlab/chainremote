@@ -678,10 +678,14 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
     final disabledSettings = bind.isDisableSettings();
     final hideSecuritySettings =
         bind.mainGetBuildinOption(key: kOptionHideSecuritySetting) == 'Y';
+    // ChainRemote: RustDesk 스톡 항목(자체 계정 로그인/네트워크 설정/주소록 의존
+    // 기능)은 우리 제품에서 미사용 → 모바일 설정에서 숨김. 우리 인증은 대리점
+    // 로그인 게이트, 서버는 코어에 baked. (false 로 바꾸면 원래대로 노출)
+    final crHideStock = true;
     final settings = SettingsList(
       sections: [
         customClientSection,
-        if (!bind.isDisableAccount())
+        if (!crHideStock && !bind.isDisableAccount())
           SettingsSection(
             title: Text(translate('Account')),
             tiles: [
@@ -711,7 +715,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
             ],
           ),
         SettingsSection(title: Text(translate("Settings")), tiles: [
-          if (!disabledSettings && !_hideNetwork && !_hideServer)
+          if (!crHideStock && !disabledSettings && !_hideNetwork && !_hideServer)
             SettingsTile(
                 title: Text(translate('ID/Relay Server')),
                 leading: Icon(Icons.cloud),
@@ -721,14 +725,17 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                     setState(callback);
                   });
                 }),
-          if (!_hideNetwork && !_hideProxy)
+          if (!crHideStock && !_hideNetwork && !_hideProxy)
             SettingsTile(
                 title: Text(translate('Socks5/Http(s) Proxy')),
                 leading: Icon(Icons.network_ping),
                 onPressed: (context) {
                   changeSocks5Proxy();
                 }),
-          if (!disabledSettings && !_hideNetwork && !_hideWebSocket)
+          if (!crHideStock &&
+              !disabledSettings &&
+              !_hideNetwork &&
+              !_hideWebSocket)
             SettingsTile.switchTile(
               title: Text(translate('Use WebSocket')),
               initialValue: _allowWebSocket,
@@ -743,7 +750,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                       });
                     },
             ),
-          if (!_isUsingPublicServer)
+          if (!crHideStock && !_isUsingPublicServer)
             SettingsTile.switchTile(
               title: Text(translate('Allow insecure TLS fallback')),
               initialValue: _allowInsecureTlsFallback,
@@ -759,7 +766,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                       });
                     },
             ),
-          if (isAndroid && !outgoingOnly && !_isUsingPublicServer)
+          if (!crHideStock && isAndroid && !outgoingOnly && !_isUsingPublicServer)
             SettingsTile.switchTile(
               title: Text(translate('Disable UDP')),
               initialValue: _disableUdp,
@@ -775,7 +782,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                       });
                     },
             ),
-          if (!incomingOnly)
+          if (!crHideStock && !incomingOnly)
             SettingsTile.switchTile(
               title: Text(translate('Enable UDP hole punching')),
               initialValue: _enableUdpPunch,
@@ -788,7 +795,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                 });
               },
             ),
-          if (!incomingOnly)
+          if (!crHideStock && !incomingOnly)
             SettingsTile.switchTile(
               title: Text(translate('Enable IPv6 P2P connection')),
               initialValue: _enableIpv6Punch,
@@ -819,7 +826,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
               showThemeSettings(gFFI.dialogManager);
             },
           ),
-          if (!bind.isDisableAccount())
+          if (!crHideStock && !bind.isDisableAccount())
             SettingsTile.switchTile(
               title: Text(translate('note-at-conn-end-tip')),
               initialValue: _allowAskForNoteAtEndOfConnection,
