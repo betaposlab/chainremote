@@ -96,8 +96,9 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId "com.carriez.flutter_hbb"
+        // ChainRemote: 설치 식별자만 우리 것으로. 코드 네임스페이스(JNI)는
+        // com.carriez.flutter_hbb 유지 — 바꾸면 네이티브 JNI 심볼 깨짐.
+        applicationId "com.betaposlab.chainremote"
         minSdkVersion 22
         targetSdkVersion 33
         versionCode flutterVersionCode.toInteger()
