@@ -312,8 +312,17 @@ showCmWindow({bool isStartup = false}) async {
   // ChainRemote: 거래처 Agent + 본사 HQ 모두 피제어 CM 은 슬림 배너 크기로 통일.
   final cmSize = kAgentSupportBannerSize;
   if (isStartup) {
+    // ChainRemote: cm 이 연결과 동시에 콜드 스타트(--cm 새 프로세스)하는 경로.
+    // incoming(거래처)이면 처음부터 '수락 카드' 크기(360x200)로 생성+reveal 한다.
+    // 배너 크기(220x34)로 띄운 뒤 server_page 의 postFrame resize 에 의존하면,
+    // 거래처 전체화면 시 resize 가 안 먹어 카드가 잘린 '흰 빈 박스'로 고착되던 버그.
+    // (non-startup 경로는 v1.4.1 에서 동일하게 수정됨 — 콜드 스타트 경로 누락분 보강.)
+    final bool incoming = bind.isIncomingOnly();
+    final Size startSize = incoming ? kAgentAcceptCardSize : cmSize;
+    final Alignment startAlign =
+        incoming ? Alignment.topCenter : Alignment.topRight;
     WindowOptions windowOptions =
-        getHiddenTitleBarWindowOptions(size: cmSize, alwaysOnTop: true);
+        getHiddenTitleBarWindowOptions(size: startSize, alwaysOnTop: true);
     await windowManager.waitUntilReadyToShow(windowOptions, null);
     bind.mainHideDock();
     await Future.wait([
@@ -322,7 +331,7 @@ showCmWindow({bool isStartup = false}) async {
       windowManager.setOpacity(1)
     ]);
     // ensure initial window size to be changed
-    await windowManager.setSizeAlignment(cmSize, Alignment.topRight);
+    await windowManager.setSizeAlignment(startSize, startAlign);
     _isCmReadyToShow = true;
   } else if (_isCmReadyToShow) {
     if (await windowManager.getOpacity() != 1) {
