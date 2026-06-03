@@ -29,13 +29,14 @@ class SettingsPage extends StatefulWidget implements PageShape {
   final icon = Icon(Icons.settings);
 
   @override
-  final appBarActions = bind.isDisableSettings() ? [] : [ScanButton()];
+  // ChainRemote: QR 스캔(피어 추가)은 스톡 RustDesk 기능 — HQ 미사용 → 숨김.
+  final appBarActions = [];
 
   @override
   State<SettingsPage> createState() => _SettingsState();
 }
 
-const url = 'https://rustdesk.com/';
+const url = 'https://github.com/betaposlab/chainremote';
 
 enum KeepScreenOn {
   never,
@@ -959,7 +960,7 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                 title: Text(translate("Version: ") + version),
                 value: Padding(
                   padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text('rustdesk.com',
+                  child: Text('github.com/betaposlab/chainremote',
                       style: TextStyle(
                         decoration: TextDecoration.underline,
                       )),
@@ -1097,12 +1098,12 @@ void showAbout(OverlayDialogManager dialogManager) {
         Text('Version: $version'),
         InkWell(
             onTap: () async {
-              const url = 'https://rustdesk.com/';
+              const url = 'https://github.com/betaposlab/chainremote';
               await launchUrl(Uri.parse(url));
             },
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('rustdesk.com',
+              child: Text('github.com/betaposlab/chainremote',
                   style: TextStyle(
                     decoration: TextDecoration.underline,
                   )),

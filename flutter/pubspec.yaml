@@ -127,6 +127,9 @@ dependency_overrides:
 # rerun: flutter pub run flutter_launcher_icons
 flutter_icons:
   image_path: "../res/icon.png"
+  # ChainRemote: iOS 앱 아이콘은 우리 심볼(체인링크+체크) 사용. (스톡 res/icon.png
+  # 은 RustDesk 로고와 흡사) assets/chainremote_mark.png = 1024x1024 흰배경 사각형.
+  image_path_ios: "assets/chainremote_mark.png"
   remove_alpha_ios: true
   android: true
   ios: true
