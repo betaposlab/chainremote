@@ -2845,6 +2845,8 @@ pub fn chainremote_set_allow_incoming(allow: bool) -> SyncReturn<bool> {
     );
     // 서버 재시작 — UI 프로세스에서 호출되는 상황이라 데스크탑에서도 동작.
     // restart() 는 atomic flag 만 박으므로 실패 케이스 없음.
+    // iOS(HQ 전용)에선 rendezvous_mediator 모듈이 cfg-out 이라 호출 제외.
+    #[cfg(not(target_os = "ios"))]
     crate::rendezvous_mediator::RendezvousMediator::restart();
     SyncReturn(true)
 }
