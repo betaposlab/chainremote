@@ -130,6 +130,10 @@ flutter_icons:
   # ChainRemote: iOS 앱 아이콘은 우리 심볼(체인링크+체크) 사용. (스톡 res/icon.png
   # 은 RustDesk 로고와 흡사) assets/chainremote_mark.png = 1024x1024 흰배경 사각형.
   image_path_ios: "assets/chainremote_mark.png"
+  # ChainRemote: 안드로이드도 동일 심볼. legacy + adaptive(흰 배경) 둘 다 생성.
+  image_path_android: "assets/chainremote_mark.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/chainremote_mark.png"
   remove_alpha_ios: true
   android: true
   ios: true
