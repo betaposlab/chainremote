@@ -1,12 +1,13 @@
 // ChainRemote 본사 앱 인증 — 관리 패널(/api/auth/token) Bearer JWT.
 //
 // 책임:
-//   - 로그인 (email + password) → 토큰 + 사용자 정보를 **메모리(RAM)에만** 보관
+//   - 로그인 (email + password + device_id) → 토큰 + 사용자 정보를 **메모리(RAM)에만** 보관
+//   - 좌석 enforcement (단일 동시세션): 점유 시 takeover, ~10초 heartbeat, 인계당함 감지
 //   - 토큰/사용자 정보 조회 (Flutter UI 가 표시)
-//   - 로그아웃 (메모리 자격증명 삭제)
+//   - 로그아웃 (좌석 best-effort 반납 + 메모리 자격증명 삭제)
 //   - 관리 패널 API base URL 관리 (build-time 기본값 + LocalConfig override)
 //
-// 호출자: src/flutter_ffi.rs 의 chainremote_login/logout/get_user FFI 들.
+// 호출자: src/flutter_ffi.rs 의 chainremote_login/takeover/heartbeat/logout/get_user FFI 들.
 //
 // 보안 설계 (2026-05-22): 토큰을 디스크(LocalConfig)에 저장하지 않고 **프로세스
 // 메모리 static 에만** 둔다. 앱 종료 시 토큰이 메모리째 증발 → 디스크 잔재 0.
@@ -15,6 +16,9 @@
 //   - TTL 길이(패널 24h)는 보안과 무관해짐(앱 닫으면 어차피 죽음) → 하루 연속
 //     사용 중 mid-session 만료(401) 방지용으로만 길게 둠.
 //   - API base 만 LocalConfig 유지(자격증명 아닌 단순 설정).
+//
+// 좌석 enforcement (2026-06-04, 마이그레이션 010): 한 HQ 계정 = 동시 1세션.
+//   상세 설계: docs/chainremote/SEAT_ENFORCEMENT.md
 
 use hbb_common::{anyhow::anyhow, lazy_static, log, ResultType};
 use hbb_common::config::LocalConfig;
@@ -64,6 +68,27 @@ struct ErrorResponse {
     error: String,
 }
 
+/// 로그인 결과 — 성공(토큰 발급됨) 또는 점유됨(다른 기기 사용 중, 토큰 없음).
+/// 자격 실패/네트워크 오류는 ResultType 의 Err 로.
+pub enum LoginOutcome {
+    Success(UserInfo),
+    /// 409 OCCUPIED — 다른 기기가 좌석 점유 중. Flutter 가 "강제 종료/취소" 모달 표시.
+    Occupied {
+        device_label: Option<String>,
+        since: Option<String>,
+    },
+}
+
+/// heartbeat 결과 — 유지 / 인계당함(즉시 종료) / 일시오류(세션 유지).
+pub enum HeartbeatStatus {
+    /// 200 — 좌석 유효, last_seen 갱신됨.
+    Ok,
+    /// 401 revoked — 다른 기기에 인계당함. 앱이 세션 끊고 로그아웃해야 함.
+    Revoked,
+    /// 네트워크 단기 끊김 / 비-revoked 오류 — 세션 유지(스펙 §7). 다음 tick 재시도.
+    Error,
+}
+
 /// 관리 패널 API 의 base URL. LocalConfig 의 chainremote-api-base 가 있으면 사용,
 /// 없으면 DEFAULT_API_BASE. trailing slash 제거해서 반환.
 pub fn api_base() -> String {
@@ -96,8 +121,23 @@ pub fn is_authenticated() -> bool {
     !get_token().is_empty()
 }
 
-/// 메모리 자격증명 삭제.
+/// 좌석 best-effort 반납 + 메모리 자격증명 삭제.
+///
+/// 서버 logout(POST /api/auth/logout)은 **fire-and-forget**(spawn, join 안 함) — 앱
+/// 종료/로그아웃 경로를 네트워크로 막지 않는다. 실패해도 orphan TTL(2분)이 좌석 회수.
 pub fn logout() {
+    let token = get_token();
+    if !token.is_empty() {
+        let base = api_base();
+        std::thread::spawn(move || {
+            let url = format!("{}/api/auth/logout", base);
+            let header = format!(
+                r#"{{"Authorization":"Bearer {}","Content-Type":"application/json"}}"#,
+                token
+            );
+            let _ = crate::http_request_sync(url, "POST".into(), Some("{}".into()), header);
+        });
+    }
     if let Ok(mut t) = TOKEN.write() {
         t.clear();
     }
@@ -106,31 +146,154 @@ pub fn logout() {
     }
 }
 
-/// POST /api/auth/token → 성공 시 토큰·사용자 정보 저장 후 UserInfo 반환.
-/// 실패 시 Err(서버가 준 한글 메시지 또는 네트워크 오류).
-pub fn login(email: &str, password: &str) -> ResultType<UserInfo> {
-    let url = format!("{}/api/auth/token", api_base());
-    let body = serde_json::json!({ "email": email, "password": password }).to_string();
-    // post_request_ 는 헤더 형식이 "name: value" 단순 split — JSON 아님.
-    // Content-Type 은 post_request_ 가 자동으로 application/json 박으므로 헤더 자체 불필요.
-    let resp_text = crate::post_request_sync(url, body, "")?;
+/// 좌석 식별자 — device_id(machine_uid, RustDesk get_uuid 와 동일) + device_label(호스트명).
+/// Rust 내부 계산 → Flutter 가 안 넘겨도 됨(dart:io 의존 회피, FFI 시그니처 단순).
+fn device_info() -> (String, String) {
+    let device_id = crate::encode64(hbb_common::get_uuid());
+    let device_label = crate::common::hostname();
+    (device_id, device_label)
+}
 
-    // 200: TokenResponse / 4xx,5xx: ErrorResponse — 둘 다 JSON.
-    if let Ok(tok) = serde_json::from_str::<TokenResponse>(&resp_text) {
-        let user_json = serde_json::to_string(&tok.user)?;
-        if let Ok(mut t) = TOKEN.write() {
-            *t = tok.token;
-        }
-        if let Ok(mut u) = USER_JSON.write() {
-            *u = user_json;
-        }
-        log::info!("ChainRemote 로그인 성공: {}", tok.user.email);
-        return Ok(tok.user);
+/// 인증 HTTP POST → (status_code, body) 반환. http_request_sync 래퍼
+/// ({"status_code":N,"headers":{},"body":"..."}) 파싱. bearer 있으면 Authorization 헤더.
+fn post_json(
+    path: &str,
+    body: serde_json::Value,
+    bearer: Option<&str>,
+) -> ResultType<(u16, String)> {
+    let url = format!("{}{}", api_base(), path);
+    let header = match bearer {
+        Some(t) => format!(
+            r#"{{"Authorization":"Bearer {}","Content-Type":"application/json"}}"#,
+            t
+        ),
+        None => r#"{"Content-Type":"application/json"}"#.to_string(),
+    };
+    let raw = crate::http_request_sync(url, "POST".into(), Some(body.to_string()), header)?;
+    #[derive(Deserialize)]
+    struct W {
+        status_code: u16,
+        body: String,
     }
-    if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_text) {
+    let w: W = serde_json::from_str(&raw).map_err(|e| anyhow!("응답 파싱 실패: {}", e))?;
+    Ok((w.status_code, w.body))
+}
+
+/// 발급된 토큰·사용자를 메모리에 저장.
+fn store(tok: &TokenResponse) -> ResultType<()> {
+    let user_json = serde_json::to_string(&tok.user)?;
+    if let Ok(mut t) = TOKEN.write() {
+        *t = tok.token.clone();
+    }
+    if let Ok(mut u) = USER_JSON.write() {
+        *u = user_json;
+    }
+    Ok(())
+}
+
+/// POST /api/auth/token { email, password, deviceId, deviceLabel }
+///   200 → 토큰·사용자 저장 후 Success(UserInfo)
+///   409 → Occupied { device_label, since } (토큰 발급 안 됨)
+///   그 외 → Err(서버 한글 메시지 또는 네트워크 오류)
+///
+/// device_id(machine_uid) + device_label(호스트명)은 device_info() 가 내부 계산.
+pub fn login(email: &str, password: &str) -> ResultType<LoginOutcome> {
+    let (device_id, device_label) = device_info();
+    let body = serde_json::json!({
+        "email": email,
+        "password": password,
+        "deviceId": device_id,
+        "deviceLabel": device_label,
+    });
+    let (status, resp_body) = post_json("/api/auth/token", body, None)?;
+
+    if (200..300).contains(&status) {
+        let tok: TokenResponse =
+            serde_json::from_str(&resp_body).map_err(|e| anyhow!("응답 파싱 실패: {}", e))?;
+        store(&tok)?;
+        log::info!("ChainRemote 로그인 성공: {}", tok.user.email);
+        return Ok(LoginOutcome::Success(tok.user));
+    }
+    if status == 409 {
+        #[derive(Deserialize)]
+        struct Occ {
+            #[serde(rename = "deviceLabel")]
+            device_label: Option<String>,
+            since: Option<String>,
+        }
+        let occ: Occ = serde_json::from_str(&resp_body).unwrap_or(Occ {
+            device_label: None,
+            since: None,
+        });
+        log::info!("ChainRemote 로그인 점유됨(409): {}", email);
+        return Ok(LoginOutcome::Occupied {
+            device_label: occ.device_label,
+            since: occ.since,
+        });
+    }
+    // 401 등 — 서버가 준 한글 메시지 우선.
+    if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_body) {
         return Err(anyhow!("{}", err.error));
     }
-    Err(anyhow!("응답 파싱 실패: {}", resp_text))
+    Err(anyhow!("로그인 실패 (status {})", status))
+}
+
+/// POST /api/auth/takeover — "강제 종료하고 사용". 자격 재검증 → 좌석 덮어쓰기 →
+/// 새 토큰 발급. 옛 기기의 토큰(jti)은 이 순간 무효 → 옛 기기 다음 heartbeat 가 REVOKED.
+pub fn takeover(email: &str, password: &str) -> ResultType<UserInfo> {
+    let (device_id, device_label) = device_info();
+    let body = serde_json::json!({
+        "email": email,
+        "password": password,
+        "deviceId": device_id,
+        "deviceLabel": device_label,
+    });
+    let (status, resp_body) = post_json("/api/auth/takeover", body, None)?;
+    if (200..300).contains(&status) {
+        let tok: TokenResponse =
+            serde_json::from_str(&resp_body).map_err(|e| anyhow!("응답 파싱 실패: {}", e))?;
+        store(&tok)?;
+        log::info!("ChainRemote 좌석 인계 성공: {}", tok.user.email);
+        return Ok(tok.user);
+    }
+    if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_body) {
+        return Err(anyhow!("{}", err.error));
+    }
+    Err(anyhow!("인계 실패 (status {})", status))
+}
+
+/// POST /api/auth/heartbeat (Bearer) — ~10초 주기. 좌석 유효성 확인.
+///   200 → Ok (last_seen 갱신됨)
+///   401 + {"revoked":true} → Revoked (인계당함 — 앱이 세션 끊고 로그아웃)
+///   네트워크 끊김 / 비-revoked 오류 → Error (세션 유지, 스펙 §7)
+pub fn heartbeat() -> HeartbeatStatus {
+    let token = get_token();
+    if token.is_empty() {
+        return HeartbeatStatus::Error;
+    }
+    let (status, body) = match post_json("/api/auth/heartbeat", serde_json::json!({}), Some(&token)) {
+        Ok(v) => v,
+        // 네트워크 단기 끊김 — 세션 유지(§7). 다음 tick 재시도.
+        Err(_) => return HeartbeatStatus::Error,
+    };
+    if (200..300).contains(&status) {
+        return HeartbeatStatus::Ok;
+    }
+    if status == 401 {
+        // revoked 플래그가 명시된 경우만 인계당함으로 처리. 단순 토큰만료(검증 실패)는
+        // Error(세션 유지) — 모호한 401 로 사용자를 쫓아내지 않음.
+        #[derive(Deserialize)]
+        struct R {
+            #[serde(default)]
+            revoked: bool,
+        }
+        if let Ok(r) = serde_json::from_str::<R>(&body) {
+            if r.revoked {
+                return HeartbeatStatus::Revoked;
+            }
+        }
+    }
+    HeartbeatStatus::Error
 }
 
 /// POST /api/me/password { currentPassword, newPassword } → 본인 비번 변경.

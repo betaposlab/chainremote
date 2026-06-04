@@ -1688,6 +1688,22 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kChainremoteLoginConstMeta;
 
+  /// 좌석 인계 — "강제 종료하고 사용". 자격 재검증 + 좌석 덮어쓰기 + 새 토큰 발급.
+  /// 반환: `{"ok":true,"user":{...}}` 또는 `{"ok":false,"error":"..."}`.
+  String chainremoteTakeover(
+      {required String email, required String password, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteTakeoverConstMeta;
+
+  /// 좌석 heartbeat (~10초). 반환: `{"status":"ok"|"revoked"|"error"}`.
+  ///   ok = 유지, revoked = 인계당함(앱이 세션 끊고 로그아웃), error = 일시오류(세션 유지).
+  ///
+  /// **async FFI** (SyncReturn 아님) — 10초 주기 호출이 UI isolate 를 블로킹하지 않도록
+  /// frb worker thread 에서 실행. 내부 std::thread spawn 은 tokio nested-runtime 회피.
+  Future<String> chainremoteHeartbeat({dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteHeartbeatConstMeta;
+
   bool chainremoteLogout({dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteLogoutConstMeta;
@@ -1734,8 +1750,9 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kChainremoteLoadFavoritesConstMeta;
 
-  /// 즐겨찾기 토글 — peer_card 의 별표 클릭 핸들러에서 호출.
-  /// remote_id 는 RustDesk peer.id (9자리). 내부에서 UUID 매핑 후 POST.
+  /// 즐겨찾기 토글 — peer_card 의 별표/메뉴 클릭 핸들러에서 호출.
+  /// remote_id 는 RustDesk peer.id (9자리). 2026-05-27 개편: 서버가 remote_id 기준 처리.
+  /// 동기 blocking — UI thread 가 결과 기다림 (~300ms). 토스트 메시지 정확성 위해 필요.
   bool chainremoteAddFavorite({required String remoteId, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteAddFavoriteConstMeta;
@@ -7936,6 +7953,41 @@ class RustdeskImpl implements Rustdesk {
       const FlutterRustBridgeTaskConstMeta(
         debugName: "chainremote_login",
         argNames: ["email", "password"],
+      );
+
+  String chainremoteTakeover(
+      {required String email, required String password, dynamic hint}) {
+    var arg0 = _platform.api2wire_String(email);
+    var arg1 = _platform.api2wire_String(password);
+    return _platform.executeSync(FlutterRustBridgeSyncTask(
+      callFfi: () => _platform.inner.wire_chainremote_takeover(arg0, arg1),
+      parseSuccessData: _wire2api_String,
+      constMeta: kChainremoteTakeoverConstMeta,
+      argValues: [email, password],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteTakeoverConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "chainremote_takeover",
+        argNames: ["email", "password"],
+      );
+
+  Future<String> chainremoteHeartbeat({dynamic hint}) {
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner.wire_chainremote_heartbeat(port_),
+      parseSuccessData: _wire2api_String,
+      constMeta: kChainremoteHeartbeatConstMeta,
+      argValues: [],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteHeartbeatConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "chainremote_heartbeat",
+        argNames: [],
       );
 
   bool chainremoteLogout({dynamic hint}) {
@@ -14225,6 +14277,39 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_chainremote_login = _wire_chainremote_loginPtr.asFunction<
       WireSyncReturn Function(
           ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
+
+  WireSyncReturn wire_chainremote_takeover(
+    ffi.Pointer<wire_uint_8_list> email,
+    ffi.Pointer<wire_uint_8_list> password,
+  ) {
+    return _wire_chainremote_takeover(
+      email,
+      password,
+    );
+  }
+
+  late final _wire_chainremote_takeoverPtr = _lookup<
+      ffi.NativeFunction<
+          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_chainremote_takeover');
+  late final _wire_chainremote_takeover =
+      _wire_chainremote_takeoverPtr.asFunction<
+          WireSyncReturn Function(
+              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
+
+  void wire_chainremote_heartbeat(
+    int port_,
+  ) {
+    return _wire_chainremote_heartbeat(
+      port_,
+    );
+  }
+
+  late final _wire_chainremote_heartbeatPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
+          'wire_chainremote_heartbeat');
+  late final _wire_chainremote_heartbeat =
+      _wire_chainremote_heartbeatPtr.asFunction<void Function(int)>();
 
   WireSyncReturn wire_chainremote_logout() {
     return _wire_chainremote_logout();

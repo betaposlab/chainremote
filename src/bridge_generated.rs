@@ -5013,6 +5013,33 @@ fn wire_chainremote_login_impl(
         },
     )
 }
+fn wire_chainremote_takeover_impl(
+    email: impl Wire2Api<String> + UnwindSafe,
+    password: impl Wire2Api<String> + UnwindSafe,
+) -> support::WireSyncReturn {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+        WrapInfo {
+            debug_name: "chainremote_takeover",
+            port: None,
+            mode: FfiCallMode::Sync,
+        },
+        move || {
+            let api_email = email.wire2api();
+            let api_password = password.wire2api();
+            Ok(chainremote_takeover(api_email, api_password))
+        },
+    )
+}
+fn wire_chainremote_heartbeat_impl(port_: MessagePort) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, String>(
+        WrapInfo {
+            debug_name: "chainremote_heartbeat",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || move |task_callback| Ok(chainremote_heartbeat()),
+    )
+}
 fn wire_chainremote_logout_impl() -> support::WireSyncReturn {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
         WrapInfo {

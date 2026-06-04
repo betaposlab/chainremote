@@ -2217,6 +2217,19 @@ pub extern "C" fn wire_chainremote_login(
 }
 
 #[no_mangle]
+pub extern "C" fn wire_chainremote_takeover(
+    email: *mut wire_uint_8_list,
+    password: *mut wire_uint_8_list,
+) -> support::WireSyncReturn {
+    wire_chainremote_takeover_impl(email, password)
+}
+
+#[no_mangle]
+pub extern "C" fn wire_chainremote_heartbeat(port_: i64) {
+    wire_chainremote_heartbeat_impl(port_)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_chainremote_logout() -> support::WireSyncReturn {
     wire_chainremote_logout_impl()
 }

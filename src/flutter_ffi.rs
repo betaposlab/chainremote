@@ -2731,16 +2731,63 @@ pub fn main_max_encrypt_len() -> SyncReturn<usize> {
 
 pub fn chainremote_login(email: String, password: String) -> SyncReturn<String> {
     // Reqwest blocking 은 별도 thread 에서 — flutter_rust_bridge 호출 thread 의
-    // tokio runtime 과 충돌(nested runtime panic) 회피.
+    // tokio runtime 과 충돌(nested runtime panic) 회피. device_id/label 은 Rust 내부 계산.
+    use crate::chainremote_auth::LoginOutcome;
     let result = std::thread::spawn(move || {
         match crate::chainremote_auth::login(&email, &password) {
-            Ok(user) => serde_json::json!({ "ok": true, "user": user }).to_string(),
+            Ok(LoginOutcome::Success(user)) => {
+                serde_json::json!({ "ok": true, "user": user }).to_string()
+            }
+            // 좌석 점유됨 — Flutter 가 "강제 종료하고 사용 / 취소" 모달 표시.
+            Ok(LoginOutcome::Occupied {
+                device_label,
+                since,
+            }) => serde_json::json!({
+                "ok": false,
+                "occupied": true,
+                "deviceLabel": device_label,
+                "since": since,
+            })
+            .to_string(),
             Err(e) => serde_json::json!({ "ok": false, "error": e.to_string() }).to_string(),
         }
     })
     .join()
     .unwrap_or_else(|_| r#"{"ok":false,"error":"login thread panic"}"#.to_string());
     SyncReturn(result)
+}
+
+/// 좌석 인계 — "강제 종료하고 사용". 자격 재검증 + 좌석 덮어쓰기 + 새 토큰 발급.
+/// 반환: `{"ok":true,"user":{...}}` 또는 `{"ok":false,"error":"..."}`.
+pub fn chainremote_takeover(email: String, password: String) -> SyncReturn<String> {
+    let result = std::thread::spawn(move || {
+        match crate::chainremote_auth::takeover(&email, &password) {
+            Ok(user) => serde_json::json!({ "ok": true, "user": user }).to_string(),
+            Err(e) => serde_json::json!({ "ok": false, "error": e.to_string() }).to_string(),
+        }
+    })
+    .join()
+    .unwrap_or_else(|_| r#"{"ok":false,"error":"takeover thread panic"}"#.to_string());
+    SyncReturn(result)
+}
+
+/// 좌석 heartbeat (~10초). 반환: `{"status":"ok"|"revoked"|"error"}`.
+///   ok = 유지, revoked = 인계당함(앱이 세션 끊고 로그아웃), error = 일시오류(세션 유지).
+///
+/// **async FFI** (SyncReturn 아님) — 10초 주기 호출이 UI isolate 를 블로킹하지 않도록
+/// frb worker thread 에서 실행. 내부 std::thread spawn 은 tokio nested-runtime 회피.
+pub fn chainremote_heartbeat() -> String {
+    use crate::chainremote_auth::HeartbeatStatus;
+    std::thread::spawn(move || {
+        let s = match crate::chainremote_auth::heartbeat() {
+            HeartbeatStatus::Ok => "ok",
+            HeartbeatStatus::Revoked => "revoked",
+            HeartbeatStatus::Error => "error",
+        };
+        serde_json::json!({ "status": s }).to_string()
+    })
+    .join()
+    .unwrap_or_else(|_| r#"{"status":"error"}"#.to_string())
 }
 
 pub fn chainremote_logout() -> SyncReturn<bool> {
