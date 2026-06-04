@@ -114,9 +114,11 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
 
   void _startHeartbeat() {
     if (_heartbeatTimer != null) return;
-    // ~10초 주기. chainremoteHeartbeat 는 async FFI(UI 비차단).
+    // 5초 주기. chainremoteHeartbeat 는 async FFI(UI 비차단). 인계당함(REVOKED)
+    // 감지 지연 = 이 주기(최대 ~5초). 더 즉각적 차단(원격 시작 시점 좌석 확인)은
+    // 네이티브 연결 로직을 건드려야 해 백로그로 분리 (docs/chainremote/BACKLOG.md).
     _heartbeatTimer =
-        Timer.periodic(const Duration(seconds: 10), (_) => _heartbeatTick());
+        Timer.periodic(const Duration(seconds: 5), (_) => _heartbeatTick());
   }
 
   void _stopHeartbeat() {
