@@ -6,11 +6,13 @@
 // 백엔드: src/chainremote_auth.rs + /api/auth/token (Bearer JWT)
 // 토큰/사용자 저장: 프로세스 메모리 전용 (디스크 잔재 0). 앱 종료 시 소멸 → 재실행 시 재로그인.
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart' show chainRemoteVersion;
 import 'package:flutter_hbb/models/platform_model.dart';
+import 'package:flutter_hbb/utils/multi_window_manager.dart';
 
 /// 본사 앱 인증 상태 전역 핸들. 홈 상단바의 로그아웃 버튼이 어디서든 호출.
 /// authed 노티파이어를 게이트가 구독 → false 면 로그인 화면으로 되돌아감.
@@ -80,11 +82,99 @@ class ChainRemoteAuthGate extends StatefulWidget {
 }
 
 class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
+  // 좌석 enforcement — ~10초 heartbeat. 인계당함(revoked) 감지 시 세션 끊고 로그아웃.
+  // 스펙: docs/chainremote/SEAT_ENFORCEMENT.md §6
+  Timer? _heartbeatTimer;
+  bool _revoking = false;
+
   @override
   void initState() {
     super.initState();
     ChainRemoteAuth.authed.value = bind.chainremoteIsAuthenticated();
     if (ChainRemoteAuth.authed.value) _warmCaches();
+    ChainRemoteAuth.authed.addListener(_onAuthChanged);
+    if (ChainRemoteAuth.authed.value) _startHeartbeat();
+  }
+
+  @override
+  void dispose() {
+    ChainRemoteAuth.authed.removeListener(_onAuthChanged);
+    _stopHeartbeat();
+    super.dispose();
+  }
+
+  /// 로그인/로그아웃 상태에 따라 heartbeat 시작/정지.
+  void _onAuthChanged() {
+    if (ChainRemoteAuth.authed.value) {
+      _startHeartbeat();
+    } else {
+      _stopHeartbeat();
+    }
+  }
+
+  void _startHeartbeat() {
+    if (_heartbeatTimer != null) return;
+    // ~10초 주기. chainremoteHeartbeat 는 async FFI(UI 비차단).
+    _heartbeatTimer =
+        Timer.periodic(const Duration(seconds: 10), (_) => _heartbeatTick());
+  }
+
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+  }
+
+  Future<void> _heartbeatTick() async {
+    String raw;
+    try {
+      raw = await bind.chainremoteHeartbeat();
+    } catch (_) {
+      return; // 일시 오류 — 다음 tick 재시도(세션 유지, 스펙 §7).
+    }
+    if (!mounted) return;
+    String status;
+    try {
+      status = (jsonDecode(raw) as Map<String, dynamic>)['status'] as String? ??
+          'error';
+    } catch (_) {
+      return;
+    }
+    if (status == 'revoked') await _onRevoked();
+  }
+
+  /// 다른 기기에 인계당함 — 모든 원격 세션 종료 + 안내 모달 + 로그아웃.
+  Future<void> _onRevoked() async {
+    if (_revoking) return;
+    _revoking = true;
+    _stopHeartbeat();
+    // 1) 모든 원격 세션(서브윈도우) 강제 종료 = 원격 끊김.
+    try {
+      await rustDeskWinManager.closeAllSubWindows();
+    } catch (_) {}
+    if (mounted) {
+      // 2) 안내 모달 (모달 B).
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('다른 기기에서 로그인됨'),
+          content: const Text(
+              '이 계정이 다른 기기에서 로그인되어 현재 기기에서는 종료되었습니다.'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E5BFF)),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+    }
+    // 3) 로그아웃 → 로그인 화면. 저장된 자동완성(아이디/비번)은 유지(재로그인 편의).
+    bind.chainremoteLogout();
+    ChainRemoteAuth.authed.value = false;
+    _revoking = false;
   }
 
   /// 본사 앱 메인 진입 직후 캐시 워밍.
@@ -165,44 +255,110 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     });
     final raw = bind.chainremoteLogin(email: email, password: password);
     if (!mounted) return;
+    await _handleAuthResult(raw, email, password, isTakeover: false);
+  }
+
+  /// 로그인/인계 응답 처리.
+  ///   ok        → 자동완성 저장 + 메인 진입
+  ///   occupied  → 모달 A(강제 종료/취소). 강제면 takeover, 취소면 중단.
+  ///   error     → 에러 표시
+  Future<void> _handleAuthResult(
+    String raw,
+    String email,
+    String password, {
+    required bool isTakeover,
+  }) async {
+    Map<String, dynamic> parsed;
     try {
-      final parsed = jsonDecode(raw) as Map<String, dynamic>;
-      if (parsed['ok'] == true) {
-        // B 방식: 아이디·비밀번호 각각 독립 저장/삭제.
-        if (_rememberId) {
-          await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kRememberId, value: 'Y');
-          await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kSavedEmail, value: email);
-        } else {
-          await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kRememberId, value: '');
-          await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kSavedEmail, value: '');
-        }
-        if (_rememberPw) {
-          await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kRememberPw, value: 'Y');
-          await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kSavedPassword, value: password);
-        } else {
-          await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kRememberPw, value: '');
-          await bind.mainSetLocalOption(
-              key: ChainRemoteAuth.kSavedPassword, value: '');
-        }
-        widget.onLoggedIn();
-        return;
-      }
-      setState(() {
-        _busy = false;
-        _errorText = (parsed['error'] as String?) ?? '로그인 실패';
-      });
+      parsed = jsonDecode(raw) as Map<String, dynamic>;
     } catch (_) {
       setState(() {
         _busy = false;
         _errorText = '응답 파싱 실패';
       });
+      return;
+    }
+
+    if (parsed['ok'] == true) {
+      await _persistRemember(email, password);
+      widget.onLoggedIn();
+      return;
+    }
+
+    // 좌석 점유됨(409) — 강제 종료(인계) 여부 모달. takeover 응답엔 occupied 안 옴.
+    if (!isTakeover && parsed['occupied'] == true) {
+      final label = (parsed['deviceLabel'] as String?)?.trim();
+      final force = await _showOccupiedDialog(label);
+      if (!mounted) return;
+      if (force == true) {
+        await _takeover(email, password);
+      } else {
+        setState(() => _busy = false); // 취소 — 토큰 발급 안 됨.
+      }
+      return;
+    }
+
+    setState(() {
+      _busy = false;
+      _errorText = (parsed['error'] as String?) ?? '로그인 실패';
+    });
+  }
+
+  /// "강제 종료하고 사용" — 좌석 인계. busy 유지한 채 진행.
+  Future<void> _takeover(String email, String password) async {
+    final raw = bind.chainremoteTakeover(email: email, password: password);
+    if (!mounted) return;
+    await _handleAuthResult(raw, email, password, isTakeover: true);
+  }
+
+  /// 점유 모달(모달 A) — true=강제 종료하고 사용, false/null=취소.
+  Future<bool?> _showOccupiedDialog(String? deviceLabel) {
+    final where = (deviceLabel != null && deviceLabel.isNotEmpty)
+        ? "'$deviceLabel' 기기"
+        : '다른 기기';
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('이미 사용 중'),
+        content: Text(
+            '이 계정은 현재 $where에서 사용 중입니다.\n강제 종료하고 이 기기에서 사용하시겠습니까?\n(기존 기기의 원격 세션이 종료됩니다.)'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+                backgroundColor: _brandPrimary),
+            child: const Text('강제 종료하고 사용'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 아이디·비밀번호 각각 독립 저장/삭제 (B 방식 opt-in).
+  Future<void> _persistRemember(String email, String password) async {
+    if (_rememberId) {
+      await bind.mainSetLocalOption(
+          key: ChainRemoteAuth.kRememberId, value: 'Y');
+      await bind.mainSetLocalOption(
+          key: ChainRemoteAuth.kSavedEmail, value: email);
+    } else {
+      await bind.mainSetLocalOption(key: ChainRemoteAuth.kRememberId, value: '');
+      await bind.mainSetLocalOption(key: ChainRemoteAuth.kSavedEmail, value: '');
+    }
+    if (_rememberPw) {
+      await bind.mainSetLocalOption(
+          key: ChainRemoteAuth.kRememberPw, value: 'Y');
+      await bind.mainSetLocalOption(
+          key: ChainRemoteAuth.kSavedPassword, value: password);
+    } else {
+      await bind.mainSetLocalOption(key: ChainRemoteAuth.kRememberPw, value: '');
+      await bind.mainSetLocalOption(
+          key: ChainRemoteAuth.kSavedPassword, value: '');
     }
   }
 
