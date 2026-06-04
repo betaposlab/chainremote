@@ -114,6 +114,25 @@ export async function listTenantUsers(tenantId: string) {
     .orderBy(desc(users.createdAt));
 }
 
+// 전체 사용자 + 소속 회사 — super_admin 의 "사용자" 탭(회사 무관 전체 조회).
+export async function listAllUsersWithCompany() {
+  return db
+    .select({
+      id: users.id,
+      email: users.email,
+      displayName: users.displayName,
+      role: users.role,
+      isActive: users.isActive,
+      lastLoginAt: users.lastLoginAt,
+      tenantId: users.tenantId,
+      companyName: tenants.displayName,
+      companySlug: tenants.slug,
+    })
+    .from(users)
+    .leftJoin(tenants, eq(users.tenantId, tenants.id))
+    .orderBy(desc(users.createdAt));
+}
+
 // 회사별 아이디(사용자) 수 — 회사 목록의 "아이디 N개" 컬럼.
 export async function tenantUserCounts(): Promise<Record<string, number>> {
   const rows = await db

@@ -34,6 +34,7 @@ function parseRole(v: unknown): Role {
 }
 
 function revalidate(tenantId: string) {
+  revalidatePath("/users");
   revalidatePath(`/admin/tenants/${tenantId}/edit`);
 }
 
@@ -58,6 +59,31 @@ export async function adminCreateUser(tenantId: string, formData: FormData) {
     isActive: true,
   });
   revalidate(tenantId);
+}
+
+// "사용자" 탭(전체)에서 회사를 골라 추가 — tenantId 를 폼에서 받음.
+export async function adminCreateUserGlobal(formData: FormData) {
+  await requireSuperAdmin();
+  const tenantId = String(formData.get("tenantId") ?? "").trim();
+  if (!tenantId) throw new Error("회사 선택 필수");
+  const email = String(formData.get("email") ?? "").trim();
+  const displayName = String(formData.get("displayName") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const role = parseRole(formData.get("role"));
+  if (!email) throw new Error("아이디 필수");
+  if (!displayName) throw new Error("이름 필수");
+  if (!password || password.length < 4) throw new Error("비번 4자 이상");
+
+  const passwordHash = bcrypt.hashSync(password, BCRYPT_COST);
+  await db.insert(users).values({
+    tenantId,
+    email,
+    displayName,
+    passwordHash,
+    role,
+    isActive: true,
+  });
+  revalidatePath("/users");
 }
 
 export async function adminUpdateUser(
