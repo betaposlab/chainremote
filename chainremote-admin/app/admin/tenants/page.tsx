@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { listTenants } from "@/lib/data/tenants";
+import { listTenants, tenantUserCounts } from "@/lib/data/tenants";
 import { TenantRowActions } from "./_tenant-row-actions";
 // 회사명 클릭 → 수정 페이지. 행 우측 [수정] 버튼도 동일.
 
@@ -25,6 +25,7 @@ export default async function TenantsPage() {
   }
 
   const rows = await listTenants();
+  const userCounts = await tenantUserCounts();
 
   return (
     <div className="px-8 py-6">
@@ -49,6 +50,7 @@ export default async function TenantsPage() {
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-4 py-3">회사명</th>
+              <th className="px-4 py-3">아이디</th>
               <th className="px-4 py-3">대표자</th>
               <th className="px-4 py-3">담당자 연락처</th>
               <th className="px-4 py-3">월정액 (VAT별도)</th>
@@ -63,11 +65,11 @@ export default async function TenantsPage() {
             {rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={10}
                   className="px-4 py-10 text-center text-slate-400"
                 >
-                  등록된 회사가 없습니다. 우측 상단의 "신규 회사 등록" 으로
-                  시작하세요.
+                  등록된 회사가 없습니다. 우측 상단의 &quot;신규 회사 등록&quot;
+                  으로 시작하세요.
                 </td>
               </tr>
             )}
@@ -81,6 +83,14 @@ export default async function TenantsPage() {
                     {t.displayName}
                   </Link>
                   <div className="text-xs text-slate-400">{t.slug}</div>
+                </td>
+                <td className="px-4 py-3">
+                  <Link
+                    href={`/admin/tenants/${t.id}/edit`}
+                    className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-[#00A0E5] hover:text-white"
+                  >
+                    {userCounts[t.id] ?? 0}개
+                  </Link>
                 </td>
                 <td className="px-4 py-3 text-slate-700">
                   {t.representativeName ?? "—"}
