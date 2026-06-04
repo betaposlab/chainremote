@@ -30,14 +30,19 @@ function getSecret(): Uint8Array {
 
 export async function signApiToken(
   claims: Omit<ApiTokenClaims, keyof JWTPayload>,
+  jti?: string,
 ): Promise<{ token: string; expiresIn: number }> {
-  const token = await new SignJWT({ ...claims })
+  let builder = new SignJWT({ ...claims })
     .setProtectedHeader({ alg: ALG })
     .setIssuer(ISSUER)
     .setAudience(AUDIENCE)
     .setIssuedAt()
-    .setExpirationTime(TOKEN_TTL)
-    .sign(getSecret());
+    .setExpirationTime(TOKEN_TTL);
+  // 좌석 enforcement(마이그레이션 010): jti 가 주어지면 토큰에 박아 heartbeat 가
+  // active_login_sessions 와 대조 가능하게 한다. 옛 앱(device_id 미전송) 경로는
+  // jti 없이 발급 → 백워드 호환(§8). jti 는 jose 표준 JWTPayload 필드.
+  if (jti) builder = builder.setJti(jti);
+  const token = await builder.sign(getSecret());
   return { token, expiresIn: 60 * 60 * 24 };
 }
 
