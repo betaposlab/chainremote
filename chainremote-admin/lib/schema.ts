@@ -225,3 +225,26 @@ export const auditLogs = pgTable("audit_logs", {
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// 좌석 과금 — 단일 동시세션 enforcement (마이그레이션 010, 2026-06-04 Chang 결정).
+// 한 HQ 계정 = 동시 1세션. user_id PK 로 계정당 active 1건 강제. takeover = UPSERT.
+// HQ 앱이 ~10초 heartbeat 로 last_seen_at 갱신. jti 불일치 = 인계당함 = REVOKED.
+// 백워드 호환(§8): 옛 앱(device_id 미전송)은 이 테이블에 행을 안 만든다.
+// 상세: docs/chainremote/SEAT_ENFORCEMENT.md
+export const activeLoginSessions = pgTable(
+  "active_login_sessions",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    jti: uuid("jti").notNull(),
+    deviceId: text("device_id").notNull(),
+    deviceLabel: text("device_label"),
+    ip: text("ip"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    lastSeenIdx: index("idx_active_login_sessions_last_seen").on(t.lastSeenAt),
+  }),
+);
