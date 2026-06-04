@@ -3,7 +3,7 @@
 //
 // 가드 없음 — 호출자(actions) 가 requireSuperAdmin() 후 호출 책임.
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tenants, users } from "@/lib/schema";
 
@@ -102,4 +102,25 @@ export async function setUserPasswordHash(userId: string, passwordHash: string) 
     .update(users)
     .set({ passwordHash, updatedAt: new Date() })
     .where(eq(users.id, userId));
+}
+
+// 특정 회사(tenant)의 직원(아이디) 목록 — super_admin 회사 상세에서 사용.
+// 호출자가 requireSuperAdmin() 후 사용.
+export async function listTenantUsers(tenantId: string) {
+  return db
+    .select()
+    .from(users)
+    .where(eq(users.tenantId, tenantId))
+    .orderBy(desc(users.createdAt));
+}
+
+// 회사별 아이디(사용자) 수 — 회사 목록의 "아이디 N개" 컬럼.
+export async function tenantUserCounts(): Promise<Record<string, number>> {
+  const rows = await db
+    .select({ tenantId: users.tenantId, c: count() })
+    .from(users)
+    .groupBy(users.tenantId);
+  const map: Record<string, number> = {};
+  for (const r of rows) map[r.tenantId] = Number(r.c);
+  return map;
 }

@@ -4,8 +4,9 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
-import { getTenant } from "@/lib/data/tenants";
+import { getTenant, listTenantUsers } from "@/lib/data/tenants";
 import { EditTenantForm } from "./_form";
+import { TenantUsersSection } from "./_users-section";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ export default async function EditTenantPage({
   const { id } = await params;
   const t = await getTenant(id);
   if (!t) notFound();
+  const tenantUsers = await listTenantUsers(id);
 
   return (
     <div className="px-8 py-6 max-w-3xl">
@@ -72,6 +74,18 @@ export default async function EditTenantPage({
             : null,
           notes: t.notes,
         }}
+      />
+
+      <TenantUsersSection
+        tenantId={t.id}
+        users={tenantUsers.map((u) => ({
+          id: u.id,
+          email: u.email,
+          displayName: u.displayName,
+          role: u.role,
+          isActive: u.isActive,
+          lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
+        }))}
       />
     </div>
   );
