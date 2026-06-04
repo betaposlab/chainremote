@@ -86,7 +86,8 @@ export default async function TenantsPage() {
                 </td>
                 <td className="px-4 py-3">
                   <Link
-                    href={`/admin/tenants/${t.id}/edit`}
+                    href="/users"
+                    title="사용자 관리에서 회사별로 보기"
                     className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-[#00A0E5] hover:text-white"
                   >
                     {userCounts[t.id] ?? 0}개

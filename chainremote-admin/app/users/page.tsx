@@ -1,5 +1,6 @@
-// 사용자 관리 페이지 — owner 전용.
-// 직원 추가/수정/비번 리셋/비활성화/삭제.
+// 사용자 관리 페이지.
+// - super_admin(Chang): 회사별 아코디언 — 회사 위 + 클릭하면 사용자 펼침 (CompanyAccordion).
+// - owner(대리점 owner): 자기 회사 직원만 (tenant 격리, 기존 동작).
 
 import { db } from "@/lib/db";
 import { users } from "@/lib/schema";
@@ -8,6 +9,8 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { UserRow } from "./_user-row";
 import { CreateUserForm } from "./_create-form";
+import { CompanyAccordion, type AccUser } from "./_company-accordion";
+import { listAllUsersWithCompany, listTenants } from "@/lib/data/tenants";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +28,44 @@ export default async function UsersPage() {
     );
   }
 
+  // super_admin(Chang): 회사별 아코디언 (회사 위 + 클릭하면 그 회사 사용자 펼침).
+  if (session.user.role === "super_admin") {
+    const companies = await listTenants();
+    const allUsers = await listAllUsersWithCompany();
+    const byTenant = new Map<string, AccUser[]>();
+    for (const u of allUsers) {
+      const arr = byTenant.get(u.tenantId) ?? [];
+      arr.push({
+        id: u.id,
+        email: u.email,
+        displayName: u.displayName,
+        role: u.role,
+        isActive: u.isActive,
+        lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
+      });
+      byTenant.set(u.tenantId, arr);
+    }
+    const groups = companies.map((c) => ({
+      id: c.id,
+      displayName: c.displayName,
+      slug: c.slug,
+      users: byTenant.get(c.id) ?? [],
+    }));
+    return (
+      <div className="max-w-5xl px-8 py-6">
+        <header className="mb-6">
+          <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {allUsers.length}명 · 회사별로 묶어 표시. 회사를 클릭하면 그 회사의
+            아이디가 펼쳐집니다. (거래처 사람들은 등록 안 함)
+          </p>
+        </header>
+        <CompanyAccordion companies={groups} selfId={session.user.id} />
+      </div>
+    );
+  }
+
+  // owner(대리점): 자기 회사 직원만.
   const rows = await db
     .select()
     .from(users)
@@ -36,7 +77,7 @@ export default async function UsersPage() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {rows.length}명 · 본사 직원만 등록 (거래처 사람들은 여기 등록 안 함)
+          {rows.length}명 · 우리 회사 직원 (거래처 사람들은 여기 등록 안 함)
         </p>
       </header>
 
