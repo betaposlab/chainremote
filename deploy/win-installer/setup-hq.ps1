@@ -39,11 +39,14 @@ Write-Host "[2] 옛 에이전트 config 제거..." -ForegroundColor Yellow
 
 # [3] HQ 인스톨러 실행 (옛 서비스 정지 + HQ 코어 설치 + 서비스 시작은 인스톨러가 처리)
 Write-Host "[3] HQ 인스톨러 실행 (silent, ~10초)..." -ForegroundColor Yellow
-$installer = "C:\src\ChainRemote\deploy\win-installer\ChainRemote_HQ_Setup_v1.4.3.exe"
-if (-not (Test-Path $installer)) {
-    Write-Host "  ERROR: 인스톨러 없음: $installer" -ForegroundColor Red
+# 최신 HQ 인스톨러 자동 탐색 — 버전 하드코딩 제거(빌드마다 경로 수정 불필요).
+$installer = Get-ChildItem "C:\src\ChainRemote\deploy\win-installer\ChainRemote_HQ_Setup_v*.exe" -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+if (-not $installer -or -not (Test-Path $installer)) {
+    Write-Host "  ERROR: HQ 인스톨러 없음 (ChainRemote_HQ_Setup_v*.exe)" -ForegroundColor Red
     Read-Host "엔터로 종료"; return
 }
+Write-Host ("    사용 인스톨러: " + (Split-Path $installer -Leaf)) -ForegroundColor Gray
 Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/NORESTART','/SUPPRESSMSGBOXES' -Wait
 Start-Sleep -Seconds 4
 
