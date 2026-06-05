@@ -2152,6 +2152,53 @@ impl Connection {
         false
     }
 
+    // ChainRemote: "거래처 PC 재시작 → 자동 재접속" 지원 (코이노식).
+    // 인가된 operator 가 재시작을 실행하면, 부팅 후 그 operator 의 재접속을 짧은 시간 1회
+    // 자동 수락(approve-mode=click 우회)하도록 grace 마커를 디스크(Config)에 저장한다.
+    // 이미 거래처가 수락한 세션의 연속이므로 무인 0클릭 접근과 다름(보안 범위: 특정 operator·5분·1회).
+    // 재시작으로 프로세스가 죽어 메모리 SESSIONS 캐시가 날아가므로 반드시 디스크에 영속해야 함.
+    fn set_restart_reconnect_grace(operator_id: &str) {
+        let exp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+            + 300; // 5분
+        Config::set_option(
+            "restart-reconnect-grace".to_owned(),
+            format!("{}:{}", operator_id, exp),
+        );
+        log::info!("[restart-grace] set for operator {} (valid 5min)", operator_id);
+    }
+
+    // grace 가 이 operator 에게 유효하면 true + 소비(1회용). 만료면 정리 후 false.
+    // 유효하지만 다른 peer 면 유지(legit operator 를 위해) 후 false.
+    fn consume_restart_reconnect_grace(&self, operator_id: &str) -> bool {
+        let v = Config::get_option("restart-reconnect-grace");
+        if v.is_empty() {
+            return false;
+        }
+        if let Some((gid, gexp)) = v.split_once(':') {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let exp: u64 = gexp.parse().unwrap_or(0);
+            if now > exp {
+                Config::set_option("restart-reconnect-grace".to_owned(), "".to_owned());
+                return false;
+            }
+            if gid == operator_id {
+                Config::set_option("restart-reconnect-grace".to_owned(), "".to_owned());
+                log::info!(
+                    "[restart-grace] consumed for operator {} -> auto-accept reconnect",
+                    operator_id
+                );
+                return true;
+            }
+        }
+        false
+    }
+
     #[inline]
     pub fn is_permission_enabled_locally(enable_prefix_option: &str) -> bool {
         #[cfg(feature = "flutter")]
@@ -2432,6 +2479,19 @@ impl Connection {
                 && self.has_active_remote_session(&lr.my_id)
             {
                 // ChainRemote: 같은 피어가 이미 활성 제어 세션 중 → 파일전송 자동 수락(두 번째 수락 제거).
+                if err_msg.is_empty() {
+                    #[cfg(target_os = "linux")]
+                    self.linux_headless_handle.wait_desktop_cm_ready().await;
+                    if !self.send_logon_response_and_keep_alive().await {
+                        return false;
+                    }
+                    self.try_start_cm(lr.my_id.clone(), lr.my_name.clone(), self.authorized);
+                } else {
+                    self.send_login_error(err_msg).await;
+                }
+            } else if self.consume_restart_reconnect_grace(&lr.my_id) {
+                // ChainRemote: 재시작-재접속 grace 유효 → 수락(approve-mode=click) 자동 통과 (5분·1회).
+                // 재시작을 누른 그 operator 의 부팅 직후 재접속에 한함. 파일전송 자동수락 분기와 동일 구조.
                 if err_msg.is_empty() {
                     #[cfg(target_os = "linux")]
                     self.linux_headless_handle.wait_desktop_cm_ready().await;
@@ -3236,6 +3296,9 @@ impl Connection {
                     Some(misc::Union::RestartRemoteDevice(_)) => {
                         #[cfg(not(any(target_os = "android", target_os = "ios")))]
                         if self.restart {
+                            // ChainRemote: 재시작 직전, 이 operator 의 부팅 후 재접속을 자동 수락하도록
+                            // grace 저장(코이노식 자동 재접속). 인가된 세션에서만 도달하는 분기라 안전.
+                            Self::set_restart_reconnect_grace(&self.lr.my_id);
                             // force_reboot, not work on linux vm and macos 14
                             #[cfg(any(target_os = "linux", target_os = "windows"))]
                             match system_shutdown::force_reboot() {
