@@ -371,13 +371,17 @@ class ConnectionManagerState extends State<ConnectionManager>
     // 대기↔활성 전환 시에만 CM 창 크기/위치 조정 (build 부작용 회피 위해 post-frame).
     if (_agentPendingShown != wantPending) {
       _agentPendingShown = wantPending;
+      final targetSize = wantPending ? kAgentAcceptCardSize : kAgentSupportBannerSize;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        try {
-          await windowManager.setSizeAlignment(
-            wantPending ? kAgentAcceptCardSize : kAgentSupportBannerSize,
-            Alignment.topCenter,
-          );
-        } catch (_) {}
+        // grace 자동수락은 수락카드(360x200)를 건너뛰고 바로 활성 → CM 창이 막 떴을 때
+        // setSizeAlignment 가 한 번에 안 먹어 큰 크기로 남는 문제(2026-06-05 재시작 자동재접속
+        // 부수효과). 창이 준비될 때까지 짧게 여러 번 재적용해 배너(220x34)로 확실히 축소.
+        for (var i = 0; i < 4; i++) {
+          await Future.delayed(Duration(milliseconds: i == 0 ? 100 : 300));
+          try {
+            await windowManager.setSizeAlignment(targetSize, Alignment.topCenter);
+          } catch (_) {}
+        }
       });
     }
     if (wantPending) {
