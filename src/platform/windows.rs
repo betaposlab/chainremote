@@ -3491,7 +3491,8 @@ oLink.Save
 }
 
 fn get_import_config(exe: &str) -> String {
-    if config::is_outgoing_only() {
+    // ChainRemote: option-b-plus 마커면 HQ 도 config import (서비스 생성과 짝). 2026-06-05.
+    if config::is_outgoing_only() && !config::is_option_b_plus_build() {
         return "".to_string();
     }
     format!("
@@ -3508,7 +3509,9 @@ sc delete {app_name}
 }
 
 fn get_create_service(exe: &str) -> String {
-    if config::is_outgoing_only() {
+    // ChainRemote: HQ(outgoing) 는 기본 viewer 라 서비스 미생성. 단 option-b-plus 마커(custom.txt)면
+    // 옵션 B+ 지원용으로 서비스 생성 → 로그인 전 incoming(대리점 HQ 재시작 후 피지원) 가능. 2026-06-05.
+    if config::is_outgoing_only() && !config::is_option_b_plus_build() {
         return "".to_string();
     }
     let stop = Config::get_option("stop-service") == "Y";
