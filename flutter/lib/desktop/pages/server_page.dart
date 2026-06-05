@@ -1,6 +1,7 @@
 // original cm window in Sciter version.
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -56,10 +57,21 @@ class _DesktopServerPageState extends State<DesktopServerPage>
       if (!mounted) return;
       final hasActive = gFFI.serverModel.clients
           .any((c) => c.authorized && !c.disconnected);
-      if (hasActive) {
-        try {
-          await windowManager.setAlwaysOnTop(true);
-        } catch (_) {}
+      if (!hasActive) return;
+      try {
+        // 보안데스크톱(UAC) 전환 후 배너 창이 topmost 만 잃는 게 아니라 아예 숨겨질(hide/minimize)
+        // 수 있음 → setAlwaysOnTop 만으론 부족(1.4.11 에서 포커스도 안 뺏기고 안 떴음 = 숨겨진 것).
+        // 숨겨졌으면 다시 show, 최소화면 restore 한 뒤 topmost 재확인.
+        final visible = await windowManager.isVisible();
+        final minimized = await windowManager.isMinimized();
+        if (!visible || minimized) {
+          _bannerDiag('restore: visible=$visible minimized=$minimized');
+          if (minimized) await windowManager.restore();
+          await windowManager.show();
+        }
+        await windowManager.setAlwaysOnTop(true);
+      } catch (e) {
+        _bannerDiag('err: $e');
       }
     });
   }
@@ -69,6 +81,17 @@ class _DesktopServerPageState extends State<DesktopServerPage>
     _keepBannerOnTopTimer?.cancel();
     windowManager.removeListener(this);
     super.dispose();
+  }
+
+  // 진단: 배너 복원 이벤트를 고정경로 updater.log 에 남김(재성이에서 원격으로 쉽게 확인).
+  void _bannerDiag(String msg) {
+    if (!Platform.isWindows) return;
+    try {
+      File(r'C:\ProgramData\ChainRemote\updater.log').writeAsStringSync(
+          '[banner] $msg\n',
+          mode: FileMode.append,
+          flush: true);
+    } catch (_) {}
   }
 
   @override
