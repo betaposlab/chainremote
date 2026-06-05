@@ -197,3 +197,60 @@ Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
 [UninstallRun]
 ; 제거 시 watchdog SYSTEM 예약작업도 정리 (고아 작업 방지)
 Filename: "schtasks.exe"; Parameters: "/Delete /TN ChainRemoteServiceWatchdog /F"; Flags: runhidden; RunOnceId: "DelWatchdogTask"
+
+[Code]
+// ── ChainRemote 다운그레이드 가드 (2026-06-06) ────────────────────────────────
+// 설치된 버전이 이 인스톨러보다 높으면 설치 거부. updater(is_newer)는 자동업뎃 경로만
+// 막지만, 인스톨러를 직접 실행하는 stray 경로(잔재 예약작업·수동 더블클릭 등)는 우회 가능.
+// 그 클래스를 인스톨러 레벨에서 영구 차단. 의도적 롤백은 /FORCE=1 로만.
+// updater 정상 푸시는 항상 상향이라 가드가 막지 않음 → 정상 동작 영향 0.
+procedure CRLog(Msg: String);
+begin
+  try
+    if not DirExists(ExpandConstant('{commonappdata}\ChainRemote')) then
+      CreateDir(ExpandConstant('{commonappdata}\ChainRemote'));
+    SaveStringToFile(ExpandConstant('{commonappdata}\ChainRemote\updater.log'),
+      GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':') + ' ' + Msg + #13#10, True);
+  except
+  end;
+end;
+
+function CRCmpVer(A, B: String): Integer;
+var
+  av, bv, p: Integer;
+begin
+  Result := 0;
+  while (Result = 0) and ((Length(A) > 0) or (Length(B) > 0)) do begin
+    p := Pos('.', A);
+    if p > 0 then begin av := StrToIntDef(Copy(A, 1, p - 1), 0); Delete(A, 1, p); end
+    else begin av := StrToIntDef(A, 0); A := ''; end;
+    p := Pos('.', B);
+    if p > 0 then begin bv := StrToIntDef(Copy(B, 1, p - 1), 0); Delete(B, 1, p); end
+    else begin bv := StrToIntDef(B, 0); B := ''; end;
+    if av > bv then Result := 1 else if av < bv then Result := -1;
+  end;
+end;
+
+function CRInstalledVer(): String;
+var
+  v: String;
+begin
+  Result := '';
+  if RegQueryStringValue(HKLM, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{8B6F7E2A-1D4C-4A3F-9E5B-3F2C1D7E8B4A}_is1', 'DisplayVersion', v) then Result := v
+  else if RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{8B6F7E2A-1D4C-4A3F-9E5B-3F2C1D7E8B4A}_is1', 'DisplayVersion', v) then Result := v;
+end;
+
+function InitializeSetup(): Boolean;
+var
+  Installed: String;
+begin
+  Result := True;
+  if ExpandConstant('{param:FORCE|0}') = '1' then Exit;
+  Installed := CRInstalledVer();
+  if (Installed <> '') and (CRCmpVer(Installed, '{#APP_VERSION}') > 0) then begin
+    CRLog('installer: DOWNGRADE-GUARD blocked (installed=' + Installed + ' > setup={#APP_VERSION})');
+    if not WizardSilent() then
+      MsgBox('이미 더 높은 버전(' + Installed + ')이 설치되어 있어 설치를 중단합니다.' + #13#10 + '(강제 설치 시 /FORCE=1)', mbError, MB_OK);
+    Result := False;
+  end;
+end;
