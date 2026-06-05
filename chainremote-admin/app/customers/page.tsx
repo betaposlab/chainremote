@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { customers, pendingUpdates, supportSessions, tenants, users } from "@/lib/schema";
-import { eq, desc, and, isNull } from "drizzle-orm";
+import { eq, desc, and, isNull, isNotNull, or } from "drizzle-orm";
 import { listOrphanFavorites } from "@/lib/data/favorites";
 import { DiscoveredPeerBanner } from "./_discovered";
 import { RemoteButton } from "./_remote-button";
-import { CustomerStatus } from "./_status";
+import { CustomerStatus, computeUpdateHealth } from "./_status";
 import { CustomerPushButton, BulkPushButton } from "./_push-buttons";
 import { auth } from "@/auth";
 
@@ -55,6 +55,44 @@ export default async function CustomersPage() {
     );
   const pendingByCustomer = new Map(pendingRows.map((p) => [p.customerId, p]));
 
+  // 거래처별 최근 "적용/실패" 푸시 — 자동업데이트 brick 감지용.
+  // applied 됐는데 heartbeat 버전이 목표로 안 올라가면(또는 failed) _status 가 드러냄.
+  const updateRows = await db
+    .select({
+      customerId: pendingUpdates.customerId,
+      targetVersion: pendingUpdates.targetVersion,
+      appliedAt: pendingUpdates.appliedAt,
+      failedAt: pendingUpdates.failedAt,
+      createdAt: pendingUpdates.createdAt,
+    })
+    .from(pendingUpdates)
+    .where(
+      and(
+        eq(pendingUpdates.tenantId, tenant.id),
+        or(isNotNull(pendingUpdates.appliedAt), isNotNull(pendingUpdates.failedAt)),
+      ),
+    )
+    .orderBy(desc(pendingUpdates.createdAt));
+  // 거래처별 최신 1건만 (createdAt desc 라 first = 최신 결과).
+  const updateByCustomer = new Map<
+    string,
+    { targetVersion: string; appliedAt: Date | null; failedAt: Date | null }
+  >();
+  for (const u of updateRows) {
+    if (u.customerId && !updateByCustomer.has(u.customerId)) {
+      updateByCustomer.set(u.customerId, {
+        targetVersion: u.targetVersion,
+        appliedAt: u.appliedAt,
+        failedAt: u.failedAt,
+      });
+    }
+  }
+  // brick/실패로 판정되는 거래처 (상단 경고 배너용).
+  const updateProblems = rows.filter((c) => {
+    const h = computeUpdateHealth(updateByCustomer.get(c.id), c.lastVersion);
+    return h?.kind === "brick" || h?.kind === "failed";
+  });
+
   const activeSessions = await db
     .select({
       id: supportSessions.id,
@@ -98,6 +136,16 @@ export default async function CustomersPage() {
       </header>
 
       <DiscoveredPeerBanner peers={newPeers} />
+
+      {updateProblems.length > 0 && (
+        <div className="mb-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          ⚠ <span className="font-semibold">{updateProblems.length}곳</span>에서 자동업데이트가
+          “적용됨”으로 보고됐지만 새 버전 heartbeat가 확인되지 않았습니다 (설치 실패·brick 의심).
+          아래 표에서 <span className="font-medium text-rose-700">⚠ 업뎃 미확인</span> /
+          <span className="font-medium text-rose-700"> 업뎃 실패</span> 표시된 거래처를 점검하세요
+          (RDP·현장).
+        </div>
+      )}
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
         <table className="w-full text-sm">
@@ -159,6 +207,7 @@ export default async function CustomersPage() {
                     <CustomerStatus
                       lastHeartbeatAt={c.lastHeartbeatAt}
                       lastVersion={c.lastVersion}
+                      update={updateByCustomer.get(c.id) ?? null}
                     />
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs max-w-[16ch] truncate">
