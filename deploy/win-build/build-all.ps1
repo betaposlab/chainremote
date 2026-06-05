@@ -1,4 +1,9 @@
-﻿$ErrorActionPreference = "Stop"
+﻿# -RegenBridge: src/flutter_ffi.rs(코어↔화면 연결부)를 바꿨을 때만 다리파일(bridge) 재생성.
+#   기본은 git 에 커밋된 다리파일을 그대로 사용 (Mac+Win 공용 설계). 재생성엔 RUSTC_BOOTSTRAP=1 +
+#   flutter_rust_bridge_codegen 1.80.1 / cargo-expand 1.0.95 (집윈컴 ~/.cargo/bin) 필요.
+param([switch]$RegenBridge)
+
+$ErrorActionPreference = "Stop"
 Write-Host "=== ChainRemote 풀 빌드 자동 실행 ===" -ForegroundColor Cyan
 Write-Host ""
 
@@ -81,29 +86,53 @@ if ($head -ne $branchHead) {
 }
 Pop-Location
 
-# 3.5. flutter_rust_bridge codegen (src/bridge_generated.rs 등은 .gitignore 라 git 클론에 없음)
-Write-Host "[3.5/5] flutter_rust_bridge codegen..." -ForegroundColor Yellow
+# 3.5. flutter_rust_bridge 다리파일 (bridge)
+# ★ 다리파일 3종(src\bridge_generated.rs / .io.rs / flutter\lib\generated_bridge.dart)은
+#    git 추적(커밋)됨 — .gitignore 에서 의도적 해제, Mac+Win 두 머신 공용. 그래서 기본 동작 =
+#    커밋된 다리파일을 그대로 사용(재생성 안 함). 일반 `python build.py` 도 codegen 을 안 돌리므로
+#    (도커 전용 함수에만 있음) 이게 빌드의 유일한 다리파일 단계. 재생성은 src\flutter_ffi.rs
+#    (코어↔화면 연결부)를 바꿨을 때만 -RegenBridge 로 명시 실행(RUSTC_BOOTSTRAP=1 필요).
+Write-Host "[3.5/5] flutter_rust_bridge 다리파일..." -ForegroundColor Yellow
+$bridgeFiles = @("src\bridge_generated.rs", "src\bridge_generated.io.rs", "flutter\lib\generated_bridge.dart")
 $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
 
-# ffigen 활성화 (codegen 의존성)
-cmd /c "dart pub global activate ffigen --version 5.0.1" 2>&1 | Select-Object -Last 3
-
-# flutter pub get (flutter 의존성)
+# flutter 의존성 (빌드에 필수 — 재생성 여부 무관)
 Push-Location flutter
 cmd /c "flutter pub get" 2>&1 | Select-Object -Last 3
 Pop-Location
 
-# bridge codegen 실행
-cmd /c "flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart" 2>&1 | Tee-Object -Append -FilePath "$env:TEMP\chainremote-codegen.log"
+if ($RegenBridge) {
+  Write-Host "    -RegenBridge: 다리파일 재생성 (RUSTC_BOOTSTRAP=1 로 stable cargo expand 허용)..." -ForegroundColor Yellow
+  cmd /c "dart pub global activate ffigen --version 5.0.1" 2>&1 | Select-Object -Last 3
+  $prevBootstrap = $env:RUSTC_BOOTSTRAP; $env:RUSTC_BOOTSTRAP = "1"
+  cmd /c "flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./flutter/lib/generated_bridge.dart" 2>&1 | Tee-Object -Append -FilePath "$env:TEMP\chainremote-codegen.log"
+  $codegenExit = $LASTEXITCODE
+  if ($null -eq $prevBootstrap) { Remove-Item Env:\RUSTC_BOOTSTRAP -ErrorAction SilentlyContinue } else { $env:RUSTC_BOOTSTRAP = $prevBootstrap }
+  if ($codegenExit -ne 0) {
+    $ErrorActionPreference = $prevEAP
+    Write-Host "❌ codegen 실패 (exit $codegenExit). 로그: $env:TEMP\chainremote-codegen.log" -ForegroundColor Red
+    Write-Host "   도구 확인(둘 다 --locked 필수): " -ForegroundColor Yellow
+    Write-Host "     cargo install flutter_rust_bridge_codegen --version 1.80.1 --locked" -ForegroundColor Yellow
+    Write-Host "     cargo install cargo-expand --version 1.0.95 --locked" -ForegroundColor Yellow
+    Pop-Location; exit 1
+  }
+  Write-Host "    재생성 완료 — 'git diff' 로 변경 확인 후 커밋하세요 (커밋해야 다른 머신에 반영됨)." -ForegroundColor Gray
+}
 $ErrorActionPreference = $prevEAP
 
-if (-not (Test-Path "src\bridge_generated.rs")) {
-  Write-Host "❌ codegen 실패: src\bridge_generated.rs 생성 안 됨" -ForegroundColor Red
-  Write-Host "   로그: $env:TEMP\chainremote-codegen.log" -ForegroundColor Yellow
-  Pop-Location
-  exit 1
+# 다리파일 존재 + 비어있지 않음 검증 (커밋본 손상/누락을 빌드 전에 잡음 = 옛 '거짓 OK' 버그 방지)
+foreach ($bf in $bridgeFiles) {
+  if ((-not (Test-Path $bf)) -or ((Get-Item $bf).Length -eq 0)) {
+    Write-Host "❌ 다리파일 없음/비어있음: $bf" -ForegroundColor Red
+    Write-Host "   git 추적된 다리파일이 깨졌습니다. 'git status' 확인 또는 Mac 에서 재생성+커밋 필요." -ForegroundColor Yellow
+    Pop-Location; exit 1
+  }
 }
-Write-Host "    OK: src\bridge_generated.rs 및 .io.rs 생성됨" -ForegroundColor Gray
+if ($RegenBridge) {
+  Write-Host "    OK: 다리파일 3종 재생성+검증 통과" -ForegroundColor Gray
+} else {
+  Write-Host "    OK: 커밋된 다리파일 3종 사용 (재생성하려면 -RegenBridge)" -ForegroundColor Gray
+}
 
 # 3.8. vcpkg 의존성 (manifest 모드 — vcpkg.json + res/vcpkg 오버레이 포트 자동 사용)
 # - 정석: ChainRemote 루트(vcpkg.json 위치)에서 vcpkg install → aom/mfx-dispatch/ffmpeg 패치본 설치
