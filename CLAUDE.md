@@ -137,8 +137,8 @@
 - ✅ **Phase 3** Mac + Windows 브랜딩 완성 (2026-05-25~26). BINARY_NAME / APP_NAME / Bundle ID 모두 ChainRemote.
 - ✅ **AGPL v3 준수** (About + README + CHANGES).
 - ✅ **사업화 phase 1+2** 완성.
-- ⏳ **자동업데이트 실증 검증** — 재성이 PC (테스트 용) 에서 v1.2.8 → v1.3.0 마이그레이션 검증 진행 중.
-- ⏳ **드래그앤드롭 파일전송** — backlog. macOS sub-window 의 desktop_drop 미동작 진단 후 native 코드 직접 박는 방향.
+- ✅ **자동업데이트 실증 검증** — 재성이 PC 에서 1.4.3→1.4.12 7회 연속 무사고 (2026-06-05).
+- ✅ **드래그앤드롭 파일전송** — 완벽 작동 확인 (2026-06-05).
 - ⏳ **디자인 의뢰** — 메인/상단바/설정 페이지. 한국 B2B SaaS 톤 (토스/카카오뱅크 참고).
 
 자세히: `docs/chainremote/HISTORY.md`, `docs/chainremote/BACKLOG.md`, `docs/chainremote/PHASES.md`.

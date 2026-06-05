@@ -36,11 +36,11 @@
 
 2. **HQ 로그인 유지 (자격증명/토큰 저장)** (Chang 요청, 2026-06-01) — 현재 HQ 실행 때마다 ID+비번 재입력. 토큰이 메모리 static 에만 있고 디스크 persist 안 됨 ([src/chainremote_auth.rs](../../src/chainremote_auth.rs) `TOKEN: RwLock`). 로그인 성공 시 토큰을 LocalConfig 에 저장(api-base 처럼) + 실행 시 로드/검증, 만료 시 graceful 재로그인. "로그인 유지" 체크박스로 opt-in 권장 (현재 미저장은 빌린 PC 보안 위한 의도된 설계 — 주석 명시). **규모 작음 ~0.5일.**
 
-3. **드래그앤드롭 파일전송** (Chang 명시 필수) — 원격 세션 창에 OS 파일 드롭 → 즉시 전송. 진단 결과: `desktop_drop` 패키지가 macOS 메인 창에만 NSView 등록 → sub-window 의 원격 화면 창에 OS drop event 미도달. vendor fork + NSWindow.didBecomeKey observer 패치 시도했으나 NSLog 미반영. 다음 시도 시 우리 macos/Runner 에 직접 native 코드 박는 방식. 0.5~1일.
+3. **거래처 heartbeat** — agent 가 NAS API `/api/customers/heartbeat` 호출 → 패널 거래처 표에 "v1.x.x · 마지막 N분 전" 컬럼. (heartbeat 자가회복 re-register+idempotent 는 v1.3.7 에 반영됨 — 메모리 [project_heartbeat_token_stuck]. 패널의 버전/last-seen 컬럼 UI 만 확인/구현 필요.)
 
-4. **거래처 heartbeat** — agent 가 NAS API `/api/customers/heartbeat` 호출 → 패널 거래처 표에 "v1.x.x · 마지막 N분 전" 컬럼. (heartbeat 자가회복 re-register+idempotent 는 v1.3.7 에 반영됨 — 메모리 [project_heartbeat_token_stuck]. 패널의 버전/last-seen 컬럼 UI 만 확인/구현 필요.)
+4. **단위테스트** — 버전비교(Rust+Dart 일관성)/sha256/json 파싱. 자동업뎃 무음정지 방지. 0.5일.
 
-5. **단위테스트** — 버전비교(Rust+Dart 일관성)/sha256/json 파싱. 자동업뎃 무음정지 방지. 0.5일.
+> ✅ 완료: ~~드래그앤드롭 파일전송~~ (2026-06-05 완벽 작동 확인).
 
 ## Phase 1 후속 (안정화 후)
 
