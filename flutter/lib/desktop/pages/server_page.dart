@@ -41,14 +41,32 @@ class _DesktopServerPageState extends State<DesktopServerPage>
     };
   }
 
+  Timer? _keepBannerOnTopTimer;
+
   @override
   void initState() {
     windowManager.addListener(this);
     super.initState();
+    // ChainRemote: KSCAT UAC 등 보안데스크톱(secure desktop) 전환 후 CM '원격지원 중' 배너가
+    // topmost 를 잃고 뒤로 가 안 보이는 문제. 거래처가 원격당하는 중인지 항상 알아야 하므로
+    // (투명성 — 거래처 통제권/신뢰의 핵심), 활성 세션 동안 always-on-top 을 주기적으로 재확인한다.
+    // 이미 topmost 면 OS 가 z-order 변화 없이 no-op 이라 평소 사용엔 영향 없음.
+    _keepBannerOnTopTimer =
+        Timer.periodic(const Duration(seconds: 2), (_) async {
+      if (!mounted) return;
+      final hasActive = gFFI.serverModel.clients
+          .any((c) => c.authorized && !c.disconnected);
+      if (hasActive) {
+        try {
+          await windowManager.setAlwaysOnTop(true);
+        } catch (_) {}
+      }
+    });
   }
 
   @override
   void dispose() {
+    _keepBannerOnTopTimer?.cancel();
     windowManager.removeListener(this);
     super.dispose();
   }
