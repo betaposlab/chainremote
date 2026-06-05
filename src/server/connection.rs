@@ -2220,7 +2220,7 @@ impl Connection {
         }
     }
 
-    // grace 가 유효하면 true + 소비(1회용 파일 삭제). 만료/없음/불일치면 false.
+    // grace 가 유효하면 true (multi-use — 삭제 안 함, 만료/다음 재시작 덮어쓰기시 정리). 만료/없음/불일치면 false.
     fn consume_restart_reconnect_grace(&self, operator_id: &str) -> bool {
         let p = Self::restart_grace_path();
         let raw = std::fs::read_to_string(&p).unwrap_or_default();
@@ -2240,14 +2240,20 @@ impl Connection {
                 log::info!("[restart-grace] expired now={} exp={}", now, exp);
                 return false;
             }
-            // id 일치, 또는 어느쪽이 비어있으면 관용(HQ가 id 미등록일 수 있음). 인가된 재시작
-            // 직후 5분·1회용이라 범위가 좁음. (불일치 케이스는 로그로 추적해 추후 조정.)
+            // id 일치, 또는 어느쪽이 비어있으면 관용(HQ가 id 미등록일 수 있음). 인가된 재시작 후
+            // 5분 multi-use 라 범위가 좁음.
+            // ★ 삭제 안 함(1회용 아님): 재부팅 *직전* 재접속(block1 이 reboot 초기화 중 즉시 재시도)이
+            //   grace 를 먼저 소비하면, 재부팅 후 진짜 재접속이 못 찾아 수락이 뜸(3차 실패 원인).
+            //   5분 창 동안 multi-use 로 두고, 만료(또는 다음 재시작이 파일 덮어쓰기)시 정리.
             if gid == operator_id || gid.is_empty() || operator_id.is_empty() {
-                let _ = std::fs::remove_file(&p);
                 log::info!(
                     "[restart-grace] MATCH (stored='{}' got='{}') -> auto-accept",
                     gid, operator_id
                 );
+                Self::grace_diag(&format!(
+                    "MATCH stored='{}' got='{}' -> auto-accept (multi-use)",
+                    gid, operator_id
+                ));
                 return true;
             }
             log::info!(
