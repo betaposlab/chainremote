@@ -10,7 +10,7 @@
 ; 사용처: 재성이 윈도우 본사 PC (jaesung 계정 로그인).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.14"
+#define APP_VERSION    "1.4.15"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; 윈컴에서 빌드한 ChainRemote.exe 가 들어있는 폴더 (agent 와 공유)
@@ -47,6 +47,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "{#BUILD_DIR}\*"; DestDir: "{tmp}\chainremote_payload"; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
+
+; ★ 2026-06-05: custom.txt 를 exe 옆(payload)에도 강제 배치 — install_me(--silent-install)가 *이 시점*에
+;    custom.txt 의 option-b-plus 마커를 읽어 서비스 생성을 결정함(get_create_service). {#BUILD_DIR} 의
+;    옛/stale custom.txt 를 덮어써 보장. (설치 후 {app} 복사는 아래 1.5 단계 그대로 유지.)
+Source: "..\custom-hq.txt"; DestDir: "{tmp}\chainremote_payload"; DestName: "custom.txt"; Flags: deleteafterinstall ignoreversion
 
 ; 옵션 B+ (2026-05-21): HQ 도 영구비번 toml 박음. 사용자가 "외부 원격 접속 허용"
 ; 토글 ON 만 하면 별도 비번 설정 없이 즉시 무인 incoming 가능 (Chang→재성이 컴 시나리오).
