@@ -2172,6 +2172,22 @@ impl Connection {
         }
     }
 
+    // 진단: 고정경로 updater.log 에 grace 이벤트 남김(재부팅 후에도 남아 원격으로 확인 쉬움).
+    #[cfg(windows)]
+    fn grace_diag(msg: &str) {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(r"C:\ProgramData\ChainRemote\updater.log")
+        {
+            let _ = writeln!(f, "[restart-grace] {}", msg);
+            let _ = f.sync_all();
+        }
+    }
+    #[cfg(not(windows))]
+    fn grace_diag(_msg: &str) {}
+
     fn set_restart_reconnect_grace(operator_id: &str) {
         let exp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -2182,12 +2198,25 @@ impl Connection {
         if let Some(dir) = p.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        match std::fs::write(&p, format!("{}:{}", operator_id, exp)) {
-            Ok(_) => log::info!(
-                "[restart-grace] set operator='{}' exp={} path={:?}",
-                operator_id, exp, p
-            ),
-            Err(e) => log::error!("[restart-grace] set FAILED path={:?}: {}", p, e),
+        // ★ write_all + sync_all(fsync): std::fs::write 는 OS 캐시까지만 → 직후 force_reboot 가
+        //   flush 없이 재부팅하면 파일째 날아감(2차 실패 = 파일 없음의 진짜 원인). fsync 로 디스크 확정.
+        let data = format!("{}:{}", operator_id, exp);
+        let res: std::io::Result<()> = (|| {
+            use std::io::Write;
+            let mut f = std::fs::File::create(&p)?;
+            f.write_all(data.as_bytes())?;
+            f.sync_all()?;
+            Ok(())
+        })();
+        match res {
+            Ok(_) => {
+                log::info!("[restart-grace] set+fsync operator='{}' exp={}", operator_id, exp);
+                Self::grace_diag(&format!("set operator='{}' exp={}", operator_id, exp));
+            }
+            Err(e) => {
+                log::error!("[restart-grace] set FAILED path={:?}: {}", p, e);
+                Self::grace_diag(&format!("set FAILED path={:?}: {}", p, e));
+            }
         }
     }
 
@@ -2196,13 +2225,10 @@ impl Connection {
         let p = Self::restart_grace_path();
         let raw = std::fs::read_to_string(&p).unwrap_or_default();
         let v = raw.trim();
+        Self::grace_diag(&format!("check operator='{}' file_found='{}'", operator_id, v));
         if v.is_empty() {
             return false;
         }
-        log::info!(
-            "[restart-grace] check operator='{}' found='{}'",
-            operator_id, v
-        );
         if let Some((gid, gexp)) = v.split_once(':') {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
