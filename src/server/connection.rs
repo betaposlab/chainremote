@@ -2154,29 +2154,55 @@ impl Connection {
 
     // ChainRemote: "거래처 PC 재시작 → 자동 재접속" 지원 (코이노식).
     // 인가된 operator 가 재시작을 실행하면, 부팅 후 그 operator 의 재접속을 짧은 시간 1회
-    // 자동 수락(approve-mode=click 우회)하도록 grace 마커를 디스크(Config)에 저장한다.
-    // 이미 거래처가 수락한 세션의 연속이므로 무인 0클릭 접근과 다름(보안 범위: 특정 operator·5분·1회).
-    // 재시작으로 프로세스가 죽어 메모리 SESSIONS 캐시가 날아가므로 반드시 디스크에 영속해야 함.
+    // 자동 수락(approve-mode=click 우회)하도록 grace 마커를 저장한다.
+    // ★ 저장 위치 = ProgramData 고정경로 파일 (Config/toml 아님!). 이유: 재시작은
+    //   ①프로세스 종료(메모리 SESSIONS 캐시 소멸) ②세션0(서비스/보안데스크톱)↔세션1(사용자)
+    //   ③사용자/서비스 toml 분리 — 이 셋을 모두 넘어야 함. Config(toml)은 이 경계를 못 넘어
+    //   1차 시도가 실패함(2026-06-05). ProgramData\ChainRemote 는 Users 파일생성 권한이
+    //   검증된 머신 전역 위치(update_now.flag 와 동일 패턴)라 어느 컨텍스트서든 읽고 씀.
+    //   이미 거래처가 수락한 세션의 연속이므로 무인 0클릭 접근과 다름(5분·1회용).
+    fn restart_grace_path() -> std::path::PathBuf {
+        #[cfg(windows)]
+        {
+            std::path::PathBuf::from(r"C:\ProgramData\ChainRemote\restart-grace")
+        }
+        #[cfg(not(windows))]
+        {
+            std::env::temp_dir().join("chainremote-restart-grace")
+        }
+    }
+
     fn set_restart_reconnect_grace(operator_id: &str) {
         let exp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0)
             + 300; // 5분
-        Config::set_option(
-            "restart-reconnect-grace".to_owned(),
-            format!("{}:{}", operator_id, exp),
-        );
-        log::info!("[restart-grace] set for operator {} (valid 5min)", operator_id);
+        let p = Self::restart_grace_path();
+        if let Some(dir) = p.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        match std::fs::write(&p, format!("{}:{}", operator_id, exp)) {
+            Ok(_) => log::info!(
+                "[restart-grace] set operator='{}' exp={} path={:?}",
+                operator_id, exp, p
+            ),
+            Err(e) => log::error!("[restart-grace] set FAILED path={:?}: {}", p, e),
+        }
     }
 
-    // grace 가 이 operator 에게 유효하면 true + 소비(1회용). 만료면 정리 후 false.
-    // 유효하지만 다른 peer 면 유지(legit operator 를 위해) 후 false.
+    // grace 가 유효하면 true + 소비(1회용 파일 삭제). 만료/없음/불일치면 false.
     fn consume_restart_reconnect_grace(&self, operator_id: &str) -> bool {
-        let v = Config::get_option("restart-reconnect-grace");
+        let p = Self::restart_grace_path();
+        let raw = std::fs::read_to_string(&p).unwrap_or_default();
+        let v = raw.trim();
         if v.is_empty() {
             return false;
         }
+        log::info!(
+            "[restart-grace] check operator='{}' found='{}'",
+            operator_id, v
+        );
         if let Some((gid, gexp)) = v.split_once(':') {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -2184,17 +2210,24 @@ impl Connection {
                 .unwrap_or(0);
             let exp: u64 = gexp.parse().unwrap_or(0);
             if now > exp {
-                Config::set_option("restart-reconnect-grace".to_owned(), "".to_owned());
+                let _ = std::fs::remove_file(&p);
+                log::info!("[restart-grace] expired now={} exp={}", now, exp);
                 return false;
             }
-            if gid == operator_id {
-                Config::set_option("restart-reconnect-grace".to_owned(), "".to_owned());
+            // id 일치, 또는 어느쪽이 비어있으면 관용(HQ가 id 미등록일 수 있음). 인가된 재시작
+            // 직후 5분·1회용이라 범위가 좁음. (불일치 케이스는 로그로 추적해 추후 조정.)
+            if gid == operator_id || gid.is_empty() || operator_id.is_empty() {
+                let _ = std::fs::remove_file(&p);
                 log::info!(
-                    "[restart-grace] consumed for operator {} -> auto-accept reconnect",
-                    operator_id
+                    "[restart-grace] MATCH (stored='{}' got='{}') -> auto-accept",
+                    gid, operator_id
                 );
                 return true;
             }
+            log::info!(
+                "[restart-grace] id mismatch stored='{}' got='{}'",
+                gid, operator_id
+            );
         }
         false
     }
