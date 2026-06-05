@@ -310,15 +310,13 @@ bool _isCmReadyToShow = false;
 
 showCmWindow({bool isStartup = false}) async {
   if (isStartup) {
-    // ChainRemote: cm 이 연결과 동시에 콜드 스타트(--cm 새 프로세스)하는 경로.
-    // 거래처(incoming)·본사 HQ(옵션B+) 모두 처음부터 '수락 카드' 크기(360x200)로 생성+reveal.
-    // 배너 크기(220x34)로 띄운 뒤 server_page 의 postFrame resize 에 의존하면, 피제어
-    // 전체화면 시 resize 가 안 먹어 카드가 잘린 '흰 빈 박스'로 고착되던 버그.
-    // ★ HQ 빌드는 startSize=cmSize(220x34) 라 이 콜드스타트 흰박스버그가 남아있던 것 — 2026-06-05 보강.
-    final bool incoming = bind.isIncomingOnly();
+    // ChainRemote CM 콜드스타트(--cm 새 프로세스) — 모델/체크리스트: docs/chainremote/CM_WINDOW.md.
+    // 거래처(incoming)·본사 HQ(옵션B+) 모두 처음부터 '수락 카드' 크기(360x200)+topCenter 로 생성+reveal.
+    // 배너 크기(220x34)로 띄운 뒤 postFrame resize 에 의존하면 피제어 전체화면 시 resize 가 안 먹어
+    // 카드가 잘린 '흰 빈 박스'로 고착되던 버그(2026-06-05 HQ 콜드스타트 보강).
+    // ★정렬은 topCenter 단일화 — reveal·server_page transition 과 일치(예전 HQ topRight 불일치 제거).
     final Size startSize = kAgentAcceptCardSize;
-    final Alignment startAlign =
-        incoming ? Alignment.topCenter : Alignment.topRight;
+    final Alignment startAlign = Alignment.topCenter;
     WindowOptions windowOptions =
         getHiddenTitleBarWindowOptions(size: startSize, alwaysOnTop: true);
     await windowManager.waitUntilReadyToShow(windowOptions, null);

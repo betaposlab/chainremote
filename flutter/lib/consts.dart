@@ -324,6 +324,10 @@ extension StringExtension on String {
 
 const Size kConnectionManagerWindowSizeClosedChat = Size(300, 490);
 const Size kConnectionManagerWindowSizeOpenChat = Size(700, 490);
+// ── ChainRemote CM(피제어 수락/배너) 창 크기 — 단일 진실원천 (상세 docs/chainremote/CM_WINDOW.md) ──
+// 상태: pending(수락대기)=수락카드 360x200 → active(원격중)=배너 220x34. 정렬은 항상 topCenter.
+// 콜드스타트/reveal 은 항상 카드 크기로 띄움 — 배너로 띄우면 피제어 전체화면 시 resize 가 안 먹어
+// 흰박스 고착. 활성 후 server_page 가 배너로 줄임(그땐 창 전면이라 안정적).
 // ChainRemote: Agent(incoming-only) 빌드에서 CM 창은 "원격지원 중" 작은 배너만.
 const Size kAgentSupportBannerSize = Size(220, 34);
 // ChainRemote: 클릭수락 대기 시 [수락]/[거부] 카드 크기 (배너보다 큼). server_page 가 상태에 따라 전환.
