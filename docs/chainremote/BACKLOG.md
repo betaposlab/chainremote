@@ -1,6 +1,19 @@
 # ChainRemote — 작업 Backlog
 
-마지막 갱신: 2026-06-04
+마지막 갱신: 2026-06-07
+
+## ★ 자동업데이트 무증상 실패 — sha-mismatch 사고 (2026-06-07, 사업화 전 필수)
+
+**사고**: 1.4.16 일괄푸시(06-05 23:57)가 6 거래처 아무에게도 안 먹힘 — 살아있는 거래처(바다양푼이)조차. 원인 = 푸시 생성 **후** 1.4.16.exe를 재빌드해 NAS 파일을 덮어씀 → pending 레코드의 sha(`d0182791`)와 실제 파일 sha(`37c8bd94`) 불일치 → **agent가 sha 검증 실패로 설치 조용히 거부**. 패널엔 "대기"로만 보여 무증상. 임시조치 = 옛 pending 전부 취소 후 재푸시(올바른 sha로 재생성, 검증 OK).
+
+**고칠 것 3가지 (무증상 실패를 보이게 + 자가복구)**:
+1. **푸시 후 자산 교체 = sha 깨짐 방지** — `agent-push.json`/NAS .exe 가 바뀌면 같은 버전의 옛 pending 자동취소(또는 sha 자동갱신). 또는 pending-update 라우트가 agent 에 줄 때 현재 파일 sha 재검증.
+2. **재푸시가 stale pending 을 덮어쓰지 않고 skip** (ON CONFLICT DO NOTHING) → "강제 재푸시(덮어쓰기)" 옵션 + **일괄취소 버튼 UI 노출**(`cancelBulkAction` 은 있는데 버튼 미연결 — per-row 취소만 가능해 다수 누적 시 고통). [project_agent_update_rollout]
+3. **agent 의 sha 불일치를 `failed_at`+사유로 기록** → 패널 거래처 표에 빨갛게. 지금은 조용히 거부만 해서 운영자가 모름. (heartbeat 자가회복 [project_heartbeat_token_stuck] 과 같은 결: 실패를 가시화.)
+
+4. **무작위지연이 "대기"로만 보여 고장처럼 보임** — 지연은 랜덤이 아니라 **결정론적**(`compute_delay = DefaultHasher(push_id) % randomize_max_sec`, [src/chainremote_push_agent.rs:247](../../src/chainremote_push_agent.rs)). 즉 거래처별 설치시각이 이미 정해져 있음(예: 바다양푼이 push `1d525028` → +15201s → 11:27+4.2h = **15:40 설치 예정**). 패널에 **"설치 예정 HH:MM" 표시**(ready-time = first_seen + hash%max 역산)하면 운영자가 "대기"만 보고 오해 안 함. + 소규모/테스트엔 기본 지연 짧게.
+
+> 검증/긴급 롤아웃: 지연 짧게(0~60s) 재푸시, 또는 active pending 의 `randomize_max_sec=0` 으로 즉시(다음 폴링 ~5분).
 
 ## ★ 좌석 enforcement 후속 — 2026-06-04 (지금 안 하고 미룬 것, 꼭 할 것)
 
@@ -34,13 +47,11 @@
    - 필요한 일: ① RustDesk 의 Win7 패치 Flutter 엔진으로 빌드 (참고: rustdesk.com/blog/2024/12 "How to make Flutter 3.24 run on Windows 7"; 부작용 — Platform.localHostname 中文환경/상대 심볼릭링크) ② 32bit 타깃 빌드 ③ agent 전용 인스톨러(HQ/ChainGo 제외) ④ 실제 Win7 PC 테스트.
    - 규모: 미정. Win7 패치 엔진 확보 + 32bit 툴체인 셋업이 핵심 난관. 본업 진행하며 별도 투자.
 
-2. **HQ 로그인 유지 (자격증명/토큰 저장)** (Chang 요청, 2026-06-01) — 현재 HQ 실행 때마다 ID+비번 재입력. 토큰이 메모리 static 에만 있고 디스크 persist 안 됨 ([src/chainremote_auth.rs](../../src/chainremote_auth.rs) `TOKEN: RwLock`). 로그인 성공 시 토큰을 LocalConfig 에 저장(api-base 처럼) + 실행 시 로드/검증, 만료 시 graceful 재로그인. "로그인 유지" 체크박스로 opt-in 권장 (현재 미저장은 빌린 PC 보안 위한 의도된 설계 — 주석 명시). **규모 작음 ~0.5일.**
+2. **거래처 heartbeat** — agent 가 NAS API `/api/customers/heartbeat` 호출 → 패널 거래처 표에 "v1.x.x · 마지막 N분 전" 컬럼. (heartbeat 자가회복 re-register+idempotent 는 v1.3.7 에 반영됨 — 메모리 [project_heartbeat_token_stuck]. 패널의 버전/last-seen 컬럼 UI 만 확인/구현 필요.)
 
-3. **거래처 heartbeat** — agent 가 NAS API `/api/customers/heartbeat` 호출 → 패널 거래처 표에 "v1.x.x · 마지막 N분 전" 컬럼. (heartbeat 자가회복 re-register+idempotent 는 v1.3.7 에 반영됨 — 메모리 [project_heartbeat_token_stuck]. 패널의 버전/last-seen 컬럼 UI 만 확인/구현 필요.)
+3. **단위테스트** — 버전비교(Rust+Dart 일관성)/sha256/json 파싱. 자동업뎃 무음정지 방지. 0.5일.
 
-4. **단위테스트** — 버전비교(Rust+Dart 일관성)/sha256/json 파싱. 자동업뎃 무음정지 방지. 0.5일.
-
-> ✅ 완료: ~~드래그앤드롭 파일전송~~ (2026-06-05 완벽 작동 확인).
+> ✅ 완료: ~~드래그앤드롭 파일전송~~ (2026-06-05 완벽 작동 확인) · ~~HQ 로그인 저장~~ (2026-06-06 확인: 아이디/비번 '저장' 체크박스 prefill 구현됨. 토큰 자동로그인은 빌린-PC 보안상 의도적 미구현).
 
 ## Phase 1 후속 (안정화 후)
 
