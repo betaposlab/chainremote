@@ -96,3 +96,7 @@ dist/
 # Claude Code 작업 부산물 — 절대 커밋 금지
 .claude/
 build-err.log
+
+# 도구설정/스크래치 (커밋 제외)
+.codex/
+design-mockup/
