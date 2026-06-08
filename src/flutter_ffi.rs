@@ -1363,7 +1363,16 @@ fn load_recent_peers(
     let mut peers_next = PeerConfig::batch_peers(vec_id_modified_time_path, from, to);
     // There may be less peers than the batch size.
     // But no need to consider this case, because it is a rare case.
-    let peers = peers_next.0.drain(..).map(|(id, _, p)| peer_to_map(id, p));
+    let peers = peers_next.0.drain(..).map(|(id, _, mut p)| {
+        // ChainRemote: 최근 세션 카드가 숫자 ID 대신 거래처명을 표시하도록, 등록 거래처면
+        // alias 를 live 거래처명(REMOTE_TO_NAME)으로 덮는다(패널 rename 반영). 미등록이면 로컬 alias 유지.
+        if let Some(name) = crate::chainremote_data::get_remote_name(&id) {
+            if !name.trim().is_empty() {
+                p.options.insert("alias".to_string(), name);
+            }
+        }
+        peer_to_map(id, p)
+    });
     all_peers.extend(peers);
     peers_next.1
 }

@@ -409,34 +409,69 @@ class _PeersViewState extends State<_PeersView>
                         // peerGroupExpanded 변경 시 재빌드.
                         peerGroupExpanded.length;
                         final items = buildGroupedPeerItems(peers);
-                        return ListView.builder(
-                          controller: _scrollController,
-                          itemCount: items.length,
-                          itemBuilder: (BuildContext context, int index) {
-                            final item = items[index];
-                            if (item is _PeerGroupHeader) {
-                              return _buildGroupHeader(item).marginOnly(
-                                  right: space,
-                                  top: index == 0 ? 0 : space / 2,
-                                  bottom: space / 2);
+                        // ChainRemote: 가로 공간 활용 — peer 카드를 반응형 N열로 배치한다.
+                        // 카드 최소폭(kTargetCardWidth) 기준으로 창 너비에 맞춰 열 수를 자동
+                        // 결정(좁으면 1열, 넓히면 그만큼 늘어남, 카드는 최소폭 유지). 그룹 헤더는
+                        // 전체 폭, 헤더 경계에서 짝을 리셋해 그룹이 같은 행에 섞이지 않게 한다.
+                        return LayoutBuilder(builder: (context, constraints) {
+                          const double kTargetCardWidth = 320;
+                          final double avail = constraints.maxWidth.isFinite
+                              ? constraints.maxWidth
+                              : kTargetCardWidth * 2;
+                          final int cols =
+                              (avail / kTargetCardWidth).floor().clamp(1, 12);
+                          final rows = <dynamic>[];
+                          List<Peer>? pending;
+                          void flushPair() {
+                            if (pending != null) {
+                              rows.add(pending);
+                              pending = null;
                             }
-                            return buildOnePeer(item as Peer, false).marginOnly(
-                                left: _groupKeyOf(item) != null &&
-                                        (peerGroupExpanded[_groupKeyOf(item)!] ??
-                                                true) &&
-                                        peers
-                                                .where((p) =>
-                                                    _groupKeyOf(p) ==
-                                                    _groupKeyOf(item))
-                                                .length >
-                                            1
-                                    ? 16
-                                    : 0,
-                                right: space,
-                                top: index == 0 ? 0 : space / 2,
-                                bottom: space / 2);
-                          },
-                        );
+                          }
+
+                          for (final item in items) {
+                            if (item is _PeerGroupHeader) {
+                              flushPair();
+                              rows.add(item);
+                            } else {
+                              (pending ??= <Peer>[]).add(item as Peer);
+                              if (pending!.length == cols) flushPair();
+                            }
+                          }
+                          flushPair();
+                          return ListView.builder(
+                            controller: _scrollController,
+                            itemCount: rows.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final row = rows[index];
+                              final double topMargin =
+                                  index == 0 ? 0 : space / 2;
+                              if (row is _PeerGroupHeader) {
+                                return _buildGroupHeader(row).marginOnly(
+                                    right: space,
+                                    top: topMargin,
+                                    bottom: space / 2);
+                              }
+                              final pair = row as List<Peer>;
+                              final children = <Widget>[];
+                              for (int i = 0; i < cols; i++) {
+                                if (i > 0) children.add(SizedBox(width: space));
+                                children.add(Expanded(
+                                    child: i < pair.length
+                                        ? buildOnePeer(pair[i], false)
+                                        : const SizedBox()));
+                              }
+                              return Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: children)
+                                  .marginOnly(
+                                      right: space,
+                                      top: topMargin,
+                                      bottom: space / 2);
+                            },
+                          );
+                        });
                       })
                     : DynamicGridView.builder(
                         gridDelegate: SliverGridDelegateWithWrapping(

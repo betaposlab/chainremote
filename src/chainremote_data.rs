@@ -52,6 +52,11 @@ static REMOTE_TO_UUID: Mutex<Option<HashMap<String, String>>> = Mutex::new(None)
 // chainremote_load_favorites 호출 시 갱신.
 static MY_FAV_REMOTE_IDS: Mutex<Option<std::collections::HashSet<String>>> = Mutex::new(None);
 
+// (remote_id → 거래처명) 매핑. 최근 세션 탭이 숫자 ID 대신 거래처 이름을 표시하는 데 사용
+// (main_load_recent_peers 가 peer.alias 를 이 이름으로 덮음). 전체 거래처(fetch_customers)와
+// 즐겨찾기(fetch_favorites) 양쪽에서 merge 로 채워, 패널 rename 이 즐겨찾기 refresh 에 반영되게 함(live).
+static REMOTE_TO_NAME: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+
 fn update_remote_to_uuid(rows: &[&CustomerRow]) {
     let mut map = HashMap::new();
     for c in rows {
@@ -66,6 +71,30 @@ fn update_remote_to_uuid(rows: &[&CustomerRow]) {
 
 fn remote_to_uuid(remote_id: &str) -> Option<String> {
     REMOTE_TO_UUID
+        .lock()
+        .ok()
+        .and_then(|g| g.as_ref()?.get(remote_id).cloned())
+}
+
+/// REMOTE_TO_NAME 에 거래처명을 merge(insert). full(customers)+subset(favorites) 양쪽에서
+/// 호출되므로 통째 replace 가 아닌 merge — favorites 가 전체 이름 캐시를 subset 으로 줄이지 않도록.
+/// 같은 remote_id 면 최신 이름으로 덮음 → 패널 rename 반영.
+fn merge_remote_names(rows: &[&CustomerRow]) {
+    if let Ok(mut guard) = REMOTE_TO_NAME.lock() {
+        let map = guard.get_or_insert_with(HashMap::new);
+        for c in rows {
+            if let Some(rid) = c.remote_id.as_ref() {
+                if !rid.is_empty() && !c.name.trim().is_empty() {
+                    map.insert(rid.clone(), c.name.clone());
+                }
+            }
+        }
+    }
+}
+
+/// remote_id → 거래처명. 최근 세션 카드가 ID 대신 거래처 이름을 표시할 때 사용.
+pub fn get_remote_name(remote_id: &str) -> Option<String> {
+    REMOTE_TO_NAME
         .lock()
         .ok()
         .and_then(|g| g.as_ref()?.get(remote_id).cloned())
@@ -211,7 +240,9 @@ fn fetch_customers_blocking() -> bool {
     match authed_get(url) {
         Ok(inner) => match serde_json::from_str::<CustomersResponse>(&inner) {
             Ok(resp) => {
-                update_remote_to_uuid(&resp.customers.iter().collect::<Vec<_>>());
+                let rows: Vec<&CustomerRow> = resp.customers.iter().collect();
+                update_remote_to_uuid(&rows);
+                merge_remote_names(&rows);
                 true
             }
             Err(e) => {
@@ -249,6 +280,7 @@ fn fetch_favorites_blocking() -> bool {
                     .filter_map(|f| f.customer.as_ref())
                     .collect();
                 update_remote_to_uuid(&mapped_customers);
+                merge_remote_names(&mapped_customers);
 
                 // peer 리스트 — customer 정보 있는 건 그대로, orphan 은 remote_id 만으로 placeholder.
                 let peers: Vec<_> = resp
