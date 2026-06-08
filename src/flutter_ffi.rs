@@ -1380,7 +1380,14 @@ pub fn main_load_recent_peers() {
         );
     };
 
-    if !config::APP_DIR.read().unwrap().is_empty() {
+    // ChainRemote: macOS는 config 일관성(iCloud 동기화 회피 + startup 영구비번 보존, 커밋
+    // 1ff8d7f9b)을 위해 APP_DIR을 비워둔다. 데스크톱은 APP_DIR이 비어도 Config::path()가
+    // ProjectDirs(= peers 저장 경로와 동일)로 정상 해석되므로 최근 peer를 로드해야 한다.
+    // upstream의 빈-APP_DIR 게이트는 모바일(샌드박스 경로가 네이티브→APP_DIR로만 전달됨)
+    // init 보호용이라 데스크톱엔 부적합 → desktop은 APP_DIR 유무와 무관하게 로드.
+    let app_dir_ready = !config::APP_DIR.read().unwrap().is_empty()
+        || cfg!(not(any(target_os = "android", target_os = "ios")));
+    if app_dir_ready {
         let vec_id_modified_time_path = PeerConfig::get_vec_id_modified_time_path(&None);
         if vec_id_modified_time_path.is_empty() {
             push_to_flutter("".to_owned(), None);
