@@ -63,6 +63,7 @@ class _PeerCard extends StatefulWidget {
 class _PeerCardState extends State<_PeerCard>
     with AutomaticKeepAliveClientMixin {
   var _menuPos = RelativeRect.fill;
+  final RxBool _rowHover = false.obs; // 행 호버 시에만 ⋮ 노출(B안)
   final double _cardRadius = 16;
   final double _tileRadius = 5;
   final double _borderWidth = 2;
@@ -93,6 +94,12 @@ class _PeerCardState extends State<_PeerCard>
           }
         },
         onLongPress: () => peerTabModel.select(peer),
+        onSecondaryTapDown: (d) {
+          // 우클릭 → 거래처 메뉴 (⋮ 버튼과 동일).
+          _menuPos = RelativeRect.fromLTRB(d.globalPosition.dx,
+              d.globalPosition.dy, d.globalPosition.dx, d.globalPosition.dy);
+          _showPeerMenu(peer.id);
+        },
         child: child);
   }
 
@@ -119,6 +126,7 @@ class _PeerCardState extends State<_PeerCard>
     );
     return MouseRegion(
       onEnter: (evt) {
+        _rowHover.value = true;
         deco.value = BoxDecoration(
           border: Border.all(
               color: Theme.of(context).colorScheme.primary,
@@ -129,6 +137,7 @@ class _PeerCardState extends State<_PeerCard>
         );
       },
       onExit: (evt) {
+        _rowHover.value = false;
         deco.value = BoxDecoration(
           border: Border.all(color: Colors.transparent, width: _borderWidth),
           borderRadius: BorderRadius.circular(
@@ -181,7 +190,7 @@ class _PeerCardState extends State<_PeerCard>
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.background,
+              color: Colors.transparent,
               borderRadius: BorderRadius.only(
                 topRight: Radius.circular(_tileRadius),
                 bottomRight: Radius.circular(_tileRadius),
@@ -193,7 +202,7 @@ class _PeerCardState extends State<_PeerCard>
                   child: Column(
                     children: [
                       Row(children: [
-                        getOnline(isPortrait ? 4 : 8, peer.online),
+                        if (isPortrait) getOnline(4, peer.online),
                         Expanded(
                             child: Text(
                           peer.alias.isEmpty ? formatID(peer.id) : peer.alias,
@@ -247,7 +256,14 @@ class _PeerCardState extends State<_PeerCard>
                 ),
                 isPortrait
                     ? checkBoxOrActionMorePortrait(peer)
-                    : checkBoxOrActionMoreLandscape(peer, isTile: true),
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _statusPill(peer.online),
+                          const SizedBox(width: 8),
+                          checkBoxOrActionMoreLandscape(peer, isTile: true),
+                        ],
+                      ),
               ],
             ).paddingOnly(left: 10.0, top: 3.0),
           ),
@@ -495,14 +511,77 @@ class _PeerCardState extends State<_PeerCard>
     }
   }
 
-  Widget _actionMore(Peer peer) => Listener(
-      onPointerDown: (e) {
-        final x = e.position.dx;
-        final y = e.position.dy;
-        _menuPos = RelativeRect.fromLTRB(x, y, x, y);
-      },
-      onPointerUp: (_) => _showPeerMenu(peer.id),
-      child: build_more(context));
+  Widget _actionMore(Peer peer) => Obx(() => AnimatedOpacity(
+        opacity: _rowHover.value ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 140),
+        child: Listener(
+          onPointerDown: (e) {
+            final x = e.position.dx;
+            final y = e.position.dy;
+            _menuPos = RelativeRect.fromLTRB(x, y, x, y);
+          },
+          onPointerUp: (_) => _showPeerMenu(peer.id),
+          child: _neuMoreButton(context),
+        ),
+      ));
+
+  // 뉴모 ⋮ 버튼 — 행 호버 시 노출. 우클릭으로도 동일 메뉴(B안, 2026-06-06).
+  Widget _neuMoreButton(BuildContext context) => Tooltip(
+        message: '메뉴 · 우클릭으로도',
+        waitDuration: const Duration(milliseconds: 600),
+        child: Container(
+          width: 34,
+          height: 34,
+          margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            color: MyTheme.neuSurface,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                  color: MyTheme.neuShadowDark,
+                  offset: const Offset(3, 3),
+                  blurRadius: 7),
+              BoxShadow(
+                  color: MyTheme.neuShadowLight,
+                  offset: const Offset(-3, -3),
+                  blurRadius: 6),
+            ],
+          ),
+          child:
+              const Icon(Icons.more_vert, size: 18, color: Color(0xFF7C8794)),
+        ),
+      );
+
+  // 뉴모 상태 pill — 온라인(초록)/오프라인(회색).
+  Widget _statusPill(bool online) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: online ? MyTheme.neuOnBg : MyTheme.neuOffBg,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: online ? MyTheme.neuOnDot : MyTheme.neuOffDot,
+              ),
+            ),
+            const SizedBox(width: 5),
+            Text(
+              translate(online ? 'Online' : 'Offline'),
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: online ? MyTheme.neuOnText : MyTheme.neuOffText,
+              ),
+            ),
+          ],
+        ),
+      );
 
   bool _shouldBuildPasswordIcon(Peer peer) {
     if (gFFI.peerTabModel.currentTab != PeerTabIndex.ab.index) return false;

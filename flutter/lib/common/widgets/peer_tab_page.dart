@@ -110,7 +110,7 @@ class _PeerTabPageState extends State<PeerTabPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Obx(() => SizedBox(
-              height: 32,
+              height: 46,
               child: Container(
                 padding: stateGlobal.isPortrait.isTrue
                     ? EdgeInsets.symmetric(horizontal: 2)
@@ -136,13 +136,22 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget _createSwitchBar(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
-    // ChainRemote: 탭 = 단순 GestureDetector 칩 (Material/InkWell 다 빼버림 — 렌더 안 되던 원인).
-    final brandBlue = const Color(0xFF1E5BFF);
-    return Row(
+    // ChainRemote 뉴모 세그먼트 컨트롤 (2026-06-06 재스킨):
+    //   들어간(inset) 트랙 + 활성 탭은 솟은(raised) 표면 + 남색 글자.
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: MyTheme.neuInset,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: model.visibleEnabledOrderedIndexs.map((t) {
           final selected = model.currentTab == t;
-          final fg = selected ? Colors.white : const Color(0xFF4A5568);
+          final fg = selected ? MyTheme.neuBlueInk : const Color(0xFF76828F);
           return GestureDetector(
             key: ValueKey(t),
             behavior: HitTestBehavior.opaque,
@@ -153,34 +162,48 @@ class _PeerTabPageState extends State<PeerTabPage>
                     await bind.setLocalFlutterOption(
                         k: kOptionPeerTabIndex, v: t.toString());
                   },
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
               padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
               decoration: BoxDecoration(
-                color: selected ? brandBlue : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
+                color: selected ? MyTheme.neuSurface : Colors.transparent,
+                borderRadius: BorderRadius.circular(9),
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                            color: MyTheme.neuShadowDark,
+                            offset: const Offset(3, 3),
+                            blurRadius: 7),
+                        BoxShadow(
+                            color: MyTheme.neuShadowLight,
+                            offset: const Offset(-3, -3),
+                            blurRadius: 6),
+                      ]
+                    : null,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(model.tabIcon(t), color: fg, size: 16),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 7),
                   Text(
                     model.tabTooltip(t),
                     style: TextStyle(
                       color: fg,
-                      fontSize: 13,
+                      fontSize: 13.5,
                       fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500,
+                          selected ? FontWeight.w800 : FontWeight.w700,
                     ),
                   ),
                 ],
               ),
             ),
           );
-        }).toList());
+        }).toList(),
+      ),
+    ));
   }
 
   Widget _createPeersView() {

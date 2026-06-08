@@ -272,6 +272,38 @@ class MyTheme {
   static const Color button = brandBlue;            // primary button → blue
   static const Color hoverBorder = Color(0xFF999999);
 
+  // ── ChainRemote 뉴모피즘 팔레트 (2026-06-06 디자인 재스킨) ──
+  // 디자인 원본: design-mockup/main-pretty.html · settings.html · step2-menu.html
+  static const Color neuBg = Color(0xFFEAEEF4); // 메인 배경
+  static const Color neuSide = Color(0xFFF5F7FB); // 사이드바 배경
+  static const Color neuSurface = Color(0xFFECEFF5); // 솟은 표면(버튼/기어/카드)
+  static const Color neuInset = Color(0xFFE5E9F0); // 들어간 표면(입력/탭 트랙)
+  static const Color neuLine = Color(0xFFD7DDE6);
+  static const Color neuLineStrong = Color(0xFFC6CFDA);
+  static const Color neuInk = Color(0xFF1E2530); // 본문 텍스트
+  static const Color neuSub = Color(0xFF76828F); // 보조 텍스트
+  static const Color neuBlue = Color(0xFF3D7BF7);
+  static const Color neuBlueInk = Color(0xFF1B5FD9);
+  // 뉴모 그림자 (좌상단 밝게 / 우하단 어둡게)
+  static const Color neuShadowDark = Color(0x809DAAC3);
+  static const Color neuShadowLight = Color(0xF2FFFFFF);
+  // 아바타 라벤더 그라데이션 + 펜 손글씨 글자색
+  static const Color neuAvatarTop = Color(0xFFF7F1FF);
+  static const Color neuAvatarBottom = Color(0xFFB6A0DB);
+  static const Color neuAvatarLetter = Color(0xFF3D7BF7);
+  // 원격접속 버튼 그라데이션
+  static const Color neuBtnTop = Color(0xFF8FBAFF);
+  static const Color neuBtnBottom = Color(0xFF1D54C6);
+  // 상태 pill (온라인/오프라인)
+  static const Color neuOnBg = Color(0xFFE2F6EB);
+  static const Color neuOnText = Color(0xFF138A53);
+  static const Color neuOnDot = Color(0xFF19B36B);
+  static const Color neuOffBg = Color(0xFFEEF1F5);
+  static const Color neuOffText = Color(0xFF8B96A2);
+  static const Color neuOffDot = Color(0xFFBAC3CD);
+  // 한글 펜 손글씨 폰트 (assets/NanumPenScript-Regular.ttf)
+  static const String penFont = 'NanumPen';
+
   // ListTile
   static const ListTileThemeData listTileTheme = ListTileThemeData(
     shape: RoundedRectangleBorder(
@@ -1672,35 +1704,44 @@ Future<bool> matchPeer(
 /// 함의: peer_card.dart 의 `getPlatformImage(peer.platform, ...)` 자리에 끼움.
 /// OS 윈도우/맥/리눅스 로고 대신 거래처를 시각 인지하기 위함. (Chang 피드백:
 /// "윈도우 로고라 이상함. 가맹점 상호 첫글자 둥근 원 안에.")
+// ChainRemote 뉴모피즘 아바타 (2026-06-06 재스킨).
+// 라벤더 그라데이션 + 강하게 솟은 그림자 + 한글 펜 손글씨(파란 글자).
+// 디자인 원본: design-mockup/main-pretty.html .av
 Widget getChainRemoteAvatar(String displayName, {double size = 50}) {
   final s = displayName.trim();
   final ch = s.isEmpty ? '?' : String.fromCharCode(s.runes.first);
-  // 파스텔 팔레트 12색 — 한국 B2B SaaS 톤(채도 낮고 따뜻함).
-  const palette = <int>[
-    0xFFFFE3D5, 0xFFFFD9B7, 0xFFFFEFC0, 0xFFE3F1D0, 0xFFCDE9D2,
-    0xFFC8E6E0, 0xFFCFE3F2, 0xFFD9DCF5, 0xFFE5D5F2, 0xFFF5D5E1,
-    0xFFFFD5D5, 0xFFE8E0D2,
-  ];
-  const textPalette = <int>[
-    0xFFC2410C, 0xFF9A3412, 0xFF92400E, 0xFF4D7C0F, 0xFF166534,
-    0xFF115E59, 0xFF1D4ED8, 0xFF4338CA, 0xFF7C3AED, 0xFFBE185D,
-    0xFF991B1B, 0xFF78716C,
-  ];
-  final idx = s.isEmpty ? 0 : (s.hashCode.abs() % palette.length);
+  final k = size / 27.0; // 디자인 기준 27px 대비 그림자 스케일
   return Container(
     width: size,
     height: size,
-    decoration: BoxDecoration(
-      color: Color(palette[idx]),
-      shape: BoxShape.circle,
-    ),
     alignment: Alignment.center,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(size * 0.34),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [MyTheme.neuAvatarTop, MyTheme.neuAvatarBottom],
+      ),
+      border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
+      boxShadow: [
+        BoxShadow(
+          color: const Color(0x8C968CB6), // rgba(150,140,182,.55)
+          offset: Offset(5 * k, 5 * k),
+          blurRadius: 10 * k,
+        ),
+        BoxShadow(
+          color: Colors.white,
+          offset: Offset(-4 * k, -4 * k),
+          blurRadius: 8 * k,
+        ),
+      ],
+    ),
     child: Text(
       ch,
       style: TextStyle(
-        fontSize: size * 0.42,
-        fontWeight: FontWeight.w700,
-        color: Color(textPalette[idx]),
+        fontFamily: MyTheme.penFont,
+        fontSize: size * 0.82,
+        color: MyTheme.neuAvatarLetter,
         height: 1.0,
       ),
     ),
