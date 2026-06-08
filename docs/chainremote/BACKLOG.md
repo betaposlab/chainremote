@@ -1,6 +1,12 @@
 # ChainRemote — 작업 Backlog
 
-마지막 갱신: 2026-06-07
+마지막 갱신: 2026-06-08
+
+## 의존성 보안 (dependabot) — 2026-06-08
+
+- ✅ **npm(chainremote-admin)**: next 16.2.4→16.2.6 (high 해소, `npm run build` 검증 통과). 남은 moderate(esbuild=개발서버 전용 / postcss=next 내부 번들)는 **런타임 노출 0** + `--force` 시 drizzle-kit·next 다운그레이드라 보류.
+- ✅ **수정불가 4건 dismiss**: `atty`·`users`(관리중단·패치 자체 없음, RustDesk 업스트림 전이 의존) → `tolerable_risk` 사유.
+- ⏳ **Rust 범프가능 38건 = 다음 Rust 빌드 사이클에**: `cargo update --precise`(openssl→0.10.80, rustls-webpki, bytes, quinn-proto, time, rand, libgit2-sys, crossbeam-channel 등) + **풀빌드 검증**. 막 올리면 고정빌드(Rust 1.81/vcpkg/Flutter 3.24.5) 깨질 위험이라 빌드할 때 같이. virtual_display(10건)도 Windows IDD로 빌드에 포함되니 같이 처리.
 
 ## ★ 자동업데이트 무증상 실패 — sha-mismatch 사고 (2026-06-07, 사업화 전 필수)
 
