@@ -436,20 +436,35 @@ class _ConnectionPageState extends State<ConnectionPage>
                           focusNode: fieldFocusNode,
                           style: const TextStyle(
                             fontFamily: 'WorkSans',
-                            fontSize: 22,
+                            fontSize: 18,
                             height: 1.4,
+                            color: MyTheme.neuInk,
+                            letterSpacing: 1,
                           ),
                           maxLines: 1,
                           cursorColor:
                               Theme.of(context).textTheme.titleLarge?.color,
                           decoration: InputDecoration(
-                              filled: false,
+                              filled: true,
+                              fillColor: MyTheme.neuInset,
                               counterText: '',
                               hintText: _idInputFocused.value
                                   ? null
                                   : translate('Enter Remote ID'),
+                              hintStyle: const TextStyle(
+                                  color: Color(0xFF9DA7B4),
+                                  fontWeight: FontWeight.w600),
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 15, vertical: 13)),
+                                  horizontal: 17, vertical: 15),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(13),
+                                  borderSide: BorderSide.none),
+                              enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(13),
+                                  borderSide: BorderSide.none),
+                              focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(13),
+                                  borderSide: BorderSide.none)),
                           controller: fieldTextEditingController,
                           inputFormatters: [IDTextInputFormatter()],
                           onChanged: (v) {
@@ -531,29 +546,57 @@ class _ConnectionPageState extends State<ConnectionPage>
                 // ChainRemote: 연결 버튼을 ID 입력란 우측으로 이동
                 const SizedBox(width: 10),
                 SizedBox(
-                  height: 48.0,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    onPressed: () {
+                  height: 50.0,
+                  child: GestureDetector(
+                    onTap: () {
                       onConnect();
                     },
-                    child: Text(translate("Connect"),
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w700)),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(13),
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [MyTheme.neuBtnTop, MyTheme.neuBtnBottom],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                              color: const Color(0x6B4669AF),
+                              offset: const Offset(6, 6),
+                              blurRadius: 13),
+                          BoxShadow(
+                              color: MyTheme.neuShadowLight,
+                              offset: const Offset(-5, -5),
+                              blurRadius: 11),
+                        ],
+                      ),
+                      child: Text(translate("Connect"),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800)),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
                 Container(
-                  height: 48.0,
-                  width: 36.0,
+                  height: 50.0,
+                  width: 44.0,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Theme.of(context).dividerColor),
-                    borderRadius: BorderRadius.circular(8),
+                    color: MyTheme.neuSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                          color: MyTheme.neuShadowDark,
+                          offset: const Offset(4, 4),
+                          blurRadius: 9),
+                      BoxShadow(
+                          color: MyTheme.neuShadowLight,
+                          offset: const Offset(-4, -4),
+                          blurRadius: 8),
+                    ],
                   ),
                   child: Center(
                     child: StatefulBuilder(

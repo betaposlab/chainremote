@@ -303,7 +303,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     super.build(context);
     final embedded = widget.embedded;
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FB),
+      backgroundColor: MyTheme.neuBg,
       body: _buildBlock(
         children: <Widget>[
           Expanded(
@@ -313,7 +313,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
                 if (!embedded) _topTabStrip(context),
                 Expanded(
                   child: Container(
-                    color: const Color(0xFFF6F8FB),
+                    color: MyTheme.neuBg,
                     child: PageView(
                       controller: controller,
                       physics: NeverScrollableScrollPhysics(),
@@ -1396,13 +1396,9 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                   ),
                   enabled: tmpEnabled && !locked),
             if (usePassword) numericOneTimePassword,
-            if (usePassword) radios[1],
-            if (usePassword && !isChangePermanentPasswordDisabled())
-              _SubButton('Set permanent password', setPasswordDialog,
-                  permEnabled && !locked),
-            // if (usePassword)
-            //   hide_cm(!locked).marginOnly(left: _kContentHSubMargin - 6),
-            if (usePassword) radios[2],
+            // 영구 비밀번호 옵션 영구 제거 (2026-06-06 Chang 지시 — 무인 영구비번
+            // 0클릭 전면폐기, 무조건 클릭 수락). radios[1]=영구 사용 / Set permanent
+            // password 버튼 / radios[2]=둘 다 모두 삭제. 비번 모드에선 일회용(temp)만.
           ]);
         })));
   }
@@ -2724,12 +2720,21 @@ Widget _Card(
       Flexible(
         child: SizedBox(
           width: _kCardFixedWidth,
-          child: Card(
-            elevation: 0.5,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(
-                  color: const Color(0xFFE2E8F0), width: 0.5),
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F4FA), // 배경보다 약간 밝게 → 카드가 뜸
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                    color: const Color(0x8F97A6C4), // 더 진한 그림자(확실히 솟게)
+                    offset: const Offset(7, 7),
+                    blurRadius: 18),
+                BoxShadow(
+                    color: Colors.white,
+                    offset: const Offset(-6, -6),
+                    blurRadius: 14),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

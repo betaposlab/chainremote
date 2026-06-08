@@ -81,15 +81,19 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             buildChainRemoteSidebar(context),
-            const VerticalDivider(width: 1, thickness: 1),
+            const VerticalDivider(
+                width: 2, thickness: 2, color: MyTheme.neuLineStrong),
             Expanded(
-              child: _inSettings
-                  ? DesktopSettingPage(
-                      key: ValueKey('chainremote-embedded-settings'),
-                      initialTabkey: _settingsTab,
-                      embedded: true,
-                    )
-                  : buildRightPane(context),
+              child: Container(
+                color: MyTheme.neuBg,
+                child: _inSettings
+                    ? DesktopSettingPage(
+                        key: ValueKey('chainremote-embedded-settings'),
+                        initialTabkey: _settingsTab,
+                        embedded: true,
+                      )
+                    : buildRightPane(context),
+              ),
             ),
           ],
         ),
@@ -147,7 +151,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         (Platform.environment['CHAINREMOTE_PORTABLE_DIR'] ?? '').isNotEmpty;
     return Container(
       width: 240,
-      color: const Color(0xFFF7F8FA),
+      color: MyTheme.neuSide,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -326,28 +330,47 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     required VoidCallback onTap,
     bool compact = false,
   }) {
-    final fg = selected ? const Color(0xFF1E40AF) : Colors.black87;
-    final bg = selected ? const Color(0xFFE6ECF8) : Colors.transparent;
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-              horizontal: 12, vertical: compact ? 8 : 10),
-          child: Row(
-            children: [
-              Icon(icon, size: 18, color: fg),
-              const SizedBox(width: 10),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: compact ? 13 : 14,
-                      fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.w500,
-                      color: fg)),
-            ],
+    // 뉴모 사이드바 항목: 선택 시 솟은(raised) 표면 + 남색, 평소 투명.
+    final fg = selected ? MyTheme.neuBlueInk : const Color(0xFF56606E);
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: selected ? MyTheme.neuSurface : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                    color: MyTheme.neuShadowDark,
+                    offset: const Offset(4, 4),
+                    blurRadius: 9),
+                BoxShadow(
+                    color: MyTheme.neuShadowLight,
+                    offset: const Offset(-4, -4),
+                    blurRadius: 8),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+                horizontal: 12, vertical: compact ? 8 : 11),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: fg),
+                const SizedBox(width: 11),
+                Text(label,
+                    style: TextStyle(
+                        fontSize: compact ? 13 : 14.5,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w700,
+                        color: fg)),
+              ],
+            ),
           ),
         ),
       ),
@@ -485,16 +508,16 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         final id = (snapshot.data ?? '').trim();
         if (id.isEmpty) return const SizedBox.shrink();
         return InkWell(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(11),
           onTap: () {
             Clipboard.setData(ClipboardData(text: id));
             showToast(translate("Copied"));
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF3FB),
-              borderRadius: BorderRadius.circular(6),
+              color: MyTheme.neuInset,
+              borderRadius: BorderRadius.circular(11),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
