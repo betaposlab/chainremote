@@ -1359,16 +1359,20 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                 : null,
           ).marginOnly(left: _kContentHSubMargin - 5);
 
-          final modeKeys = <String>[
-            'password',
-            'click',
-            defaultOptionApproveMode
-          ];
-          final modeValues = [
-            translate('Accept sessions via password'),
-            translate('Accept sessions via click'),
-            translate('Accept sessions via both'),
-          ];
+          // ChainRemote: 거래처(agent = incoming-only) 빌드는 '클릭 수락' 외 옵션(비밀번호/둘 다)을
+          // UI 에서 제거한다 — 영구비번/Both "유령" 원천 차단. config 는 custom-agent.txt 의
+          // override-settings(approve-mode=click)로 강제되어 드롭다운도 자동 비활성(isApproveModeFixed).
+          final incomingOnly = bind.isIncomingOnly();
+          final modeKeys = incomingOnly
+              ? <String>['click']
+              : <String>['password', 'click', defaultOptionApproveMode];
+          final modeValues = incomingOnly
+              ? [translate('Accept sessions via click')]
+              : [
+                  translate('Accept sessions via password'),
+                  translate('Accept sessions via click'),
+                  translate('Accept sessions via both'),
+                ];
           var modeInitialKey = model.approveMode;
           if (!modeKeys.contains(modeInitialKey)) {
             modeInitialKey = defaultOptionApproveMode;
