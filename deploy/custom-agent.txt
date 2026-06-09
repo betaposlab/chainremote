@@ -1,1 +1,1 @@
-{"conn-type":"incoming","default-settings":{"allow-remote-config-modification":"Y"}}
+{"conn-type":"incoming","default-settings":{"allow-remote-config-modification":"Y"},"override-settings":{"approve-mode":"click"}}
