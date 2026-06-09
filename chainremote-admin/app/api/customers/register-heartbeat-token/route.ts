@@ -15,9 +15,16 @@
 //   409 → { "error": "거래처 미등록" }  ← Chang 이 패널에 미등록 (등록 후 재시도)
 
 import * as data from "@/lib/data/customers";
+import { clientIp } from "@/lib/request-ip";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
+    // rate-limit: remote_id 스캔으로 토큰 긁어가기 방지. 정상 agent 는 부팅+회복 시 드물게 호출.
+    const ip = clientIp(req) ?? "unknown";
+    const rl = rateLimit(`hbtoken:${ip}`, 20, 60_000);
+    if (!rl.allowed) return tooManyRequests(rl.retryAfterSec);
+
     const body = (await req.json().catch(() => ({}))) as { remoteId?: unknown };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";

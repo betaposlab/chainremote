@@ -6,11 +6,13 @@ import {
   timestamp,
   pgEnum,
   index,
+  uniqueIndex,
   integer,
   bigserial,
   jsonb,
   primaryKey,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // "super_admin" = 플랫폼 운영자(Chang) — tenant 생성/관리 권한. 다른 tenant 의
 // 거래처/세션/이력은 *조회하지 않음* (코드 단계에서 강제). 격리 모델 깨끗.
@@ -112,7 +114,8 @@ export const customers = pgTable(
     // 마지막 접속 + 버전 가시화. 모든 컬럼 nullable — 옛 거래처는 lazy 채워짐.
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
     lastVersion: text("last_version"),
-    // 거래처별 random secret. 자가 발급 + 1회 제약 (NULL 일 때만 INSERT).
+    // 거래처별 random secret. 자가 발급 + idempotent rotation(호출마다 새 토큰 — v1.3.7,
+    // LocalConfig 토큰 분실 시 영구 stuck 회피). 이전 "1회 제약(NULL 일 때만 INSERT)" 은 폐기됨.
     heartbeatToken: text("heartbeat_token"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -120,6 +123,11 @@ export const customers = pgTable(
   (t) => ({
     tenantIdx: index("idx_customers_tenant").on(t.tenantId),
     assignedIdx: index("idx_customers_assigned_user").on(t.tenantId, t.assignedUserId),
+    // 멀티테넌트 격리 + heartbeat-token 안전(마이그레이션 011): remote_id 는 RustDesk 머신 ID
+    // 라 글로벌 유일. 빈/NULL(거래처 ID 등록 전 placeholder) 은 제외하는 partial-unique.
+    remoteIdUniq: uniqueIndex("uq_customers_remote_id")
+      .on(t.remoteId)
+      .where(sql`${t.remoteId} IS NOT NULL AND ${t.remoteId} <> ''`),
   }),
 );
 

@@ -14,6 +14,7 @@ import { users } from "@/lib/schema";
 import { signApiToken, jsonError, ApiAuthError } from "@/lib/api-auth";
 import { takeoverSeat } from "@/lib/data/active-sessions";
 import { clientIp } from "@/lib/request-ip";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
@@ -30,6 +31,13 @@ export async function POST(req: Request) {
       typeof body.deviceLabel === "string" ? body.deviceLabel.trim() : "";
     if (!email || !password) throw new ApiAuthError(400, "email/password 필요");
     if (!deviceId) throw new ApiAuthError(400, "deviceId 필요");
+
+    // rate-limit: 로그인 비번 대입 방지 (IP + 계정 양쪽). token 라우트와 같은 키 공유.
+    const ip = clientIp(req) ?? "unknown";
+    const ipRl = rateLimit(`login:ip:${ip}`, 15, 60_000);
+    if (!ipRl.allowed) return tooManyRequests(ipRl.retryAfterSec);
+    const emailRl = rateLimit(`login:email:${email.toLowerCase()}`, 6, 60_000);
+    if (!emailRl.allowed) return tooManyRequests(emailRl.retryAfterSec);
 
     const rows = await db
       .select()
