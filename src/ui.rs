@@ -522,7 +522,9 @@ impl UI {
     }
 
     fn get_version(&self) -> String {
-        get_version()
+        // ChainRemote: Sciter UI(Agent32 전용) 의 버전 표시는 ChainRemote 버전으로 —
+        // crate::VERSION(Cargo, 1.4.6 고정)이 아니라 인스톨러/업데이트 비교와 같은 값.
+        crate::CHAINREMOTE_VERSION.to_owned()
     }
 
     fn get_fingerprint(&self) -> String {
