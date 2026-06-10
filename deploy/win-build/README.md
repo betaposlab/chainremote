@@ -54,11 +54,7 @@ python build.py --flutter --portable
 
 ## 거래처 배포 흐름
 
-1. 빌드한 `rustdesk-<version>-install.exe` 를 carename(거래처에 보낼 이름)으로 rename
-2. 거래처에 카톡/이메일/USB로 전달
-3. 거래처가 더블클릭 → 자동 설치 + 우리 NAS에 자동 등록
-4. 거래처 ID를 우리에게 전화로 1회 전달 → 관리 패널 DB 등록
-5. 그 후엔 우리가 언제든 무인 접속 가능 (윈컴 영구 비번 사전 설정 필요)
+이 문서는 ChainRemote 코어 **풀빌드**만 다룬다. 빌드 산출물로 거래처/본사 인스톨러를 만드는 배포·운영 흐름(agent/hq 분리, **click 수락 정책**)은 [deploy/win-installer/README.md](../win-installer/README.md) 참조.
 
 ## 알려진 이슈
 
