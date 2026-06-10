@@ -46,7 +46,7 @@ if ($LASTEXITCODE -ne 0) { Write-Host 'AGENT32-FAIL: rustup target add'; exit 1 
 # x86 vcpkg deps (no-hwcodec 라 ffmpeg/mfx-dispatch 제외). repo 밖 cwd = classic 모드(manifest 회피).
 Write-Host '[3/7] ensure x86 vcpkg deps (libvpx/libyuv/aom/opus/libjpeg-turbo/libsodium)'
 if (-not (Test-Path $vpxHeader)) {
-    Write-Host '    x86 deps missing (likely wiped by x64 manifest install) — classic reinstall'
+    Write-Host '    x86 deps missing (likely wiped by x64 manifest install) - classic reinstall'
     Push-Location C:\src
     & C:\src\vcpkg\vcpkg.exe install libvpx:x86-windows-static libyuv:x86-windows-static aom:x86-windows-static opus:x86-windows-static libjpeg-turbo:x86-windows-static libsodium:x86-windows-static --overlay-ports=C:\src\ChainRemote\res\vcpkg
     Pop-Location
