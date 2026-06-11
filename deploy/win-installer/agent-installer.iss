@@ -47,6 +47,9 @@ OutputBaseFilename=ChainRemote_Agent_Setup_v{#APP_VERSION}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; 설치 마법사 첫 단계 = 사용 동의 페이지 (원격 수신 동의 + AGPL 고지. 파일은 UTF-8 BOM 필수 — 없으면 CP949 로 읽혀 한글 깨짐).
+; 자동 업데이트(/VERYSILENT)는 이 페이지를 표시하지 않음 → 기존 푸시/업데이트 플로우 무영향.
+LicenseFile=license-agent-ko.txt
 PrivilegesRequired=admin
 ; 64비트 OS 에선 64비트 설치 모드 ({commonpf}=C:\Program Files), 32비트 OS 에선 자동으로 32비트 모드.
 ; 어느 쪽이든 {commonpf}\ChainRemote = install_me() 의 %ProgramFiles% 계산과 일치.

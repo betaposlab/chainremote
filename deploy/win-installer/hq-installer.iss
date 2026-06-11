@@ -33,6 +33,9 @@ OutputBaseFilename=ChainRemote_HQ_Setup_v{#APP_VERSION}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; 설치 마법사 첫 단계 = 서비스 이용약관 동의 페이지 (좌석/오남용 책임 + AGPL 고지. 파일은 UTF-8 BOM 필수 — 없으면 CP949 로 읽혀 한글 깨짐).
+; 자동 업데이트(/VERYSILENT)는 이 페이지를 표시하지 않음.
+LicenseFile=license-hq-ko.txt
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
