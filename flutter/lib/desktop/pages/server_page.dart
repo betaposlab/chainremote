@@ -55,8 +55,11 @@ class _DesktopServerPageState extends State<DesktopServerPage>
     _keepBannerOnTopTimer =
         Timer.periodic(const Duration(seconds: 2), (_) async {
       if (!mounted) return;
-      final hasActive = gFFI.serverModel.clients
-          .any((c) => c.authorized && !c.disconnected);
+      // 수락 대기(authorized=false) 클라이언트도 포함 — 잠금 화면 중 도착한 요청의
+      // 수락카드가 잠금 해제(보안 데스크톱 복귀) 후 숨겨지거나 z-order 에 묻힌 채
+      // 남는 것을 같은 복원 루프로 회복 (배너와 동일 함정, 2026-06-12 삼익 케이스).
+      final hasActive =
+          gFFI.serverModel.clients.any((c) => !c.disconnected);
       if (!hasActive) return;
       try {
         // 보안데스크톱(UAC) 전환 후 배너 창이 topmost 만 잃는 게 아니라 아예 숨겨질(hide/minimize)

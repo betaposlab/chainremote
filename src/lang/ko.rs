@@ -392,6 +392,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Accept sessions via click", "클릭을 통해 세션 수락"),
         ("Accept sessions via both", "두 가지 방법을 통해 세션 수락"),
         ("Please wait for the remote side to accept your session request...", "원격 측에서 세션 요청을 수락할 때까지 기다려주세요..."),
+        ("The remote screen is locked. Please ask the person to press any key to unlock it, then click Accept.", "상대 화면이 윈도우 잠금 화면 상태라 수락 창이 보이지 않습니다.\n상대방에게 전화로 ① 아무 키나 눌러 잠금을 해제하고 ② [수락] 버튼을 눌러 달라고 안내해 주세요."),
         ("One-time Password", "일회용 비밀번호"),
         ("Use one-time password", "일회용 비밀번호 사용 (매번 새로 발급)"),
         ("One-time password length", "일회용 비밀번호 길이"),

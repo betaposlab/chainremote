@@ -116,6 +116,9 @@ pub const LOGIN_MSG_PASSWORD_WRONG: &str = "Wrong Password";
 pub const LOGIN_MSG_2FA_WRONG: &str = "Wrong 2FA Code";
 pub const REQUIRE_2FA: &'static str = "2FA Required";
 pub const LOGIN_MSG_NO_PASSWORD_ACCESS: &str = "No Password Access";
+// ChainRemote: 클릭수락 대기인데 상대가 윈도우 잠금/로그인 화면(보안 데스크톱)이라
+// 수락카드가 보이지 않는 상태 — 뷰어가 "전화로 잠금 해제 안내" 가이드를 띄울 수 있게 구분.
+pub const LOGIN_MSG_NO_PASSWORD_ACCESS_LOCKED: &str = "No Password Access Locked";
 pub const LOGIN_MSG_OFFLINE: &str = "Offline";
 pub const LOGIN_SCREEN_WAYLAND: &str = "Wayland login screen is not supported";
 #[cfg(target_os = "linux")]
@@ -3327,6 +3330,12 @@ lazy_static::lazy_static! {
             msgtype: "wait-remote-accept-nook",
             title: "Prompt",
             text: "Please wait for the remote side to accept your session request...",
+            link: "",
+            try_again: true,
+        }), (LOGIN_MSG_NO_PASSWORD_ACCESS_LOCKED, LoginErrorMsgBox{
+            msgtype: "wait-remote-accept-nook",
+            title: "Prompt",
+            text: "The remote screen is locked. Please ask the person to press any key to unlock it, then click Accept.",
             link: "",
             try_again: true,
         })]);

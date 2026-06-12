@@ -2593,8 +2593,14 @@ impl Connection {
                 if hbb_common::get_version_number(&lr.version)
                     >= hbb_common::get_version_number("1.2.0")
                 {
-                    self.send_login_error(crate::client::LOGIN_MSG_NO_PASSWORD_ACCESS)
-                        .await;
+                    // ChainRemote: 잠금/로그인 화면(보안 데스크톱)이면 수락카드가 가려져 안 보임.
+                    // 뷰어에 잠금 상태를 알려 운영자가 전화로 "아무 키나 눌러 해제 → 수락" 안내 가능하게.
+                    let wait_msg = if is_logon() {
+                        crate::client::LOGIN_MSG_NO_PASSWORD_ACCESS_LOCKED
+                    } else {
+                        crate::client::LOGIN_MSG_NO_PASSWORD_ACCESS
+                    };
+                    self.send_login_error(wait_msg).await;
                 }
                 return true;
             } else if self.is_recent_session(false) {
