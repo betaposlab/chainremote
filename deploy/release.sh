@@ -100,17 +100,25 @@ echo "  - Released   : $RELEASED_AT"
 echo "  - Remote URL : $PUBLIC_BASE_URL/$REMOTE_FILENAME"
 echo ""
 
-# 1. 인스톨러 업로드 — Synology SFTP 가 사용자를 home dir 에 chroot 시키므로 SCP 대신 ssh stream 사용
-echo "[1/4] Uploading installer to NAS (via ssh stream)..."
-ssh "$NAS_HOST" "cat > $NAS_WEB_DIR/$REMOTE_FILENAME && chmod 644 $NAS_WEB_DIR/$REMOTE_FILENAME" < "$SETUP_EXE"
+# 1. 인스톨러 업로드 — Synology SFTP 가 사용자를 home dir 에 chroot 시키므로 SCP 대신 ssh stream 사용.
+#    ★ 원자적(H6): .partial 로 올린 뒤 SHA 검증을 통과해야만 최종 파일명으로 mv. 전송 중단/부분 파일이
+#    최종 경로에 노출돼 거래처가 깨진 .exe 를 받고 sha-mismatch 무한 재다운에 빠지는 사고 차단.
+#    (latest.json 과 동일한 tmp→mv 패턴. 실패해도 기존 최종 파일은 손대지 않아 옛 버전 그대로 안전.)
+TMP_REMOTE="$NAS_WEB_DIR/$REMOTE_FILENAME.partial"
+echo "[1/4] Uploading installer to NAS (atomic via .partial)..."
+ssh "$NAS_HOST" "cat > $TMP_REMOTE && chmod 644 $TMP_REMOTE" < "$SETUP_EXE"
 
-# 2. 업로드 직후 NAS 측 SHA256 재검증 (전송 무결성)
-echo "[2/4] Verifying upload integrity (NAS-side SHA256)..."
-NAS_SHA=$(ssh "$NAS_HOST" "sha256sum $NAS_WEB_DIR/$REMOTE_FILENAME | awk '{print \$1}'")
+# 2. 최종 경로로 옮기기 전 NAS 측 SHA256 재검증 (전송 무결성) → 통과해야만 atomic mv (publish).
+echo "[2/4] Verifying upload integrity (NAS-side SHA256) before publish..."
+NAS_SHA=$(ssh "$NAS_HOST" "sha256sum $TMP_REMOTE | awk '{print \$1}'")
 if [[ "$NAS_SHA" != "$SHA256" ]]; then
   echo "✗ Upload SHA256 mismatch: local=$SHA256, nas=$NAS_SHA" >&2
+  echo "  부분 전송분(.partial) 정리 후 종료 — 최종 파일/옛 버전은 건드리지 않음." >&2
+  ssh "$NAS_HOST" "rm -f $TMP_REMOTE" 2>/dev/null || true
   exit 1
 fi
+# 검증 통과 → 최종 파일명으로 원자적 교체 (이 mv 성공 이후에만 latest.json 갱신)
+ssh "$NAS_HOST" "mv -f $TMP_REMOTE $NAS_WEB_DIR/$REMOTE_FILENAME"
 
 # 3. latest.json 갱신 (atomic — 임시 파일에 쓰고 mv)
 echo "[3/4] Updating latest.json..."

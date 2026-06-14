@@ -59,9 +59,13 @@ Source: "..\custom-hq.txt"; DestDir: "{tmp}\chainremote_payload"; DestName: "cus
 ; 옵션 B+ (2026-05-21): HQ 도 영구비번 toml 박음. 사용자가 "외부 원격 접속 허용"
 ; 토글 ON 만 하면 별도 비번 설정 없이 즉시 무인 incoming 가능 (Chang→재성이 컴 시나리오).
 ; 토글 OFF 일 땐 hbbs 등록 자체 안 함 → 영구비번 박혀있어도 외부 ID 못 찾음.
-Source: "RustDesk.toml";         DestDir: "{tmp}\chainremote_config"; Flags: deleteafterinstall ignoreversion
-Source: "RustDesk2.toml";        DestDir: "{tmp}\chainremote_config"; Flags: deleteafterinstall ignoreversion
-Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; Flags: deleteafterinstall ignoreversion
+; ★ DestName 으로 ChainRemote*.toml 로 rename — APP_NAME=ChainRemote 라 앱은 Config=ChainRemote.toml /
+;   Config2=ChainRemote2.toml / UserDefault=ChainRemote_default.toml 만 읽는다 (config.rs file_(suffix)).
+;   종전엔 RustDesk*.toml 그대로 배치 → 앱이 안 읽어 rendezvous/relay/key 가 빌드 baked 기본값에만 의존
+;   (무증상 결함). agent-installer.iss 와 동일하게 교정. toml 값은 baked 기본값과 동일이라 동작 불변.
+Source: "RustDesk.toml";         DestDir: "{tmp}\chainremote_config"; DestName: "ChainRemote.toml";         Flags: deleteafterinstall ignoreversion
+Source: "RustDesk2.toml";        DestDir: "{tmp}\chainremote_config"; DestName: "ChainRemote2.toml";        Flags: deleteafterinstall ignoreversion
+Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; DestName: "ChainRemote_default.toml"; Flags: deleteafterinstall ignoreversion
 
 Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -100,9 +104,13 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ; 2. 서비스/UI 강제 정지 — toml 박기 전 file lock 해제
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }}; Start-Sleep -Seconds 1 }}; taskkill /F /IM ChainRemote.exe /T *>$null; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
 
-; 3. toml 2종을 사용자/서비스 두 경로에 동시 배치 (rendezvous server 인식). Phase 3-Win 이후 경로 ChainRemote.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ((Get-Content ""$dst\RustDesk2.toml"" -Raw) -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
+; 3. toml 3종을 사용자/서비스 두 경로에 동시 배치 (rendezvous server 인식). Phase 3-Win 이후 경로 ChainRemote.
+;    ★ 보존 가드(M4) + 검증 대상 교정(H5): dst 에 ChainRemote2.toml 이미 있으면 안 박음
+;    (재설치/자동업뎃 때 머신 고유 id/key_pair=ChainRemote.toml 및 사용자 설정 보존 — agent 와 동일).
+;    검증은 [System.IO.File]::ReadAllText(ChainRemote2.toml) — 종전 Get-Content RustDesk2.toml 은 앱이
+;    안 읽는 파일을 보던 거짓 PASS 였음.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ([System.IO.File]::ReadAllText(""$dst\ChainRemote2.toml"") -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ([System.IO.File]::ReadAllText(""$dst\ChainRemote2.toml"") -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
 
 ; 4. 서비스 재시작 (간단판 — HQ 는 watchdog 없으므로 1회 시도면 충분)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Start-Service ChainRemote -ErrorAction Stop }} catch {{ sc.exe start ChainRemote *>$null }}"""; StatusMsg: "ChainRemote 서비스 시작 중..."; Flags: runhidden waituntilterminated

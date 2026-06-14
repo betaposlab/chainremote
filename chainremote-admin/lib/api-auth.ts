@@ -84,6 +84,18 @@ export function jsonError(e: unknown): Response {
   if (e instanceof ApiAuthError) {
     return Response.json({ error: e.message }, { status: e.status });
   }
+  // M8: remote_id 전역 partial-unique(011) 충돌 → 원시 SQL 500 대신 친절한 409.
+  //     (다른 거래처와 같은 9자리 RustDesk ID 등록 시도 — 오타/복붙/멀티테넌트 중복.)
+  if (
+    e instanceof Error &&
+    /duplicate key|unique/i.test(e.message) &&
+    /uq_customers_remote_id|remote_id/i.test(e.message)
+  ) {
+    return Response.json(
+      { error: "이미 등록된 원격 ID 입니다 (다른 거래처와 중복)." },
+      { status: 409 },
+    );
+  }
   const msg = e instanceof Error ? e.message : "internal error";
   return Response.json({ error: msg }, { status: 500 });
 }

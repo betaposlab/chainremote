@@ -4,10 +4,10 @@
 // 모든 함수는 tenantId 격리 강제 — 호출자는 자기 세션의 tenantId 만 넘긴다.
 
 import { and, desc, eq } from "drizzle-orm";
-import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { customers } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
+import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 
 export interface CustomerFields {
   name: string;
@@ -124,13 +124,14 @@ export async function importPeer(
  * Customer 미존재 시 null 반환 (route 가 409).
  */
 export async function registerHeartbeatToken(remoteId: string): Promise<string | null> {
-  const newToken = crypto.randomBytes(32).toString("hex");
+  // H3: 평문은 agent 에 반환, DB 엔 sha-256 해시만 저장.
+  const plaintext = generateHeartbeatToken();
   const [row] = await db
     .update(customers)
-    .set({ heartbeatToken: newToken })
+    .set({ heartbeatToken: hashHeartbeatToken(plaintext) })
     .where(eq(customers.remoteId, remoteId))
-    .returning({ token: customers.heartbeatToken });
-  return row?.token ?? null;
+    .returning({ id: customers.id });
+  return row ? plaintext : null;
 }
 
 /**
@@ -145,7 +146,12 @@ export async function recordHeartbeat(
   const [row] = await db
     .update(customers)
     .set({ lastHeartbeatAt: new Date(), lastVersion: version })
-    .where(and(eq(customers.remoteId, remoteId), eq(customers.heartbeatToken, token)))
+    .where(
+      and(
+        eq(customers.remoteId, remoteId),
+        eq(customers.heartbeatToken, hashHeartbeatToken(token)), // H3: 해시 대조
+      ),
+    )
     .returning({ id: customers.id });
   return !!row;
 }

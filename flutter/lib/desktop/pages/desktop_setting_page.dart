@@ -969,7 +969,9 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
             // ChainRemote 2026-05-27: 2FA(클라우드 계정용 무용) + ID 변경(거래처 재등록 위험) 카드 제거.
             Column(children: [
               permissions(context),
-              _chainremoteAllowIncomingCard(),
+              // M5: 거래처(incoming-only) 빌드에선 '외부 원격 접속 허용' 카드 숨김 (다층방어).
+              // 현재도 이 설정 진입점은 outgoing 빌드만 도달하지만, 진입점 분기 변경 시 노출 차단.
+              if (!bind.isIncomingOnly()) _chainremoteAllowIncomingCard(),
               password(context),
               more(context),
             ]),

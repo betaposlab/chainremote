@@ -70,6 +70,10 @@ mod whiteboard;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod updater;
 
+// ChainRemote 자동업데이트 공용 로직 (버전비교/sha256 검증) — push_agent·updater 공유.
+// 의도적으로 플랫폼 무관 → 단위테스트가 Mac/Linux 빌드에서도 동작 (윈컴 전용 한계 제거).
+mod chainremote_update_common;
+
 // ChainRemote 자체 업데이트 (NAS latest.json 폴링 — 윈도우만)
 #[cfg(target_os = "windows")]
 mod chainremote_updater;

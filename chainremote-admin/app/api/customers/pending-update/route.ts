@@ -25,9 +25,16 @@
 //   POST 본문 { "id": "uuid", "remoteId": "...", "status": "applied" | "failed", "reason": "..." }
 
 import * as data from "@/lib/data/pending-updates";
+import { clientIp } from "@/lib/request-ip";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export async function GET(req: Request) {
   try {
+    // H3: per-IP 완만한 rate-limit (GET+POST 공유 버킷). 600/분 — NAT 뒤 다중 agent 미throttle.
+    const ip = clientIp(req) ?? "unknown";
+    const rl = rateLimit(`cust-pu:${ip}`, 600, 60_000);
+    if (!rl.allowed) return tooManyRequests(rl.retryAfterSec);
+
     const token = req.headers.get("X-ChainRemote-Token");
     if (!token) {
       return Response.json({ error: "token 헤더 필수" }, { status: 401 });
@@ -52,6 +59,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    // H3: per-IP 완만한 rate-limit (GET 과 동일 버킷 공유).
+    const ip = clientIp(req) ?? "unknown";
+    const rl = rateLimit(`cust-pu:${ip}`, 600, 60_000);
+    if (!rl.allowed) return tooManyRequests(rl.retryAfterSec);
+
     const token = req.headers.get("X-ChainRemote-Token");
     if (!token) {
       return Response.json({ error: "token 헤더 필수" }, { status: 401 });

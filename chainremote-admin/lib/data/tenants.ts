@@ -6,6 +6,7 @@
 import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tenants, users } from "@/lib/schema";
+import { assertEmailAvailable } from "./users";
 
 // 회사(tenant) 생성 시 함께 받는 사업자/연락처/구독 정보. 모두 옵셔널 — 일단
 // 폼에서 필수 검증, DB 는 nullable. monthly_fee_krw 는 공급가액(부가세 별도).
@@ -36,6 +37,8 @@ export async function createTenantWithOwner(args: {
   tenant: TenantFields;
   admin: { email: string; displayName: string; passwordHash: string };
 }) {
+  // C1: 전역 email 중복 사전검사 (친절한 에러). 최종 방어는 마이그레이션 012 unique index(lower(email)).
+  await assertEmailAvailable(args.admin.email);
   return db.transaction(async (tx) => {
     const [t] = await tx
       .insert(tenants)
@@ -57,6 +60,20 @@ export async function createTenantWithOwner(args: {
       .returning();
     return { tenant: t, admin: u };
   });
+}
+
+// H1: 정지/해지 테넌트 차단용 — 로그인/heartbeat 가 호출.
+// is_active=true AND subscription_status='active' 만 통과. 미존재도 false.
+export async function isTenantActive(tenantId: string): Promise<boolean> {
+  const [t] = await db
+    .select({
+      isActive: tenants.isActive,
+      subscriptionStatus: tenants.subscriptionStatus,
+    })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+  return !!t && t.isActive && t.subscriptionStatus === "active";
 }
 
 export async function listTenants() {

@@ -114,8 +114,9 @@ export const customers = pgTable(
     // 마지막 접속 + 버전 가시화. 모든 컬럼 nullable — 옛 거래처는 lazy 채워짐.
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
     lastVersion: text("last_version"),
-    // 거래처별 random secret. 자가 발급 + idempotent rotation(호출마다 새 토큰 — v1.3.7,
-    // LocalConfig 토큰 분실 시 영구 stuck 회피). 이전 "1회 제약(NULL 일 때만 INSERT)" 은 폐기됨.
+    // 거래처별 random secret 의 sha-256 *해시* (H3, 2026-06-14). 평문은 agent LocalConfig 에만,
+    // DB 엔 해시만 — 유출돼도 토큰 원본 비노출. 자가 발급 + idempotent rotation(호출마다 새 토큰,
+    // v1.3.7, LocalConfig 토큰 분실 시 영구 stuck 회피). lib/heartbeat-token.ts 가 발급/해시 담당.
     heartbeatToken: text("heartbeat_token"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

@@ -8,6 +8,7 @@
 import { and, eq, isNull, sql, desc, count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { pendingUpdates, customers } from "@/lib/schema";
+import { hashHeartbeatToken } from "@/lib/heartbeat-token";
 
 export interface PushAsset {
   targetVersion: string;
@@ -149,7 +150,7 @@ export async function getPendingForAgent(
     .where(
       and(
         eq(customers.remoteId, remoteId),
-        eq(customers.heartbeatToken, token),
+        eq(customers.heartbeatToken, hashHeartbeatToken(token)), // H3: 해시 대조
         isNull(pendingUpdates.appliedAt),
         isNull(pendingUpdates.cancelledAt),
         isNull(pendingUpdates.failedAt),
@@ -178,7 +179,7 @@ export async function markApplied(
       and(
         eq(pendingUpdates.id, pushId),
         eq(customers.remoteId, remoteId),
-        eq(customers.heartbeatToken, token),
+        eq(customers.heartbeatToken, hashHeartbeatToken(token)), // H3: 해시 대조
       ),
     )
     .limit(1);
@@ -206,7 +207,7 @@ export async function markFailed(
       and(
         eq(pendingUpdates.id, pushId),
         eq(customers.remoteId, remoteId),
-        eq(customers.heartbeatToken, token),
+        eq(customers.heartbeatToken, hashHeartbeatToken(token)), // H3: 해시 대조
       ),
     )
     .limit(1);

@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
+import { assertEmailAvailable } from "@/lib/data/users";
 
 async function requireOwner() {
   const session = await auth();
@@ -39,6 +40,7 @@ export async function createUser(formData: FormData) {
     throw new Error("잘못된 role");
   }
 
+  await assertEmailAvailable(email); // C1: 전역 email 중복 사전검사 (최종 방어는 마이그레이션 012)
   const passwordHash = bcrypt.hashSync(password, BCRYPT_COST);
   await db.insert(users).values({
     tenantId: me.tenantId,

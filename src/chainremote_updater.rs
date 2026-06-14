@@ -21,8 +21,8 @@
 
 #![cfg(target_os = "windows")]
 
+use crate::chainremote_update_common::{is_newer, parse_version, verify_sha256};
 use hbb_common::{bail, log, ResultType};
-use sha2::{Digest, Sha256};
 use std::{
     io::Write,
     path::PathBuf,
@@ -317,23 +317,7 @@ fn fetch_latest() -> ResultType<LatestRelease> {
     Ok(release)
 }
 
-fn parse_version(s: &str) -> ResultType<(u32, u32, u32)> {
-    let parts: Vec<&str> = s.trim().split('.').collect();
-    if parts.len() < 3 {
-        bail!("malformed version: {}", s);
-    }
-    let major: u32 = parts[0].parse()?;
-    let minor: u32 = parts[1].parse()?;
-    // build 부분에 알파/베타 suffix 가 붙는 경우 대비 — 숫자 prefix 만 취함
-    let build_str: String = parts[2].chars().take_while(|c| c.is_ascii_digit()).collect();
-    let build: u32 = if build_str.is_empty() { 0 } else { build_str.parse()? };
-    Ok((major, minor, build))
-}
-
-#[inline]
-fn is_newer(a: (u32, u32, u32), b: (u32, u32, u32)) -> bool {
-    a > b
-}
+// parse_version / is_newer 는 chainremote_update_common 으로 이전 (push_agent 와 공유 + 단위테스트 cross-platform).
 
 fn pending_file_path() -> PathBuf {
     PathBuf::from(PENDING_DIR).join(PENDING_FILE)
@@ -370,27 +354,7 @@ fn download_to(url: &str, dest: &PathBuf) -> ResultType<()> {
     Ok(())
 }
 
-fn verify_sha256(path: &PathBuf, expected_hex: &str) -> ResultType<()> {
-    use std::io::Read;
-    let mut file = std::fs::File::open(path)?;
-    let mut hasher = Sha256::new();
-    let mut buf = [0u8; 8192];
-    loop {
-        let n = file.read(&mut buf)?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buf[..n]);
-    }
-    let got = hex::encode(hasher.finalize());
-    let expected = expected_hex.trim().to_lowercase();
-    if got != expected {
-        // 손상된 파일 정리 — 다음 사이클에서 재다운로드 시도
-        std::fs::remove_file(path).ok();
-        bail!("SHA256 mismatch: expected {}, got {}", expected, got);
-    }
-    Ok(())
-}
+// verify_sha256 은 chainremote_update_common 으로 이전 (빈/불량 expected sha 가드 추가됨).
 
 /// pending Inno 인스톨러를 활성 사용자 세션에 권한승격으로 사일런트 실행.
 ///
@@ -441,97 +405,10 @@ pub(crate) fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
 
 #[cfg(test)]
 mod tests {
-    //! ChainRemote 자동업데이트 핵심 로직 단위테스트 (2026-05-29).
-    //! 매 빌드마다 버전비교/sha256/json 파싱이 깨지면 자동 알리는 그물망.
-    //! Windows 한정 모듈이라 cargo test 는 윈컴 빌드 머신에서만 의미.
+    //! ChainRemote latest.json 매니페스트 파싱 단위테스트.
+    //! 버전비교(parse_version/is_newer)·sha256 검증 테스트는 chainremote_update_common::tests 로
+    //! 이전 (cross-platform → Mac/Linux 빌드에서도 동작). 여기엔 updater 고유의 dual/legacy 스키마만.
     use super::*;
-
-    #[test]
-    fn parse_version_basic() {
-        assert_eq!(parse_version("1.3.5").unwrap(), (1, 3, 5));
-        assert_eq!(parse_version("10.20.30").unwrap(), (10, 20, 30));
-        assert_eq!(parse_version("0.0.0").unwrap(), (0, 0, 0));
-    }
-
-    #[test]
-    fn parse_version_trims_whitespace() {
-        assert_eq!(parse_version("  1.3.7\n").unwrap(), (1, 3, 7));
-    }
-
-    #[test]
-    fn parse_version_strips_suffix() {
-        // build 부분의 알파/베타/rc suffix 는 숫자 prefix 만 취함.
-        assert_eq!(parse_version("1.3.5-rc1").unwrap(), (1, 3, 5));
-        assert_eq!(parse_version("1.3.7-pushtest").unwrap(), (1, 3, 7));
-        assert_eq!(parse_version("1.3.0beta").unwrap(), (1, 3, 0));
-    }
-
-    #[test]
-    fn parse_version_rejects_too_few_parts() {
-        assert!(parse_version("1.3").is_err());
-        assert!(parse_version("1").is_err());
-        assert!(parse_version("").is_err());
-    }
-
-    #[test]
-    fn parse_version_rejects_non_numeric_major_minor() {
-        assert!(parse_version("x.3.5").is_err());
-        assert!(parse_version("1.y.5").is_err());
-    }
-
-    #[test]
-    fn is_newer_strict_ordering() {
-        assert!(is_newer((1, 3, 7), (1, 3, 5)));
-        assert!(is_newer((1, 4, 0), (1, 3, 99)));
-        assert!(is_newer((2, 0, 0), (1, 999, 999)));
-        assert!(!is_newer((1, 3, 5), (1, 3, 5)));
-        assert!(!is_newer((1, 3, 5), (1, 3, 7)));
-        assert!(!is_newer((0, 0, 0), (1, 3, 7))); // agent 채널 영구 락 케이스
-    }
-
-    fn write_tmp(name: &str, bytes: &[u8]) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("cr_test_{}_{}", std::process::id(), name));
-        std::fs::write(&p, bytes).expect("write tmp");
-        p
-    }
-
-    #[test]
-    fn verify_sha256_ok_when_matching() {
-        // sha256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
-        let p = write_tmp("hello.bin", b"hello");
-        let expected = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
-        let r = verify_sha256(&p, expected);
-        let _ = std::fs::remove_file(&p);
-        assert!(r.is_ok(), "verify failed unexpectedly: {:?}", r.err());
-    }
-
-    #[test]
-    fn verify_sha256_accepts_mixed_case_and_whitespace() {
-        let p = write_tmp("hello2.bin", b"hello");
-        let expected = "  2CF24DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824  ";
-        let r = verify_sha256(&p, expected);
-        let _ = std::fs::remove_file(&p);
-        assert!(r.is_ok());
-    }
-
-    #[test]
-    fn verify_sha256_err_and_deletes_on_mismatch() {
-        let p = write_tmp("bad.bin", b"hello");
-        // 일부러 mismatch 한 sha
-        let wrong = "0000000000000000000000000000000000000000000000000000000000000000";
-        let r = verify_sha256(&p, wrong);
-        assert!(r.is_err());
-        // 손상 파일 정리 동작 검증 — verify_sha256 가 remove 호출함.
-        assert!(!p.exists(), "mismatch 파일이 자동 정리되지 않음");
-    }
-
-    #[test]
-    fn verify_sha256_err_on_missing_file() {
-        let p = std::env::temp_dir().join(format!("cr_test_missing_{}.bin", std::process::id()));
-        let _ = std::fs::remove_file(&p);
-        let r = verify_sha256(&p, "0".repeat(64).as_str());
-        assert!(r.is_err());
-    }
 
     #[test]
     fn dual_channel_manifest_parses_v137() {

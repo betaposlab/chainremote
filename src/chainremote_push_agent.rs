@@ -22,8 +22,8 @@
 
 #![cfg(target_os = "windows")]
 
+use crate::chainremote_update_common::{is_newer_str, is_valid_sha256_hex, verify_sha256};
 use hbb_common::{bail, log, ResultType};
-use sha2::{Digest, Sha256};
 use std::{
     io::Write,
     path::PathBuf,
@@ -43,6 +43,11 @@ const LOG_PATH: &str = r"C:\ProgramData\ChainRemote\push_agent.log";
 const TOKEN_KEY: &str = "chainremote-heartbeat-token";
 /// LocalConfig key prefix — push id 별 first_seen_at (unix epoch sec).
 const FIRST_SEEN_PREFIX: &str = "push-first-seen:";
+/// applied/failed 보고 재시도 횟수 (H4) — 즉시 N회, 끝내 실패 시 보관 후 다음 tick flush.
+const REPORT_RETRY: u32 = 3;
+const REPORT_RETRY_DELAY: Duration = Duration::from_secs(3);
+/// 미보고 결과 단일 보관 슬롯 — "<push_id>|<status>|<reason>". push 는 거래처당 순차라 1슬롯 충분.
+const PENDING_REPORT_KEY: &str = "push-pending-report";
 
 fn flog(msg: &str) {
     let _ = std::fs::create_dir_all(r"C:\ProgramData\ChainRemote");
@@ -117,6 +122,10 @@ fn tick() -> ResultType<()> {
         bail!("no heartbeat token yet (waiting for heartbeat module to register)");
     }
 
+    // H4: 지난 tick 에서 못 보낸 applied/failed 결과가 있으면 먼저 flush
+    //     (보고 실패 시 서버가 push 를 영원히 pending 으로 인식 → 재설치 루프의 한 갈래).
+    flush_pending_report(&remote_id, &token);
+
     let pending = fetch_pending(&remote_id, &token)?;
     let Some(push_id) = pending.id.clone() else {
         return Ok(());
@@ -130,6 +139,55 @@ fn tick() -> ResultType<()> {
         pending.window_end_hour,
         pending.randomize_max_sec
     ));
+
+    // (C2) 버전 가드 — target 이 현재보다 새 버전이 아니면 재설치 루프 차단.
+    //   report_status("applied") 가 네트워크로 실패해 서버 pending 이 남아도, 재부팅 후 같은 push 를
+    //   다시 받아 동일 버전 .exe 를 재설치하던 사고(중앙리 영업시간 인스톨러)의 근본 차단.
+    //   updater(HQ) 채널은 is_newer 게이트가 이미 있었으나 push 채널엔 없던 결함.
+    match is_newer_str(&pending.target_version, crate::CHAINREMOTE_VERSION) {
+        Ok(true) => {} // 진짜 새 버전 — 계속 진행
+        Ok(false) => {
+            flog(&format!(
+                "target v{} <= current v{} → already up to date; reporting applied, no reinstall",
+                pending.target_version,
+                crate::CHAINREMOTE_VERSION
+            ));
+            finish_report(&remote_id, &token, &push_id, "applied", "already up to date");
+            return Ok(());
+        }
+        Err(e) => {
+            flog(&format!(
+                "unparseable target_version {:?}: {} → reporting failed",
+                pending.target_version, e
+            ));
+            finish_report(
+                &remote_id,
+                &token,
+                &push_id,
+                "failed",
+                "unparseable target_version",
+            );
+            return Ok(());
+        }
+    }
+
+    // (C3) sha 형식 가드 — 빈값/잘린값/비-hex 면 다운로드 전에 차단.
+    //   패널이 asset_sha256 을 빈값/자리표시자로 푸시하면 verify 가 영원히 mismatch → 무한 재다운 +
+    //   로그가 파일에만 남는 "무증상 실패". 여기서 즉시 failed 보고로 패널에 가시화.
+    if !is_valid_sha256_hex(&pending.asset_sha256) {
+        flog(&format!(
+            "invalid asset_sha256 in manifest (len={}) → reporting failed, skip download",
+            pending.asset_sha256.trim().len()
+        ));
+        finish_report(
+            &remote_id,
+            &token,
+            &push_id,
+            "failed",
+            "invalid asset_sha256 in push manifest",
+        );
+        return Ok(());
+    }
 
     // (1) 영업시간 가드
     if !within_business_window(pending.window_start_hour, pending.window_end_hour) {
@@ -186,16 +244,16 @@ fn tick() -> ResultType<()> {
     match crate::chainremote_updater::spawn_silent_install(&pending_path) {
         Ok(_) => {
             flog("install launched, reporting applied to admin panel");
-            let _ = report_status(&remote_id, &token, &push_id, "applied", "");
-            clear_first_seen(&push_id);
+            // H4: fire-and-forget 금지 — 재시도 + 끝내 실패 시 보관 후 다음 tick flush.
+            //     (finish_report 가 clear_first_seen 도 처리.)
+            finish_report(&remote_id, &token, &push_id, "applied", "");
             // 설치 후 서비스 재시작 시점까지 메인 루프 계속 살아있음. CloseApplications 가
             // ChainRemote.exe 죽이고 sc stop/start 처리. 그동안 다음 폴링은 무해 (applied 됨).
         }
         Err(e) => {
             let msg = format!("{}", e);
             flog(&format!("install failed: {}", msg));
-            let _ = report_status(&remote_id, &token, &push_id, "failed", &msg);
-            clear_first_seen(&push_id);
+            finish_report(&remote_id, &token, &push_id, "failed", &msg);
         }
     }
 
@@ -308,6 +366,74 @@ fn report_status(
     Ok(())
 }
 
+/// applied/failed 결과 보고 — 즉시 재시도 + 끝내 실패 시 LocalConfig 에 보관(다음 tick flush). (H4)
+/// 종전 fire-and-forget(`let _ =`)의 "서버가 push 를 영원히 pending 으로 인식" 문제를 정석 해결.
+/// first_seen 정리도 여기서 일괄 처리한다 (결과 확정 = 이 push 사이클 종료).
+fn finish_report(remote_id: &str, token: &str, push_id: &str, status: &str, reason: &str) {
+    clear_first_seen(push_id);
+    for attempt in 1..=REPORT_RETRY {
+        match report_status(remote_id, token, push_id, status, reason) {
+            Ok(_) => {
+                clear_pending_report();
+                return;
+            }
+            Err(e) => {
+                flog(&format!(
+                    "report_status '{}' attempt {}/{} failed: {}",
+                    status, attempt, REPORT_RETRY, e
+                ));
+                if attempt < REPORT_RETRY {
+                    std::thread::sleep(REPORT_RETRY_DELAY);
+                }
+            }
+        }
+    }
+    save_pending_report(push_id, status, reason);
+    flog(&format!(
+        "report_status '{}' persisted for retry on next tick (push_id={})",
+        status, push_id
+    ));
+}
+
+/// 미보고 결과를 단일 슬롯에 보관. 형식 "<push_id>|<status>|<reason>".
+/// reason 에 '|' 가 섞일 수 있어 복원은 splitn(3) (reason 이 마지막 필드).
+fn save_pending_report(push_id: &str, status: &str, reason: &str) {
+    let v = format!("{}|{}|{}", push_id, status, reason);
+    hbb_common::config::LocalConfig::set_option(PENDING_REPORT_KEY.to_string(), v);
+}
+
+fn clear_pending_report() {
+    hbb_common::config::LocalConfig::set_option(PENDING_REPORT_KEY.to_string(), String::new());
+}
+
+/// 보관된 미보고 결과가 있으면 1회 재전송. 성공 시 슬롯 비움, 실패 시 다음 tick 에서 재시도.
+fn flush_pending_report(remote_id: &str, token: &str) {
+    let raw = hbb_common::config::LocalConfig::get_option(PENDING_REPORT_KEY);
+    if raw.is_empty() {
+        return;
+    }
+    let parts: Vec<&str> = raw.splitn(3, '|').collect();
+    if parts.len() != 3 {
+        clear_pending_report(); // 형식 깨짐 — 버린다.
+        return;
+    }
+    match report_status(remote_id, token, parts[0], parts[1], parts[2]) {
+        Ok(_) => {
+            flog(&format!(
+                "flushed pending report (push_id={}, status={})",
+                parts[0], parts[1]
+            ));
+            clear_pending_report();
+        }
+        Err(e) => {
+            flog(&format!(
+                "pending report flush failed (will retry next tick): {}",
+                e
+            ));
+        }
+    }
+}
+
 fn ensure_pending_dir(file: &PathBuf) -> ResultType<()> {
     if let Some(dir) = file.parent() {
         std::fs::create_dir_all(dir)?;
@@ -338,23 +464,4 @@ fn download_to(url: &str, dest: &PathBuf) -> ResultType<()> {
     Ok(())
 }
 
-fn verify_sha256(path: &PathBuf, expected_hex: &str) -> ResultType<()> {
-    use std::io::Read;
-    let mut file = std::fs::File::open(path)?;
-    let mut hasher = Sha256::new();
-    let mut buf = [0u8; 8192];
-    loop {
-        let n = file.read(&mut buf)?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buf[..n]);
-    }
-    let got = hex::encode(hasher.finalize());
-    let expected = expected_hex.trim().to_lowercase();
-    if got != expected {
-        std::fs::remove_file(path).ok();
-        bail!("SHA256 mismatch: expected {}, got {}", expected, got);
-    }
-    Ok(())
-}
+// verify_sha256 은 chainremote_update_common 으로 이전 (빈/불량 expected sha 가드 추가됨).

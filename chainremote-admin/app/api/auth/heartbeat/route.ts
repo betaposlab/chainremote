@@ -9,10 +9,17 @@
 
 import { requireApiAuth, jsonError } from "@/lib/api-auth";
 import { touchHeartbeat } from "@/lib/data/active-sessions";
+import { isTenantActive } from "@/lib/data/tenants";
 
 export async function POST(req: Request) {
   try {
     const me = await requireApiAuth(req);
+    // H1: 정지/해지 테넌트 즉시 차단 (super_admin 예외 — 자기잠금 방지). 24h 토큰이 정지 후에도
+    //     살아있는 공백 제거 → heartbeat 주기(~10초)로 반영. 비-revoked 401 이라 앱은 재로그인 유도,
+    //     재로그인도 H1(403)로 차단되어 일관. (옛 jti 없는 토큰도 이 차단은 적용.)
+    if (me.role !== "super_admin" && !(await isTenantActive(me.tenantId))) {
+      return Response.json({ error: "구독이 정지되었습니다" }, { status: 401 });
+    }
     // 옛 토큰(jti 없음) — 전환기 백워드 호환. enforcement 미적용으로 통과.
     if (!me.jti) {
       return Response.json({ ok: true, enforced: false });

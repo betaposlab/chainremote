@@ -12,6 +12,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
+import { assertEmailAvailable } from "@/lib/data/users";
 
 const BCRYPT_COST = 10;
 type Role = "owner" | "admin" | "operator" | "viewer";
@@ -49,6 +50,7 @@ export async function adminCreateUser(tenantId: string, formData: FormData) {
   if (!displayName) throw new Error("이름 필수");
   if (!password || password.length < 4) throw new Error("비번 4자 이상");
 
+  await assertEmailAvailable(email); // C1: 전역 email 중복 사전검사 (최종 방어는 마이그레이션 012)
   const passwordHash = bcrypt.hashSync(password, BCRYPT_COST);
   await db.insert(users).values({
     tenantId,
@@ -74,6 +76,7 @@ export async function adminCreateUserGlobal(formData: FormData) {
   if (!displayName) throw new Error("이름 필수");
   if (!password || password.length < 4) throw new Error("비번 4자 이상");
 
+  await assertEmailAvailable(email); // C1: 전역 email 중복 사전검사 (최종 방어는 마이그레이션 012)
   const passwordHash = bcrypt.hashSync(password, BCRYPT_COST);
   await db.insert(users).values({
     tenantId,

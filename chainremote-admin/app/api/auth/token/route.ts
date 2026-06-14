@@ -16,7 +16,7 @@ import { and, eq } from "drizzle-orm";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
-import { users } from "@/lib/schema";
+import { users, tenants } from "@/lib/schema";
 import { signApiToken, jsonError, ApiAuthError } from "@/lib/api-auth";
 import { claimSeat } from "@/lib/data/active-sessions";
 import { clientIp } from "@/lib/request-ip";
@@ -46,9 +46,20 @@ export async function POST(req: Request) {
     const emailRl = rateLimit(`login:email:${email.toLowerCase()}`, 6, 60_000);
     if (!emailRl.allowed) return tooManyRequests(emailRl.retryAfterSec);
 
+    // C1: email 전역 유니크(마이그레이션 012)라 단독 조회 안전. H1: 테넌트 상태 동시 조회.
     const rows = await db
-      .select()
+      .select({
+        id: users.id,
+        email: users.email,
+        passwordHash: users.passwordHash,
+        displayName: users.displayName,
+        role: users.role,
+        tenantId: users.tenantId,
+        tenantActive: tenants.isActive,
+        subscriptionStatus: tenants.subscriptionStatus,
+      })
       .from(users)
+      .innerJoin(tenants, eq(users.tenantId, tenants.id))
       .where(and(eq(users.email, email), eq(users.isActive, true)))
       .limit(1);
     if (rows.length === 0) throw new ApiAuthError(401, "자격 실패");
@@ -56,6 +67,13 @@ export async function POST(req: Request) {
     const u = rows[0];
     if (!bcrypt.compareSync(password, u.passwordHash)) {
       throw new ApiAuthError(401, "자격 실패");
+    }
+    // H1: 정지/해지 테넌트 차단 (플랫폼 운영자 super_admin 은 구독 대상 아니므로 예외 — 자기잠금 방지).
+    if (
+      u.role !== "super_admin" &&
+      (!u.tenantActive || u.subscriptionStatus !== "active")
+    ) {
+      throw new ApiAuthError(403, "구독이 정지되어 로그인할 수 없습니다. 관리자에게 문의하세요.");
     }
 
     const jti = crypto.randomUUID();

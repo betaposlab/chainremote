@@ -6,7 +6,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
 import { db } from "./lib/db";
-import { users } from "./lib/schema";
+import { users, tenants } from "./lib/schema";
 import { and, eq } from "drizzle-orm";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -23,9 +23,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = (credentials?.password ?? "").toString();
         if (!username || !password) return null;
 
+        // C1: email 전역 유니크(마이그레이션 012)라 단독 조회 안전. H1: 테넌트 상태 동시 조회.
         const rows = await db
-          .select()
+          .select({
+            id: users.id,
+            email: users.email,
+            passwordHash: users.passwordHash,
+            displayName: users.displayName,
+            role: users.role,
+            tenantId: users.tenantId,
+            tenantActive: tenants.isActive,
+            subscriptionStatus: tenants.subscriptionStatus,
+          })
           .from(users)
+          .innerJoin(tenants, eq(users.tenantId, tenants.id))
           .where(and(eq(users.email, username), eq(users.isActive, true)))
           .limit(1);
         if (rows.length === 0) return null;
@@ -33,6 +44,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const u = rows[0];
         const ok = bcrypt.compareSync(password, u.passwordHash);
         if (!ok) return null;
+        // H1: 정지/해지 테넌트 차단 (super_admin 예외 — 자기잠금 방지).
+        if (
+          u.role !== "super_admin" &&
+          (!u.tenantActive || u.subscriptionStatus !== "active")
+        ) {
+          return null;
+        }
 
         return {
           id: u.id,
