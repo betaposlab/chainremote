@@ -100,6 +100,7 @@ export async function pushBulk(
            ${bulkBatchId}::uuid, ${ctx.requestedBy}::uuid
     FROM customers c
     WHERE c.tenant_id = ${ctx.tenantId}::uuid AND c.is_active = true
+      AND c.is_internal = false  -- 내부 기기(본사/Mac/빌드머신, 마이그 013) 제외
     ON CONFLICT (customer_id, target_version)
       WHERE (applied_at IS NULL AND cancelled_at IS NULL AND failed_at IS NULL)
       DO NOTHING
@@ -111,7 +112,13 @@ export async function pushBulk(
   const [eligibleRow] = await db
     .select({ cnt: count() })
     .from(customers)
-    .where(and(eq(customers.tenantId, ctx.tenantId), eq(customers.isActive, true)));
+    .where(
+      and(
+        eq(customers.tenantId, ctx.tenantId),
+        eq(customers.isActive, true),
+        eq(customers.isInternal, false),
+      ),
+    );
 
   return { bulkBatchId, inserted, eligible: Number(eligibleRow?.cnt ?? 0) };
 }

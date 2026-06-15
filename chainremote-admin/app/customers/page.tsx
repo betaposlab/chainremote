@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { customers, pendingUpdates, supportSessions, tenants, users } from "@/lib/schema";
-import { eq, desc, and, isNull, isNotNull, or } from "drizzle-orm";
+import { eq, desc, asc, and, isNull, isNotNull, or } from "drizzle-orm";
 import { listOrphanFavorites } from "@/lib/data/favorites";
 import { DiscoveredPeerBanner } from "./_discovered";
 import { RemoteButton } from "./_remote-button";
@@ -29,11 +29,14 @@ export default async function CustomersPage() {
       assignedUserName: users.displayName,
       lastHeartbeatAt: customers.lastHeartbeatAt,
       lastVersion: customers.lastVersion,
+      isInternal: customers.isInternal,
+      pinOrder: customers.pinOrder,
     })
     .from(customers)
     .leftJoin(users, eq(users.id, customers.assignedUserId))
     .where(eq(customers.tenantId, tenant.id))
-    .orderBy(desc(customers.createdAt));
+    // 내부 기기(pin_order 1..N) 를 상단 고정, 그 아래 일반 거래처는 등록순(최신 위).
+    .orderBy(asc(customers.pinOrder), desc(customers.createdAt));
 
   // 거래처별 대기 중 푸시 (있으면 행에 표시).
   const pendingRows = await db
@@ -208,6 +211,7 @@ export default async function CustomersPage() {
                       lastHeartbeatAt={c.lastHeartbeatAt}
                       lastVersion={c.lastVersion}
                       update={updateByCustomer.get(c.id) ?? null}
+                      isInternal={c.isInternal}
                     />
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs max-w-[16ch] truncate">
@@ -229,7 +233,7 @@ export default async function CustomersPage() {
                         ID 등록
                       </Link>
                     )}
-                    {c.remoteId && (
+                    {c.remoteId && !c.isInternal && (
                       <CustomerPushButton
                         customerId={c.id}
                         customerName={c.name}

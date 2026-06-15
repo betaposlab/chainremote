@@ -118,6 +118,10 @@ export const customers = pgTable(
     // DB 엔 해시만 — 유출돼도 토큰 원본 비노출. 자가 발급 + idempotent rotation(호출마다 새 토큰,
     // v1.3.7, LocalConfig 토큰 분실 시 영구 stuck 회피). lib/heartbeat-token.ts 가 발급/해시 담당.
     heartbeatToken: text("heartbeat_token"),
+    // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그레이션 013). true 면 일괄푸시 제외 +
+    // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
+    isInternal: boolean("is_internal").notNull().default(false),
+    pinOrder: integer("pin_order"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
