@@ -197,7 +197,9 @@ end;
 
 function InitializeSetup(): Boolean;
 var
-  Installed: String;
+  Installed, Dir, WriteStr, Diag, Probe: String;
+  V: TWindowsVersion;
+  WriteOk: Boolean;
 begin
   Result := True;
   if ExpandConstant('{param:FORCE|0}') = '1' then Exit;
@@ -207,6 +209,33 @@ begin
     if not WizardSilent() then
       MsgBox('이미 더 높은 버전(' + Installed + ')이 설치되어 있어 설치를 중단합니다.' + #13#10 + '(강제 설치 시 /FORCE=1)', mbError, MB_OK);
     Result := False;
+    Exit;
+  end;
+  // ★ 임시 시작 진단 팝업 (2026-06-15, 향우정 설치실패 원인규명용 — 정상설치 확인되면 제거).
+  //   설치 맨 처음(권한 승격 직후)에 환경+Program Files 쓰기시험을 팝업으로 보여주고 확인을 받음.
+  //   대화형(수동 설치)만 — 자동업데이트(/VERYSILENT)엔 절대 안 뜸 (안 그러면 기존 거래처 자동업뎃이
+  //   확인 대기로 멈춤). 향우정 정상설치 확인되면 이 블록만 제거하면 됨.
+  if not WizardSilent() then begin
+    GetWindowsVersionEx(V);
+    Diag := 'os=' + IntToStr(V.Major) + '.' + IntToStr(V.Minor) + ' sp=' + IntToStr(V.ServicePackMajor);
+    if Is64BitInstallMode() then Diag := Diag + ' mode=x64' else Diag := Diag + ' mode=x86';
+    if IsAdminInstallMode() then Diag := Diag + ' admin=yes' else Diag := Diag + ' admin=no';
+    Dir := ExpandConstant('{app}');
+    WriteOk := True;
+    if not DirExists(Dir) then WriteOk := ForceDirectories(Dir);
+    if WriteOk then begin
+      Probe := Dir + '\.cr_writetest.tmp';
+      WriteOk := SaveStringToFile(Probe, 'probe', False);
+      if WriteOk then DeleteFile(Probe);
+    end;
+    if WriteOk then WriteStr := 'OK (정상 — 설치 진행됩니다)'
+    else WriteStr := '실패! 액세스 거부 (이게 설치 안 되는 원인)';
+    CRLog('installer: STARTUP-DIAG ' + Diag + ' writetest=' + WriteStr);
+    MsgBox('[ChainRemote 설치 진단]' + #13#10 + #13#10 +
+           '환경: ' + Diag + #13#10 +
+           'Program Files 쓰기 시험: ' + WriteStr + #13#10 + #13#10 +
+           '※ 이 창을 사진 찍어 두세요 (특히 "쓰기 시험: 실패" 면 꼭).' + #13#10 +
+           '[확인] 을 누르면 설치를 계속합니다.', mbInformation, MB_OK);
   end;
 end;
 
