@@ -23,7 +23,7 @@
 ;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일됨 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.20"
+#define APP_VERSION    "1.4.21"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; x64: 윈컴 Flutter 빌드 출력 (build-all.ps1)
@@ -136,6 +136,12 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;     (절대 경로 하드코딩 대신 {commonpf} — 32/64비트 설치 모드 모두 정확)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Start-Sleep -Seconds 8; $log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $svcobj=Get-Service ChainRemote -ErrorAction SilentlyContinue; $svc='None'; if ($svcobj) {{ $svc=[string]$svcobj.Status }}; $procs=@(Get-Process ChainRemote -ErrorAction SilentlyContinue).Count; $exe='{commonpf}\ChainRemote\ChainRemote.exe'; $exists=Test-Path $exe; $verdict='FAIL'; if (($svc -eq 'Running') -and ($procs -ge 1) -and $exists) {{ $verdict='PASS' }}; Add-Content -Path $log -Value ($st + ' installer: SELFTEST v{#APP_VERSION} svc=' + $svc + ' procs=' + $procs + ' exe=' + $exists + ' -> ' + $verdict)"""; StatusMsg: "ChainRemote 설치 self-test 중..."; Flags: runhidden waituntilterminated
 
+; 8.6. ★ 설치 환경(Win7 변종) 기록 — "모든 윈도우 버전 대비"의 눈. Win7 은 RTM/SP1/POSReady/
+;     Embedded + 에디션 + x86/x64 로 제각각이라 거래처별 실제 변종을 모르면 대응 불가.
+;     OS Caption/버전/SP/아키텍처 + PowerShell 버전 + UCRT(시스템/exe옆) + VC++(exe옆) 유무를
+;     updater.log 에 한 줄로 남긴다. PS 2.0 안전: Get-WmiObject(CIM 아님) + '*>' 없음 + 스칼라 .Count 미사용.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $os=Get-WmiObject -Class Win32_OperatingSystem -EA SilentlyContinue; $psv=$PSVersionTable.PSVersion.ToString(); $exe='{commonpf}\ChainRemote\ChainRemote.exe'; $ucrtSys=Test-Path ($env:windir + '\System32\ucrtbase.dll'); $ucrtLocal=Test-Path (Join-Path (Split-Path $exe) 'api-ms-win-crt-runtime-l1-1-0.dll'); $vcrLocal=Test-Path (Join-Path (Split-Path $exe) 'vcruntime140.dll'); Add-Content -Path $log -Value ($st + ' installer: ENV os=[' + $os.Caption + '] ver=' + $os.Version + ' sp=' + $os.ServicePackMajorVersion + ' arch=' + $os.OSArchitecture + ' ps=' + $psv + ' ucrt_sys=' + $ucrtSys + ' ucrt_local=' + $ucrtLocal + ' vcr_local=' + $vcrLocal)"""; StatusMsg: "ChainRemote 설치 환경 기록 중..."; Flags: runhidden waituntilterminated
+
 ; 9. 설치 직후 ChainRemote 실행 — 절대 경로 강제 (옛 AppId {app} mismatch 회피)
 Filename: "{commonpf}\ChainRemote\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
 
@@ -212,4 +218,48 @@ begin
     RegDeleteKeyIncludingSubkeys(HKLM, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{7C4D9A2E-5B31-4F8C-B2D6-1E9F3A6C8D52}_is1');
     RegDeleteKeyIncludingSubkeys(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{7C4D9A2E-5B31-4F8C-B2D6-1E9F3A6C8D52}_is1');
   end;
+end;
+
+// ── 설치 전 쓰기 보호 자가진단 (2026-06-15) ──────────────────────────────────
+// {app}(=Program Files\ChainRemote)에 실제 파일 쓰기를 미리 시도한다. 쓰기 보호
+//   (쓰기 필터 UWF/FBWF/EWF · 폴더 Deny 권한 · 백신 실시간 차단)면 설치 중간(install_me
+//   복사 단계)에 뜨던 암호 같은 'CreateFile 실패 코드5' / '디렉터리 생성 액세스 거부'
+//   대신, 여기서 원인+처방을 한글로 보여주고 깔끔히 중단한다. (향우정 Win7 32bit 사고 가시화.)
+// 자동 업데이트(/VERYSILENT, 이미 설치돼 쓰기 가능한 기기)는 중단하지 않음 — 기존 플로우 무영향.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Dir, Probe: String;
+  Ok: Boolean;
+begin
+  Result := '';
+  Dir := ExpandConstant('{app}');
+  Ok := True;
+  if not DirExists(Dir) then
+    Ok := ForceDirectories(Dir);
+  if Ok then begin
+    Probe := Dir + '\.cr_writetest.tmp';
+    Ok := SaveStringToFile(Probe, 'chainremote write probe', False);
+    if Ok then DeleteFile(Probe);
+  end;
+  if Ok then begin
+    CRLog('installer: write-probe OK (' + Dir + ')');
+    Exit;
+  end;
+  if WizardSilent() then begin
+    // 자동 업데이트 경로(이미 설치/쓰기가능 기기)는 기존대로 진행 — 무영향.
+    CRLog('installer: write-probe FAILED (' + Dir + ') silent -> proceed (existing flow)');
+    Exit;
+  end;
+  CRLog('installer: write-probe FAILED (' + Dir + ') interactive -> abort with guidance');
+  Result :=
+    '[ChainRemote 설치 불가 — 쓰기 보호 감지]' + #13#10 + #13#10 +
+    Dir + ' 에 파일을 쓸 수 없습니다 (액세스 거부).' + #13#10 +
+    '관리자 권한으로 실행해도 막힌다면 아래 중 하나입니다:' + #13#10 + #13#10 +
+    '1) 쓰기 보호 필터 (UWF/FBWF/EWF) — POS·키오스크 보호 SW.' + #13#10 +
+    '   확인: 관리자 명령프롬프트에서  uwfmgr get-config   (또는  ewfmgr c: )' + #13#10 +
+    '   보호가 켜져 있으면 끄고 재부팅한 뒤 다시 설치하세요.' + #13#10 + #13#10 +
+    '2) 폴더 권한 거부(Deny) — Win10→Win7 다운그레이드 기기에서 흔함.' + #13#10 +
+    '   확인:  icacls "' + Dir + '"   에서 (DENY) 항목을 찾아 제거하세요.' + #13#10 + #13#10 +
+    '3) 백신/보안 SW 실시간 차단 — 일시 해제 후 재시도하세요.' + #13#10 + #13#10 +
+    '조치 후 다시 설치해 주세요.  (진단 로그: C:\ProgramData\ChainRemote\updater.log)';
 end;

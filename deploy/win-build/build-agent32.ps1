@@ -95,4 +95,16 @@ Copy-Item $sciterDll $payload -Force
 Copy-Item 'C:\src\ChainRemote\deploy\custom-agent.txt' (Join-Path $payload 'custom.txt') -Force
 foreach ($f in Get-ChildItem $payload) { Write-Host ('    staged: ' + $f.Name) }
 Write-Host 'AGENT32-STAGE-OK'
+
+# [+] Win7 runtime app-local bundle (UCRT + VC++ x86) into the payload, so a clean
+#   (un-updated) Win7 32-bit POS can RUN the exe. The installer [Files] globs the
+#   payload dir, so these DLLs ride along automatically. Best-effort: warn (not fail)
+#   if SDK/VS not found - the post-build verify step gates self-containment.
+Write-Host '[+] bundle Win7 runtime (UCRT + VC++ x86) into payload'
+try {
+  & 'C:\src\ChainRemote\deploy\win-build\bundle-win7-runtime.ps1' -ReleaseDir $payload -Arch x86
+} catch {
+  Write-Host ('AGENT32-WARN: win7 runtime bundle failed (clean Win7 may not run): ' + $_.Exception.Message)
+}
+
 Write-Host 'AGENT32-ALL-DONE'

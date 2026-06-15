@@ -197,6 +197,20 @@ if ($buildExitCode -ne 0) {
 }
 Write-Host "    빌드 성공" -ForegroundColor Gray
 
+# 4.8. Win7 런타임 app-local 동봉 (UCRT + VC++) — 깨끗한(미업데이트) Win7 거래처 대응.
+#   stock Win7 엔 UCRT/VC++ 런타임이 없어 exe 가 실행조차 안 됨 → DLL 을 exe 옆에 동봉.
+#   best-effort: SDK/VS 못 찾아도 빌드는 성공 처리(경고만). 이 x64 경로용이며,
+#   32비트 에이전트는 build-agent32.ps1 이 동일 스크립트를 -Arch x86 으로 직접 호출.
+Write-Host "[4.8/5] Win7 런타임(UCRT+VC++) app-local 동봉..." -ForegroundColor Yellow
+$releaseX64 = "$repoDir\flutter\build\windows\x64\runner\Release"
+$bundleScript = "$repoDir\deploy\win-build\bundle-win7-runtime.ps1"
+try {
+  & $bundleScript -ReleaseDir $releaseX64 -Arch x64
+} catch {
+  Write-Host "    ⚠ 런타임 동봉 실패(빌드는 성공): $($_.Exception.Message)" -ForegroundColor Yellow
+  Write-Host "      → 깨끗한 Win7 대응하려면 SDK/VS 확인 후 bundle-win7-runtime.ps1 수동 실행." -ForegroundColor Yellow
+}
+
 # 5. 결과물 확인
 Write-Host "[5/5] 결과물 검색..." -ForegroundColor Yellow
 $installer = Get-ChildItem -Path $repoDir -Filter "rustdesk-*-install.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
