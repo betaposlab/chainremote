@@ -26,6 +26,11 @@
 
 $ErrorActionPreference = 'Continue'   # EAP Stop + native stderr 함정 회피 — exit code 로 판정
 Set-Location C:\src\ChainRemote
+# ★ rustup shim(~/.cargo/bin) 을 PATH 최우선으로. 'cargo +1.75' 의 +toolchain 셀렉터는
+#   rustup shim 만 이해한다. build-all.ps1 을 같은 세션서 먼저 돌리면 1.81 toolchain 의
+#   bin 을 PATH 앞에 박아 shim 을 가려 'error: no such command: +1.75' 로 죽는다(통합빌드 함정).
+#   shim 을 다시 최우선에 둬서 단독/연속 실행 모두 안전하게.
+$env:Path = "$env:USERPROFILE\.cargo\bin;" + $env:Path
 if (-not $env:VCPKG_ROOT)    { $env:VCPKG_ROOT = 'C:\src\vcpkg' }
 if (-not $env:LIBCLANG_PATH) { $env:LIBCLANG_PATH = 'C:\Program Files\LLVM\bin' }
 
