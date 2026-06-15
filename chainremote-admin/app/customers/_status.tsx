@@ -80,9 +80,9 @@ export function CustomerStatus({
   update?: UpdateInfo;
   isInternal?: boolean;
 }) {
-  // 내부 기기(본사/Mac/빌드머신): 버전·업뎃배지 숨김 — heartbeat 만(버전 미표시). 자동업뎃 대상 아님.
+  // 내부 기기(본사/Mac/빌드머신): 상태 칸 빈칸 — heartbeat/버전/배지 전부 숨김. 자동업뎃 대상 아님.
   if (isInternal) {
-    return renderHeartbeat(lastHeartbeatAt, null);
+    return null;
   }
 
   const health = computeUpdateHealth(update, lastVersion);
