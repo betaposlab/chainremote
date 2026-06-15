@@ -226,13 +226,28 @@ end;
 //   복사 단계)에 뜨던 암호 같은 'CreateFile 실패 코드5' / '디렉터리 생성 액세스 거부'
 //   대신, 여기서 원인+처방을 한글로 보여주고 깔끔히 중단한다. (향우정 Win7 32bit 사고 가시화.)
 // 자동 업데이트(/VERYSILENT, 이미 설치돼 쓰기 가능한 기기)는 중단하지 않음 — 기존 플로우 무영향.
+function CRDiag(): String;
+var
+  V: TWindowsVersion;
+  S: String;
+begin
+  // 실패해도(=[Files] 전) updater.log/메시지에 남길 환경 한 줄. 향우정류 진단의 핵심 데이터.
+  GetWindowsVersionEx(V);
+  S := 'os=' + IntToStr(V.Major) + '.' + IntToStr(V.Minor) + ' sp=' + IntToStr(V.ServicePackMajor);
+  if Is64BitInstallMode() then S := S + ' mode=x64' else S := S + ' mode=x86';
+  // ★ 핵심: 이 설치가 실제로 관리자 권한으로 승격됐는지. no 면 "권한 승격 실패"가 범인.
+  if IsAdminInstallMode() then S := S + ' admin=yes' else S := S + ' admin=no';
+  Result := S;
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
-  Dir, Probe: String;
+  Dir, Probe, Diag: String;
   Ok: Boolean;
 begin
   Result := '';
   Dir := ExpandConstant('{app}');
+  Diag := CRDiag();
   Ok := True;
   if not DirExists(Dir) then
     Ok := ForceDirectories(Dir);
@@ -242,24 +257,23 @@ begin
     if Ok then DeleteFile(Probe);
   end;
   if Ok then begin
-    CRLog('installer: write-probe OK (' + Dir + ')');
+    CRLog('installer: write-probe OK (' + Dir + ') ' + Diag);
     Exit;
   end;
   if WizardSilent() then begin
     // 자동 업데이트 경로(이미 설치/쓰기가능 기기)는 기존대로 진행 — 무영향.
-    CRLog('installer: write-probe FAILED (' + Dir + ') silent -> proceed (existing flow)');
+    CRLog('installer: write-probe FAILED (' + Dir + ') silent -> proceed; ' + Diag);
     Exit;
   end;
-  CRLog('installer: write-probe FAILED (' + Dir + ') interactive -> abort with guidance');
+  CRLog('installer: write-probe FAILED (' + Dir + ') interactive -> abort; ' + Diag);
   Result :=
-    '[ChainRemote 설치 불가 — 쓰기 보호 감지]' + #13#10 + #13#10 +
+    '[ChainRemote 설치 불가 — 폴더에 쓸 수 없습니다]' + #13#10 + #13#10 +
     Dir + ' 에 파일을 쓸 수 없습니다 (액세스 거부).' + #13#10 +
-    '관리자 권한으로 실행해도 막힌다면 아래 중 하나입니다:' + #13#10 + #13#10 +
-    '1) 쓰기 보호 필터 (UWF/FBWF/EWF) — POS·키오스크 보호 SW.' + #13#10 +
-    '   확인: 관리자 명령프롬프트에서  uwfmgr get-config   (또는  ewfmgr c: )' + #13#10 +
-    '   보호가 켜져 있으면 끄고 재부팅한 뒤 다시 설치하세요.' + #13#10 + #13#10 +
-    '2) 폴더 권한 거부(Deny) — Win10→Win7 다운그레이드 기기에서 흔함.' + #13#10 +
-    '   확인:  icacls "' + Dir + '"   에서 (DENY) 항목을 찾아 제거하세요.' + #13#10 + #13#10 +
-    '3) 백신/보안 SW 실시간 차단 — 일시 해제 후 재시도하세요.' + #13#10 + #13#10 +
-    '조치 후 다시 설치해 주세요.  (진단 로그: C:\ProgramData\ChainRemote\updater.log)';
+    '아래 순서로 확인해 주세요:' + #13#10 + #13#10 +
+    '1) 설치 파일 우클릭 → "관리자 권한으로 실행" 으로 다시 시도.' + #13#10 + #13#10 +
+    '2) ' + Dir + ' 우클릭 → 속성 → [보안] 탭 →' + #13#10 +
+    '   Administrators 에 "쓰기"가 허용인지 (거부면 그게 원인).' + #13#10 + #13#10 +
+    '3) 백신/보안 SW 실시간 차단이면 일시 해제 후 재시도.' + #13#10 + #13#10 +
+    '진단 정보: ' + Diag + #13#10 +
+    '(로그: C:\ProgramData\ChainRemote\updater.log)';
 end;
