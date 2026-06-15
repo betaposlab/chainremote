@@ -101,6 +101,30 @@ export function CustomerStatus({
   );
 }
 
+// HQ 본사앱 직원 상태 — 마지막 heartbeat(접속) + HQ 버전 + 옛버전 경고. 거래처(CustomerStatus)의 HQ 판.
+// lastHeartbeatAt 은 ISO 문자열(서버→클라 직렬화). targetVersion=최신 발행 HQ 버전(latest.json), null이면 비교 생략.
+export function HqStatus({
+  lastVersion,
+  lastHeartbeatAt,
+  targetVersion,
+}: {
+  lastVersion: string | null;
+  lastHeartbeatAt: string | null;
+  targetVersion: string | null;
+}) {
+  const hb = renderHeartbeat(lastHeartbeatAt ? new Date(lastHeartbeatAt) : null, lastVersion);
+  const stale = !!(lastVersion && targetVersion && isOlder(lastVersion, targetVersion));
+  if (!stale) return hb;
+  return (
+    <div className="flex flex-col gap-1">
+      {hb}
+      <span className="inline-flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+        ⚠ 옛 버전 (최신 v{targetVersion})
+      </span>
+    </div>
+  );
+}
+
 function UpdateBadge({ health }: { health: NonNullable<UpdateHealth> }) {
   if (health.kind === "ok") return null;
   if (health.kind === "pending") {

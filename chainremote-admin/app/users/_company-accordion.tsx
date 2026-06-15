@@ -13,6 +13,7 @@ import {
   adminResetUserPassword,
   adminDeleteUser,
 } from "@/lib/actions/tenant-users";
+import { HqStatus } from "../customers/_status";
 
 type Role = "owner" | "admin" | "operator" | "viewer" | "super_admin";
 
@@ -23,6 +24,8 @@ export type AccUser = {
   role: Role;
   isActive: boolean;
   lastLoginAt: string | null;
+  lastVersion: string | null;
+  lastHeartbeatAt: string | null;
 };
 
 export type CompanyGroup = {
@@ -38,20 +41,30 @@ const inp =
 export function CompanyAccordion({
   companies,
   selfId,
+  targetVersion,
 }: {
   companies: CompanyGroup[];
   selfId: string;
+  targetVersion: string | null;
 }) {
   return (
     <div className="space-y-3">
       {companies.map((c) => (
-        <Group key={c.id} company={c} selfId={selfId} />
+        <Group key={c.id} company={c} selfId={selfId} targetVersion={targetVersion} />
       ))}
     </div>
   );
 }
 
-function Group({ company, selfId }: { company: CompanyGroup; selfId: string }) {
+function Group({
+  company,
+  selfId,
+  targetVersion,
+}: {
+  company: CompanyGroup;
+  selfId: string;
+  targetVersion: string | null;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -82,6 +95,7 @@ function Group({ company, selfId }: { company: CompanyGroup; selfId: string }) {
             tenantId={company.id}
             users={company.users}
             selfId={selfId}
+            targetVersion={targetVersion}
           />
         </div>
       )}
@@ -130,10 +144,12 @@ function UserTable({
   tenantId,
   users,
   selfId,
+  targetVersion,
 }: {
   tenantId: string;
   users: AccUser[];
   selfId: string;
+  targetVersion: string | null;
 }) {
   return (
     <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
@@ -145,13 +161,14 @@ function UserTable({
             <th className="px-3 py-2 font-medium">역할</th>
             <th className="px-3 py-2 font-medium">활성</th>
             <th className="px-3 py-2 font-medium">최종 로그인</th>
+            <th className="px-3 py-2 font-medium">HQ 상태</th>
             <th className="px-3 py-2 text-right font-medium">작업</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {users.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-3 py-4 text-center text-slate-400">
+              <td colSpan={7} className="px-3 py-4 text-center text-slate-400">
                 아이디 없음 — 위에서 추가하세요.
               </td>
             </tr>
@@ -162,6 +179,7 @@ function UserTable({
               tenantId={tenantId}
               user={u}
               isSelf={u.id === selfId}
+              targetVersion={targetVersion}
             />
           ))}
         </tbody>
@@ -174,10 +192,12 @@ function Row({
   tenantId,
   user,
   isSelf,
+  targetVersion,
 }: {
   tenantId: string;
   user: AccUser;
   isSelf: boolean;
+  targetVersion: string | null;
 }) {
   const [editing, setEditing] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -211,6 +231,13 @@ function Row({
           {user.lastLoginAt
             ? new Date(user.lastLoginAt).toLocaleString("ko-KR")
             : "—"}
+        </td>
+        <td className="px-3 py-2 text-xs">
+          <HqStatus
+            lastVersion={user.lastVersion}
+            lastHeartbeatAt={user.lastHeartbeatAt}
+            targetVersion={targetVersion}
+          />
         </td>
         <td className="whitespace-nowrap px-3 py-2 text-right">
           {isSelf ? (
@@ -251,7 +278,7 @@ function Row({
       </tr>
       {editing && (
         <tr className="bg-slate-50">
-          <td colSpan={6} className="px-3 py-2">
+          <td colSpan={7} className="px-3 py-2">
             <form
               action={(fd) =>
                 startTransition(async () => {
@@ -298,7 +325,7 @@ function Row({
       )}
       {resetting && (
         <tr className="bg-amber-50">
-          <td colSpan={6} className="px-3 py-2">
+          <td colSpan={7} className="px-3 py-2">
             <form
               action={(fd) =>
                 startTransition(async () => {

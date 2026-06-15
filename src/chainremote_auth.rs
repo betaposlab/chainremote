@@ -271,7 +271,13 @@ pub fn heartbeat() -> HeartbeatStatus {
     if token.is_empty() {
         return HeartbeatStatus::Error;
     }
-    let (status, body) = match post_json("/api/auth/heartbeat", serde_json::json!({}), Some(&token)) {
+    // 자기 HQ 앱 버전을 같이 보고 → 패널이 직원별 HQ 버전/생존을 가시화(users.last_version).
+    // 라우트는 version 을 옵셔널로 처리하므로 옛 클라(빈 바디)와도 백워드호환.
+    let (status, body) = match post_json(
+        "/api/auth/heartbeat",
+        serde_json::json!({ "version": crate::CHAINREMOTE_VERSION }),
+        Some(&token),
+    ) {
         Ok(v) => v,
         // 네트워크 단기 끊김 — 세션 유지(§7). 다음 tick 재시도.
         Err(_) => return HeartbeatStatus::Error,

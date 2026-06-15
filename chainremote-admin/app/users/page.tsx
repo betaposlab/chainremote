@@ -14,6 +14,24 @@ import { listAllUsersWithCompany, listTenants } from "@/lib/data/tenants";
 
 export const dynamic = "force-dynamic";
 
+// 최신 발행 HQ 버전 (latest.json) — 직원 HQ 가 옛버전이면 경고용 비교 기준. 못 닿으면 null(배지 생략).
+async function getTargetHqVersion(): Promise<string | null> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch("https://sepani.synology.me/chainremote/latest.json", {
+      next: { revalidate: 300 },
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const j = await res.json();
+    return typeof j?.hq?.version === "string" ? j.hq.version : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function UsersPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -27,6 +45,8 @@ export default async function UsersPage() {
       </div>
     );
   }
+
+  const targetHqVersion = await getTargetHqVersion();
 
   // super_admin(Chang): 회사별 아코디언 (회사 위 + 클릭하면 그 회사 사용자 펼침).
   if (session.user.role === "super_admin") {
@@ -42,6 +62,8 @@ export default async function UsersPage() {
         role: u.role,
         isActive: u.isActive,
         lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
+        lastVersion: u.lastVersion,
+        lastHeartbeatAt: u.lastHeartbeatAt ? u.lastHeartbeatAt.toISOString() : null,
       });
       byTenant.set(u.tenantId, arr);
     }
@@ -60,7 +82,11 @@ export default async function UsersPage() {
             아이디가 펼쳐집니다. (거래처 사람들은 등록 안 함)
           </p>
         </header>
-        <CompanyAccordion companies={groups} selfId={session.user.id} />
+        <CompanyAccordion
+          companies={groups}
+          selfId={session.user.id}
+          targetVersion={targetHqVersion}
+        />
       </div>
     );
   }
@@ -95,6 +121,7 @@ export default async function UsersPage() {
               <th className="text-left px-4 py-3 font-medium">역할</th>
               <th className="text-left px-4 py-3 font-medium">활성</th>
               <th className="text-left px-4 py-3 font-medium">최종 로그인</th>
+              <th className="text-left px-4 py-3 font-medium">HQ 상태</th>
               <th className="text-right px-4 py-3 font-medium">작업</th>
             </tr>
           </thead>
@@ -109,7 +136,10 @@ export default async function UsersPage() {
                   role: u.role,
                   isActive: u.isActive,
                   lastLoginAt: u.lastLoginAt ? u.lastLoginAt.toISOString() : null,
+                  lastVersion: u.lastVersion,
+                  lastHeartbeatAt: u.lastHeartbeatAt ? u.lastHeartbeatAt.toISOString() : null,
                 }}
+                targetVersion={targetHqVersion}
                 isSelf={u.id === session.user.id}
               />
             ))}

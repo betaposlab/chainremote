@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { resetPassword, updateUser, deleteUser } from "@/lib/actions/users";
+import { HqStatus } from "../customers/_status";
 
 type Role = "owner" | "admin" | "operator" | "viewer" | "super_admin";
 type Props = {
@@ -12,11 +13,14 @@ type Props = {
     role: Role;
     isActive: boolean;
     lastLoginAt: string | null;
+    lastVersion: string | null;
+    lastHeartbeatAt: string | null;
   };
+  targetVersion: string | null;
   isSelf: boolean;
 };
 
-export function UserRow({ user, isSelf }: Props) {
+export function UserRow({ user, isSelf, targetVersion }: Props) {
   const [editing, setEditing] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -50,6 +54,13 @@ export function UserRow({ user, isSelf }: Props) {
             ? new Date(user.lastLoginAt).toLocaleString("ko-KR")
             : "—"}
         </td>
+        <td className="px-4 py-3 text-xs">
+          <HqStatus
+            lastVersion={user.lastVersion}
+            lastHeartbeatAt={user.lastHeartbeatAt}
+            targetVersion={targetVersion}
+          />
+        </td>
         <td className="px-4 py-3 text-right whitespace-nowrap">
           <button
             onClick={() => setEditing((v) => !v)}
@@ -81,7 +92,7 @@ export function UserRow({ user, isSelf }: Props) {
       </tr>
       {editing && (
         <tr className="bg-slate-50">
-          <td colSpan={6} className="px-4 py-3">
+          <td colSpan={7} className="px-4 py-3">
             <form
               action={(fd) =>
                 startTransition(async () => {
@@ -131,7 +142,7 @@ export function UserRow({ user, isSelf }: Props) {
       )}
       {resetting && (
         <tr className="bg-amber-50">
-          <td colSpan={6} className="px-4 py-3">
+          <td colSpan={7} className="px-4 py-3">
             <form
               action={(fd) =>
                 startTransition(async () => {

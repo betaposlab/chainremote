@@ -11,7 +11,7 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { activeLoginSessions } from "@/lib/schema";
+import { activeLoginSessions, users } from "@/lib/schema";
 
 export interface SeatParams {
   userId: string;
@@ -110,7 +110,11 @@ export async function takeoverSeat(p: SeatParams): Promise<void> {
  * heartbeat — jti 가 현재 active 와 일치하면 last_seen 갱신 후 true.
  * 불일치/행없음(=인계당함 or 로그아웃) → false → 라우트가 401 REVOKED.
  */
-export async function touchHeartbeat(userId: string, jti: string): Promise<boolean> {
+export async function touchHeartbeat(
+  userId: string,
+  jti: string,
+  version?: string | null,
+): Promise<boolean> {
   const rows = await db
     .update(activeLoginSessions)
     .set({ lastSeenAt: new Date() })
@@ -118,7 +122,19 @@ export async function touchHeartbeat(userId: string, jti: string): Promise<boole
       and(eq(activeLoginSessions.userId, userId), eq(activeLoginSessions.jti, jti)),
     )
     .returning({ userId: activeLoginSessions.userId });
-  return rows.length > 0;
+  if (rows.length === 0) return false;
+  // 좌석 생존 확인됨 → 이 직원의 HQ 버전/마지막접속 갱신 (패널 가시화).
+  //   ★ best-effort: 여기서 실패해도(마이그 014 미적용 등) heartbeat/좌석 판정은 위에서 이미 끝남.
+  //     버전 가시화는 부가기능이라 절대 seat enforcement 를 깨면 안 됨 → try/catch 로 격리.
+  try {
+    await db
+      .update(users)
+      .set({ lastHeartbeatAt: new Date(), ...(version ? { lastVersion: version } : {}) })
+      .where(eq(users.id, userId));
+  } catch {
+    // 버전 기록 실패 무시 (세션/좌석엔 영향 없음)
+  }
+  return true;
 }
 
 /**

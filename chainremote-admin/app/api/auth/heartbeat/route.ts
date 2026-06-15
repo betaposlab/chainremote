@@ -20,11 +20,27 @@ export async function POST(req: Request) {
     if (me.role !== "super_admin" && !(await isTenantActive(me.tenantId))) {
       return Response.json({ error: "구독이 정지되었습니다" }, { status: 401 });
     }
+    // HQ 앱 버전 보고 (옵셔널, 방어적 파싱 — 옛 클라는 빈 바디 {}). 패널 직원화면 가시화용.
+    //   형식 검증(X.Y.Z…, 24자 이하)된 것만 저장. 바디 못 읽어도 heartbeat 는 정상 진행.
+    let version: string | null = null;
+    try {
+      const body = await req.json();
+      if (
+        body &&
+        typeof body.version === "string" &&
+        /^\d+\.\d+\.\d+/.test(body.version) &&
+        body.version.length <= 24
+      ) {
+        version = body.version;
+      }
+    } catch {
+      // 빈/비-JSON 바디 (옛 클라) — version 없이 진행
+    }
     // 옛 토큰(jti 없음) — 전환기 백워드 호환. enforcement 미적용으로 통과.
     if (!me.jti) {
       return Response.json({ ok: true, enforced: false });
     }
-    const alive = await touchHeartbeat(me.uid, me.jti);
+    const alive = await touchHeartbeat(me.uid, me.jti, version);
     if (!alive) {
       return Response.json({ error: "REVOKED", revoked: true }, { status: 401 });
     }

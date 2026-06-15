@@ -87,6 +87,10 @@ export const users = pgTable(
     role: userRole("role").notNull().default("operator"),
     isActive: boolean("is_active").notNull().default(true),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    // HQ 데스크탑앱이 heartbeat(/api/auth/heartbeat)로 보고 — 패널에서 직원별 HQ 버전/생존 가시화.
+    // customers.lastVersion/lastHeartbeatAt 의 HQ 판. 마이그 014.
+    lastVersion: text("last_version"),
+    lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

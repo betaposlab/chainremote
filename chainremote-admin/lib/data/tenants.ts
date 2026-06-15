@@ -141,6 +141,8 @@ export async function listAllUsersWithCompany() {
       role: users.role,
       isActive: users.isActive,
       lastLoginAt: users.lastLoginAt,
+      lastVersion: users.lastVersion,
+      lastHeartbeatAt: users.lastHeartbeatAt,
       tenantId: users.tenantId,
       companyName: tenants.displayName,
       companySlug: tenants.slug,
