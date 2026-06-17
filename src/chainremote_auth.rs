@@ -149,7 +149,14 @@ pub fn logout() {
 /// 좌석 식별자 — device_id(machine_uid, RustDesk get_uuid 와 동일) + device_label(호스트명).
 /// Rust 내부 계산 → Flutter 가 안 넘겨도 됨(dart:io 의존 회피, FFI 시그니처 단순).
 fn device_info() -> (String, String) {
-    let device_id = crate::encode64(hbb_common::get_uuid());
+    // [ChainRemote] iOS/Android는 machine_uid가 없어 get_uuid가 빈값일 수 있다(데스크탑은 안 빔).
+    // deviceId가 비면 좌석 enforcement 토큰 API가 거부("deviceId 필요")하므로,
+    // 빈값이면 안정적 per-install 식별자(RustDesk 9자리 ID)로 대체한다.
+    let mut uuid = hbb_common::get_uuid();
+    if uuid.is_empty() {
+        uuid = hbb_common::config::Config::get_id().into_bytes();
+    }
+    let device_id = crate::encode64(uuid);
     let device_label = crate::common::hostname();
     (device_id, device_label)
 }
