@@ -54,8 +54,12 @@ PrivilegesRequired=admin
 ; 64비트 OS 에선 64비트 설치 모드 ({commonpf}=C:\Program Files), 32비트 OS 에선 자동으로 32비트 모드.
 ; 어느 쪽이든 {commonpf}\ChainRemote = install_me() 의 %ProgramFiles% 계산과 일치.
 ArchitecturesInstallIn64BitMode=x64compatible
-; Win7 SP1 이상 (XP/Vista 차단 — 32비트 페이로드의 최저선과 일치)
-MinVersion=6.1sp1
+; Win7 이상 (XP/Vista 차단). ★2026-06-17: 'sp1' 명시 제거 — Win7 Enterprise K POS 일부가
+;   실제 SP1 인데도 Inno 의 SP 감지가 SP0 으로 떨어져 "Windows 버전 미지원" 으로 설치가 막힘
+;   (호환shim/POS이미지/에디션 quirk; Windows 자체는 SP1 표시). SP 요구는 런타임 동봉(app-local
+;   UCRT/VC++)으로 대체되므로 major.minor(6.1)만 검사 → 진짜 SP1 머신이 안 막힘. 비-SP1 은 실행시
+;   런타임 부재로 걸러짐(설치 진단 팝업이 가시화).
+MinVersion=6.1
 ; 자동 업데이트 호환성 — 기존 ChainRemote 프로세스 자동 종료/재시작
 CloseApplications=yes
 RestartApplications=yes
