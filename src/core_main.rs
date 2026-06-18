@@ -213,6 +213,31 @@ pub fn core_main() -> Option<Vec<String>> {
     }
     hbb_common::init_log(false, &log_name);
 
+    // [ChainRemote] panic 위치 가시화. profile.release 가 panic='abort' + strip 라
+    //   panic 이 나면 기본 hook(stderr)으로만 새고 파일 로그엔 안 남아, cm/서비스가
+    //   0xc0000409(abort→msvcrt)로 무증상 즉사한다(32비트 거래처 POS 연결종료 크래시 실측).
+    //   abort 직전에 hook 이 먼저 실행되므로, WriteMode::Direct 로그에 위치+메시지를 남긴 뒤
+    //   기존 hook 으로 체인한다. 로그 전용 — 동작 변경 없음.
+    {
+        let default_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let loc = info
+                .location()
+                .map(|l| format!("{}:{}", l.file(), l.line()))
+                .unwrap_or_else(|| "<unknown>".to_string());
+            let msg = info
+                .payload()
+                .downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|| info.payload().downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "<non-string panic payload>".to_string());
+            let cur = std::thread::current();
+            let thread = cur.name().unwrap_or("<unnamed>");
+            log::error!("[PANIC] thread '{}' at {} : {}", thread, loc, msg);
+            default_hook(info);
+        }));
+    }
+
     // linux uni (url) go here.
     #[cfg(all(target_os = "linux", feature = "flutter"))]
     if args.len() > 0 && args[0].starts_with(&crate::get_uri_prefix()) {
