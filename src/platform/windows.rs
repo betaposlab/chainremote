@@ -1154,16 +1154,25 @@ pub fn get_active_user_home() -> Option<PathBuf> {
 }
 
 pub fn is_prelogin() -> bool {
-    let Some(username) = get_current_session_username() else {
+    // [ChainRemote] 활성 콘솔 세션(실사용자)으로 판단. 서비스(LocalSystem)는 세션0 이라
+    //   get_current_process_session_id() 가 세션0 을 줘서 username 빈값→"prelogin" 오판한다.
+    //   get_current_session_id(false)=WTSGetActiveConsoleSessionId 로 실제 사용자 세션을 본다.
+    let sid = get_current_session_id(false);
+    if sid == u32::MAX {
         return false;
-    };
+    }
+    let username = get_session_username(sid);
     username.is_empty() || username == "SYSTEM"
 }
 
 pub fn is_locked() -> bool {
-    let Some(session_id) = get_current_process_session_id() else {
+    // [ChainRemote] 위 is_prelogin 과 동일 이유 — 활성 콘솔 세션의 잠금 상태를 조회.
+    //   세션0(서비스 자기 세션)은 비대화형이라 항상 "잠김"으로 오판되어, 정상 화면인데도
+    //   원격 접속 시 "상대 화면 잠김" 메시지를 보내던 버그를 박멸.
+    let session_id = get_current_session_id(false);
+    if session_id == u32::MAX {
         return false;
-    };
+    }
     unsafe { is_session_locked(session_id) == TRUE }
 }
 
