@@ -70,13 +70,21 @@ $inlineTime = (Get-Item 'src/ui/inline.rs').LastWriteTime
 if ($inlineTime -lt $tisTime) { Write-Host 'AGENT32-FAIL: inline.rs older than cm.tis (regen did not run)'; exit 1 }
 Write-Host '    inline.rs regen OK'
 
-Write-Host '[5/7] clean libsodium-sys + i686 build (inline sciter, no hwcodec)'
+Write-Host '[5/7] clean (libsodium-sys + clipboard + main bin) + i686 build (inline sciter, no hwcodec)'
+# HARDENING (2026-06-18): a libs/* source fix can be missed by cargo incremental relink,
+#   shipping a STALE rustdesk.exe. Observed: cliprdr fix (ff9787343) absent from the v1.4.23
+#   agent32 build despite the source being present. Force-clean the fixed crate + main bin so
+#   they MUST recompile/relink for this target, and delete the prior artifact so a skipped or
+#   failed build trips the [6/7] guard instead of silently shipping the old binary.
 cargo +1.75 clean -p libsodium-sys
+cargo +1.75 clean --target i686-pc-windows-msvc -p clipboard -p rustdesk
+Remove-Item -Force $exe -ErrorAction SilentlyContinue
 $cfg1 = "target.i686-pc-windows-msvc.sodium.rustc-link-search=['native=C:/src/vcpkg/installed/x86-windows-static/lib']"
 $cfg2 = "target.i686-pc-windows-msvc.sodium.rustc-link-lib=['static=libsodium']"
 cargo +1.75 build --target i686-pc-windows-msvc --release --features inline --config $cfg1 --config $cfg2
 if ($LASTEXITCODE -ne 0) { Write-Host 'AGENT32-FAIL: cargo build'; exit 1 }
 Write-Host 'AGENT32-BUILD-OK'
+if (-not (Test-Path $exe)) { Write-Host 'AGENT32-FAIL: exe not produced (stale/skipped build guard)'; exit 1 }
 
 Write-Host '[6/7] PE check (machine=0x014C + subsystem min) + smoke'
 $fs = [System.IO.File]::OpenRead($exe)
