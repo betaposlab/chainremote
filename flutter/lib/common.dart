@@ -65,7 +65,7 @@ var isMobile = isAndroid || isIOS;
 var version = ''; // RustDesk 코어 버전 (bind.mainGetVersion)
 // ChainRemote 자체 버전. src/chainremote_version.rs 의 CHAINREMOTE_VERSION +
 // deploy/win-installer/{agent,hq}-installer.iss 의 APP_VERSION 과 항상 동기화.
-const chainRemoteVersion = '1.4.23';
+const chainRemoteVersion = '1.4.24';
 int androidVersion = 0;
 
 // Only used on Linux.
@@ -3803,6 +3803,7 @@ Widget loadLogo() {
     child: Image.asset(
       'assets/chainremote_logo.png',
       fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
       errorBuilder: (ctx, error, stackTrace) => const Offstage(),
     ),
   ).marginOnly(left: 8, right: 8, top: 14, bottom: 6);

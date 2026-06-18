@@ -169,6 +169,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                   child: Image.asset('assets/chainremote_logo.png',
                       fit: BoxFit.contain,
                       height: 56,
+                      filterQuality: FilterQuality.medium,
                       errorBuilder: (_, __, ___) =>
                           const SizedBox(height: 56)),
                 ),
@@ -394,6 +395,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             constraints: const BoxConstraints(maxWidth: 220, maxHeight: 48),
             child: Image.asset('assets/chainremote_logo.png',
                 fit: BoxFit.contain,
+                filterQuality: FilterQuality.medium,
                 errorBuilder: (_, __, ___) => const SizedBox(width: 200)),
           ),
           if ((Platform.environment['CHAINREMOTE_PORTABLE_DIR'] ?? '').isNotEmpty) ...[
