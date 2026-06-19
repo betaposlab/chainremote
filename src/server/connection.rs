@@ -233,8 +233,6 @@ pub struct Connection {
     port_forward_address: String,
     tx_to_cm: mpsc::UnboundedSender<ipc::Data>,
     authorized: bool,
-    // ChainRemote: 인가 세션 동안 재접속 grace 주기 갱신용 (마지막 갱신 시각)
-    grace_refresh_tm: Option<std::time::Instant>,
     require_2fa: Option<totp_rs::TOTP>,
     keyboard: bool,
     clipboard: bool,
@@ -430,7 +428,6 @@ impl Connection {
             port_forward_address: "".to_owned(),
             tx_to_cm,
             authorized: false,
-            grace_refresh_tm: None,
             keyboard: Self::permission(keys::OPTION_ENABLE_KEYBOARD, &control_permissions),
             clipboard: Self::permission(keys::OPTION_ENABLE_CLIPBOARD, &control_permissions),
             audio: Self::permission(keys::OPTION_ENABLE_AUDIO, &control_permissions),
@@ -931,21 +928,11 @@ impl Connection {
                     #[cfg(windows)]
                     conn.portable_check();
                     raii::AuthedConnID::check_wake_lock_on_setting_changed();
-                    // ChainRemote: 인가 세션 동안 재접속 grace 를 60초마다 갱신 — 업데이트/강제종료/
-                    // 정전 등 어떤 끊김이든 같은 운영자가 5분 내 재접속하면 재수락 없이 재개(고객이
-                    // 수락한 세션의 연속). 기존 restart-grace 파일/포맷/소비(multi-use) 그대로 재사용.
-                    // 세션 정상 종료 후에도 ≤5분 잔존하나 같은 운영자 한정이라 수용(파일 삭제를
-                    // 넣으면 재시작 grace 와 race — 건드리지 않음).
-                    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-                    if conn.authorized
-                        && conn
-                            .grace_refresh_tm
-                            .map(|t| t.elapsed().as_secs() >= 60)
-                            .unwrap_or(true)
-                    {
-                        Connection::set_restart_reconnect_grace(&conn.lr.my_id);
-                        conn.grace_refresh_tm = Some(std::time::Instant::now());
-                    }
+                    // [ChainRemote 2026-06-19] 세션 중 60초 grace 갱신 제거 — click-수락 정책 위반.
+                    //   기존엔 인가 세션 동안 grace 를 계속 깔아, 정상 종료 후 5분 내 재접속이 수락창
+                    //   없이 자동 통과(거래처 통제권 훼손)했다. 이제 grace 는 *진짜 재시작*
+                    //   (RestartRemoteDevice 핸들러, set_restart_reconnect_grace) 에만 설정 →
+                    //   재시작-재접속 1회 자동수락은 유지하되, 평상시 재접속은 매번 수락창.
                     if let Some((instant, minute)) = conn.auto_disconnect_timer.as_ref() {
                         if instant.elapsed().as_secs() > minute * 60 {
                             conn.send_close_reason_no_retry("Connection failed due to inactivity").await;

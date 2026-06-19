@@ -40,6 +40,15 @@ class Body: Reactor.Component
         // ChainRemote(Agent32): 권한 아이콘 그리드는 렌더하지 않는다 — 거래처 화면 단순화(클릭수락 정책),
         // Flutter 수락카드와 톤 통일. 권한 기본값은 toml/서버 정책이 결정. Sciter cm 은 Agent32 에만 실림.
         var show_accept_btn = handler.get_option('approve-mode') != 'password';
+        // ChainRemote(Agent32): 활성 세션 = 슬림 "원격지원 중" 배너 (Flutter 톤 통일).
+        //   빨간 점 + "원격지원 중" + [원격 종료]. 전체 카드 대신 표시 → 거래처가 원격 중임을 항상 인지.
+        if (auth && !disconnected) {
+            return <div .support-banner>
+                <span .banner-dot />
+                <span .banner-label>원격지원 중</span>
+                <button #disconnect .banner-end>원격 종료</button>
+            </div>;
+        }
        // below size:* is a workaround for Linux, it already set in css, but not work, shit sciter
         return <div .content style="size:*">
             <div .left-panel>
@@ -161,9 +170,7 @@ class Body: Reactor.Component
             connection.authorized = true;
             body.update();
             handler.authorize(cid);
-            self.timer(30ms, function() {
-                setWindowState(View.WINDOW_MINIMIZED);
-            });
+            self.timer(30ms, applyCmBanner);
         });
     }
 
@@ -175,9 +182,7 @@ class Body: Reactor.Component
             body.update();
             handler.elevate_portable(cid);
             handler.authorize(cid);
-            self.timer(30ms, function() {
-                setWindowState(View.WINDOW_MINIMIZED);
-            });
+            self.timer(30ms, applyCmBanner);
         });
     }
 
@@ -187,9 +192,7 @@ class Body: Reactor.Component
             show_elevation = false;
             body.update();
             handler.elevate_portable(cid);
-            self.timer(30ms, function() {
-                setWindowState(View.WINDOW_MINIMIZED);
-            });
+            self.timer(30ms, applyCmBanner);
         });
     }
 
@@ -340,9 +343,38 @@ function adaptSizeForChat() {
     }
 }
 
+var cm_banner_state = undefined;
+// ChainRemote(Agent32): 활성 세션이면 cm 창을 슬림 "원격지원 중" 배너로(상단중앙·상시 최상위),
+//   대기/끊김이면 카드 크기로 되돌린다. 전환 시에만 view.move (떨림 방지).
+//   ★ windowTopmost=true 만 설정하고 view.focus 는 건드리지 않음 → z-order 만 최상위,
+//     키보드 포커스는 안 뺏어 POS 바코드 스캐너 입력 보호 (2026-06-12 보류 건의 정공법).
+function applyCmBanner() {
+    if (connections.length == 0) return;
+    var active = false;
+    for (var i = 0; i < connections.length; i++) {
+        if (connections[i].authorized && !connections[i].disconnected) active = true;
+    }
+    if (cm_banner_state == active) return;
+    cm_banner_state = active;
+    var (sw, sh) = view.screenBox(#workarea, #dimension);
+    if (active) {
+        var w = scaleIt(260);
+        var h = scaleIt(48);
+        setWindowState(View.WINDOW_SHOWN);
+        view.move((sw - w) / 2, 0, w, h);
+        view.windowTopmost = true;
+    } else {
+        var w = scaleIt(380);
+        var h = scaleIt(260);
+        view.windowTopmost = false;
+        view.move((sw - w) / 2, 0, w, h);
+    }
+}
+
 function update() {
     header.update();
     body.update();
+    applyCmBanner();
 }
 
 function bring_to_top(idx=-1) {

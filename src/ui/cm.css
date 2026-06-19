@@ -7,6 +7,40 @@ div.content {
     size: *;
 }
 
+/* ChainRemote(Agent32): 활성 세션 "원격지원 중" 슬림 배너 (Flutter 톤: 다크바 + 빨간 점 + 종료) */
+div.support-banner {
+    size: *;
+    flow: horizontal;
+    background: #1F2937;
+    padding: 0 12px;
+}
+div.support-banner > .banner-dot {
+    size: 9px;
+    background: #E53935;
+    border-radius: 9px;
+    margin: * 8px * 2px;
+}
+div.support-banner > .banner-label {
+    size: *;
+    color: #FFFFFF;
+    font-size: 15px;
+    font-weight: bold;
+    margin: * 0;
+    vertical-align: middle;
+}
+div.support-banner > .banner-end {
+    color: #FFFFFF;
+    background: #E53935;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    margin: * 0;
+}
+div.support-banner > .banner-end:hover {
+    background: #C62828;
+}
+
 div.left-panel {
     size: *;
     padding: 1em;
