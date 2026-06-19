@@ -23,7 +23,7 @@
 ;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일됨 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.29"
+#define APP_VERSION    "1.4.30"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; x64: 윈컴 Flutter 빌드 출력 (build-all.ps1)
@@ -74,6 +74,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 ; ── 아키텍처별 페이로드 (둘 다 패키지에 담기고, 설치 시 한쪽만 풀림) ──
 Source: "{#BUILD_DIR_X64}\*"; DestDir: "{tmp}\chainremote_payload"; Check: Is64BitInstallMode; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
+; ★ x64 페이로드에도 custom.txt 동봉 — x86(build-agent32.ps1:108)과 대칭. install_me 의 XCOPY(/E,
+;   windows.rs:1351)가 payload 폴더 전체를 "설치된 exe 옆"으로 복사하므로, 레지스트리 InstallLocation 이
+;   옛 설치 잔재로 어긋나도(삼성공판장 사례) custom.txt 가 항상 서비스 exe 옆에 존재 → is_incoming_only 보장.
+;   (그동안 x64 는 1.5 의 하드코딩 {commonpf} 복사에만 의존 → 경로 갈라지면 무음 미적용되던 구조적 결함 박멸, 2026-06-20)
+Source: "..\custom-agent.txt"; DestDir: "{tmp}\chainremote_payload"; DestName: "custom.txt"; Check: Is64BitInstallMode; Flags: deleteafterinstall ignoreversion
 Source: "{#BUILD_DIR_X86}\*"; DestDir: "{tmp}\chainremote_payload"; Check: not Is64BitInstallMode; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
 
 ; 우리 toml — [Run] 단계에서 두 경로(user + LocalService)에 동시 배치
