@@ -192,6 +192,16 @@ var
   Installed: String;
 begin
   Result := True;
+  // [ChainRemote] HQ(본사앱)는 x64 전용 — 32비트 Windows 에선 코어 exe 가 못 돌고
+  //   "CreateProcess 실패 코드 216(아키텍처 불일치)" 로 깨진다. 거래처 32비트 POS 에 실수로
+  //   HQ 를 받는 경우를 위해, 32비트면 명확히 안내하고 중단(거래처용은 Agent 설치).
+  if not IsWin64() then begin
+    MsgBox('ChainRemote 본사앱(HQ)은 64비트 Windows 전용입니다.' + #13#10 +
+           '이 컴퓨터는 32비트라 설치할 수 없습니다.' + #13#10 + #13#10 +
+           '원격 지원을 받는(제어되는) 컴퓨터에는 ''Agent'' 설치 파일(ChainRemote_Agent_Setup)을 설치하세요.', mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
   if ExpandConstant('{param:FORCE|0}') = '1' then Exit;
   Installed := CRInstalledVer();
   if (Installed <> '') and (CRCmpVer(Installed, '{#APP_VERSION}') > 0) then begin
