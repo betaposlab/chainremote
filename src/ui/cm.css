@@ -311,3 +311,63 @@ div.tab-arrows span:active {
     opacity: 1;
     background-color: #ddd;
 }
+
+/* ChainRemote(Agent32): 대기 수락카드 — Flutter "원격지원 요청" 톤 통일 */
+div.accept-card {
+    size: *;
+    background: #F7F9FC;
+}
+div.accept-card > .ac-inner {
+    margin: * 0;
+    padding: 0 22px;
+    width: *;
+}
+div.accept-card .ac-title {
+    color: #1F2937;
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 8px;
+}
+div.accept-card .ac-body {
+    color: #4B5563;
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 4px;
+}
+div.accept-card .ac-id {
+    color: #9AA3AF;
+    font-size: 12px;
+    text-align: center;
+    margin-bottom: 18px;
+}
+div.accept-card .ac-buttons {
+    flow: horizontal;
+    width: *;
+    height: 46px;
+}
+div.accept-card .ac-buttons > button {
+    width: *;
+    height: 46px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: bold;
+    border: none;
+}
+div.accept-card .ac-deny {
+    color: #6B7280;
+    background: #FFFFFF;
+    border: 1px solid #D1D5DB;
+    margin-right: 6px;
+}
+div.accept-card .ac-accept {
+    color: #FFFFFF;
+    background: #1E5BFF;
+    margin-left: 6px;
+}
+div.accept-card .ac-accept:hover {
+    background: #1A4FE0;
+}
+div.accept-card .ac-deny:hover {
+    background: #F3F4F6;
+}

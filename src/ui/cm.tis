@@ -1,4 +1,6 @@
-view.windowFrame = is_osx ? #extended : #solid;
+// ChainRemote(Agent32): Windows 는 프레임리스(#none) — Flutter cm(타이틀바 없는 카드/배너)과
+//   톤 통일 + Standard VGA(무합성) 환경의 OS 프레임 repaint 노출("지워짐") 완화 시도.
+view.windowFrame = is_osx ? #extended : #none;
 
 var body;
 var connections = [];
@@ -47,6 +49,22 @@ class Body: Reactor.Component
                 <span .banner-dot />
                 <span .banner-label>{translate('Remote support in progress')}</span>
                 <button #disconnect .banner-end>{translate('Disconnect')}</button>
+            </div>;
+        }
+        // ChainRemote(Agent32): 대기(미수락) = Flutter "원격지원 요청" 카드와 톤 통일.
+        //   제목 + 안내문 + 본사 ID + [거부]/[수락]. translate() 사용(모지바케 회피).
+        if (!auth && !disconnected) {
+            var who = c.peer_id ? c.peer_id : c.name;
+            return <div .accept-card>
+                <div .ac-inner>
+                    <div .ac-title>{translate('Remote support request')}</div>
+                    <div .ac-body>{translate('A headquarters operator requested remote access to this PC.')}</div>
+                    <div .ac-id>({who})</div>
+                    <div .ac-buttons>
+                        <button #dismiss .ac-deny>{translate('Dismiss')}</button>
+                        <button #accept .ac-accept>{translate('Accept')}</button>
+                    </div>
+                </div>
             </div>;
         }
        // below size:* is a workaround for Linux, it already set in css, but not work, shit sciter
@@ -350,6 +368,9 @@ var cm_banner_state = undefined;
 //     키보드 포커스는 안 뺏어 POS 바코드 스캐너 입력 보호 (2026-06-12 보류 건의 정공법).
 function applyCmBanner() {
     if (connections.length == 0) return;
+    // 프레임리스(Flutter 톤): HTML 타이틀바 <header> 항상 숨김 — 수락카드·배너 모두 프레임 없음.
+    var hdr = $(header);
+    if (hdr) hdr.style.set { display: "none" };
     var active = false;
     for (var i = 0; i < connections.length; i++) {
         if (connections[i].authorized && !connections[i].disconnected) active = true;
@@ -357,20 +378,17 @@ function applyCmBanner() {
     if (cm_banner_state == active) return;
     cm_banner_state = active;
     var (sw, sh) = view.screenBox(#workarea, #dimension);
-    var hdr = $(header);
     if (active) {
-        // 활성 = 슬림 배너: 타이틀바(<header>) 숨김 + 상단중앙 + 상시 최상위(focus 안뺏음).
+        // 활성 = 슬림 "원격지원 중" 배너 (상단중앙·상시 최상위·focus 안뺏음=스캐너 보호).
         var w = scaleIt(260);
         var h = scaleIt(48);
-        if (hdr) hdr.style.set { display: "none" };
         setWindowState(View.WINDOW_SHOWN);
         view.move((sw - w) / 2, 0, w, h);
         view.windowTopmost = true;
     } else {
-        // 대기/끊김 = 카드: 타이틀바 복귀.
+        // 대기(수락카드)/끊김 = 카드 크기.
         var w = scaleIt(380);
         var h = scaleIt(260);
-        if (hdr) hdr.style.set { display: "block" };
         view.windowTopmost = false;
         view.move((sw - w) / 2, 0, w, h);
     }

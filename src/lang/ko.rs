@@ -180,6 +180,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Enable file copy and paste", "파일 복사·붙여넣기 허용"),
         ("Connected", "연결됨"),
         ("Remote support in progress", "원격지원 중"),
+        ("Remote support request", "원격지원 요청"),
+        ("A headquarters operator requested remote access to this PC.", "본사에서 이 PC에 원격 접속을 요청했습니다."),
         ("Direct and encrypted connection", "직접 및 암호화된 연결"),
         ("Relayed and encrypted connection", "릴레이 및 암호화된 연결"),
         ("Direct and unencrypted connection", "직접 및 암호화되지 않은 연결"),
