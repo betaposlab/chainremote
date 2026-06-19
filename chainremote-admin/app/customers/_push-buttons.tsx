@@ -5,7 +5,8 @@
 // 다이얼로그에 직접 입력: targetVersion / assetUrl / assetSha256 / assetSize.
 // 설치 허용 시간대: 기본 0~23(하루 종일). 거래처는 퇴근 시 PC 를 꺼서 새벽(0~7)과 안 겹침
 //   → 하루 종일로 둬야 출근 후 켜진 시점에 적용됨. 24h 켜진 PC 만 0~7(새벽) 권장.
-// 무작위지연: 7시간(25200초) default — 설치 시각을 분산해 대규모 동시 다운로드(NAS 대역폭) 방지.
+// 무작위지연: 10분(600초) default (2026-06-20, 7h→10분) — 소규모 즉시성 우선. 수백~수천대 푸시 시
+//   NAS 대역폭 분산 위해 늘릴 것. 일괄푸시는 직전에 옛 대기 자동취소(pushBulk) → 항상 최신 1건만.
 //
 // 자동 fetch: NAS 의 `agent-push.json` (별도 메타 파일) 에서 sha256/URL/size 자동 채움.
 // 옛 latest.json 의 agent 채널은 옛 v1.3.4 Agent 호환 위해 0.0.0 영구 유지.
@@ -70,7 +71,7 @@ const INITIAL: PushFormState = {
   assetSize: "",
   windowStartHour: "0",
   windowEndHour: "23",
-  randomizeMaxSec: "25200",
+  randomizeMaxSec: "600",
 };
 
 function buildFormData(state: PushFormState): FormData {
@@ -377,7 +378,7 @@ function PushDialog({
                   className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
                 />
               </Field>
-              <Field label="무작위지연 (초)" hint="기본 25200 = 7시간">
+              <Field label="무작위지연 (초)" hint="기본 600 = 10분">
                 <input
                   type="number"
                   min={0}

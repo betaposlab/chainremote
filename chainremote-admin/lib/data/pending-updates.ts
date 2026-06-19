@@ -20,13 +20,15 @@ export interface PushAsset {
 export interface PushOptions {
   windowStartHour?: number;  // default 0 (자정)
   windowEndHour?: number;    // default 7 (아침 7시)
-  randomizeMaxSec?: number;  // default 25200 (7시간 창)
+  randomizeMaxSec?: number;  // default 600 (10분) — 2026-06-20 7h→10분
 }
 
 const DEFAULT_OPTIONS: Required<PushOptions> = {
   windowStartHour: 0,
   windowEndHour: 7,
-  randomizeMaxSec: 25200,
+  // ChainRemote 2026-06-20: 7시간(25200)→10분(600). 옛 7h 기본이 적용을 0~7h 로 흩뿌려
+  //   "버전 제멋대로"로 보였음. 소규모(수십대)는 즉시성 우선. 수백~수천대 푸시는 UI 에서 늘릴 것.
+  randomizeMaxSec: 600,
 };
 
 /**
@@ -84,6 +86,22 @@ export async function pushBulk(
 ): Promise<{ bulkBatchId: string; inserted: number; eligible: number }> {
   const merged = { ...DEFAULT_OPTIONS, ...opts };
   const bulkBatchId = crypto.randomUUID();
+
+  // ChainRemote 2026-06-20: 새 일괄푸시는 이전 대기 행을 supersede.
+  //   기존엔 새 버전만 INSERT 해서 (customer_id, target_version) 가 다른 옛 대기(1.4.20/1.4.28...)가
+  //   계속 쌓여 패널이 "대기 버전 제각각"으로 보였음. 에이전트는 최신 1건만 집어가므로
+  //   (getPendingForAgent: desc createdAt) 기능상 옛 행은 무해하지만, 혼란 제거 + 깨끗한 상태를 위해
+  //   푸시 직전 이 tenant 의 활성 외부 거래처의 대기(미적용·미취소·미실패) 행을 전부 취소한다.
+  //   (applied/failed 행은 이력이라 건드리지 않음. INSERT 대상과 동일 거래처 집합.)
+  await db.execute(sql`
+    UPDATE pending_updates SET cancelled_at = now(), updated_at = now()
+    WHERE tenant_id = ${ctx.tenantId}::uuid
+      AND applied_at IS NULL AND cancelled_at IS NULL AND failed_at IS NULL
+      AND customer_id IN (
+        SELECT id FROM customers
+        WHERE tenant_id = ${ctx.tenantId}::uuid AND is_active = true AND is_internal = false
+      )
+  `);
 
   // ChainRemote 2026-06-02: 행별 루프 → 단일 bulk INSERT 로 교체 (스케일 대비).
   // 활성 거래처 전체에 1쿼리로 INSERT. 이미 같은 (customer_id, target_version) 의 대기 행이
