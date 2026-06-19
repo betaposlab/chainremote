@@ -595,7 +595,16 @@ extern "C"
                 (LPWSTR *)&pInfo,
                 &bytes)) {
             if (pInfo && pInfo->Level == 1) {
-                locked = (pInfo->Data.WTSInfoExLevel1.SessionFlags == WTS_SESSIONSTATE_LOCK);
+                DWORD flags = pInfo->Data.WTSInfoExLevel1.SessionFlags;
+                // [ChainRemote 2026-06-19] Win7/Server 2008 R2 (NT 6.1) MS 결함: 콘솔 세션의
+                //   WTSINFOEX SessionFlags LOCK(0)/UNLOCK(1) 값이 반대로 보고된다. 이 OS 에서는
+                //   *정상 잠금해제* 세션이 0(=LOCK 상수)을 돌려줘 잠김으로 오판(거짓 _LOCKED).
+                //   6.1 에서만 반전을 적용하고, Win8+ 는 문서대로(변경 없음).
+                if (IsWindows7OrGreater() && !IsWindows8OrGreater()) {
+                    locked = (flags == WTS_SESSIONSTATE_UNLOCK);
+                } else {
+                    locked = (flags == WTS_SESSIONSTATE_LOCK);
+                }
             }
             if (pInfo) {
                 WTSFreeMemory(pInfo);

@@ -45,8 +45,8 @@ class Body: Reactor.Component
         if (auth && !disconnected) {
             return <div .support-banner>
                 <span .banner-dot />
-                <span .banner-label>원격지원 중</span>
-                <button #disconnect .banner-end>원격 종료</button>
+                <span .banner-label>{translate('Remote support in progress')}</span>
+                <button #disconnect .banner-end>{translate('Disconnect')}</button>
             </div>;
         }
        // below size:* is a workaround for Linux, it already set in css, but not work, shit sciter
@@ -357,15 +357,20 @@ function applyCmBanner() {
     if (cm_banner_state == active) return;
     cm_banner_state = active;
     var (sw, sh) = view.screenBox(#workarea, #dimension);
+    var hdr = $(header);
     if (active) {
+        // 활성 = 슬림 배너: 타이틀바(<header>) 숨김 + 상단중앙 + 상시 최상위(focus 안뺏음).
         var w = scaleIt(260);
         var h = scaleIt(48);
+        if (hdr) hdr.style.set { display: "none" };
         setWindowState(View.WINDOW_SHOWN);
         view.move((sw - w) / 2, 0, w, h);
         view.windowTopmost = true;
     } else {
+        // 대기/끊김 = 카드: 타이틀바 복귀.
         var w = scaleIt(380);
         var h = scaleIt(260);
+        if (hdr) hdr.style.set { display: "block" };
         view.windowTopmost = false;
         view.move((sw - w) / 2, 0, w, h);
     }
@@ -427,11 +432,9 @@ handler.addConnection = function(id, is_file_transfer, is_view_camera, is_termin
     bring_to_top();
     update();
     self.timer(1ms, adjustHeader);
-    if (authorized) {
-        self.timer(3s, function() {
-            setWindowState(View.WINDOW_MINIMIZED);
-        });
-    }
+    // [ChainRemote] 수락 3초후 cm 창 최소화(원본 RustDesk 동작) 제거 — 항상 보이는
+    //   "원격지원 중" 배너와 충돌(수락 후 배너가 떴다가 3초 뒤 사라지던 원인).
+    //   창 상태는 applyCmBanner 가 관리(활성=슬림배너 / 대기·끊김=카드).
 }
 
 handler.removeConnection = function(id, close) {
