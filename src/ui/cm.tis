@@ -1,6 +1,6 @@
-// ChainRemote(Agent32): Windows 는 프레임리스(#none) — Flutter cm(타이틀바 없는 카드/배너)과
-//   톤 통일 + Standard VGA(무합성) 환경의 OS 프레임 repaint 노출("지워짐") 완화 시도.
-view.windowFrame = is_osx ? #extended : #none;
+// ChainRemote(Agent32): Windows 프레임리스는 ui.rs 가 창 생성 시 처리(--cm = SW_MAIN, 타이틀바 없음).
+//   여기 windowFrame 은 macOS(HQ) 확장 프레임용.
+view.windowFrame = is_osx ? #extended : #solid;
 
 var body;
 var connections = [];
@@ -222,10 +222,10 @@ class Body: Reactor.Component
     }
 
     event click $(button#disconnect) {
-        var cid = this.cid;
-        checkClickTime(function() {
-            handler.close(cid);
-        });
+        // ChainRemote: 종료(원격 종료)는 원격 클릭도 허용 — Flutter 에이전트(_buildEndButton,
+        //   가드 없음)와 동작 통일. controller 가 세션 끊는 건 무해(자기 창 닫기와 동일).
+        //   수락/거부(#accept/#dismiss)의 checkClickTime 가드는 유지(셀프 수락 방지).
+        handler.close(this.cid);
     }
 
     event click $(button#close) {

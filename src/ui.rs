@@ -81,7 +81,15 @@ pub fn start(args: &mut [String]) {
     allow_err!(sciter::set_options(sciter::RuntimeOptions::ScriptFeatures(
         ALLOW_FILE_IO as u8 | ALLOW_SOCKET_IO as u8 | ALLOW_EVAL as u8 | ALLOW_SYSINFO as u8
     )));
-    let mut frame = sciter::WindowBuilder::main_window().create();
+    // ChainRemote: 거래처 cm(--cm) 창은 프레임리스(타이틀바·창버튼 없음) — Flutter cm(타이틀바 숨긴
+    //   카드/배너)과 톤 통일. main_window()=SW_MAIN|RESIZEABLE|CONTROLS|TITLEBAR 라 OS 타이틀바가
+    //   생성 시점에 박혀 view.windowFrame 으론 못 뗀다. main()=SW_MAIN 만 → 타이틀바/창버튼 없음
+    //   (HTML <header> 는 cm.tis applyCmBanner 가 숨김). 본사 HQ/설치창(index/install)은 그대로.
+    let mut frame = if !args.is_empty() && args[0] == "--cm" {
+        sciter::WindowBuilder::main().create()
+    } else {
+        sciter::WindowBuilder::main_window().create()
+    };
     #[cfg(windows)]
     allow_err!(sciter::set_options(sciter::RuntimeOptions::UxTheming(true)));
     frame.set_title(&crate::get_app_name());
