@@ -11,11 +11,14 @@ import { auth } from "@/auth";
 import {
   createTenantWithOwner,
   findFirstOwnerOfTenant,
+  getTenant,
+  setEnrollSecretHash,
   setTenantSubscriptionStatus,
   setUserPasswordHash,
   updateTenant,
   type TenantFields,
 } from "@/lib/data/tenants";
+import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 
 const BCRYPT_COST = 10;
 // 사람이 혼동하기 쉬운 문자 제외 (O/0, I/l/1) → 카톡 전달 시 오류 ↓
@@ -206,4 +209,52 @@ export async function setSubscriptionStatus(
   await requireSuperAdmin();
   await setTenantSubscriptionStatus(id, status);
   revalidatePath("/admin/tenants");
+}
+
+// ⑤ auto-enroll — 이 대리점(tenant) 전용 enroll-key 발급/재발급.
+//   거래처 agent 가 설치 시 이 키로 "내가 이 대리점 소속"임을 증명 → 자가등록.
+//   평문 키는 *이 반환값으로 1회만* 노출(UI 표시), DB 엔 sha-256 해시만 저장.
+//   custom.txt = 그 대리점 전용 에이전트 인스톨러 빌드 입력값(이 키 박혀있음).
+// 방어:
+//   - super_admin 만 (requireSuperAdmin).
+//   - 회사 존재 검증 (없으면 친절한 에러).
+//   - hashHeartbeatToken 사용 → resolveTenantByEnroll 의 대조 해시와 100% 동일(틀리면 enroll 전부 403).
+//   - 재발급(reissued=true) 이면 옛 키로 만든 인스톨러는 *신규 등록* 불가(403),
+//     단 이미 등록된 거래처는 heartbeat-token 기반이라 무영향 → UI 가 경고.
+export interface IssueEnrollKeyResult {
+  slug: string;
+  tenantDisplayName: string;
+  enrollKey: string; // 평문 — 1회 표시 후 폐기 (DB 엔 hash 만)
+  customTxt: string; // 이 대리점 전용 에이전트 빌드용 custom.txt 전체 내용
+  reissued: boolean; // 기존 키가 있었나 (true = 재발급, 옛 인스톨러 신규등록 무효화)
+}
+
+export async function issueTenantEnrollKey(
+  tenantId: string,
+): Promise<IssueEnrollKeyResult> {
+  await requireSuperAdmin();
+  const t = await getTenant(tenantId);
+  if (!t) throw new Error("회사를 찾을 수 없습니다");
+
+  const reissued = !!t.enrollSecretHash;
+  const enrollKey = generateHeartbeatToken(); // 64-hex 고엔트로피
+  await setEnrollSecretHash(tenantId, hashHeartbeatToken(enrollKey)); // DB 엔 해시만
+
+  // betaposlab 루트 custom-agent.txt 와 동일 포맷 (JSON.stringify 로 항상 유효 JSON).
+  const customTxt = JSON.stringify({
+    "conn-type": "incoming",
+    "tenant-slug": t.slug,
+    "enroll-key": enrollKey,
+    "default-settings": { "allow-remote-config-modification": "Y" },
+    "override-settings": { "approve-mode": "click" },
+  });
+
+  revalidatePath("/admin/tenants");
+  return {
+    slug: t.slug,
+    tenantDisplayName: t.displayName,
+    enrollKey,
+    customTxt,
+    reissued,
+  };
 }

@@ -102,6 +102,16 @@ export async function setTenantSubscriptionStatus(
     .where(eq(tenants.id, id));
 }
 
+// ⑤ auto-enroll — 그 tenant 의 enroll-key sha-256 해시 저장(평문은 절대 저장 X).
+// 호출자가 requireSuperAdmin() 후 사용. 재호출 = 키 회전(옛 키로 만든 인스톨러는
+// 신규 등록 불가, 이미 등록된 거래처는 토큰 기반이라 무영향).
+export async function setEnrollSecretHash(tenantId: string, hash: string) {
+  await db
+    .update(tenants)
+    .set({ enrollSecretHash: hash, updatedAt: new Date() })
+    .where(eq(tenants.id, tenantId));
+}
+
 // 특정 tenant 의 owner user 비번 강제 재설정 (super_admin 만).
 // 호출자가 requireSuperAdmin() 후 사용. 반환은 hash 가 아닌 새 *평문 비번* —
 // 화면에 표시하고 Chang 이 카톡으로 회사에 전달.

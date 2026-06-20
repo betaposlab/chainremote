@@ -83,6 +83,17 @@ export default async function TenantsPage() {
                     {t.displayName}
                   </Link>
                   <div className="text-xs text-slate-400">{t.slug}</div>
+                  <div className="mt-1">
+                    {t.enrollSecretHash ? (
+                      <span className="inline-block rounded bg-green-50 px-1.5 py-0.5 text-[11px] text-green-700">
+                        🔑 에이전트 키 발급됨
+                      </span>
+                    ) : (
+                      <span className="inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500">
+                        에이전트 키 미발급
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <Link
@@ -132,6 +143,7 @@ export default async function TenantsPage() {
                       status={
                         t.subscriptionStatus as "active" | "suspended" | "cancelled"
                       }
+                      hasEnrollKey={!!t.enrollSecretHash}
                     />
                   </div>
                 </td>
