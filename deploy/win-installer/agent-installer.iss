@@ -23,7 +23,7 @@
 ;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일됨 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.33"
+#define APP_VERSION    "1.4.34"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; x64: 윈컴 Flutter 빌드 출력 (build-all.ps1)
@@ -166,6 +166,9 @@ Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
 Filename: "schtasks.exe"; Parameters: "/Delete /TN ChainRemoteServiceWatchdog /F"; Flags: runhidden; RunOnceId: "DelWatchdogTask"
 
 [Code]
+var
+  EnrollPage: TInputQueryWizardPage;  // ⑤ auto-enroll 거래처 상호 입력 페이지
+
 // ── ChainRemote 다운그레이드 가드 (2026-06-06) ────────────────────────────────
 // 설치된 버전이 이 인스톨러보다 높으면 설치 거부. 의도적 롤백은 /FORCE=1 로만.
 procedure CRLog(Msg: String);
@@ -177,6 +180,34 @@ begin
       GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':') + ' ' + Msg + #13#10, True);
   except
   end;
+end;
+
+// ── ⑤ auto-enroll: 거래처 상호 수집 + 레지스트리 기록 ─────────────────────────
+// 한국어 상호를 파일(CP949)/custom.txt 로 보내면 인코딩 깨짐 → 레지스트리 REG_SZ(유니코드 네이티브)에 기록.
+// 에이전트(Rust)가 HKLM\SOFTWARE\ChainRemote\CustomerName 을 읽어 enroll 시 거래처명으로 사용.
+procedure CRWriteCustomerName(Name: String);
+begin
+  if Name = '' then Exit;  // 빈칸이면 안 씀 → 서버가 hostname placeholder 로 명명.
+  try
+    if RegWriteStringValue(HKLM, 'SOFTWARE\ChainRemote', 'CustomerName', Name) then
+      CRLog('installer: CustomerName registry write OK')
+    else
+      CRLog('installer: CustomerName registry write FAILED');
+  except
+    CRLog('installer: CustomerName registry write EXCEPTION');
+  end;
+end;
+
+procedure InitializeWizard();
+begin
+  // 거래처 상호 입력 페이지 (라이선스 동의 다음). 자동업뎃(/VERYSILENT)은 마법사 미표시라 안 뜸 →
+  //   기존 푸시/업데이트 플로우 무영향. ssPostInstall 의 WizardSilent 가드가 silent 기록도 차단.
+  EnrollPage := CreateInputQueryPage(wpLicense,
+    '거래처 상호',
+    '이 PC가 설치될 매장(거래처)의 상호를 입력하세요.',
+    '관리 패널에 이 이름으로 자동 등록됩니다 (나중에 패널에서 수정 가능).' + #13#10 +
+    '비워두면 임시 이름으로 등록되고 패널에서 지정할 수 있습니다.');
+  EnrollPage.Add('상호 (매장명):', False);
 end;
 
 function CRCmpVer(A, B: String): Integer;
@@ -230,6 +261,12 @@ begin
     // 같은 경로/서비스에 덮어 설치되므로 uninstall 레지스트리 키만 제거하면 됨.
     RegDeleteKeyIncludingSubkeys(HKLM, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{7C4D9A2E-5B31-4F8C-B2D6-1E9F3A6C8D52}_is1');
     RegDeleteKeyIncludingSubkeys(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{7C4D9A2E-5B31-4F8C-B2D6-1E9F3A6C8D52}_is1');
+  end;
+  if CurStep = ssPostInstall then begin
+    // ⑤ auto-enroll — 인터랙티브 설치면 입력한 상호를 레지스트리에 기록(에이전트 enroll 시 사용).
+    //   자동업뎃(/VERYSILENT)은 WizardSilent=True → 스킵 = 기존 CustomerName 보존(상호 안 지워짐).
+    if (not WizardSilent()) and Assigned(EnrollPage) then
+      CRWriteCustomerName(Trim(EnrollPage.Values[0]));
   end;
 end;
 

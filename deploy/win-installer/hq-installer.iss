@@ -10,7 +10,7 @@
 ; 사용처: 재성이 윈도우 본사 PC (jaesung 계정 로그인).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.33"
+#define APP_VERSION    "1.4.34"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; 윈컴에서 빌드한 ChainRemote.exe 가 들어있는 폴더 (agent 와 공유)

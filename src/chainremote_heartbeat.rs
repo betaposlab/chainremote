@@ -165,10 +165,31 @@ fn acquire_token(remote_id: &str) -> ResultType<String> {
     register_token(remote_id)
 }
 
+/// 거래처 상호 읽기 — 인스톨러가 레지스트리(HKLM\SOFTWARE\ChainRemote\CustomerName, REG_SZ=유니코드 안전)에
+/// 기록한 값. 64/32비트 view 둘 다 시도(설치모드↔서비스 비트수 불일치 대비 WOW robust). 없으면
+/// custom.txt(HARD_SETTINGS) customer-name 폴백(보통 빈 문자열 → 서버가 hostname placeholder 로 명명).
+/// (한국어 상호를 인스톨러 파일/CP949 경로로 보내면 깨지므로 레지스트리 = 유니코드 채널 채택.)
+fn read_customer_name() -> String {
+    use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, KEY_WOW64_64KEY};
+    use winreg::RegKey;
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    for flags in [KEY_READ | KEY_WOW64_64KEY, KEY_READ | KEY_WOW64_32KEY] {
+        if let Ok(k) = hklm.open_subkey_with_flags("SOFTWARE\\ChainRemote", flags) {
+            if let Ok(v) = k.get_value::<String, _>("CustomerName") {
+                let t = v.trim();
+                if !t.is_empty() {
+                    return t.to_string();
+                }
+            }
+        }
+    }
+    hbb_common::config::get_enroll_customer_name()
+}
+
 /// 자가등록 — POST /api/customers/enroll. 신규면 pending 후보 생성+토큰, 기존(같은 tenant)이면 토큰 회전.
 /// name = custom.txt customer-name(상호, 인스톨러 입력), hostname = 자기 hostname(상호 없을 때 서버 placeholder).
 fn enroll(remote_id: &str, tenant_slug: &str, enroll_key: &str) -> ResultType<String> {
-    let name = hbb_common::config::get_enroll_customer_name();
+    let name = read_customer_name();
     let hostname = crate::common::hostname();
     let body = serde_json::json!({
         "remoteId": remote_id,
