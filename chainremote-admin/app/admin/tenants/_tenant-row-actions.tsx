@@ -53,12 +53,13 @@ export function TenantRowActions({
         throw new Error(msg);
       }
       const blob = await resp.blob();
-      const cd = resp.headers.get("Content-Disposition") ?? "";
-      const m = cd.match(/filename="?([^"]+)"?/);
+      // 파일명 = 회사명 기반 (slug 의 랜덤 문자열 노출 방지). 파일명 금지문자만 제거.
+      const safe =
+        displayName.replace(/[\\/:*?"<>|]/g, "").trim() || tenantId;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = m ? m[1] : `ChainRemote_Agent_${tenantId}.exe`;
+      a.download = `ChainRemote_${safe}_설치.exe`;
       document.body.appendChild(a);
       a.click();
       a.remove();
