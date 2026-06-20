@@ -66,6 +66,7 @@ export default async function CustomersPage() {
       targetVersion: pendingUpdates.targetVersion,
       appliedAt: pendingUpdates.appliedAt,
       failedAt: pendingUpdates.failedAt,
+      failureReason: pendingUpdates.failureReason,
       createdAt: pendingUpdates.createdAt,
     })
     .from(pendingUpdates)
@@ -79,7 +80,7 @@ export default async function CustomersPage() {
   // 거래처별 최신 1건만 (createdAt desc 라 first = 최신 결과).
   const updateByCustomer = new Map<
     string,
-    { targetVersion: string; appliedAt: Date | null; failedAt: Date | null }
+    { targetVersion: string; appliedAt: Date | null; failedAt: Date | null; failureReason: string | null }
   >();
   for (const u of updateRows) {
     if (u.customerId && !updateByCustomer.has(u.customerId)) {
@@ -87,6 +88,7 @@ export default async function CustomersPage() {
         targetVersion: u.targetVersion,
         appliedAt: u.appliedAt,
         failedAt: u.failedAt,
+        failureReason: u.failureReason,
       });
     }
   }

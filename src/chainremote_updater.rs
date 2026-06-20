@@ -215,7 +215,12 @@ pub fn start_in_service() {
                     }
                     Err(e) => {
                         flog(&format!("scheduled check failed: {}", e));
-                        // 실패 시 어떤 변수도 갱신 안 함 → 다음 5분 사이클에 재시도
+                        // ★ sha-mismatch 등 실패 시 first-boot(last_full_check=None)면 매 tick(2초)
+                        //   25MB 재다운로드 해머가 됨. last_full_check 갱신으로 매-tick 해머 종료 +
+                        //   last_deferred_retry 로 15분 후 재시도 (per-cycle fetch_latest 가 정정된
+                        //   latest.json sha 를 그때 집어 자가복구). NAS 대역폭 보호 + 무증상 방지(flog).
+                        last_full_check = Some(Instant::now());
+                        last_deferred_retry = Some(Instant::now());
                     }
                 }
             }

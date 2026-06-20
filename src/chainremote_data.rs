@@ -243,6 +243,10 @@ fn fetch_customers_blocking() -> bool {
                 let rows: Vec<&CustomerRow> = resp.customers.iter().collect();
                 update_remote_to_uuid(&rows);
                 merge_remote_names(&rows);
+                // ChainRemote: 매핑(REMOTE_TO_NAME) 갱신 후 최근세션 재푸시 → 패널에서 거래처명을
+                //   수정한 게 HQ 새로고침(또는 재로그인) 시 최근세션 탭에 즉시 반영된다. 매핑은
+                //   main_load_recent_peers 가 peer.alias 를 덮는 데 쓰이므로, 재푸시 안 하면 화면 안 바뀜.
+                crate::flutter_ffi::main_load_recent_peers();
                 true
             }
             Err(e) => {

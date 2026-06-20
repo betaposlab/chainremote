@@ -232,8 +232,26 @@ fn tick() -> ResultType<()> {
             "downloading {} ({} bytes)...",
             pending.asset_url, pending.asset_size
         ));
-        download_to(&pending.asset_url, &pending_path)?;
-        verify_sha256(&pending_path, &pending.asset_sha256)?;
+        // ChainRemote: download/verify 실패가 `?` 로 tick 밖으로 새던 무증상 결함 박멸 (사업화 전 필수).
+        //   재빌드로 manifest sha 어긋난 경우 패널에 가시화 + 자가복구: finish_report(failed) →
+        //   markFailed 가 failed_at 세팅 → getPendingForAgent 가 그 push 재서빙 중단(무한 재다운로드 종료).
+        //   verify_sha256 가 손상파일 삭제(update_common) → Chang 이 정정 sha 로 재푸시하면 새 행으로 깨끗이 회복.
+        if let Err(e) = download_to(&pending.asset_url, &pending_path) {
+            let msg = format!("download failed: {}", e);
+            flog(&msg);
+            finish_report(&remote_id, &token, &push_id, "failed", &msg);
+            return Ok(());
+        }
+        if let Err(e) = verify_sha256(&pending_path, &pending.asset_sha256) {
+            let msg = format!(
+                "sha mismatch (manifest expected={}): {}",
+                pending.asset_sha256.trim(),
+                e
+            );
+            flog(&msg);
+            finish_report(&remote_id, &token, &push_id, "failed", &msg);
+            return Ok(());
+        }
         flog("download verified");
     } else {
         flog("pending file already valid, reusing");

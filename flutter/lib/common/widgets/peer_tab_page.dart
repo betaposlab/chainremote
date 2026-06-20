@@ -239,6 +239,11 @@ class _PeerTabPageState extends State<PeerTabPage>
         message: translate('Refresh'),
         child: RefreshWidget(
             onPressed: () {
+              // ChainRemote: 패널에서 거래처명/즐겨찾기를 바꾼 게 즉시 반영되도록 매핑/즐겨찾기를
+              //   on-demand 재요청 (자동 폴링 대신 — 50대리점 idle 트래픽 방지). chainremoteLoadCustomers
+              //   가 매핑 갱신 후 최근세션을 재푸시(chainremote_data.rs)하므로 최근세션 탭 이름도 갱신됨.
+              bind.chainremoteLoadCustomers();
+              bind.chainremoteLoadFavorites();
               if (gFFI.peerTabModel.currentTab < entries.length) {
                 entries[gFFI.peerTabModel.currentTab].load?.call();
               }

@@ -21,10 +21,11 @@ export type UpdateInfo = {
   targetVersion: string;
   appliedAt: Date | null;
   failedAt: Date | null;
+  failureReason?: string | null;
 } | null;
 
 export type UpdateHealth =
-  | { kind: "failed"; targetVersion: string }
+  | { kind: "failed"; targetVersion: string; failureReason?: string | null }
   | { kind: "brick"; targetVersion: string; ageMin: number }
   | { kind: "pending"; targetVersion: string }
   | { kind: "ok"; targetVersion: string }
@@ -53,7 +54,8 @@ export function computeUpdateHealth(
   lastVersion: string | null,
 ): UpdateHealth {
   if (!update) return null;
-  if (update.failedAt) return { kind: "failed", targetVersion: update.targetVersion };
+  if (update.failedAt)
+    return { kind: "failed", targetVersion: update.targetVersion, failureReason: update.failureReason ?? null };
   if (update.appliedAt) {
     // 현재 버전이 목표 이상이면 정상 적용 (같거나 더 새 버전 — 이후 다른 업뎃 받은 경우 포함).
     if (!isOlder(lastVersion, update.targetVersion)) {
@@ -137,7 +139,10 @@ function UpdateBadge({ health }: { health: NonNullable<UpdateHealth> }) {
   }
   if (health.kind === "failed") {
     return (
-      <span className="inline-flex w-fit items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium text-rose-700">
+      <span
+        className="inline-flex w-fit items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium text-rose-700"
+        title={health.failureReason ?? undefined}
+      >
         ⚠ 업뎃 실패 v{health.targetVersion}
       </span>
     );
