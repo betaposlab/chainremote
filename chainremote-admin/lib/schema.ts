@@ -154,6 +154,8 @@ export const userFavorites = pgTable(
     customerId: uuid("customer_id").references(() => customers.id, { onDelete: "set null" }),
     tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    hostname: text("hostname"),
+    alias: text("alias"),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.userId, t.remoteId] }),

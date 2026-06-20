@@ -59,6 +59,7 @@ export async function importPeer(input: {
   hostname?: string;
   username?: string;
   platform?: string;
+  name?: string;
 }) {
   const session = await requireSession();
   await data.importPeer(input, {

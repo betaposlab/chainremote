@@ -313,7 +313,19 @@ fn fetch_favorites_blocking() -> bool {
 /// customers 에 없는 머신(HQ workstation, 옵션 B+ 본사 PC)도 orphan 으로 즐겨찾기 가능.
 fn add_favorite_blocking(remote_id: String) -> bool {
     let url = format!("{}/api/me/favorites", chainremote_auth::api_base());
-    let body = serde_json::json!({ "remoteId": remote_id }).to_string();
+    // ChainRemote 신규 거래처 식별: 이 기기가 아는 원격 hostname(PeerConfig.info.hostname) + 로컬
+    //   별칭(우클릭 이름변경 → options["alias"], orphan_peer_json 과 동일 출처)을 같이 전송 →
+    //   패널 "신규 거래처 후보"가 9자리 ID 만이 아니라 이름으로 식별 + "추가" 상호 프리필.
+    //   (둘 다 빈 값 가능 — 서버가 alias→hostname→placeholder 폴백. FFI/브리지 무변경 = 안전.)
+    let pc = hbb_common::config::PeerConfig::load(&remote_id);
+    let hostname = pc.info.hostname.clone();
+    let alias = pc.options.get("alias").cloned().unwrap_or_default();
+    let body = serde_json::json!({
+        "remoteId": remote_id,
+        "hostname": hostname,
+        "alias": alias,
+    })
+    .to_string();
     match authed_post(url, body) {
         Ok(_) => {
             // 캐시 즉시 업데이트 → UI 가 다음 read 에서 정확.

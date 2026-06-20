@@ -82,12 +82,11 @@ export async function deleteCustomer(id: string, ctx: { tenantId: string }) {
  * orphan 즐겨찾기를 새 거래처에 연결한다(배너에서 사라지도록).
  */
 export async function importPeer(
-  input: { remoteId: string; hostname?: string; username?: string; platform?: string },
+  input: { remoteId: string; hostname?: string; username?: string; platform?: string; name?: string },
   ctx: { tenantId: string; assignedUserId: string },
 ) {
-  const placeholder = input.hostname
-    ? `신규 거래처 (${input.hostname})`
-    : `신규 거래처 (ID: ${input.remoteId})`;
+  // 운영자가 다이얼로그에서 입력한 상호가 있으면 그것을 우선. 없으면 hostname → ID placeholder.
+  const name = input.name?.trim() || (input.hostname ? `신규 거래처 (${input.hostname})` : `신규 거래처 (ID: ${input.remoteId})`);
   const platformNote = input.platform ? `${input.platform}` : "";
   const userNote = input.username ? `사용자: ${input.username}` : "";
   const notes = [platformNote, userNote].filter(Boolean).join(" / ") || null;
@@ -97,7 +96,7 @@ export async function importPeer(
     .values({
       tenantId: ctx.tenantId,
       assignedUserId: ctx.assignedUserId,
-      name: placeholder,
+      name,
       contactName: null,
       phone: null,
       address: null,

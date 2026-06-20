@@ -26,9 +26,13 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as {
       remoteId?: unknown;
       customerId?: unknown; // 후방호환
+      hostname?: unknown;
+      alias?: unknown;
     };
 
     let remoteId = typeof body.remoteId === "string" ? body.remoteId.trim() : "";
+    const hostname = typeof body.hostname === "string" ? body.hostname.trim() || null : null;
+    const alias = typeof body.alias === "string" ? body.alias.trim() || null : null;
 
     // 후방호환: 옛 클라이언트가 customerId 보냈으면 customers 에서 remote_id 변환.
     if (!remoteId && typeof body.customerId === "string" && body.customerId.length > 0) {
@@ -46,7 +50,7 @@ export async function POST(req: Request) {
       throw new ApiAuthError(400, "remoteId 필수");
     }
 
-    const result = await fav.addFavoriteByRemoteId(me.uid, remoteId, me.tenantId);
+    const result = await fav.addFavoriteByRemoteId(me.uid, remoteId, me.tenantId, { hostname, alias });
     return Response.json(
       { ok: true, matchedCustomer: result.matched },
       { status: 201 },

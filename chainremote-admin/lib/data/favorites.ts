@@ -51,6 +51,7 @@ export async function addFavoriteByRemoteId(
   userId: string,
   remoteId: string,
   tenantId: string,
+  meta?: { hostname?: string | null; alias?: string | null },
 ): Promise<{ matched: boolean }> {
   // 1) customers 에 같은 remote_id 가 있으면 customer_id 동기화.
   const matched = await db
@@ -60,10 +61,24 @@ export async function addFavoriteByRemoteId(
     .limit(1);
   const customerId = matched.length > 0 ? matched[0].id : null;
 
+  // 2) insert. 충돌 시: meta(hostname/alias)가 있으면 backfill 갱신, 없으면 그대로 둠
+  //    (메타 없는 재즐겨찾기가 기존 값을 null 로 덮지 않도록 가드).
   await db
     .insert(userFavorites)
-    .values({ userId, remoteId, customerId, tenantId })
-    .onConflictDoNothing();
+    .values({
+      userId,
+      remoteId,
+      customerId,
+      tenantId,
+      hostname: meta?.hostname ?? null,
+      alias: meta?.alias ?? null,
+    })
+    .onConflictDoUpdate({
+      target: [userFavorites.userId, userFavorites.remoteId],
+      set: (meta?.hostname || meta?.alias)
+        ? { hostname: meta?.hostname ?? null, alias: meta?.alias ?? null }
+        : {},
+    });
 
   return { matched: customerId !== null };
 }
@@ -105,6 +120,8 @@ export type OrphanFavorite = {
   remoteId: string;
   favoritedBy: string[]; // 즐겨찾기한 직원 displayName 목록
   favoritedAt: Date; // 가장 최근 즐겨찾기 시각
+  hostname: string | null; // 원격PC hostname (HQ 가 즐겨찾기 시 동봉)
+  alias: string | null; // 운영자 별칭 (예 "삼성공판장")
 };
 
 export async function listOrphanFavorites(
@@ -115,6 +132,8 @@ export async function listOrphanFavorites(
       remoteId: userFavorites.remoteId,
       displayName: users.displayName,
       favoritedAt: userFavorites.createdAt,
+      hostname: userFavorites.hostname,
+      alias: userFavorites.alias,
     })
     .from(userFavorites)
     .leftJoin(users, eq(users.id, userFavorites.userId))
@@ -132,11 +151,16 @@ export async function listOrphanFavorites(
       if (r.displayName && !existing.favoritedBy.includes(r.displayName)) {
         existing.favoritedBy.push(r.displayName);
       }
+      // 최신(첫 등장)이 우선이지만, 비어있으면 옛 행 값으로 backfill.
+      if (!existing.hostname && r.hostname) existing.hostname = r.hostname;
+      if (!existing.alias && r.alias) existing.alias = r.alias;
     } else {
       byRemote.set(r.remoteId, {
         remoteId: r.remoteId,
         favoritedBy: r.displayName ? [r.displayName] : [],
         favoritedAt: r.favoritedAt,
+        hostname: r.hostname ?? null,
+        alias: r.alias ?? null,
       });
     }
   }
