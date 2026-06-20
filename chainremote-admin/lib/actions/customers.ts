@@ -68,3 +68,10 @@ export async function importPeer(input: {
   });
   revalidatePath("/customers");
 }
+
+// 자가등록(⑤) 후보 거래처 확정 — enroll_status 'pending'→'active'. HQ 가 패널서 '확인' 클릭.
+export async function confirmEnrollment(id: string) {
+  const session = await requireSession();
+  await data.confirmEnrollment(id, { tenantId: session.tenantId });
+  revalidatePath("/customers");
+}

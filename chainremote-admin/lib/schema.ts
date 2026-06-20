@@ -71,6 +71,9 @@ export const tenants = pgTable("tenants", {
   subscriptionStartedAt: timestamp("subscription_started_at", { withTimezone: true }),
   subscriptionStatus: text("subscription_status").notNull().default("active"),
   notes: text("notes"),                              // 비고
+  // 거래처 agent 자가등록(⑤ auto-enroll) 인증용 per-tenant enroll-key 의 sha-256 해시.
+  // 평문은 그 tenant 의 agent 빌드 custom.txt(enroll-key)에만. NULL = 자가등록 비활성. 마이그 016.
+  enrollSecretHash: text("enroll_secret_hash"),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -126,12 +129,16 @@ export const customers = pgTable(
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),
     pinOrder: integer("pin_order"),
+    // 자동등록(⑤ auto-enroll) 상태: 'active'(확정) | 'pending'(agent 자가등록 후보 — HQ 패널 확인 대기).
+    // 기존/수동추가(importPeer·createCustomer) 거래처는 default 'active'. 마이그 016.
+    enrollStatus: text("enroll_status").notNull().default("active"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     tenantIdx: index("idx_customers_tenant").on(t.tenantId),
     assignedIdx: index("idx_customers_assigned_user").on(t.tenantId, t.assignedUserId),
+    enrollStatusIdx: index("idx_customers_enroll_status").on(t.tenantId, t.enrollStatus),
     // 멀티테넌트 격리 + heartbeat-token 안전(마이그레이션 011): remote_id 는 RustDesk 머신 ID
     // 라 글로벌 유일. 빈/NULL(거래처 ID 등록 전 placeholder) 은 제외하는 partial-unique.
     remoteIdUniq: uniqueIndex("uq_customers_remote_id")

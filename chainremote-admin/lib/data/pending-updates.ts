@@ -119,6 +119,7 @@ export async function pushBulk(
     FROM customers c
     WHERE c.tenant_id = ${ctx.tenantId}::uuid AND c.is_active = true
       AND c.is_internal = false  -- 내부 기기(본사/Mac/빌드머신, 마이그 013) 제외
+      AND c.enroll_status = 'active'  -- 자가등록 후보(pending) 미확정 제외 (마이그 016, ⑤)
     ON CONFLICT (customer_id, target_version)
       WHERE (applied_at IS NULL AND cancelled_at IS NULL AND failed_at IS NULL)
       DO NOTHING
@@ -135,6 +136,7 @@ export async function pushBulk(
         eq(customers.tenantId, ctx.tenantId),
         eq(customers.isActive, true),
         eq(customers.isInternal, false),
+        eq(customers.enrollStatus, "active"), // 자가등록 후보(pending) 제외 (마이그 016, ⑤)
       ),
     );
 

@@ -5,7 +5,7 @@
 
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { customers } from "@/lib/schema";
+import { customers, tenants } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
 import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 
@@ -149,6 +149,118 @@ export async function recordHeartbeat(
       and(
         eq(customers.remoteId, remoteId),
         eq(customers.heartbeatToken, hashHeartbeatToken(token)), // H3: 해시 대조
+      ),
+    )
+    .returning({ id: customers.id });
+  return !!row;
+}
+
+/**
+ * tenant 인증 해소(⑤ auto-enroll) — agent 가 custom.txt 에 구워온 (slug + enroll-key)로 tenant 식별.
+ * enroll-key 는 sha-256 해시로 tenants.enroll_secret_hash 와 대조(recordHeartbeat 의 토큰 해시대조와 동일).
+ * slug/key 불일치 · 비활성 tenant · enroll-secret 미설정 → null (route 가 403).
+ */
+export async function resolveTenantByEnroll(
+  slug: string,
+  enrollKey: string,
+): Promise<string | null> {
+  if (!slug || !enrollKey) return null;
+  const [row] = await db
+    .select({ id: tenants.id })
+    .from(tenants)
+    .where(
+      and(
+        eq(tenants.slug, slug),
+        eq(tenants.enrollSecretHash, hashHeartbeatToken(enrollKey)), // H3: 해시 대조
+        eq(tenants.isActive, true),
+      ),
+    )
+    .limit(1);
+  return row?.id ?? null;
+}
+
+/**
+ * 거래처 agent 자가등록(⑤). 인증된 tenant 안에서 remote_id 로:
+ *  - 신규: 'pending'(후보) 거래처 생성 + heartbeat 토큰 발급 → HQ 가 패널서 확인하면 'active'.
+ *  - 기존(같은 tenant): 토큰만 회전(재등록/토큰분실 자가복구 = registerHeartbeatToken 정책;
+ *      enroll_status 는 안 건드림 — 이미 확정된 거래처를 pending 으로 되돌리지 않음).
+ *  - 기존(다른 tenant): "cross_tenant" 거부(remote_id 글로벌 unique[011] 위 cross-tenant 탈취 차단).
+ * 동시 enroll 레이스는 unique 위반 catch 후 재조회→회전으로 수렴.
+ */
+export async function enrollCustomer(
+  input: { remoteId: string; name?: string; hostname?: string },
+  ctx: { tenantId: string },
+): Promise<{ token: string; created: boolean } | "cross_tenant"> {
+  const remoteId = input.remoteId.trim();
+  const plaintext = generateHeartbeatToken();
+  const tokenHash = hashHeartbeatToken(plaintext);
+
+  // 1) 기존 행(전역 unique remote_id) 확인.
+  const [existing] = await db
+    .select({ id: customers.id, tenantId: customers.tenantId })
+    .from(customers)
+    .where(eq(customers.remoteId, remoteId))
+    .limit(1);
+  if (existing) {
+    if (existing.tenantId !== ctx.tenantId) return "cross_tenant";
+    await db
+      .update(customers)
+      .set({ heartbeatToken: tokenHash })
+      .where(eq(customers.id, existing.id));
+    return { token: plaintext, created: false };
+  }
+
+  // 2) 신규 — pending 후보로 생성 + 토큰 발급. 상호 없으면 importPeer 관례 placeholder.
+  const name =
+    input.name?.trim() ||
+    (input.hostname?.trim()
+      ? `신규 거래처 (${input.hostname.trim()})`
+      : `신규 거래처 (ID: ${remoteId})`);
+  try {
+    const [row] = await db
+      .insert(customers)
+      .values({
+        tenantId: ctx.tenantId,
+        name,
+        remoteId,
+        enrollStatus: "pending",
+        heartbeatToken: tokenHash,
+      })
+      .returning({ id: customers.id });
+    await linkFavoritesToCustomer(remoteId, row.id, ctx.tenantId);
+    return { token: plaintext, created: true };
+  } catch (e) {
+    // 동시 enroll 레이스 — 방금 다른 요청이 같은 remote_id 를 넣음(uq_customers_remote_id 위반).
+    //   재조회 후 토큰 회전으로 수렴. 행이 여전히 없으면 unique 외 에러라 재throw.
+    const [row] = await db
+      .select({ id: customers.id, tenantId: customers.tenantId })
+      .from(customers)
+      .where(eq(customers.remoteId, remoteId))
+      .limit(1);
+    if (!row) throw e;
+    if (row.tenantId !== ctx.tenantId) return "cross_tenant";
+    await db
+      .update(customers)
+      .set({ heartbeatToken: tokenHash })
+      .where(eq(customers.id, row.id));
+    return { token: plaintext, created: false };
+  }
+}
+
+/** 자가등록(⑤) 후보 거래처 확정 — enroll_status 'pending'→'active'. HQ 가 패널서 '확인' 클릭.
+ *  확정돼야 일괄푸시/버전관리 대상에 포함(pending-updates.ts). 이미 active 거나 타 tenant 면 무변경(false). */
+export async function confirmEnrollment(
+  id: string,
+  ctx: { tenantId: string },
+): Promise<boolean> {
+  const [row] = await db
+    .update(customers)
+    .set({ enrollStatus: "active", updatedAt: new Date() })
+    .where(
+      and(
+        eq(customers.id, id),
+        eq(customers.tenantId, ctx.tenantId),
+        eq(customers.enrollStatus, "pending"),
       ),
     )
     .returning({ id: customers.id });

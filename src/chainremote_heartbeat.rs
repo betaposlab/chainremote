@@ -25,6 +25,8 @@ use std::time::Duration;
 const REGISTER_URL: &str =
     "https://sepani.synology.me:3443/api/customers/register-heartbeat-token";
 const HEARTBEAT_URL: &str = "https://sepani.synology.me:3443/api/customers/heartbeat";
+/// ⑤ auto-enroll — agent 가 스스로 거래처 등록(custom.txt 에 tenant-slug+enroll-key 보유 시).
+const ENROLL_URL: &str = "https://sepani.synology.me:3443/api/customers/enroll";
 /// 부팅 후 첫 heartbeat 까지 대기 — 네트워크 안정 + hbbs ID 발급 대기.
 const FIRST_DELAY: Duration = Duration::from_secs(60 * 2);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60 * 10);
@@ -83,9 +85,9 @@ fn tick() -> ResultType<()> {
     // 1) 토큰 확보 — LocalConfig 에 저장된 게 있으면 그거 사용, 없으면 register API.
     let stored = hbb_common::config::LocalConfig::get_option(TOKEN_KEY);
     let token = if stored.is_empty() {
-        let new_token = register_token(&remote_id)?;
+        let new_token = acquire_token(&remote_id)?;
         hbb_common::config::LocalConfig::set_option(TOKEN_KEY.to_string(), new_token.clone());
-        log::info!("[chainremote_heartbeat] registered new token for remote_id={}", remote_id);
+        log::info!("[chainremote_heartbeat] acquired new token for remote_id={}", remote_id);
         new_token
     } else {
         stored
@@ -108,7 +110,7 @@ fn tick() -> ResultType<()> {
                 "[chainremote_heartbeat] auth rejected → clear local token + re-register"
             );
             hbb_common::config::LocalConfig::set_option(TOKEN_KEY.to_string(), String::new());
-            let fresh = register_token(&remote_id)?;
+            let fresh = acquire_token(&remote_id)?;
             hbb_common::config::LocalConfig::set_option(TOKEN_KEY.to_string(), fresh.clone());
             match send_heartbeat(&remote_id, &fresh, crate::CHAINREMOTE_VERSION)? {
                 BeatOutcome::Ok => {
@@ -142,6 +144,52 @@ fn register_token(remote_id: &str) -> ResultType<String> {
         // v1.3.7 부터 서버는 idempotent rotation → customer 존재하면 항상 200.
         // 409 = 거래처 미등록 (Chang 이 패널에 등록 전). 다음 tick 재시도.
         bail!("register HTTP {}", status);
+    }
+    #[derive(serde::Deserialize)]
+    struct Resp {
+        token: String,
+    }
+    let r: Resp = resp.json()?;
+    Ok(r.token)
+}
+
+/// 토큰 획득(⑤). custom.txt 에 tenant-slug+enroll-key 가 있으면 enroll 로 자가등록(신규=pending 후보
+/// 생성+토큰, 기존=토큰 회전). 없으면(옛 빌드) register-heartbeat-token 폴백 — 패널 수동등록 전까지
+/// 409(기존 동작). = 후방호환.
+fn acquire_token(remote_id: &str) -> ResultType<String> {
+    let slug = hbb_common::config::get_enroll_tenant_slug();
+    let key = hbb_common::config::get_enroll_key();
+    if !slug.is_empty() && !key.is_empty() {
+        return enroll(remote_id, &slug, &key);
+    }
+    register_token(remote_id)
+}
+
+/// 자가등록 — POST /api/customers/enroll. 신규면 pending 후보 생성+토큰, 기존(같은 tenant)이면 토큰 회전.
+/// name = custom.txt customer-name(상호, 인스톨러 입력), hostname = 자기 hostname(상호 없을 때 서버 placeholder).
+fn enroll(remote_id: &str, tenant_slug: &str, enroll_key: &str) -> ResultType<String> {
+    let name = hbb_common::config::get_enroll_customer_name();
+    let hostname = crate::common::hostname();
+    let body = serde_json::json!({
+        "remoteId": remote_id,
+        "tenantSlug": tenant_slug,
+        "enrollKey": enroll_key,
+        "name": name,
+        "hostname": hostname,
+    })
+    .to_string();
+    let client = reqwest::blocking::Client::builder()
+        .timeout(HTTP_TIMEOUT)
+        .build()?;
+    let resp = client
+        .post(ENROLL_URL)
+        .header("Content-Type", "application/json")
+        .body(body)
+        .send()?;
+    let status = resp.status();
+    if !status.is_success() {
+        // 403 = tenant 인증 실패(enroll-key 불일치) · 409 = remote_id 타 tenant 소유. 다음 tick 재시도.
+        bail!("enroll HTTP {}", status);
     }
     #[derive(serde::Deserialize)]
     struct Resp {

@@ -7,6 +7,7 @@ import { DiscoveredPeerBanner } from "./_discovered";
 import { RemoteButton } from "./_remote-button";
 import { CustomerStatus, computeUpdateHealth } from "./_status";
 import { CustomerPushButton, BulkPushButton } from "./_push-buttons";
+import { ConfirmEnrollButton } from "./_enroll-confirm";
 import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export default async function CustomersPage() {
       lastVersion: customers.lastVersion,
       isInternal: customers.isInternal,
       pinOrder: customers.pinOrder,
+      enrollStatus: customers.enrollStatus,
     })
     .from(customers)
     .leftJoin(users, eq(users.id, customers.assignedUserId))
@@ -119,6 +121,8 @@ export default async function CustomersPage() {
   const knownIds = new Set(rows.map((r) => r.remoteId).filter((x): x is string => !!x));
   const orphanFavorites = await listOrphanFavorites(tenant.id);
   const newPeers = orphanFavorites.filter((p) => !knownIds.has(p.remoteId));
+  // 자가등록(⑤ auto-enroll) 후보 — agent 가 스스로 등록한 미확정(pending) 거래처.
+  const pendingEnroll = rows.filter((c) => c.enrollStatus === "pending");
 
   return (
     <div className="px-8 py-6 max-w-6xl">
@@ -141,6 +145,14 @@ export default async function CustomersPage() {
       </header>
 
       <DiscoveredPeerBanner peers={newPeers} />
+
+      {pendingEnroll.length > 0 && (
+        <div className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          ⊕ <span className="font-semibold">{pendingEnroll.length}곳</span>이 자동등록(에이전트 설치)으로
+          후보 등록됐습니다. 표에서 <span className="font-medium">후보·자동등록</span> 거래처를
+          확인(✓)하면 정식 거래처가 됩니다 (확인 전엔 일괄푸시 대상에서 제외).
+        </div>
+      )}
 
       {updateProblems.length > 0 && (
         <div className="mb-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800">
@@ -178,6 +190,11 @@ export default async function CustomersPage() {
                     >
                       {c.name}
                     </Link>
+                    {c.enrollStatus === "pending" && (
+                      <span className="ml-2 inline-block bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[10px] font-medium align-middle">
+                        후보·자동등록
+                      </span>
+                    )}
                     {c.address && (
                       <div className="text-xs text-slate-400 mt-0.5">{c.address}</div>
                     )}
@@ -235,13 +252,16 @@ export default async function CustomersPage() {
                         ID 등록
                       </Link>
                     )}
-                    {c.remoteId && !c.isInternal && (
+                    {c.remoteId && !c.isInternal && c.enrollStatus === "active" && (
                       <CustomerPushButton
                         customerId={c.id}
                         customerName={c.name}
                         currentVersion={c.lastVersion}
                         pending={pendingByCustomer.get(c.id) ?? null}
                       />
+                    )}
+                    {c.enrollStatus === "pending" && (
+                      <ConfirmEnrollButton customerId={c.id} customerName={c.name} />
                     )}
                     <Link
                       href={`/customers/${c.id}/edit`}
