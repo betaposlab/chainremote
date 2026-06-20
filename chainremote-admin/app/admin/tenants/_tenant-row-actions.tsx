@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   issueTenantEnrollKey,
   resetTenantOwnerPassword,
@@ -21,7 +22,9 @@ export function TenantRowActions({
   status,
   hasEnrollKey,
 }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [downloading, setDownloading] = useState(false);
   const [resetResult, setResetResult] = useState<{
     adminEmail: string;
     tempPassword: string;
@@ -29,6 +32,44 @@ export function TenantRowActions({
   const [enrollResult, setEnrollResult] = useState<IssueEnrollKeyResult | null>(
     null,
   );
+
+  // ⑤ 이 대리점 전용 에이전트 .exe 다운로드 — 키 (재)발급 + overlay 박힌 설치파일.
+  async function doDownload() {
+    const warn = hasEnrollKey
+      ? `'${displayName}' 전용 거래처 에이전트(.exe)를 다시 다운로드합니다.\n\n⚠️ 새 키가 발급되어, 이전에 받은 .exe 는 신규 거래처 등록이 안 됩니다.\n(이미 등록·설치된 거래처는 영향 없이 계속 작동)\n→ 이 새 .exe 를 대리점에 전달하세요.`
+      : `'${displayName}' 전용 거래처 에이전트(.exe)를 다운로드합니다.\n\n이 .exe 로 깐 가맹점은 자동으로 '${displayName}' 소속으로 등록됩니다.\n이 파일을 이 대리점에 전달하세요.`;
+    if (!confirm(warn)) return;
+    setDownloading(true);
+    try {
+      const resp = await fetch(`/api/tenants/${tenantId}/agent`, {
+        method: "POST",
+      });
+      if (!resp.ok) {
+        let msg = "다운로드 실패";
+        try {
+          const j = await resp.json();
+          msg = j.error ?? msg;
+        } catch {}
+        throw new Error(msg);
+      }
+      const blob = await resp.blob();
+      const cd = resp.headers.get("Content-Disposition") ?? "";
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = m ? m[1] : `ChainRemote_Agent_${tenantId}.exe`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      router.refresh(); // 발급상태 배지 갱신
+    } catch (e: any) {
+      alert(e?.message ?? "다운로드 실패");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   function doIssueKey() {
     const warn = hasEnrollKey
@@ -74,16 +115,21 @@ export function TenantRowActions({
     <>
       <button
           type="button"
-          onClick={doIssueKey}
-          disabled={pending}
-          title="이 대리점 전용 거래처 에이전트 키 발급 (자가등록용)"
-          className={`rounded border px-2 py-1 text-xs disabled:opacity-50 ${
-            hasEnrollKey
-              ? "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-              : "border-[#00A0E5] bg-[#00A0E5] text-white hover:bg-[#0086c2]"
-          }`}
+          onClick={doDownload}
+          disabled={pending || downloading}
+          title="이 대리점 전용 거래처 에이전트 설치파일(.exe) 다운로드 — 깐 가맹점이 이 대리점으로 자동 등록"
+          className="rounded border border-[#00A0E5] bg-[#00A0E5] px-2 py-1 text-xs font-medium text-white hover:bg-[#0086c2] disabled:opacity-50"
         >
-          {hasEnrollKey ? "에이전트 키 재발급" : "에이전트 키 발급"}
+          {downloading ? "준비 중..." : "에이전트 다운로드"}
+        </button>
+      <button
+          type="button"
+          onClick={doIssueKey}
+          disabled={pending || downloading}
+          title="키/custom.txt 만 발급 (winpc 수동 빌드용 — 보통은 '에이전트 다운로드' 사용)"
+          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {hasEnrollKey ? "키 재발급" : "키만"}
         </button>
       <button
           type="button"
