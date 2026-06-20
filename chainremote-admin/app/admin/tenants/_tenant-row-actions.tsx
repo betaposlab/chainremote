@@ -53,13 +53,15 @@ export function TenantRowActions({
         throw new Error(msg);
       }
       const blob = await resp.blob();
-      // 파일명 = 회사명 기반 (slug 의 랜덤 문자열 노출 방지). 파일명 금지문자만 제거.
+      // 파일명 = 회사명 기반 (slug 랜덤문자열 노출 방지). 파일명 금지문자 제거 + 공백압축 +
+      //   50자 캡(상호가 길어도 NTFS 255/MAX_PATH 260 안전 — 실제론 35자 내외).
       const safe =
-        displayName.replace(/[\\/:*?"<>|]/g, "").trim() || tenantId;
+        (displayName.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim() ||
+          tenantId).slice(0, 50);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ChainRemote_${safe}_설치.exe`;
+      a.download = `ChainRemote_${safe}_가맹점설치용.exe`;
       document.body.appendChild(a);
       a.click();
       a.remove();

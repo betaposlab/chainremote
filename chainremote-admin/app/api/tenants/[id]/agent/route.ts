@@ -84,8 +84,11 @@ export async function POST(_req: Request, ctx: Ctx) {
 
   // 파일명 = 회사명 기반 (slug 랜덤문자열 노출 방지). 한글이라 RFC 5987(filename*) +
   //   ASCII 폴백(slug) 동시 제공. (fetch+blob 경로는 클라이언트가 a.download 로 최종 결정.)
-  const safeName = t.displayName.replace(/[\\/:*?"<>|]/g, "").trim() || t.slug;
-  const utf8Name = encodeURIComponent(`ChainRemote_${safeName}_설치.exe`);
+  const safeName = (
+    t.displayName.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim() ||
+    t.slug
+  ).slice(0, 50);
+  const utf8Name = encodeURIComponent(`ChainRemote_${safeName}_가맹점설치용.exe`);
   const asciiFallback = `ChainRemote_Agent_${t.slug}.exe`;
   return new Response(new Uint8Array(out), {
     status: 200,
