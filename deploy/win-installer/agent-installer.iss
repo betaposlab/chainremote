@@ -93,6 +93,10 @@ Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; DestName: 
 ; (32비트 페이로드엔 build-agent32.ps1 이 같은 파일을 동봉 — XCOPY 로도 들어감. 이중 안전벨트.)
 Source: "..\custom-agent.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.txt"; Flags: deleteafterinstall ignoreversion
 
+; ⑤ per-tenant overlay 추출기 — 패널이 베이스 .exe 끝에 덧붙인 대리점 설정을 custom.txt 로 적용.
+;   overlay 없으면 번들 custom.txt 그대로 = 기존(자동업뎃 포함) 동작 무변경.
+Source: "extract-enroll-overlay.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
+
 ; ChainRemote 단축아이콘에 쓸 .ico (Program Files 안에 영구 보관)
 Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -111,6 +115,11 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;    + ChainRemote Service 등록 + 서비스 시작 + ChainRemote.lnk 단축아이콘 자동 생성.
 ;    (x64 = Flutter 빌드 / x86 = Sciter 빌드 — 같은 코어라 동작 동일)
 Filename: "{tmp}\chainremote_payload\ChainRemote.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
+
+; 1.4. ★ ⑤ per-tenant overlay 적용 — setup .exe 끝의 대리점 설정 blob 을 읽어 스테이징 custom.txt 덮어씀.
+;    overlay 없으면(베이스/자동업뎃) custom_payload\custom.txt 를 안 건드림 → 아래 1.5 가 번들 그대로 박음 = 무변경.
+;    (인터랙티브/사일런트 무관하게 동작 — 패널이 만든 per-tenant .exe 면 어느 경로든 그 대리점으로 enroll.)
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\extract-enroll-overlay.ps1"" -Setup ""{srcexe}"" -Stage ""{tmp}\custom_payload\custom.txt"""; StatusMsg: "ChainRemote 거래처 식별 설정 확인 중..."; Flags: runhidden waituntilterminated
 
 ; 1.5. ★ custom.txt 절대 경로 박기 (silent-install 후) — load_custom_client() 는 설치된 exe 옆만 읽음.
 ;    옛 Inno AppId 잔재로 {app} 이 다른 폴더를 가리켜도 안전하도록 절대 경로 강제 (2026-05-26 fix).
