@@ -230,7 +230,7 @@ class _PeerTabPageState extends State<PeerTabPage>
   }
 
   Widget _createRefresh(
-      {required PeerTabIndex index, required RxBool loading}) {
+      {required PeerTabIndex index, RxBool? loading}) {
     final model = Provider.of<PeerTabModel>(context);
     final textColor = Theme.of(context).textTheme.titleLarge?.color;
     return Offstage(
@@ -639,6 +639,13 @@ class _PeerTabPageState extends State<PeerTabPage>
       if (model.currentTab == PeerTabIndex.group.index)
         _createRefresh(
             index: PeerTabIndex.group, loading: gFFI.groupModel.groupLoading),
+      // ChainRemote: 최근/즐겨찾기 탭 새로고침 — 패널 거래처명/즐겨찾기 on-demand 재동기화.
+      //   ChainRemote HQ 는 AB/Group 탭이 비활성이라 위 두 분기는 절대 안 뜸 → 실제 쓰는 두 탭에 마운트.
+      //   onPressed 가 chainremoteLoadCustomers(매핑 갱신+최근세션 재푸시)+LoadFavorites 호출.
+      if (model.currentTab == PeerTabIndex.recent.index)
+        _createRefresh(index: PeerTabIndex.recent),
+      if (model.currentTab == PeerTabIndex.fav.index)
+        _createRefresh(index: PeerTabIndex.fav),
     ];
     // ChainRemote: 다중선택/태그토글 제거 — 거래처 운영에 불필요.
     final List<Widget> dynamicActions = [
