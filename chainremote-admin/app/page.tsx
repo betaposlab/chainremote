@@ -1,11 +1,21 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { customers, supportSessions, tenants } from "@/lib/schema";
 import { count, eq } from "drizzle-orm";
+import { AgentDownloadCard } from "./_agent-download-card";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const tenant = (await db.select().from(tenants).where(eq(tenants.slug, "betaposlab")).limit(1))[0];
+  // ★ 테넌트 격리: 로그인한 사용자의 회사(tenant)로 한정. (하드코딩 betaposlab 제거 —
+  //   대리점이 로그인하면 자기 회사 현황만 봐야 함.) chang=betaposlab 이라 본사 화면 무변경.
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const tenant = (
+    await db.select().from(tenants).where(eq(tenants.id, session.user.tenantId)).limit(1)
+  )[0];
+  if (!tenant) redirect("/login");
   const [{ value: customerCount }] = await db
     .select({ value: count() })
     .from(customers)
@@ -29,6 +39,10 @@ export default async function Home() {
         <Card label="누적 지원기록" value={sessionCount} suffix="건" />
         <Card label="이번 달 지원" value={0} suffix="건" />
       </div>
+
+      {(session.user.role === "owner" || session.user.role === "super_admin") && (
+        <AgentDownloadCard tenantId={tenant.id} displayName={tenant.displayName} />
+      )}
 
       <section>
         <h2 className="text-lg font-semibold mb-3">시작하기</h2>

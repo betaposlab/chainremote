@@ -12,13 +12,12 @@ import {
   createTenantWithOwner,
   findFirstOwnerOfTenant,
   getTenant,
-  setEnrollSecretHash,
+  reissueEnrollKey,
   setTenantSubscriptionStatus,
   setUserPasswordHash,
   updateTenant,
   type TenantFields,
 } from "@/lib/data/tenants";
-import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 
 const BCRYPT_COST = 10;
 // 사람이 혼동하기 쉬운 문자 제외 (O/0, I/l/1) → 카톡 전달 시 오류 ↓
@@ -237,8 +236,8 @@ export async function issueTenantEnrollKey(
   if (!t) throw new Error("회사를 찾을 수 없습니다");
 
   const reissued = !!t.enrollSecretHash;
-  const enrollKey = generateHeartbeatToken(); // 64-hex 고엔트로피
-  await setEnrollSecretHash(tenantId, hashHeartbeatToken(enrollKey)); // DB 엔 해시만
+  // 새 키 발급 — 해시(검증)+암호화평문(재다운로드) 함께 저장.
+  const enrollKey = await reissueEnrollKey(tenantId);
 
   // betaposlab 루트 custom-agent.txt 와 동일 포맷 (JSON.stringify 로 항상 유효 JSON).
   const customTxt = JSON.stringify({

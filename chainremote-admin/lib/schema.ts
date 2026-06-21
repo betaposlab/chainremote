@@ -74,6 +74,9 @@ export const tenants = pgTable("tenants", {
   // 거래처 agent 자가등록(⑤ auto-enroll) 인증용 per-tenant enroll-key 의 sha-256 해시.
   // 평문은 그 tenant 의 agent 빌드 custom.txt(enroll-key)에만. NULL = 자가등록 비활성. 마이그 016.
   enrollSecretHash: text("enroll_secret_hash"),
+  // 같은 enroll-key 평문을 AUTH_SECRET 파생키로 AES-256-GCM 암호화 저장 (마이그 017).
+  // 다운로드 시 복호화해 *같은 키* 재사용 → 재다운로드해도 같은 .exe (대리점 자가 다운로드).
+  enrollSecretEnc: text("enroll_secret_enc"),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

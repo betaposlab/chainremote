@@ -3,6 +3,8 @@ import { customers, supportSessions, tenants } from "@/lib/schema";
 import { and, desc, eq, gte } from "drizzle-orm";
 import { ISSUE_TYPE_LABELS, RESOLUTION_LABELS } from "@/lib/session-labels";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,13 @@ export default async function SessionsPage({
   const { period: periodParam, customerId } = await searchParams;
   const period: Period = periodParam && periodParam in PERIODS ? periodParam : "month";
 
-  const tenant = (await db.select().from(tenants).where(eq(tenants.slug, "betaposlab")).limit(1))[0];
+  // ★ 테넌트 격리: 로그인 사용자 회사로 한정 (하드코딩 betaposlab 제거).
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const tenant = (
+    await db.select().from(tenants).where(eq(tenants.id, session.user.tenantId)).limit(1)
+  )[0];
+  if (!tenant) redirect("/login");
 
   const customerOptions = await db
     .select({ id: customers.id, name: customers.name })

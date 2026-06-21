@@ -7,6 +7,8 @@ import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tenants, users } from "@/lib/schema";
 import { assertEmailAvailable } from "./users";
+import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
+import { encryptSecret, decryptSecret } from "@/lib/secret-crypto";
 
 // 회사(tenant) 생성 시 함께 받는 사업자/연락처/구독 정보. 모두 옵셔널 — 일단
 // 폼에서 필수 검증, DB 는 nullable. monthly_fee_krw 는 공급가액(부가세 별도).
@@ -110,6 +112,39 @@ export async function setEnrollSecretHash(tenantId: string, hash: string) {
     .update(tenants)
     .set({ enrollSecretHash: hash, updatedAt: new Date() })
     .where(eq(tenants.id, tenantId));
+}
+
+// ⑤ enroll-key 발급/재발급 — 새 랜덤 생성, 해시(검증)+암호화평문(재다운로드)을 함께 저장,
+// 평문 반환. "재발급" = 옛 키 무효화(기존 등록 거래처는 토큰 기반이라 무영향).
+export async function reissueEnrollKey(tenantId: string): Promise<string> {
+  const key = generateHeartbeatToken();
+  await db
+    .update(tenants)
+    .set({
+      enrollSecretHash: hashHeartbeatToken(key),
+      enrollSecretEnc: encryptSecret(key),
+      updatedAt: new Date(),
+    })
+    .where(eq(tenants.id, tenantId));
+  return key;
+}
+
+// ⑤ 스테이블 enroll-key — 암호화 평문이 있으면 복호화해 *같은 키* 반환(재다운로드해도
+// 같은 .exe). 없으면(신규/백필 전) 발급. 다운로드 경로가 이걸 써서 키가 안 흔들림.
+export async function getOrCreateEnrollKey(tenantId: string): Promise<string> {
+  const [t] = await db
+    .select({ enc: tenants.enrollSecretEnc })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+  if (t?.enc) {
+    try {
+      return decryptSecret(t.enc);
+    } catch {
+      // enc 손상/AUTH_SECRET 불일치 — 안전하게 재발급으로 폴백.
+    }
+  }
+  return reissueEnrollKey(tenantId);
 }
 
 // 특정 tenant 의 owner user 비번 강제 재설정 (super_admin 만).

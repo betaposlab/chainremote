@@ -1,7 +1,8 @@
 import { db } from "@/lib/db";
 import { customers, tenants } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { CustomerForm } from "../../_form";
 import { updateCustomer } from "@/lib/actions/customers";
 import { DeleteButton } from "./_delete";
@@ -15,9 +16,13 @@ export default async function EditCustomerPage({
 }) {
   const { id } = await params;
 
+  // ★ 테넌트 격리: 로그인 사용자 회사로 한정 (하드코딩 betaposlab 제거).
+  const session = await auth();
+  if (!session?.user) redirect("/login");
   const tenant = (
-    await db.select().from(tenants).where(eq(tenants.slug, "betaposlab")).limit(1)
+    await db.select().from(tenants).where(eq(tenants.id, session.user.tenantId)).limit(1)
   )[0];
+  if (!tenant) redirect("/login");
 
   const row = (
     await db

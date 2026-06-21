@@ -13,11 +13,7 @@
 //   [ ...base.exe ][ UTF-8 custom.txt ][ int32 LE length ][ 8-byte ASCII "CRENROL1" ]
 
 import { auth } from "@/auth";
-import { getTenant, setEnrollSecretHash } from "@/lib/data/tenants";
-import {
-  generateHeartbeatToken,
-  hashHeartbeatToken,
-} from "@/lib/heartbeat-token";
+import { getTenant, getOrCreateEnrollKey } from "@/lib/data/tenants";
 
 export const dynamic = "force-dynamic";
 
@@ -37,19 +33,22 @@ function jsonError(status: number, error: string): Response {
 }
 
 export async function POST(_req: Request, ctx: Ctx) {
-  // 브라우저 세션 게이트 (데스크톱 Bearer 아님). super_admin 만.
+  // 브라우저 세션 게이트. super_admin(Chang) 또는 *자기 회사* owner(대리점) 만.
   const session = await auth();
-  if (!session?.user || session.user.role !== "super_admin") {
-    return jsonError(403, "super_admin 권한이 필요합니다");
+  const me = session?.user;
+  if (!me) return jsonError(403, "로그인이 필요합니다");
+  const { id } = await ctx.params;
+  const isSuper = me.role === "super_admin";
+  const isOwnerOfThis = me.role === "owner" && me.tenantId === id;
+  if (!isSuper && !isOwnerOfThis) {
+    return jsonError(403, "이 회사의 에이전트를 받을 권한이 없습니다");
   }
 
-  const { id } = await ctx.params;
   const t = await getTenant(id);
   if (!t) return jsonError(404, "회사를 찾을 수 없습니다");
 
-  // 1) enroll-key (재)발급 — DB 엔 해시만 (resolveTenantByEnroll 과 동일 hashHeartbeatToken).
-  const enrollKey = generateHeartbeatToken();
-  await setEnrollSecretHash(id, hashHeartbeatToken(enrollKey));
+  // 1) enroll-key — 스테이블(암호화 평문 있으면 재사용, 없으면 발급). 재다운로드해도 같은 키.
+  const enrollKey = await getOrCreateEnrollKey(id);
 
   // 2) 그 대리점 전용 custom.txt (작동 중 betaposlab 에이전트와 동일 포맷).
   const customTxt = JSON.stringify({

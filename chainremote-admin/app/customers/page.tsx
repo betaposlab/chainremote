@@ -9,13 +9,19 @@ import { CustomerStatus, computeUpdateHealth } from "./_status";
 import { CustomerPushButton, BulkPushButton } from "./_push-buttons";
 import { ConfirmEnrollButton } from "./_enroll-confirm";
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomersPage() {
   const session = await auth();
-  const currentUserId = session?.user.id;
-  const tenant = (await db.select().from(tenants).where(eq(tenants.slug, "betaposlab")).limit(1))[0];
+  if (!session?.user) redirect("/login");
+  const currentUserId = session.user.id;
+  // ★ 테넌트 격리: 로그인 사용자 회사로 한정 (하드코딩 betaposlab 제거).
+  const tenant = (
+    await db.select().from(tenants).where(eq(tenants.id, session.user.tenantId)).limit(1)
+  )[0];
+  if (!tenant) redirect("/login");
   // 담당 직원 (assignedUser) 의 displayName 을 같이 가져오기 위한 LEFT JOIN
   const rows = await db
     .select({
