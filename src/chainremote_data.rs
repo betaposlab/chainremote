@@ -186,10 +186,6 @@ fn push_event(name: &str, peers_json: String) {
     );
 }
 
-fn push_empty(event_name: &str) {
-    push_event(event_name, "[]".to_owned());
-}
-
 /// 인증된 GET. 응답 wrapper 풀기까지 한다. 호출 측은 inner JSON 받음.
 fn authed_get(url: String) -> Result<String, String> {
     let token = chainremote_auth::get_token();
@@ -300,14 +296,16 @@ fn fetch_favorites_blocking() -> bool {
                 true
             }
             Err(e) => {
-                log::warn!("ChainRemote favorites 파싱 실패: {} ({:.200})", e, inner);
-                push_empty("load_fav_peers");
+                // ★ 실패 시 화면을 비우지 않는다(마지막 정상 목록 유지). 옛 코드는 여기서
+                //   push_empty 로 즐겨찾기를 지워 — 패널 일시장애(재배포/네트워크 블립)에
+                //   즐겨찾기가 통째로 증발하는 버그가 있었음(거래처 fetch 는 원래 안 지움).
+                log::warn!("ChainRemote favorites 파싱 실패(목록 유지): {} ({:.200})", e, inner);
                 false
             }
         },
         Err(e) => {
-            log::warn!("ChainRemote /api/me/favorites 실패: {}", e);
-            push_empty("load_fav_peers");
+            // ★ 위와 동일 — fetch 실패 시 마지막 목록 유지(증발 방지). 워밍 재시도가 복구.
+            log::warn!("ChainRemote /api/me/favorites 실패(목록 유지): {}", e);
             false
         }
     }
@@ -388,17 +386,34 @@ pub fn get_my_favorite_remote_ids() -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// FFI 진입점 — 모두 thread spawn 으로 UI non-blocking.
-pub fn spawn_load_customers() {
-    std::thread::spawn(|| {
-        fetch_customers_blocking();
+/// 워밍 재시도 — 패널 일시장애(재배포/네트워크 블립/응답지연)에 목록이 비거나 안 채워지는 걸 방지.
+/// fetch 가 실패해도 화면을 비우지 않으므로(마지막 정상 목록 유지) + 여기서 백그라운드 재시도해
+/// 패널 복구 시 자동으로 다시 채운다. 성공 즉시 종료. 최대 10회×5s(~45s, 재배포 다운타임 커버)
+/// 후 포기(마지막 목록 유지 — 사용자는 새로고침/재로그인으로 언제든 강제 워밍 가능).
+fn spawn_warm_with_retry(name: &'static str, f: fn() -> bool) {
+    std::thread::spawn(move || {
+        for attempt in 0..10u32 {
+            if f() {
+                return;
+            }
+            if attempt < 9 {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+            }
+        }
+        log::warn!(
+            "ChainRemote {} 워밍 10회 재시도 모두 실패 — 마지막 목록 유지(새로고침/재로그인으로 복구)",
+            name
+        );
     });
 }
 
+/// FFI 진입점 — 모두 thread spawn 으로 UI non-blocking.
+pub fn spawn_load_customers() {
+    spawn_warm_with_retry("customers", fetch_customers_blocking);
+}
+
 pub fn spawn_load_favorites() {
-    std::thread::spawn(|| {
-        fetch_favorites_blocking();
-    });
+    spawn_warm_with_retry("favorites", fetch_favorites_blocking);
 }
 
 pub fn spawn_add_favorite(remote_id: String) {
