@@ -100,3 +100,7 @@ build-err.log
 # 도구설정/스크래치 (커밋 제외)
 .codex/
 design-mockup/
+
+# 매뉴얼 배포용 zip (동일 PDF가 매뉴얼/에 버전관리됨 - 중복 제외)
+매뉴얼.zip
+__MACOSX/
