@@ -903,8 +903,11 @@ pub fn get_async_job_status() -> String {
 #[inline]
 pub fn get_langs() -> String {
     use serde_json::json;
+    // ChainRemote: 선택 메뉴는 한국어/영어만 노출. LANGS/번역데이터(mod 51개+match)는 그대로 유지 → 다른 기능 무영향.
+    let allowed = ["en", "ko"];
     let mut x: Vec<(&str, String)> = crate::lang::LANGS
         .iter()
+        .filter(|a| allowed.contains(&a.0))
         .map(|a| (a.0, format!("{} ({})", a.1, a.0)))
         .collect();
     x.sort_by(|a, b| a.0.cmp(b.0));

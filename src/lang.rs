@@ -109,27 +109,12 @@ pub fn translate(name: String) -> String {
     translate_locale(name, &locale)
 }
 
-pub fn translate_locale(name: String, locale: &str) -> String {
-    let locale = locale.to_lowercase();
+pub fn translate_locale(name: String, _locale: &str) -> String {
+    // ChainRemote: 언어 기본값은 무조건 한국어. 설정에서 명시적으로 고른 경우(LocalConfig "lang")만 존중.
+    // upstream의 시스템 로케일 기반 자동 유도는 사용 안 함 — 거래처/본사 모두 한국 사용자.
     let mut lang = hbb_common::config::LocalConfig::get_option("lang").to_lowercase();
     if lang.is_empty() {
-        // zh_CN on Linux, zh-Hans-CN on mac, zh_CN_#Hans on Android
-        if locale.starts_with("zh") {
-            lang = (if locale.contains("tw") {
-                "zh-tw"
-            } else {
-                "zh-cn"
-            })
-            .to_owned();
-        }
-    }
-    if lang.is_empty() {
-        lang = locale
-            .split("-")
-            .next()
-            .map(|x| x.split("_").next().unwrap_or_default())
-            .unwrap_or_default()
-            .to_owned();
+        lang = "ko".to_owned();
     }
     let lang = lang.to_lowercase();
     let m = match lang.as_str() {
