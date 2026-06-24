@@ -93,6 +93,24 @@ export async function removeFavoriteByRemoteId(
     .where(and(eq(userFavorites.userId, userId), eq(userFavorites.remoteId, remoteId)));
 }
 
+/** "신규 거래처 후보" 무시/삭제 — 해당 remote_id 의 미등록(customer_id NULL) 즐겨찾기를
+ *  테넌트 전체에서 제거 → 후보 배너에서 사라진다. customer_id 가 있는(등록된 거래처) 즐겨찾기는
+ *  안 건드림(isNull 게이트). 테넌트 스코프 강제. */
+export async function dismissOrphanCandidate(
+  tenantId: string,
+  remoteId: string,
+): Promise<void> {
+  await db
+    .delete(userFavorites)
+    .where(
+      and(
+        eq(userFavorites.tenantId, tenantId),
+        eq(userFavorites.remoteId, remoteId),
+        isNull(userFavorites.customerId),
+      ),
+    );
+}
+
 /** 관리 패널 — 특정 거래처를 즐겨찾기한 직원 목록.
  * 거래처 등록된 머신만(customer_id 매칭) 추적 — orphan 즐겨찾기는 customer 없으니 자동 제외. */
 export async function listFavoritersOfCustomer(customerId: string, tenantId: string) {

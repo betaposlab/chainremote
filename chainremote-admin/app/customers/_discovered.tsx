@@ -2,7 +2,7 @@
 
 import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
-import { importPeer } from "@/lib/actions/customers";
+import { importPeer, dismissCandidate } from "@/lib/actions/customers";
 import type { OrphanFavorite } from "@/lib/data/favorites";
 
 export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
@@ -38,6 +38,22 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
       });
       setBusyId(null);
       closeDialog();
+      router.refresh();
+    });
+  };
+
+  // 후보 삭제 — orphan 즐겨찾기를 제거해 배너에서 치움(테스트 머신 등). 확인 후 실행.
+  const onDismiss = (p: OrphanFavorite) => {
+    if (
+      !confirm(
+        `'${p.alias || p.hostname || p.remoteId}' 후보를 목록에서 삭제할까요?\n(이 머신의 미등록 즐겨찾기가 제거됩니다. 테스트 장비 등 거래처로 안 쓸 때.)`,
+      )
+    )
+      return;
+    setBusyId(p.remoteId);
+    start(async () => {
+      await dismissCandidate(p.remoteId);
+      setBusyId(null);
       router.refresh();
     });
   };
@@ -78,14 +94,25 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => openDialog(p)}
-              disabled={pending}
-              className="shrink-0 ml-2 rounded-md bg-[#00A0E5] hover:bg-[#0090d0] disabled:opacity-50 text-white px-3 py-1 text-xs font-medium"
-            >
-              {busyId === p.remoteId ? "추가 중..." : "+ 추가"}
-            </button>
+            <div className="shrink-0 ml-2 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => openDialog(p)}
+                disabled={pending}
+                className="rounded-md bg-[#00A0E5] hover:bg-[#0090d0] disabled:opacity-50 text-white px-3 py-1 text-xs font-medium"
+              >
+                {busyId === p.remoteId ? "추가 중..." : "+ 추가"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onDismiss(p)}
+                disabled={pending}
+                title="후보 삭제 (미등록 즐겨찾기 제거)"
+                className="rounded-md border border-slate-300 hover:bg-slate-50 disabled:opacity-50 text-slate-500 px-2.5 py-1 text-xs font-medium"
+              >
+                {busyId === p.remoteId ? "..." : "삭제"}
+              </button>
+            </div>
           </li>
         ))}
       </ul>

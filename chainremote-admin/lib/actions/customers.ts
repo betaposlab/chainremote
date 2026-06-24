@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import * as data from "@/lib/data/customers";
+import * as favData from "@/lib/data/favorites";
 
 async function requireSession() {
   const session = await auth();
@@ -73,5 +74,13 @@ export async function importPeer(input: {
 export async function confirmEnrollment(id: string) {
   const session = await requireSession();
   await data.confirmEnrollment(id, { tenantId: session.tenantId });
+  revalidatePath("/customers");
+}
+
+// "신규 거래처 후보"(orphan 즐겨찾기) 무시/삭제 — 그 remote_id 의 미등록 즐겨찾기를 테넌트서 제거.
+// 테스트 머신 등 거래처로 등록 안 할 후보를 배너에서 치울 때.
+export async function dismissCandidate(remoteId: string) {
+  const session = await requireSession();
+  await favData.dismissOrphanCandidate(session.tenantId, remoteId);
   revalidatePath("/customers");
 }
