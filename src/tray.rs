@@ -143,12 +143,18 @@ fn make_tray() -> hbb_common::ResultType<()> {
             }
             // We create the icon once the event loop is actually running
             // to prevent issues like https://github.com/tauri-apps/tray-icon/issues/90
-            let tray = TrayIconBuilder::new()
-                .with_menu(Box::new(tray_menu.clone()))
+            // ChainRemote: 에이전트(거래처, is_incoming_only)는 트레이 컨텍스트 메뉴를 안 붙인다 —
+            //   muda/tray-icon 의 메뉴 표시(TrackPopupMenu)가 Win7 i686 에서 c0000409(스택 버퍼 오버런)
+            //   크래시를 냄(우클릭 시 ChainRemote.exe 사망). 좌클릭 열기(TrayEvent::Click)는 유지 →
+            //   기능 손실 없음(메뉴 유일항목 "열기"는 좌클릭과 중복). HQ(is_incoming_only=false)는 메뉴 유지.
+            let mut tray_builder = TrayIconBuilder::new()
                 .with_tooltip(tooltip(0))
                 .with_icon(icon.clone())
-                .with_icon_as_template(true) // mac only
-                .build();
+                .with_icon_as_template(true); // mac only
+            if !hbb_common::config::is_incoming_only() {
+                tray_builder = tray_builder.with_menu(Box::new(tray_menu.clone()));
+            }
+            let tray = tray_builder.build();
             match tray {
                 Ok(tray) => _tray_icon = Arc::new(Mutex::new(Some(tray))),
                 Err(err) => {
