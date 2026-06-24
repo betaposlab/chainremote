@@ -45,7 +45,10 @@ class Body: Reactor.Component
         // ChainRemote(Agent32): 활성 세션 = 슬림 "원격지원 중" 배너 (Flutter 톤 통일).
         //   빨간 점 + "원격지원 중" + [원격 종료]. 전체 카드 대신 표시 → 거래처가 원격 중임을 항상 인지.
         if (auth && !disconnected) {
-            return <div .support-banner>
+            // ChainRemote: role=window-caption → 배너를 잡고 끌어 이동 가능.
+            //   #disconnect 버튼은 interactive라 드래그서 제외(클릭 유지). no-focus(스캐너 보호)는
+            //   windowTopmost만 쓰고 view.focus 안 부르는 방식(applyCmBanner)이라 드래그와 무충돌.
+            return <div .support-banner role="window-caption">
                 <span .banner-dot />
                 <span .banner-label>{translate('Remote support in progress')}</span>
                 <button #disconnect .banner-end>{translate('Disconnect')}</button>

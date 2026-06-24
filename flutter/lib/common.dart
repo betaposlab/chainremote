@@ -65,7 +65,7 @@ var isMobile = isAndroid || isIOS;
 var version = ''; // RustDesk 코어 버전 (bind.mainGetVersion)
 // ChainRemote 자체 버전. src/chainremote_version.rs 의 CHAINREMOTE_VERSION +
 // deploy/win-installer/{agent,hq}-installer.iss 의 APP_VERSION 과 항상 동기화.
-const chainRemoteVersion = '1.4.36';
+const chainRemoteVersion = '1.4.37';
 int androidVersion = 0;
 
 // Only used on Linux.

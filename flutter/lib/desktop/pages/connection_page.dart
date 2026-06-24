@@ -633,6 +633,20 @@ class _ConnectionPageState extends State<ConnectionPage>
                                       '${translate('Terminal')} (beta)',
                                       () => onConnect(isTerminal: true)
                                     ),
+                                    // ChainRemote: ID 입력 → 즐겨찾기 추가. 최근세션 누적에 의존 안 함.
+                                    //   auto-enroll로 등록된 거래처면 즐겨찾기에서 거래처명 자동 매핑.
+                                    (
+                                      'Add to Favorites',
+                                      () {
+                                        final favId = _idController.id;
+                                        if (favId.isNotEmpty) {
+                                          bind.chainremoteAddFavorite(
+                                              remoteId: favId);
+                                          bind.chainremoteLoadFavorites();
+                                          showToast(translate('Successful'));
+                                        }
+                                      }
+                                    ),
                                   ]
                                       .map((e) => MenuEntryButton<String>(
                                             childBuilder: (TextStyle? style) =>
