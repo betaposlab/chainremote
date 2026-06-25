@@ -16,19 +16,21 @@ enum PeerTabIndex {
   lan,
   ab,
   group,
+  customers, // ChainRemote: '전체 거래처' — 테넌트 패널 등록 거래처 전체(pending 포함). append-only.
 }
 
 class PeerTabModel with ChangeNotifier {
   WeakReference<FFI> parent;
   int get currentTab => _currentTab;
   int _currentTab = 0; // index in tabNames
-  static const int maxTabCount = 5;
+  static const int maxTabCount = 6;
   static const List<String> tabNames = [
-    'Recent sessions', // ChainRemote: 네이티브 최근 접속 기록 (앞으로 원격하면 쌓임). 전체 거래처는 관리 패널.
+    'Recent sessions', // ChainRemote: 네이티브 최근 접속 기록 (앞으로 원격하면 쌓임).
     'Favorites',
     'Discovered',
     'Address book',
     'Accessible devices',
+    'All customers', // ChainRemote: 전체 거래처 (kr.rs 번역 '전체 거래처')
   ];
   static const List<IconData> icons = [
     Icons.access_time_filled,
@@ -36,6 +38,7 @@ class PeerTabModel with ChangeNotifier {
     Icons.explore,
     IconFont.addressBook,
     IconFont.deviceGroupFill,
+    Icons.store, // ChainRemote: 전체 거래처
   ];
   List<bool> isEnabled = List.from([
     true, // 최근 세션 — 네이티브 최근 접속(mainLoadRecentPeers). 여기서 우클릭 → 즐겨찾기 추가.
@@ -43,6 +46,7 @@ class PeerTabModel with ChangeNotifier {
     false, // ChainRemote: 발견됨(LAN) 탭 비활성화 — 거래처 운영에 의미 없음
     false, // ChainRemote: 주소록 비활성화 — 별도 Next.js 관리 패널이 그 역할
     false, // ChainRemote: 엑세스 가능한 장치 비활성화 — 클라우드 계정 서버 안 돌림
+    true, // ChainRemote: 전체 거래처 — 테넌트 패널 등록 거래처 전체(pending 포함)
   ]);
   final List<bool> _isVisible = List.filled(maxTabCount, true, growable: false);
   List<bool> get isVisibleEnabled => () {

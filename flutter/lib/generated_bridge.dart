@@ -1757,6 +1757,10 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kChainremoteAddFavoriteConstMeta;
 
+  bool chainremoteConfirmCustomer({required String remoteId, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteConfirmCustomerConstMeta;
+
   bool chainremoteRemoveFavorite({required String remoteId, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteRemoveFavoriteConstMeta;
@@ -8160,6 +8164,23 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["remoteId"],
       );
 
+  bool chainremoteConfirmCustomer({required String remoteId, dynamic hint}) {
+    var arg0 = _platform.api2wire_String(remoteId);
+    return _platform.executeSync(FlutterRustBridgeSyncTask(
+      callFfi: () => _platform.inner.wire_chainremote_confirm_customer(arg0),
+      parseSuccessData: _wire2api_bool,
+      constMeta: kChainremoteConfirmCustomerConstMeta,
+      argValues: [remoteId],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteConfirmCustomerConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "chainremote_confirm_customer",
+        argNames: ["remoteId"],
+      );
+
   bool chainremoteRemoveFavorite({required String remoteId, dynamic hint}) {
     var arg0 = _platform.api2wire_String(remoteId);
     return _platform.executeSync(FlutterRustBridgeSyncTask(
@@ -14439,6 +14460,22 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
               ffi.Pointer<wire_uint_8_list>)>>('wire_chainremote_add_favorite');
   late final _wire_chainremote_add_favorite = _wire_chainremote_add_favoritePtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
+
+  WireSyncReturn wire_chainremote_confirm_customer(
+    ffi.Pointer<wire_uint_8_list> remote_id,
+  ) {
+    return _wire_chainremote_confirm_customer(
+      remote_id,
+    );
+  }
+
+  late final _wire_chainremote_confirm_customerPtr = _lookup<
+          ffi.NativeFunction<
+              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>>(
+      'wire_chainremote_confirm_customer');
+  late final _wire_chainremote_confirm_customer =
+      _wire_chainremote_confirm_customerPtr
+          .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_chainremote_remove_favorite(
     ffi.Pointer<wire_uint_8_list> remote_id,

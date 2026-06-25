@@ -5160,6 +5160,21 @@ fn wire_chainremote_add_favorite_impl(
         },
     )
 }
+fn wire_chainremote_confirm_customer_impl(
+    remote_id: impl Wire2Api<String> + UnwindSafe,
+) -> support::WireSyncReturn {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+        WrapInfo {
+            debug_name: "chainremote_confirm_customer",
+            port: None,
+            mode: FfiCallMode::Sync,
+        },
+        move || {
+            let api_remote_id = remote_id.wire2api();
+            Ok(chainremote_confirm_customer(api_remote_id))
+        },
+    )
+}
 fn wire_chainremote_remove_favorite_impl(
     remote_id: impl Wire2Api<String> + UnwindSafe,
 ) -> support::WireSyncReturn {

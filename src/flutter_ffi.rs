@@ -2873,6 +2873,14 @@ pub fn chainremote_remove_favorite(remote_id: String) -> SyncReturn<bool> {
     SyncReturn(crate::chainremote_data::remove_favorite_blocking_pub(remote_id))
 }
 
+/// 자가등록 후보 확정 — '전체 거래처' 탭에서 마스터가 미확정 후보를 정식 거래처로 확정.
+/// 동기 blocking — UI thread 가 결과 기다림(토스트 정확성). 서버가 owner 권한 강제.
+pub fn chainremote_confirm_customer(remote_id: String) -> SyncReturn<bool> {
+    SyncReturn(crate::chainremote_data::confirm_customer_blocking_pub(
+        remote_id,
+    ))
+}
+
 /// UI 동기 호출 — "이 거래처가 내 즐겨찾기인가" 빠른 체크.
 /// 캐시 기반 (spawn_load_favorites 가 채움).
 pub fn chainremote_is_favorite(remote_id: String) -> SyncReturn<bool> {

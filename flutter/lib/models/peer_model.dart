@@ -22,6 +22,9 @@ class Peer {
   String device_group_name;
   String note;
   bool? sameServer;
+  // ChainRemote: 자가등록 상태 'active'|'pending'|''(미상). '전체 거래처' 탭에서
+  // pending 시각 표시(별칭 마커는 Rust)와 마스터 확정 버튼 노출 게이트에 사용.
+  String enrollStatus;
 
   String getId() {
     if (alias != '') {
@@ -45,7 +48,8 @@ class Peer {
         loginName = json['loginName'] ?? '',
         device_group_name = json['device_group_name'] ?? '',
         note = json['note'] is String ? json['note'] : '',
-        sameServer = json['same_server'];
+        sameServer = json['same_server'],
+        enrollStatus = json['enrollStatus'] ?? '';
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -64,6 +68,7 @@ class Peer {
       'device_group_name': device_group_name,
       'note': note,
       'same_server': sameServer,
+      'enrollStatus': enrollStatus,
     };
   }
 
@@ -109,6 +114,7 @@ class Peer {
     required this.device_group_name,
     required this.note,
     this.sameServer,
+    this.enrollStatus = '',
   });
 
   Peer.loading()
@@ -142,7 +148,8 @@ class Peer {
         rdpUsername == other.rdpUsername &&
         device_group_name == other.device_group_name &&
         loginName == other.loginName &&
-        note == other.note;
+        note == other.note &&
+        enrollStatus == other.enrollStatus;
   }
 
   Peer.copy(Peer other)
@@ -161,7 +168,8 @@ class Peer {
             loginName: other.loginName,
             device_group_name: other.device_group_name,
             note: other.note,
-            sameServer: other.sameServer);
+            sameServer: other.sameServer,
+            enrollStatus: other.enrollStatus);
 }
 
 enum UpdateEvent { online, load }

@@ -41,6 +41,8 @@ class LoadEvent {
   static const String lan = 'load_lan_peers';
   static const String addressBook = 'load_address_book_peers';
   static const String group = 'load_group_peers';
+  // ChainRemote: '전체 거래처' 탭 — Rust fetch_customers_blocking 가 push.
+  static const String allCustomers = 'load_all_customers';
 }
 
 class PeersModelName {
@@ -49,6 +51,7 @@ class PeersModelName {
   static const String lan = 'discovered peer';
   static const String addressBook = 'address book peer';
   static const String group = 'group peer';
+  static const String allCustomers = 'all customers peer';
 }
 
 // ChainRemote: 이 기기 자신의 ID 캐시. 자기 자신을 거래처 목록(최근/즐겨찾기/LAN)에서 숨기기 위함.
@@ -641,6 +644,9 @@ abstract class BasePeersView extends StatelessWidget {
       case PeerTabIndex.group:
         peers = gFFI.groupModel.peersModel;
         break;
+      case PeerTabIndex.customers:
+        peers = gFFI.allCustomersPeersModel;
+        break;
     }
     return _PeersView(
         peers: peers,
@@ -689,6 +695,30 @@ class FavoritePeersView extends BasePeersView {
     final widget = super.build(context);
     // ChainRemote 본사 앱: 즐겨찾기는 user 별로 DB 의 user_favorites 에서 옴. (Phase 2-D)
     bind.chainremoteLoadFavorites();
+    return widget;
+  }
+}
+
+// ChainRemote: '전체 거래처' 탭 — 우리 회사(테넌트) 패널에 등록된 모든 거래처(pending 포함).
+// 누가 등록했든 chang/c-win/jaesung 모두 동일 목록을 보고 거기서 1클릭 원격.
+// 데이터는 Rust fetch_customers_blocking → "load_all_customers" 이벤트(allCustomersPeersModel).
+class AllCustomersPeersView extends BasePeersView {
+  AllCustomersPeersView(
+      {Key? key, EdgeInsets? menuPadding, ScrollController? scrollController})
+      : super(
+          key: key,
+          peerTabIndex: PeerTabIndex.customers,
+          peerCardBuilder: (Peer peer) => AllCustomersPeerCard(
+            peer: peer,
+            menuPadding: menuPadding,
+          ),
+        );
+
+  @override
+  Widget build(BuildContext context) {
+    final widget = super.build(context);
+    // on-demand 재요청 (자동 폴링 대신 — 50대리점 idle 트래픽 방지). 탭 진입 시 최신 거래처 fetch.
+    bind.chainremoteLoadCustomers();
     return widget;
   }
 }

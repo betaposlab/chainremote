@@ -66,6 +66,11 @@ class _PeerTabPageState extends State<PeerTabPage>
       ),
       ({dynamic hint}) => gFFI.groupModel.pull(force: hint == null),
     ),
+    // ChainRemote: '전체 거래처' — 인덱스 5(enum customers 와 정렬). 탭 진입 시 view.build() 가
+    //   chainremoteLoadCustomers 호출 → load_all_customers push → 목록 표시.
+    _TabEntry(AllCustomersPeersView(
+      menuPadding: _menuPadding(),
+    )),
   ];
   RelativeRect? mobileTabContextMenuPos;
 
@@ -646,6 +651,9 @@ class _PeerTabPageState extends State<PeerTabPage>
         _createRefresh(index: PeerTabIndex.recent),
       if (model.currentTab == PeerTabIndex.fav.index)
         _createRefresh(index: PeerTabIndex.fav),
+      // ChainRemote: 전체 거래처 새로고침 — chainremoteLoadCustomers 재요청(onPressed 공통).
+      if (model.currentTab == PeerTabIndex.customers.index)
+        _createRefresh(index: PeerTabIndex.customers),
     ];
     // ChainRemote: 다중선택/태그토글 제거 — 거래처 운영에 불필요.
     final List<Widget> dynamicActions = [

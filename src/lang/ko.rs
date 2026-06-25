@@ -238,6 +238,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Favorites", "즐겨찾기"),
         ("Add to Favorites", "내 즐겨찾기에 추가"),
         ("Remove from Favorites", "내 즐겨찾기에서 빼기"),
+        ("All customers", "전체 거래처"),
+        ("Confirm as customer", "거래처로 확정"),
         ("Empty", "비어 있음"),
         ("Invalid folder name", "유효하지 않은 폴더 이름"),
         ("Socks5 Proxy", "Socks5 프록시"),

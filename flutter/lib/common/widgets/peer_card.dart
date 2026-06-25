@@ -1,6 +1,7 @@
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
@@ -923,6 +924,9 @@ abstract class BasePeerCard extends StatelessWidget {
               break;
             case PeerTabIndex.group:
               break;
+            case PeerTabIndex.customers:
+              // 전체 거래처 탭은 삭제 메뉴를 노출하지 않음(거래처 삭제는 패널 owner 전용).
+              break;
           }
           if (tab != PeerTabIndex.ab) {
             showToast(translate('Successful'));
@@ -1177,6 +1181,95 @@ class FavoritePeerCard extends BasePeerCard {
   @override
   // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
   void _update() => bind.chainremoteLoadFavorites();
+}
+
+// ChainRemote: '전체 거래처' 탭 카드 — 테넌트 패널 등록 거래처 전체(pending 포함).
+// 연결(1클릭 원격) + 내 즐겨찾기 추가/제거 + (마스터 한정) 미확정 후보 '거래처로 확정'.
+// 삭제 메뉴 없음(거래처 삭제는 패널 owner 전용). 확정은 서버(requireOwner)가 권한 강제.
+class AllCustomersPeerCard extends BasePeerCard {
+  AllCustomersPeerCard({required Peer peer, EdgeInsets? menuPadding, Key? key})
+      : super(
+            peer: peer,
+            tab: PeerTabIndex.customers,
+            menuPadding: menuPadding,
+            key: key);
+
+  @override
+  Future<List<MenuEntryBase<String>>> _buildMenuItems(
+      BuildContext context) async {
+    final List<MenuEntryBase<String>> menuItems = [
+      _connectAction(context),
+      _transferFileAction(context),
+      _viewCameraAction(context),
+      _terminalAction(context),
+    ];
+
+    if (peer.platform == kPeerPlatformWindows) {
+      menuItems.add(_terminalRunAsAdminAction(context));
+    }
+
+    // ChainRemote 본사 앱: user_favorites DB 캐시. (Phase 2-D)
+    final List favs = bind.chainremoteGetFavoriteIds();
+
+    if (isDesktop && peer.platform != kPeerPlatformAndroid) {
+      menuItems.add(_tcpTunnelingAction(context));
+    }
+    if (!isWeb) {
+      menuItems.add(await _forceAlwaysRelayAction(peer.id));
+    }
+    if (isWindows && peer.platform == kPeerPlatformWindows) {
+      menuItems.add(_rdpAction(context, peer.id));
+    }
+    if (isWindows) {
+      menuItems.add(_createShortCutAction(peer.id));
+    }
+    menuItems.add(MenuEntryDivider());
+
+    // 전체 목록에서 자기 거래처를 내 즐겨찾기로 (또는 해제).
+    if (!favs.contains(peer.id)) {
+      menuItems.add(_addFavAction(peer.id));
+    } else {
+      menuItems.add(_rmFavAction(peer.id, () async {}));
+    }
+
+    // 미확정(pending) 후보 확정 — 마스터(owner)에게만 버튼 노출. 서버도 owner 강제(이중 게이트).
+    if (peer.enrollStatus == 'pending' && ChainRemoteAuth.isMaster()) {
+      menuItems.add(MenuEntryDivider());
+      menuItems.add(_confirmCustomerAction(peer.id));
+    }
+    return menuItems;
+  }
+
+  MenuEntryBase<String> _confirmCustomerAction(String id) {
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) => Row(
+        children: [
+          Text(
+            translate('Confirm as customer'),
+            style: style,
+          ),
+          Expanded(
+              child: Align(
+            alignment: Alignment.centerRight,
+            child: Transform.scale(
+              scale: 0.8,
+              child: Icon(Icons.verified, color: Color(0xFF00A0E5)),
+            ),
+          ).marginOnly(right: 4)),
+        ],
+      ),
+      proc: () {
+        final ok = bind.chainremoteConfirmCustomer(remoteId: id);
+        showToast(translate(ok ? 'Successful' : 'Failed'));
+      },
+      padding: menuPadding,
+      dismissOnClicked: true,
+    );
+  }
+
+  @protected
+  @override
+  void _update() => bind.chainremoteLoadCustomers();
 }
 
 class DiscoveredPeerCard extends BasePeerCard {

@@ -29,6 +29,10 @@ struct CustomerRow {
     contact_name: Option<String>,
     address: Option<String>,
     notes: Option<String>,
+    // 자가등록(⑤) 상태: "active"(확정) | "pending"(미확정 후보). 없으면 None → 확정으로 간주.
+    // '전체 거래처' 탭에서 pending 시각 표시 + 마스터 확정 버튼 게이트에 사용.
+    #[serde(rename = "enrollStatus")]
+    enroll_status: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -124,6 +128,14 @@ fn customer_to_peer_json(c: &CustomerRow) -> Option<serde_json::Value> {
         return None;
     }
     let empty_tags: Vec<String> = Vec::new();
+    let is_pending = c.enroll_status.as_deref() == Some("pending");
+    // 미확정 후보는 별칭 앞에 시계 마커 → '전체 거래처' 탭에서 한눈에 구분(카드 렌더 변경 없이).
+    // 확정되면 다음 fetch 에서 마커 없는 깨끗한 별칭으로 갱신됨.
+    let alias = if is_pending {
+        format!("⏳ {}", c.name)
+    } else {
+        c.name.clone()
+    };
     Some(serde_json::json!({
         "id": id,
         "hash": "",
@@ -134,7 +146,7 @@ fn customer_to_peer_json(c: &CustomerRow) -> Option<serde_json::Value> {
         // OS 아이콘 자리에 회색 사각형 → 무조건 "Windows" 박음. 향후 다른 OS 거래처 생기면
         // DB 에 platform 컬럼 추가 + 여기 매핑.
         "platform": "Windows",
-        "alias": c.name,
+        "alias": alias,
         "tags": empty_tags,
         "forceAlwaysRelay": "false",
         "rdpPort": "",
@@ -143,6 +155,8 @@ fn customer_to_peer_json(c: &CustomerRow) -> Option<serde_json::Value> {
         "device_group_name": "",
         "note": c.notes.clone().unwrap_or_default(),
         "same_server": serde_json::Value::Null,
+        // Flutter Peer.enrollStatus 로 흘러가 마스터 확정 버튼 게이트에 사용(pending 만 노출).
+        "enrollStatus": c.enroll_status.clone().unwrap_or_default(),
     }))
 }
 
@@ -227,10 +241,10 @@ fn unwrap_body(raw: String) -> String {
         .unwrap_or(raw)
 }
 
-/// GET /api/customers → remote_id → uuid 매핑 캐시 갱신 (silent).
-/// 전체 거래처 마스터 뷰는 관리 패널 전용 — 앱은 최근세션(네이티브)+즐겨찾기만 표시하므로
-/// 더 이상 "load_recent_peers" 로 push 하지 않는다. 이 fetch 는 즐겨찾기 추가 시
-/// remote_id → uuid 변환에만 쓰인다 (캐시 미스 자동 보충 + 시작 시 워밍).
+/// GET /api/customers → remote_id → uuid 매핑 캐시 갱신 + "전체 거래처" 탭 push.
+/// 매핑은 즐겨찾기 추가 시 remote_id → uuid 변환 + 최근세션 이름 덮어쓰기에 쓰인다.
+/// 추가로 "load_all_customers" 이벤트로 테넌트 전체 거래처(pending 포함)를 push →
+/// HQ '전체 거래처' 탭(allCustomersPeersModel)이 목록 표시. 어느 직원이 등록했든 다 보임.
 fn fetch_customers_blocking() -> bool {
     let url = format!("{}/api/customers", chainremote_auth::api_base());
     match authed_get(url) {
@@ -239,6 +253,14 @@ fn fetch_customers_blocking() -> bool {
                 let rows: Vec<&CustomerRow> = resp.customers.iter().collect();
                 update_remote_to_uuid(&rows);
                 merge_remote_names(&rows);
+                // "전체 거래처" 탭 — remote_id 있는 거래처 전부(pending 포함)를 peer 로 push.
+                let peers: Vec<_> = resp
+                    .customers
+                    .iter()
+                    .filter_map(customer_to_peer_json)
+                    .collect();
+                let json = serde_json::ser::to_string(&peers).unwrap_or_default();
+                push_event("load_all_customers", json);
                 // ChainRemote: 매핑(REMOTE_TO_NAME) 갱신 후 최근세션 재푸시 → 패널에서 거래처명을
                 //   수정한 게 HQ 새로고침(또는 재로그인) 시 최근세션 탭에 즉시 반영된다. 매핑은
                 //   main_load_recent_peers 가 peer.alias 를 덮는 데 쓰이므로, 재푸시 안 하면 화면 안 바뀜.
@@ -429,6 +451,28 @@ pub fn add_favorite_blocking_pub(remote_id: String) -> bool {
 
 pub fn remove_favorite_blocking_pub(remote_id: String) -> bool {
     remove_favorite_blocking(remote_id)
+}
+
+/// 자가등록(⑤) 후보 거래처 확정 — POST /api/customers/confirm {remoteId}.
+/// 마스터(owner) 전용 강제는 서버(requireOwner)가 담당 — HQ UI 는 마스터에게만 버튼 노출(이중).
+/// 성공 시 전체 거래처 재fetch → '전체 거래처' 탭에서 ⏳ 마커 사라지고 active 로 갱신.
+fn confirm_customer_blocking(remote_id: String) -> bool {
+    let url = format!("{}/api/customers/confirm", chainremote_auth::api_base());
+    let body = serde_json::json!({ "remoteId": remote_id }).to_string();
+    match authed_post(url, body) {
+        Ok(_) => {
+            fetch_customers_blocking();
+            true
+        }
+        Err(e) => {
+            log::warn!("ChainRemote confirm_customer 실패: {}", e);
+            false
+        }
+    }
+}
+
+pub fn confirm_customer_blocking_pub(remote_id: String) -> bool {
+    confirm_customer_blocking(remote_id)
 }
 
 pub fn spawn_remove_favorite(remote_id: String) {

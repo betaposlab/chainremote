@@ -71,6 +71,25 @@ class ChainRemoteAuth {
       return '';
     }
   }
+
+  /// 로그인 캐시(get_user_json)에서 역할 추출. 'owner'|'admin'|'operator'|'viewer'|'super_admin'.
+  static String currentRole() {
+    try {
+      final raw = bind.chainremoteGetUser();
+      if (raw.isEmpty) return '';
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      return (m['role'] as String?) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// 마스터 = 테넌트 owner(chang). '전체 거래처' 탭 확정 버튼 노출 게이트(UX).
+  /// 실제 권한은 서버 confirm 엔드포인트(requireOwner)가 강제 — 이 체크는 화면용일 뿐.
+  static bool isMaster() {
+    final r = currentRole();
+    return r == 'owner' || r == 'super_admin';
+  }
 }
 
 class ChainRemoteAuthGate extends StatefulWidget {

@@ -266,3 +266,23 @@ export async function confirmEnrollment(
     .returning({ id: customers.id });
   return !!row;
 }
+
+/** confirmEnrollment 의 remote_id 버전 — HQ '전체 거래처' 탭에서 마스터가 9자리 ID 로 확정.
+ *  remote_id 는 테넌트 내 unique 라 최대 1행. 이미 active/타 tenant/미등록이면 무변경(false). */
+export async function confirmEnrollmentByRemoteId(
+  remoteId: string,
+  ctx: { tenantId: string },
+): Promise<boolean> {
+  const [row] = await db
+    .update(customers)
+    .set({ enrollStatus: "active", updatedAt: new Date() })
+    .where(
+      and(
+        eq(customers.remoteId, remoteId),
+        eq(customers.tenantId, ctx.tenantId),
+        eq(customers.enrollStatus, "pending"),
+      ),
+    )
+    .returning({ id: customers.id });
+  return !!row;
+}
