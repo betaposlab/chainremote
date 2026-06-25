@@ -135,6 +135,19 @@ abstract class CustomScaleControls<T extends StatefulWidget> extends State<T> {
     _debouncerScale.value = next;
   }
 
+  /// 직접 입력(숫자 타이핑)으로 절대 퍼센트 설정. clamp 후 적용.
+  /// 슬라이더가 5~1000% 넓은 범위라 미세조정이 어려워, 정확한 값 입력 경로 제공.
+  void setScale(int v) {
+    final next = _clampScale(v);
+    if (next == _scaleValue) return;
+    setState(() {
+      _scaleValue = next;
+      _scalePos = _mapPercentToPos(next);
+    });
+    onScaleChanged?.call(next);
+    _debouncerScale.value = next;
+  }
+
   @override
   void dispose() {
     _debouncerScale.cancel();

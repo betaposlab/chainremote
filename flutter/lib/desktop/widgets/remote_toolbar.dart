@@ -1306,6 +1306,10 @@ class _CustomScaleMenuControls extends StatefulWidget {
 
 class _CustomScaleMenuControlsState
     extends CustomScaleControls<_CustomScaleMenuControls> {
+  // ChainRemote: 직접 입력칸 — 슬라이더(5~1000%)가 미세조정이 어려워 정확한 % 타이핑 경로 제공.
+  final TextEditingController _percentCtrl = TextEditingController();
+  final FocusNode _percentFocus = FocusNode();
+
   @override
   FFI get ffi => widget.ffi;
 
@@ -1313,9 +1317,50 @@ class _CustomScaleMenuControlsState
   ValueChanged<int>? get onScaleChanged => widget.onChanged;
 
   @override
+  void initState() {
+    super.initState();
+    _percentCtrl.text = scaleValue.toString();
+    // 포커스 잃으면(Enter 안 누르고 다른 데 클릭) 타이핑한 값 적용.
+    _percentFocus.addListener(() {
+      if (!_percentFocus.hasFocus) _submitField();
+    });
+  }
+
+  @override
+  void dispose() {
+    _percentFocus.dispose();
+    _percentCtrl.dispose();
+    super.dispose();
+  }
+
+  void _syncFieldToValue() {
+    final t = scaleValue.toString();
+    if (_percentCtrl.text != t) _percentCtrl.text = t;
+  }
+
+  void _submitField() {
+    if (!mounted) return;
+    final v = int.tryParse(_percentCtrl.text.trim().replaceAll('%', ''));
+    if (v != null) setScale(v); // clamp 은 setScale 내부
+    _syncFieldToValue(); // clamp/정리된 값 반영
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     const smallBtnConstraints = BoxConstraints(minWidth: 28, minHeight: 28);
+
+    // 슬라이더/±버튼으로 외부에서 값이 바뀌면(타이핑 중 아닐 때) 입력칸도 동기화.
+    if (!_percentFocus.hasFocus &&
+        _percentCtrl.text != scaleValue.toString()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            !_percentFocus.hasFocus &&
+            _percentCtrl.text != scaleValue.toString()) {
+          _percentCtrl.text = scaleValue.toString();
+        }
+      });
+    }
 
     final sliderControl = Semantics(
       label: translate('Custom scale slider'),
@@ -1360,7 +1405,7 @@ class _CustomScaleMenuControlsState
               padding: EdgeInsets.all(1),
               constraints: smallBtnConstraints,
               icon: const Icon(Icons.remove),
-              onPressed: () => nudgeScale(-1),
+              onPressed: () => nudgeScale(-10),
             ),
           ),
           Expanded(child: sliderControl),
@@ -1371,10 +1416,37 @@ class _CustomScaleMenuControlsState
               padding: EdgeInsets.all(1),
               constraints: smallBtnConstraints,
               icon: const Icon(Icons.add),
-              onPressed: () => nudgeScale(1),
+              onPressed: () => nudgeScale(10),
             ),
           ),
         ]),
+      ),
+      // ChainRemote: 직접 입력 행 — 정확한 % 타이핑(예 110/120/130). Enter 또는 포커스 이동 시 적용.
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 72,
+              child: TextField(
+                controller: _percentCtrl,
+                focusNode: _percentFocus,
+                textAlign: TextAlign.center,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  isDense: true,
+                  suffixText: '%',
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  border: OutlineInputBorder(),
+                ),
+                onSubmitted: (_) => _submitField(),
+              ),
+            ),
+          ],
+        ),
       ),
       Divider(),
     ]);
