@@ -5,7 +5,7 @@
 //
 // 모든 함수 tenantId 격리 강제. agent 측 폴링은 remote_id + heartbeat_token 으로 customer 매칭 후 호출.
 
-import { and, eq, isNull, sql, desc, count } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, desc, count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { pendingUpdates, customers } from "@/lib/schema";
 import { hashHeartbeatToken } from "@/lib/heartbeat-token";
@@ -119,7 +119,10 @@ export async function pushBulk(
     FROM customers c
     WHERE c.tenant_id = ${ctx.tenantId}::uuid AND c.is_active = true
       AND c.is_internal = false  -- 내부 기기(본사/Mac/빌드머신, 마이그 013) 제외
-      AND c.enroll_status = 'active'  -- 자가등록 후보(pending) 미확정 제외 (마이그 016, ⑤)
+      -- ChainRemote 2026-06-29: 미확정 후보(pending)도 업뎃 받음. 자가등록된 진짜 에이전트라
+      --   확정 여부와 무관하게 최신 유지해야 함. '확인(✓)'은 과금/명명/관리용일 뿐(업뎃 게이트 아님).
+      --   대리점은 패널 관리 안 함이 현실 → 확정 안 해도 모든 거래처 자동 업뎃(Chang 합의).
+      AND c.enroll_status IN ('active', 'pending')
     ON CONFLICT (customer_id, target_version)
       WHERE (applied_at IS NULL AND cancelled_at IS NULL AND failed_at IS NULL)
       DO NOTHING
@@ -136,7 +139,8 @@ export async function pushBulk(
         eq(customers.tenantId, ctx.tenantId),
         eq(customers.isActive, true),
         eq(customers.isInternal, false),
-        eq(customers.enrollStatus, "active"), // 자가등록 후보(pending) 제외 (마이그 016, ⑤)
+        // 미확정 후보(pending) 포함 — 모든 실제 에이전트가 업뎃 대상 (위 INSERT 와 동일).
+        inArray(customers.enrollStatus, ["active", "pending"]),
       ),
     );
 

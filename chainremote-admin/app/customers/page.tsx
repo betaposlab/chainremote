@@ -156,7 +156,7 @@ export default async function CustomersPage() {
         <div className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           ⊕ <span className="font-semibold">{pendingEnroll.length}곳</span>이 자동등록(에이전트 설치)으로
           후보 등록됐습니다. 표에서 <span className="font-medium">후보·자동등록</span> 거래처를
-          확인(✓)하면 정식 거래처가 됩니다 (확인 전엔 일괄푸시 대상에서 제외).
+          확인(✓)하면 정식 거래처로 등록됩니다 (업데이트는 확인 안 해도 자동 적용됩니다).
         </div>
       )}
 
