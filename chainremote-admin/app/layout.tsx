@@ -29,7 +29,7 @@ export default async function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex bg-slate-50 text-slate-900">
-        <aside className="w-60 shrink-0 border-r border-slate-200 bg-white flex flex-col">
+        <aside className="w-60 shrink-0 border-r border-slate-200 bg-white flex flex-col sticky top-0 h-screen">
           <div className="px-6 py-5 border-b border-slate-200">
             <Link href="/" className="flex items-center gap-2">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[#00A0E5] text-white text-sm font-bold">
@@ -38,7 +38,7 @@ export default async function RootLayout({
               <span className="font-semibold tracking-tight">ChainRemote</span>
             </Link>
           </div>
-          <nav className="p-3 space-y-1 text-sm flex-1">
+          <nav className="p-3 space-y-1 text-sm flex-1 overflow-y-auto min-h-0">
             <NavItem href="/">대시보드</NavItem>
             <NavItem href="/customers">거래처</NavItem>
             <NavItem href="/sessions">지원기록</NavItem>
