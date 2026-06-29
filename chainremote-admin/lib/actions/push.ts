@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import * as data from "@/lib/data/pending-updates";
+import { listActiveTenants } from "@/lib/data/tenants";
 
 async function requireSession() {
   const session = await auth();
@@ -69,6 +70,58 @@ export async function pushBulkAction(formData: FormData) {
   });
   revalidatePath("/customers");
   return result;
+}
+
+/**
+ * ★ super_admin 전 대리점 에이전트 롤아웃 (벤더 원클릭).
+ * 활성 대리점(listActiveTenants)마다 기존 pushBulk 를 호출 = 대리점이 일일이 누를 필요 없음.
+ * 에이전트가 영업시간 가드 + 무작위 분산지연 + 세션보류 + sha검증으로 알아서 안전 적용.
+ * 한 대리점 실패해도 나머지는 계속(per-tenant try/catch). super_admin 외엔 거부.
+ */
+export async function rolloutAllTenantsAction(formData: FormData) {
+  const session = await requireSession();
+  if (session.role !== "super_admin") {
+    throw new Error("super_admin 권한이 필요합니다 (전 대리점 롤아웃)");
+  }
+  const asset = pickAsset(formData);
+  const opts = pickOptions(formData);
+  const tenants = await listActiveTenants();
+  const results: {
+    tenantId: string;
+    displayName: string;
+    inserted: number;
+    eligible: number;
+    error?: string;
+  }[] = [];
+  for (const t of tenants) {
+    try {
+      const r = await data.pushBulk(asset, opts, {
+        tenantId: t.id,
+        requestedBy: session.id,
+      });
+      results.push({
+        tenantId: t.id,
+        displayName: t.displayName,
+        inserted: r.inserted,
+        eligible: r.eligible,
+      });
+    } catch (e) {
+      results.push({
+        tenantId: t.id,
+        displayName: t.displayName,
+        inserted: 0,
+        eligible: 0,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+  revalidatePath("/admin/tenants");
+  return {
+    tenants: results,
+    tenantCount: results.length,
+    totalInserted: results.reduce((a, r) => a + r.inserted, 0),
+    totalEligible: results.reduce((a, r) => a + r.eligible, 0),
+  };
 }
 
 /**

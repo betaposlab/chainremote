@@ -82,6 +82,16 @@ export async function listTenants() {
   return db.select().from(tenants).orderBy(desc(tenants.createdAt));
 }
 
+// super_admin 전 대리점 에이전트 롤아웃 대상 — 활성 대리점만(is_active + 구독 active).
+// 정지(suspended)/해지(cancelled) 대리점은 업데이트 안 받음(제외).
+export async function listActiveTenants() {
+  return db
+    .select()
+    .from(tenants)
+    .where(and(eq(tenants.isActive, true), eq(tenants.subscriptionStatus, "active")))
+    .orderBy(desc(tenants.createdAt));
+}
+
 export async function getTenant(id: string) {
   const rows = await db.select().from(tenants).where(eq(tenants.id, id)).limit(1);
   return rows[0] ?? null;
