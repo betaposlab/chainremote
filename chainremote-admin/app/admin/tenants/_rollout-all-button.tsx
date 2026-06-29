@@ -48,7 +48,7 @@ export function RolloutAllButton() {
   const [loadingMeta, setLoadingMeta] = useState(false);
   const [windowStart, setWindowStart] = useState("0");
   const [windowEnd, setWindowEnd] = useState("23");
-  const [randomize, setRandomize] = useState("21600");
+  const [randomize, setRandomize] = useState("600");
   const [result, setResult] = useState<RolloutResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -155,7 +155,7 @@ export function RolloutAllButton() {
                         className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
                       />
                     </Field>
-                    <Field label="분산(초)" hint="기본 21600=6h">
+                    <Field label="분산(초)" hint="기본 600=10분">
                       <input
                         type="number"
                         min={0}
@@ -167,7 +167,8 @@ export function RolloutAllButton() {
                   </div>
                   <p className="text-xs text-slate-400">
                     설치 시간대 0~23 = 켜져 있을 때 언제든 적용(POS 야간 전원 OFF 대응). 분산(초)은
-                    NAS 다운로드 대역폭 보호용 — 대리점·거래처가 많을수록 크게.
+                    각 POS 가 0~분산초 사이 무작위 시점에 받음(NAS 대역폭 보호). 기본 600=10분(지금
+                    규모 적합) — 수백~수천 거래처 동시 롤아웃이면 크게(예: 21600=6h).
                   </p>
                 </>
               )}
