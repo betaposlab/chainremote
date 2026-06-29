@@ -210,7 +210,10 @@ export async function enrollCustomer(
     return { token: plaintext, created: false };
   }
 
-  // 2) 신규 — pending 후보로 생성 + 토큰 발급. 상호 없으면 importPeer 관례 placeholder.
+  // 2) 신규 — ★바로 정식 거래처로 등록(active). 2026-06-29 Chang 결정:
+  //   설치 시 상호 입력 = 등록 의사 + 설치파일이 per-tenant enroll-key 라 아무나 못 넣음
+  //   → "후보→확인" 이중작업 불필요. 과금은 패널 밖에서 별도 관리. 잘못/테스트 설치는 삭제로 처리.
+  //   (옛 'pending 후보 + ✓확인' 흐름 폐기. 상호 없으면 importPeer 관례 placeholder.)
   const name =
     input.name?.trim() ||
     (input.hostname?.trim()
@@ -223,7 +226,7 @@ export async function enrollCustomer(
         tenantId: ctx.tenantId,
         name,
         remoteId,
-        enrollStatus: "pending",
+        enrollStatus: "active",
         heartbeatToken: tokenHash,
       })
       .returning({ id: customers.id });
