@@ -246,7 +246,9 @@ export default async function CustomersPage() {
                     {c.remoteId ? (
                       <RemoteButton
                         customerId={c.id}
+                        customerName={c.name}
                         remoteId={c.remoteId}
+                        lastHeartbeatAt={c.lastHeartbeatAt}
                         activeSessionId={active?.id ?? null}
                         activeStartedAt={active?.startedAt ?? null}
                       />

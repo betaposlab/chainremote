@@ -12,12 +12,36 @@ import {
 
 type Props = {
   customerId: string;
+  customerName: string;
   remoteId: string;
+  lastHeartbeatAt: Date | null;
   activeSessionId: string | null;
   activeStartedAt: Date | null;
 };
 
-export function RemoteButton({ customerId, remoteId, activeSessionId, activeStartedAt }: Props) {
+// 거래처가 오프라인으로 추정되면 사람이 읽는 "마지막 보고" 라벨, 온라인이면 null.
+// heartbeat 10분 주기 → 살아있는 POS 는 보통 ≤10분. 살아있는데 잠깐 amber(10~12분)인 걸
+// 헛경고하지 않도록 임계값을 주기보다 여유 있게 15분.
+// 트레이드오프(의도): 거짓경고(살아있는 POS 경고)를 줄이는 쪽 우선 → 마지막 보고 후 15분 이내에
+//   꺼진 기기는 경고 없이 시도될 수 있음. 그 경우 rustdesk:// 가 조용히 실패할 뿐 부작용 없음.
+// (브라우저는 실제 연결 성공 여부를 알 수 없음 — heartbeat 가 유일한 오프라인 단서.)
+function offlineWarning(lastHeartbeatAt: Date | null): string | null {
+  if (!lastHeartbeatAt) return "보고 없음 (미보고)";
+  const diffMin = Math.floor((Date.now() - new Date(lastHeartbeatAt).getTime()) / 60_000);
+  if (diffMin < 15) return null; // 온라인(또는 방금까지 살아있던) → 경고 안 함
+  if (diffMin < 60) return `${diffMin}분 전`;
+  if (diffMin < 60 * 24) return `${Math.floor(diffMin / 60)}시간 전`;
+  return `${Math.floor(diffMin / (60 * 24))}일 전`;
+}
+
+export function RemoteButton({
+  customerId,
+  customerName,
+  remoteId,
+  lastHeartbeatAt,
+  activeSessionId,
+  activeStartedAt,
+}: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
 
@@ -33,6 +57,19 @@ export function RemoteButton({ customerId, remoteId, activeSessionId, activeStar
   const [modalOpen, setModalOpen] = useState(!!activeSessionId);
 
   const onConnect = () => {
+    // 오프라인(꺼져 있음) 추정 시 연결 전 경고 — heartbeat 가 stale/미보고면 원격이 안 될
+    // 가능성이 높음. 끄진 PC 에 헛 세션+모달이 뜨던 문제 방지. 그래도 시도는 사용자 선택.
+    const offlineLabel = offlineWarning(lastHeartbeatAt);
+    if (
+      offlineLabel &&
+      !confirm(
+        `⚠️ ${customerName} (${remoteId}) 은(는) 지금 오프라인으로 보입니다.\n` +
+          `마지막 보고: ${offlineLabel}\n\n` +
+          `원격이 안 될 수 있어요. 그래도 연결을 시도할까요?`,
+      )
+    ) {
+      return; // 취소 → 세션 생성도 모달도 없음
+    }
     start(async () => {
       const sid = await startSession(customerId);
       window.location.href = `rustdesk://${remoteId}`;
@@ -78,6 +115,8 @@ export function RemoteButton({ customerId, remoteId, activeSessionId, activeStar
       {modalOpen && effectiveSessionId && (
         <EndSessionModal
           sessionId={effectiveSessionId}
+          customerName={customerName}
+          remoteId={remoteId}
           startedAt={effectiveStartedAt}
           onCancel={onCancel}
           onComplete={onComplete}
@@ -89,11 +128,15 @@ export function RemoteButton({ customerId, remoteId, activeSessionId, activeStar
 
 function EndSessionModal({
   sessionId,
+  customerName,
+  remoteId,
   startedAt,
   onCancel,
   onComplete,
 }: {
   sessionId: string;
+  customerName: string;
+  remoteId: string;
   startedAt: Date | null;
   onCancel: () => void;
   onComplete: () => void;
@@ -105,6 +148,11 @@ function EndSessionModal({
       <div className="w-full max-w-md rounded-xl bg-white shadow-2xl">
         <header className="border-b border-slate-100 px-5 py-3">
           <h2 className="font-semibold text-slate-900">지원 종료 + 기록 저장</h2>
+          {/* 어느 거래처를 원격했는지 — 딴짓하다 와도 한눈에. (거래처명 + RustDesk ID) */}
+          <p className="text-sm font-medium text-slate-800 mt-1">
+            {customerName}
+            <span className="ml-1.5 font-mono text-xs text-slate-400">· {remoteId}</span>
+          </p>
           {startedAt && (
             <p className="text-xs text-slate-500 mt-0.5">
               시작: {new Date(startedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
