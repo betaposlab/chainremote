@@ -1765,10 +1765,6 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kChainremoteRenameCustomerConstMeta;
 
-  bool chainremoteClaimCustomer({required String remoteId, dynamic hint});
-
-  FlutterRustBridgeTaskConstMeta get kChainremoteClaimCustomerConstMeta;
-
   bool chainremoteRemoveFavorite({required String remoteId, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteRemoveFavoriteConstMeta;
@@ -8206,23 +8202,6 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["payload"],
       );
 
-  bool chainremoteClaimCustomer({required String remoteId, dynamic hint}) {
-    var arg0 = _platform.api2wire_String(remoteId);
-    return _platform.executeSync(FlutterRustBridgeSyncTask(
-      callFfi: () => _platform.inner.wire_chainremote_claim_customer(arg0),
-      parseSuccessData: _wire2api_bool,
-      constMeta: kChainremoteClaimCustomerConstMeta,
-      argValues: [remoteId],
-      hint: hint,
-    ));
-  }
-
-  FlutterRustBridgeTaskConstMeta get kChainremoteClaimCustomerConstMeta =>
-      const FlutterRustBridgeTaskConstMeta(
-        debugName: "chainremote_claim_customer",
-        argNames: ["remoteId"],
-      );
-
   bool chainremoteRemoveFavorite({required String remoteId, dynamic hint}) {
     var arg0 = _platform.api2wire_String(remoteId);
     return _platform.executeSync(FlutterRustBridgeSyncTask(
@@ -14533,22 +14512,6 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       'wire_chainremote_rename_customer');
   late final _wire_chainremote_rename_customer =
       _wire_chainremote_rename_customerPtr
-          .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
-
-  WireSyncReturn wire_chainremote_claim_customer(
-    ffi.Pointer<wire_uint_8_list> remote_id,
-  ) {
-    return _wire_chainremote_claim_customer(
-      remote_id,
-    );
-  }
-
-  late final _wire_chainremote_claim_customerPtr = _lookup<
-          ffi.NativeFunction<
-              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>>(
-      'wire_chainremote_claim_customer');
-  late final _wire_chainremote_claim_customer =
-      _wire_chainremote_claim_customerPtr
           .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_chainremote_remove_favorite(

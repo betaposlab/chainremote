@@ -125,7 +125,7 @@ struct HttpWrapper {
 ///   name          → alias (UI 의 별칭)
 ///   contactName   → hostname (보조 정보로 카드에 표시됨)
 ///   notes         → note
-fn customer_to_peer_json(c: &CustomerRow) -> Option<serde_json::Value> {
+fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_json::Value> {
     let id = c.remote_id.clone()?;
     if id.trim().is_empty() {
         return None;
@@ -133,11 +133,12 @@ fn customer_to_peer_json(c: &CustomerRow) -> Option<serde_json::Value> {
     let empty_tags: Vec<String> = Vec::new();
     let is_pending = c.enroll_status.as_deref() == Some("pending");
     let is_unassigned = c.assigned_user_id.as_deref().unwrap_or("").trim().is_empty();
-    // 별칭 앞 마커(카드 렌더 변경 없이 시각 구분): pending(이젠 거의 없음) ⏳ / 미배정 신규 🆕(등록대기).
-    // 누가 먼저 클릭·원격해 차지(claim)하면 assigned 되어 다음 fetch 에서 마커가 사라짐.
-    let alias = if is_pending {
+    // 별칭 앞 마커(카드 렌더 변경 없이 시각 구분): pending ⏳ / 미배정 신규 🆕(등록대기).
+    // with_marker=true 인 '전체 거래처' 탭에서만 표시 — 즐겨찾기/최근 탭엔 노이즈라 raw 이름.
+    // 누가 먼저 즐겨찾기해 차지(claim)하면 assigned 되어 다음 fetch 에서 마커가 전 HQ 에서 사라짐.
+    let alias = if with_marker && is_pending {
         format!("⏳ {}", c.name)
-    } else if is_unassigned {
+    } else if with_marker && is_unassigned {
         format!("🆕 {}", c.name)
     } else {
         c.name.clone()
@@ -263,7 +264,7 @@ fn fetch_customers_blocking() -> bool {
                 let peers: Vec<_> = resp
                     .customers
                     .iter()
-                    .filter_map(customer_to_peer_json)
+                    .filter_map(|c| customer_to_peer_json(c, true)) // 전체 거래처 = 🆕 마커 표시
                     .collect();
                 let json = serde_json::ser::to_string(&peers).unwrap_or_default();
                 push_event("load_all_customers", json);
@@ -315,7 +316,7 @@ fn fetch_favorites_blocking() -> bool {
                     .favorites
                     .iter()
                     .filter_map(|f| match &f.customer {
-                        Some(c) => customer_to_peer_json(c),
+                        Some(c) => customer_to_peer_json(c, false), // 즐겨찾기 = 마커 없는 raw 이름
                         None => Some(orphan_peer_json(&f.remote_id)),
                     })
                     .collect();
@@ -532,42 +533,6 @@ fn rename_customer_blocking(payload: String) -> bool {
 
 pub fn rename_customer_blocking_pub(payload: String) -> bool {
     rename_customer_blocking(payload)
-}
-
-/// ③ 먼저 클릭/원격한 사람이 신규(미배정) 거래처 차지 — POST /api/customers/claim.
-/// claimed=true(내가 first-wins) 면 그 거래처가 내 담당+즐겨찾기로 배정됨 → 재워밍.
-fn claim_customer_blocking(remote_id: String) -> bool {
-    if remote_id.trim().is_empty() {
-        return false;
-    }
-    let url = format!("{}/api/customers/claim", chainremote_auth::api_base());
-    let body = serde_json::json!({ "remoteId": remote_id }).to_string();
-    match authed_post(url, body) {
-        Ok(resp) => {
-            let claimed = serde_json::from_str::<serde_json::Value>(&resp)
-                .ok()
-                .and_then(|j| j.get("claimed").and_then(|b| b.as_bool()))
-                .unwrap_or(false);
-            if claimed {
-                // 담당 배정 + 즐겨찾기 추가됨 → 재워밍(🆕 마커 사라지고 내 즐겨찾기에 등장).
-                fetch_customers_blocking();
-                fetch_favorites_blocking();
-            }
-            claimed
-        }
-        Err(e) => {
-            log::warn!("ChainRemote claim_customer 실패: {}", e);
-            false
-        }
-    }
-}
-
-/// 연결 시 fire-and-forget — POST+재워밍을 백그라운드 thread 로(연결 지연 0). 반환은 항상 true(큐잉).
-pub fn claim_customer_blocking_pub(remote_id: String) -> bool {
-    std::thread::spawn(move || {
-        claim_customer_blocking(remote_id);
-    });
-    true
 }
 
 pub fn spawn_remove_favorite(remote_id: String) {

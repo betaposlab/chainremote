@@ -1785,7 +1785,4 @@ void connectInPeerTab(BuildContext context, Peer peer, PeerTabIndex tab,
       isViewCamera: isViewCamera,
       isTcpTunneling: isTcpTunneling,
       isRDP: isRDP);
-  // ChainRemote ③: 신규(미배정) 거래처면 먼저 다룬 사람이 차지(담당+즐겨찾기). 서버가 미배정일 때만
-  //   적용(이미 배정/미등록 remote_id 면 no-op). fire-and-forget(Rust 백그라운드, 연결 지연 0).
-  bind.chainremoteClaimCustomer(remoteId: peer.id);
 }

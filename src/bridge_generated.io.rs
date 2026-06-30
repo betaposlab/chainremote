@@ -2300,12 +2300,6 @@ pub extern "C" fn wire_chainremote_rename_customer(
     wire_chainremote_rename_customer_impl(payload)
 }
 
-#[no_mangle]
-pub extern "C" fn wire_chainremote_claim_customer(
-    remote_id: *mut wire_uint_8_list,
-) -> support::WireSyncReturn {
-    wire_chainremote_claim_customer_impl(remote_id)
-}
 
 #[no_mangle]
 pub extern "C" fn wire_chainremote_remove_favorite(

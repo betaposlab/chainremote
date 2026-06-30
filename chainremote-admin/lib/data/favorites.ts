@@ -80,6 +80,16 @@ export async function addFavoriteByRemoteId(
         : {},
     });
 
+  // ③ 즐겨찾기 = 차지(claim): 미배정(🆕 등록대기) 거래처를 처음 즐겨찾기한 사람이 담당이 됨.
+  //   원자적 first-wins — assigned_user_id IS NULL 일 때만 세팅. 이미 배정돼 있으면 no-op →
+  //   다른 직원도 같은 거래처를 공유 즐겨찾기 가능(담당은 그대로). 차지되면 🆕 가 전 HQ 에서 풀림.
+  if (customerId) {
+    await db
+      .update(customers)
+      .set({ assignedUserId: userId, updatedAt: new Date() })
+      .where(and(eq(customers.id, customerId), isNull(customers.assignedUserId)));
+  }
+
   return { matched: customerId !== null };
 }
 

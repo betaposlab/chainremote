@@ -3,10 +3,10 @@
 //
 // 모든 함수는 tenantId 격리 강제 — 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customers, tenants } from "@/lib/schema";
-import { linkFavoritesToCustomer, addFavoriteByRemoteId } from "@/lib/data/favorites";
+import { linkFavoritesToCustomer } from "@/lib/data/favorites";
 import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 
 export interface CustomerFields {
@@ -307,25 +307,6 @@ export async function renameCustomerByRemoteId(
   return !!row;
 }
 
-/** ③ 신규 거래처 "먼저 클릭/원격한 사람이 차지" — first-wins. 미배정(assigned_user_id NULL)일 때만
- *  내 것으로 배정 + 내 즐겨찾기에 자동 등록. 이미 배정됐으면 무변경(claimed=false). */
-export async function claimCustomerByRemoteId(
-  remoteId: string,
-  ctx: { tenantId: string; userId: string },
-): Promise<{ claimed: boolean }> {
-  const [row] = await db
-    .update(customers)
-    .set({ assignedUserId: ctx.userId, updatedAt: new Date() })
-    .where(
-      and(
-        eq(customers.remoteId, remoteId),
-        eq(customers.tenantId, ctx.tenantId),
-        isNull(customers.assignedUserId),
-      ),
-    )
-    .returning({ id: customers.id });
-  if (!row) return { claimed: false }; // 이미 누가 차지했거나 미등록 remote_id
-  // 내가 먼저 차지 → 내 즐겨찾기에 자동 등록(없으면 추가, 있으면 그대로).
-  await addFavoriteByRemoteId(ctx.userId, remoteId, ctx.tenantId);
-  return { claimed: true };
-}
+// ③ 차지(claim)는 "즐겨찾기 = 차지" 로 일원화 — lib/data/favorites.ts addFavoriteByRemoteId 가
+//    미배정 거래처를 즐겨찾기하면 자동으로 담당 배정(first-wins). 원격은 소유와 무관.
+//    (옛 connect-time claim 프리미티브는 1.4.41 에서 폐기.)
