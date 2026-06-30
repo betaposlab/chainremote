@@ -40,6 +40,13 @@ String formatID(String id) {
     suffix = id2.substring(id2.length - 2, id2.length);
     id2 = id2.substring(0, id2.length - 2);
   }
+  // ChainRemote 새 형식: 글자 2 + 숫자 8 ("AB12345678") → "AB 1234 5678" (HQ 등록 시 읽기 편하게).
+  //   trimID 가 공백만 제거하므로 접속용 ID 는 그대로 보존. 완성된 ID 만 매칭(타이핑 중 부분입력 제외).
+  final ab = RegExp(r'^([A-Za-z]{2})(\d{4})(\d{4})$').firstMatch(id2);
+  if (ab != null) {
+    return '${ab.group(1)} ${ab.group(2)} ${ab.group(3)}$suffix';
+  }
+  // 기존 숫자 ID(7~9자리 등) — 3자리씩 그룹화(하위호환).
   if (int.tryParse(id2) == null) return id;
   String newID = '';
   if (id2.length <= 3) {

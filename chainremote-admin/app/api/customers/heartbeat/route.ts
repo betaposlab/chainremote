@@ -33,18 +33,22 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as {
       remoteId?: unknown;
       version?: unknown;
+      machineUuid?: unknown;
     };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";
     const version =
       typeof body.version === "string" ? body.version.trim() : "";
+    // 기기지문 — 옛 거래처 backfill 용(앵커). 빈값이면 무시.
+    const machineUuid =
+      typeof body.machineUuid === "string" ? body.machineUuid.trim() : "";
     if (!remoteId || !version) {
       return Response.json(
         { error: "remoteId + version 필수" },
         { status: 400 },
       );
     }
-    const ok = await data.recordHeartbeat(remoteId, token, version);
+    const ok = await data.recordHeartbeat(remoteId, token, version, machineUuid || undefined);
     if (!ok) {
       return Response.json(
         { error: "token 또는 remoteId 불일치" },

@@ -197,6 +197,9 @@ fn enroll(remote_id: &str, tenant_slug: &str, enroll_key: &str) -> ResultType<St
         "enrollKey": enroll_key,
         "name": name,
         "hostname": hostname,
+        // 기기지문 앵커: ID 가 바뀌어도(충돌/랜카드교체) 패널이 같은 거래처로 알아봐 상호 유지.
+        // 빈 문자열이면 패널이 매칭에서 제외(폴백 안전장치).
+        "machineUuid": hbb_common::get_machine_fingerprint(),
     })
     .to_string();
     let client = reqwest::blocking::Client::builder()
@@ -221,7 +224,13 @@ fn enroll(remote_id: &str, tenant_slug: &str, enroll_key: &str) -> ResultType<St
 }
 
 fn send_heartbeat(remote_id: &str, token: &str, version: &str) -> ResultType<BeatOutcome> {
-    let body = serde_json::json!({ "remoteId": remote_id, "version": version }).to_string();
+    let body = serde_json::json!({
+        "remoteId": remote_id,
+        "version": version,
+        // 기기지문 — 패널이 backfill(옛 거래처에 지문 채움) + 향후 ID 변경 시 재링크에 사용.
+        "machineUuid": hbb_common::get_machine_fingerprint(),
+    })
+    .to_string();
     let client = reqwest::blocking::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .build()?;

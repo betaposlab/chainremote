@@ -34,6 +34,7 @@ export async function POST(req: Request) {
       enrollKey?: unknown;
       name?: unknown;
       hostname?: unknown;
+      machineUuid?: unknown;
     };
     const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
     const remoteId = str(body.remoteId);
@@ -41,6 +42,8 @@ export async function POST(req: Request) {
     const enrollKey = str(body.enrollKey);
     const name = str(body.name) || undefined;
     const hostname = str(body.hostname) || undefined;
+    // 기기지문 앵커 — 빈값/미전송이면 undefined(매칭 제외).
+    const machineUuid = str(body.machineUuid) || undefined;
 
     if (!remoteId) {
       return Response.json({ error: "remoteId 필수" }, { status: 400 });
@@ -54,7 +57,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "tenant 인증 실패" }, { status: 403 });
     }
 
-    const result = await data.enrollCustomer({ remoteId, name, hostname }, { tenantId });
+    const result = await data.enrollCustomer({ remoteId, name, hostname, machineUuid }, { tenantId });
     if (result === "cross_tenant") {
       return Response.json(
         { error: "다른 tenant 에 이미 등록된 remote_id" },

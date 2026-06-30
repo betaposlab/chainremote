@@ -128,6 +128,10 @@ export const customers = pgTable(
     // DB 엔 해시만 — 유출돼도 토큰 원본 비노출. 자가 발급 + idempotent rotation(호출마다 새 토큰,
     // v1.3.7, LocalConfig 토큰 분실 시 영구 stuck 회피). lib/heartbeat-token.ts 가 발급/해시 담당.
     heartbeatToken: text("heartbeat_token"),
+    // 기기지문 앵커(마이그 018). machine_uid(Windows=MachineGuid) — remote_id 와 별개로 안정적.
+    //   ID 가 충돌/랜카드교체로 바뀌어도 이 지문으로 같은 거래처 인식 → remote_id 만 갱신, 상호 유지.
+    //   nullable: 옛 거래처 + 지문 못 읽는 기기(빈값)는 NULL(매칭 제외 = 오매칭 방지).
+    machineUuid: text("machine_uuid"),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그레이션 013). true 면 일괄푸시 제외 +
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),
@@ -147,6 +151,12 @@ export const customers = pgTable(
     remoteIdUniq: uniqueIndex("uq_customers_remote_id")
       .on(t.remoteId)
       .where(sql`${t.remoteId} IS NOT NULL AND ${t.remoteId} <> ''`),
+    // 기기지문 앵커(마이그 018). 한 기기 = 한 거래처(테넌트 내). 빈/NULL 제외 partial-unique
+    //   → 지문 못 읽는 기기들(빈값)이 서로 오매칭되지 않게.
+    machineUuidIdx: index("idx_customers_machine_uuid").on(t.tenantId, t.machineUuid),
+    machineUuidUniq: uniqueIndex("uq_customers_machine_uuid")
+      .on(t.tenantId, t.machineUuid)
+      .where(sql`${t.machineUuid} IS NOT NULL AND ${t.machineUuid} <> ''`),
   }),
 );
 

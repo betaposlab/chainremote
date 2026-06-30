@@ -3,9 +3,9 @@
 //
 // 모든 함수는 tenantId 격리 강제 — 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { customers, tenants } from "@/lib/schema";
+import { customers, tenants, userFavorites } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
 import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 
@@ -141,6 +141,7 @@ export async function recordHeartbeat(
   remoteId: string,
   token: string,
   version: string,
+  machineUuid?: string,
 ): Promise<boolean> {
   const [row] = await db
     .update(customers)
@@ -152,7 +153,24 @@ export async function recordHeartbeat(
       ),
     )
     .returning({ id: customers.id });
-  return !!row;
+  if (!row) return false;
+  // 지문 백필(앵커) — 옛 거래처(machine_uuid NULL)에 한 번 채워두면, 다음에 ID 가 바뀔 때
+  //   enroll 의 machine_uuid 매칭이 작동해 상호가 따라온다. 이미 값 있으면 안 건드림(포맷 변경은
+  //   enroll 경로가 처리 + unique 충돌 회피).
+  const uuid = machineUuid?.trim();
+  if (uuid) {
+    await db
+      .update(customers)
+      .set({ machineUuid: uuid })
+      .where(
+        and(
+          eq(customers.id, row.id),
+          sql`(${customers.machineUuid} IS NULL OR ${customers.machineUuid} = '')`,
+        ),
+      )
+      .catch(() => {});
+  }
+  return true;
 }
 
 /**
@@ -188,14 +206,17 @@ export async function resolveTenantByEnroll(
  * 동시 enroll 레이스는 unique 위반 catch 후 재조회→회전으로 수렴.
  */
 export async function enrollCustomer(
-  input: { remoteId: string; name?: string; hostname?: string },
+  input: { remoteId: string; name?: string; hostname?: string; machineUuid?: string },
   ctx: { tenantId: string },
 ): Promise<{ token: string; created: boolean } | "cross_tenant"> {
   const remoteId = input.remoteId.trim();
+  // 빈 지문(지문 못 읽는 기기 = get_machine_fingerprint 빈값)은 매칭에서 제외 → 오매칭 방지.
+  const machineUuid = input.machineUuid?.trim() || undefined;
   const plaintext = generateHeartbeatToken();
   const tokenHash = hashHeartbeatToken(plaintext);
 
-  // 1) 기존 행(전역 unique remote_id) 확인.
+  // 1) remote_id 로 기존 행(전역 unique) 확인. ID 가 안 바뀐 경우(재enroll / 포맷-같은랜카드:
+  //    MAC 재계산이라 ID 동일) 여기서 잡힘. 토큰 회전은 필수, 지문 갱신은 best-effort.
   const [existing] = await db
     .select({ id: customers.id, tenantId: customers.tenantId })
     .from(customers)
@@ -207,10 +228,54 @@ export async function enrollCustomer(
       .update(customers)
       .set({ heartbeatToken: tokenHash })
       .where(eq(customers.id, existing.id));
+    if (machineUuid) {
+      // 지문 백필/갱신(포맷으로 MachineGuid 바뀐 경우). 토큰과 분리 — unique 충돌(드묾) 나도 토큰은 보장.
+      await db
+        .update(customers)
+        .set({ machineUuid })
+        .where(eq(customers.id, existing.id))
+        .catch(() => {});
+    }
     return { token: plaintext, created: false };
   }
 
-  // 2) 신규 — ★바로 정식 거래처로 등록(active). 2026-06-29 Chang 결정:
+  // 2) ★기기지문 앵커 — remote_id 는 안 맞지만 같은 기기(machine_uuid)면, ID 가 바뀐 것(충돌
+  //    UUID_MISMATCH→update_id / 랜카드 교체). 그 거래처의 remote_id 만 새 값으로 갱신 →
+  //    상호·담당·즐겨찾기 유지(Chang 핵심요구). user_favorites.remote_id 도 따라 갱신해 HQ 가
+  //    죽은 옛 ID 를 가리키지 않게 한다.
+  if (machineUuid) {
+    const [byMachine] = await db
+      .select({ id: customers.id, remoteId: customers.remoteId })
+      .from(customers)
+      .where(and(eq(customers.machineUuid, machineUuid), eq(customers.tenantId, ctx.tenantId)))
+      .limit(1);
+    if (byMachine) {
+      const oldRemoteId = byMachine.remoteId;
+      try {
+        await db
+          .update(customers)
+          .set({ remoteId, heartbeatToken: tokenHash, updatedAt: new Date() })
+          .where(eq(customers.id, byMachine.id));
+        if (oldRemoteId && oldRemoteId !== remoteId) {
+          await db
+            .update(userFavorites)
+            .set({ remoteId })
+            .where(and(eq(userFavorites.remoteId, oldRemoteId), eq(userFavorites.tenantId, ctx.tenantId)));
+        }
+        return { token: plaintext, created: false };
+      } catch {
+        // 새 remote_id 가 이미 타 거래처에 점유됨(드문 이중충돌) → remote_id 변경 포기, 토큰만 회전.
+        //   에이전트가 다음 UUID_MISMATCH 에서 또 다른 ID 로 재시도해 수렴.
+        await db
+          .update(customers)
+          .set({ heartbeatToken: tokenHash })
+          .where(eq(customers.id, byMachine.id));
+        return { token: plaintext, created: false };
+      }
+    }
+  }
+
+  // 3) 신규 — ★바로 정식 거래처로 등록(active). 2026-06-29 Chang 결정:
   //   설치 시 상호 입력 = 등록 의사 + 설치파일이 per-tenant enroll-key 라 아무나 못 넣음
   //   → "후보→확인" 이중작업 불필요. 과금은 패널 밖에서 별도 관리. 잘못/테스트 설치는 삭제로 처리.
   //   (옛 'pending 후보 + ✓확인' 흐름 폐기. 상호 없으면 importPeer 관례 placeholder.)
@@ -228,6 +293,7 @@ export async function enrollCustomer(
         remoteId,
         enrollStatus: "active",
         heartbeatToken: tokenHash,
+        ...(machineUuid ? { machineUuid } : {}),
       })
       .returning({ id: customers.id });
     await linkFavoritesToCustomer(remoteId, row.id, ctx.tenantId);
