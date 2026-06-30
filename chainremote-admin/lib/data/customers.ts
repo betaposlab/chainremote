@@ -3,10 +3,10 @@
 //
 // 모든 함수는 tenantId 격리 강제 — 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customers, tenants } from "@/lib/schema";
-import { linkFavoritesToCustomer } from "@/lib/data/favorites";
+import { linkFavoritesToCustomer, addFavoriteByRemoteId } from "@/lib/data/favorites";
 import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 
 export interface CustomerFields {
@@ -288,4 +288,44 @@ export async function confirmEnrollmentByRemoteId(
     )
     .returning({ id: customers.id });
   return !!row;
+}
+
+/** HQ 어느 직원이든 거래처명을 바꾸면 패널 DB(진실원천)에 기록 → 최근/즐겨찾기/패널/전 직원 일관.
+ *  remote_id 로 찾아 그 테넌트 거래처명 갱신. 미등록(orphan) remote_id 면 무변경(false → HQ는 로컬 alias 유지). */
+export async function renameCustomerByRemoteId(
+  remoteId: string,
+  name: string,
+  ctx: { tenantId: string },
+): Promise<boolean> {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  const [row] = await db
+    .update(customers)
+    .set({ name: trimmed, updatedAt: new Date() })
+    .where(and(eq(customers.remoteId, remoteId), eq(customers.tenantId, ctx.tenantId)))
+    .returning({ id: customers.id });
+  return !!row;
+}
+
+/** ③ 신규 거래처 "먼저 클릭/원격한 사람이 차지" — first-wins. 미배정(assigned_user_id NULL)일 때만
+ *  내 것으로 배정 + 내 즐겨찾기에 자동 등록. 이미 배정됐으면 무변경(claimed=false). */
+export async function claimCustomerByRemoteId(
+  remoteId: string,
+  ctx: { tenantId: string; userId: string },
+): Promise<{ claimed: boolean }> {
+  const [row] = await db
+    .update(customers)
+    .set({ assignedUserId: ctx.userId, updatedAt: new Date() })
+    .where(
+      and(
+        eq(customers.remoteId, remoteId),
+        eq(customers.tenantId, ctx.tenantId),
+        isNull(customers.assignedUserId),
+      ),
+    )
+    .returning({ id: customers.id });
+  if (!row) return { claimed: false }; // 이미 누가 차지했거나 미등록 remote_id
+  // 내가 먼저 차지 → 내 즐겨찾기에 자동 등록(없으면 추가, 있으면 그대로).
+  await addFavoriteByRemoteId(ctx.userId, remoteId, ctx.tenantId);
+  return { claimed: true };
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -872,6 +874,11 @@ abstract class BasePeerCard extends StatelessWidget {
                   await bind.mainSetPeerAlias(id: id, alias: newName);
                 } else {
                   await bind.mainSetPeerAlias(id: id, alias: newName);
+                  // ChainRemote: 등록거래처면 패널 customer.name 에도 기록 → 최근/즐겨찾기/패널/
+                  //   전 직원 모두 같은 이름으로 수렴(누가 바꾸든 전파). orphan 이면 서버 no-op +
+                  //   로컬 alias 유지. Rust 가 성공 시 캐시 재워밍(백그라운드)으로 전 탭 갱신.
+                  bind.chainremoteRenameCustomer(
+                      payload: jsonEncode({"remoteId": id, "name": newName}));
                   showToast(translate('Successful'));
                   _update();
                 }
@@ -1224,6 +1231,11 @@ class AllCustomersPeerCard extends BasePeerCard {
       menuItems.add(_createShortCutAction(peer.id));
     }
     menuItems.add(MenuEntryDivider());
+
+    // 거래처명 변경 — 전체 거래처 탭에서도 패널 customer.name 에 기록(누가 바꾸든 3면 전파).
+    if (isMobile || isDesktop || isWebDesktop) {
+      menuItems.add(_renameAction(peer.id));
+    }
 
     // 전체 목록에서 자기 거래처를 내 즐겨찾기로 (또는 해제).
     if (!favs.contains(peer.id)) {
@@ -1773,4 +1785,7 @@ void connectInPeerTab(BuildContext context, Peer peer, PeerTabIndex tab,
       isViewCamera: isViewCamera,
       isTcpTunneling: isTcpTunneling,
       isRDP: isRDP);
+  // ChainRemote ③: 신규(미배정) 거래처면 먼저 다룬 사람이 차지(담당+즐겨찾기). 서버가 미배정일 때만
+  //   적용(이미 배정/미등록 remote_id 면 no-op). fire-and-forget(Rust 백그라운드, 연결 지연 0).
+  bind.chainremoteClaimCustomer(remoteId: peer.id);
 }

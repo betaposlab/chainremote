@@ -5175,6 +5175,36 @@ fn wire_chainremote_confirm_customer_impl(
         },
     )
 }
+fn wire_chainremote_rename_customer_impl(
+    payload: impl Wire2Api<String> + UnwindSafe,
+) -> support::WireSyncReturn {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+        WrapInfo {
+            debug_name: "chainremote_rename_customer",
+            port: None,
+            mode: FfiCallMode::Sync,
+        },
+        move || {
+            let api_payload = payload.wire2api();
+            Ok(chainremote_rename_customer(api_payload))
+        },
+    )
+}
+fn wire_chainremote_claim_customer_impl(
+    remote_id: impl Wire2Api<String> + UnwindSafe,
+) -> support::WireSyncReturn {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+        WrapInfo {
+            debug_name: "chainremote_claim_customer",
+            port: None,
+            mode: FfiCallMode::Sync,
+        },
+        move || {
+            let api_remote_id = remote_id.wire2api();
+            Ok(chainremote_claim_customer(api_remote_id))
+        },
+    )
+}
 fn wire_chainremote_remove_favorite_impl(
     remote_id: impl Wire2Api<String> + UnwindSafe,
 ) -> support::WireSyncReturn {

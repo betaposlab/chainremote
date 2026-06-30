@@ -2881,6 +2881,21 @@ pub fn chainremote_confirm_customer(remote_id: String) -> SyncReturn<bool> {
     ))
 }
 
+/// ① 거래처명 변경 → 패널 customer.name 기록(최근/즐겨찾기/패널 3면 일관). payload=JSON {remoteId,name}.
+/// 1-arg(JSON) 으로 add_favorite 와 동일 브리지 형태. 등록거래처면 true(반영), orphan 이면 false.
+pub fn chainremote_rename_customer(payload: String) -> SyncReturn<bool> {
+    SyncReturn(crate::chainremote_data::rename_customer_blocking_pub(
+        payload,
+    ))
+}
+
+/// ③ 신규(미배정) 거래처 차지 — 연결 시 호출. first-wins 면 내 담당+즐겨찾기로 배정(claimed=true).
+pub fn chainremote_claim_customer(remote_id: String) -> SyncReturn<bool> {
+    SyncReturn(crate::chainremote_data::claim_customer_blocking_pub(
+        remote_id,
+    ))
+}
+
 /// UI 동기 호출 — "이 거래처가 내 즐겨찾기인가" 빠른 체크.
 /// 캐시 기반 (spawn_load_favorites 가 채움).
 pub fn chainremote_is_favorite(remote_id: String) -> SyncReturn<bool> {

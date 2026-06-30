@@ -671,8 +671,10 @@ class RecentPeersView extends BasePeersView {
   @override
   Widget build(BuildContext context) {
     final widget = super.build(context);
-    // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록 (앞으로 원격하면 쌓임).
-    // 전체 거래처 마스터 뷰는 관리 패널 전용.
+    // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록.
+    // 탭 진입 시 거래처명 캐시(REMOTE_TO_NAME) 재워밍 → 패널에서 새로 등록·개명된 거래처도
+    //   최근세션에 즉시 이름 반영(stale "숫자만" 표시 해소). fetch 완료 시 main_load_recent_peers 재push.
+    bind.chainremoteLoadCustomers();
     bind.mainLoadRecentPeers();
     return widget;
   }

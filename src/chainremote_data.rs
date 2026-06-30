@@ -33,6 +33,9 @@ struct CustomerRow {
     // '전체 거래처' 탭에서 pending 시각 표시 + 마스터 확정 버튼 게이트에 사용.
     #[serde(rename = "enrollStatus")]
     enroll_status: Option<String>,
+    // 담당 직원(③). null/빈값 = 미배정("등록대기") — 신규 거래처를 아직 아무도 안 잡은 상태.
+    #[serde(rename = "assignedUserId")]
+    assigned_user_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -129,10 +132,13 @@ fn customer_to_peer_json(c: &CustomerRow) -> Option<serde_json::Value> {
     }
     let empty_tags: Vec<String> = Vec::new();
     let is_pending = c.enroll_status.as_deref() == Some("pending");
-    // 미확정 후보는 별칭 앞에 시계 마커 → '전체 거래처' 탭에서 한눈에 구분(카드 렌더 변경 없이).
-    // 확정되면 다음 fetch 에서 마커 없는 깨끗한 별칭으로 갱신됨.
+    let is_unassigned = c.assigned_user_id.as_deref().unwrap_or("").trim().is_empty();
+    // 별칭 앞 마커(카드 렌더 변경 없이 시각 구분): pending(이젠 거의 없음) ⏳ / 미배정 신규 🆕(등록대기).
+    // 누가 먼저 클릭·원격해 차지(claim)하면 assigned 되어 다음 fetch 에서 마커가 사라짐.
     let alias = if is_pending {
         format!("⏳ {}", c.name)
+    } else if is_unassigned {
+        format!("🆕 {}", c.name)
     } else {
         c.name.clone()
     };
@@ -473,6 +479,95 @@ fn confirm_customer_blocking(remote_id: String) -> bool {
 
 pub fn confirm_customer_blocking_pub(remote_id: String) -> bool {
     confirm_customer_blocking(remote_id)
+}
+
+/// ① HQ 어느 직원이든 거래처명 변경 → 패널 customer.name(진실원천)에 기록 → 최근/즐겨찾기/패널/전 직원 일관.
+/// payload = JSON {"remoteId","name"} (1-arg 으로 add_favorite 브리지 패턴 재사용). 등록거래처면 true.
+fn rename_customer_blocking(payload: String) -> bool {
+    let v: serde_json::Value = match serde_json::from_str(&payload) {
+        Ok(v) => v,
+        Err(e) => {
+            log::warn!("ChainRemote rename payload 파싱 실패: {}", e);
+            return false;
+        }
+    };
+    let remote_id = v
+        .get("remoteId")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
+    let name = v
+        .get("name")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if remote_id.is_empty() || name.is_empty() {
+        return false;
+    }
+    let url = format!("{}/api/customers/rename", chainremote_auth::api_base());
+    let body = serde_json::json!({ "remoteId": remote_id, "name": name }).to_string();
+    match authed_post(url, body) {
+        Ok(resp) => {
+            let ok = serde_json::from_str::<serde_json::Value>(&resp)
+                .ok()
+                .and_then(|j| j.get("ok").and_then(|b| b.as_bool()))
+                .unwrap_or(false);
+            if ok {
+                // 패널 반영됨 → 전 표면 재워밍(최근 overlay + 전체거래처 push + 즐겨찾기).
+                //   UI 멈춤 방지: 재fetch 는 백그라운드 spawn(POST 결과만 동기 반환).
+                std::thread::spawn(|| {
+                    fetch_customers_blocking();
+                    fetch_favorites_blocking();
+                });
+            }
+            ok
+        }
+        Err(e) => {
+            log::warn!("ChainRemote rename_customer 실패: {}", e);
+            false
+        }
+    }
+}
+
+pub fn rename_customer_blocking_pub(payload: String) -> bool {
+    rename_customer_blocking(payload)
+}
+
+/// ③ 먼저 클릭/원격한 사람이 신규(미배정) 거래처 차지 — POST /api/customers/claim.
+/// claimed=true(내가 first-wins) 면 그 거래처가 내 담당+즐겨찾기로 배정됨 → 재워밍.
+fn claim_customer_blocking(remote_id: String) -> bool {
+    if remote_id.trim().is_empty() {
+        return false;
+    }
+    let url = format!("{}/api/customers/claim", chainremote_auth::api_base());
+    let body = serde_json::json!({ "remoteId": remote_id }).to_string();
+    match authed_post(url, body) {
+        Ok(resp) => {
+            let claimed = serde_json::from_str::<serde_json::Value>(&resp)
+                .ok()
+                .and_then(|j| j.get("claimed").and_then(|b| b.as_bool()))
+                .unwrap_or(false);
+            if claimed {
+                // 담당 배정 + 즐겨찾기 추가됨 → 재워밍(🆕 마커 사라지고 내 즐겨찾기에 등장).
+                fetch_customers_blocking();
+                fetch_favorites_blocking();
+            }
+            claimed
+        }
+        Err(e) => {
+            log::warn!("ChainRemote claim_customer 실패: {}", e);
+            false
+        }
+    }
+}
+
+/// 연결 시 fire-and-forget — POST+재워밍을 백그라운드 thread 로(연결 지연 0). 반환은 항상 true(큐잉).
+pub fn claim_customer_blocking_pub(remote_id: String) -> bool {
+    std::thread::spawn(move || {
+        claim_customer_blocking(remote_id);
+    });
+    true
 }
 
 pub fn spawn_remove_favorite(remote_id: String) {
