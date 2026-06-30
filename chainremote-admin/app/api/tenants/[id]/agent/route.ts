@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 // 베이스 설치파일(빈-키, overlay-capable) URL. NAS 웹에 호스팅. 환경변수로 버전 교체 가능.
 const BASE_URL =
   process.env.AGENT_BASE_URL ??
-  "https://sepani.synology.me/chainremote/ChainRemote_Agent_Base_v1.4.34.exe";
+  "https://sepani.synology.me/chainremote/ChainRemote_Agent_Base_v1.4.42.exe";
 const MAGIC = "CRENROL1";
 
 type Ctx = { params: Promise<{ id: string }> };
