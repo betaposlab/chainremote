@@ -1,45 +1,20 @@
-// POST /api/customers/register-heartbeat-token
+// POST /api/customers/register-heartbeat-token — [폐기됨 2026-07-01, 코워크 검토 H2]
 //
-// Agent 가 첫 실행 시 + heartbeat 401/403 회복 시 호출. customer 매칭되면 무조건
-// 새 토큰 발급(rotation) + DB 갱신 + 반환. v1.3.7 부터 idempotent — 이전 1회 제약은
-// Agent LocalConfig 토큰 분실 시 영구 stuck 의 진짜 원인이라 폐기.
+// 종전: 무인증. 유효한 remote_id(9자리, 비밀 아님)만 POST 하면 heartbeat 토큰을 새로 발급/회전.
+//   → remote_id 를 알거나 스캔하면 토큰 탈취 + heartbeat 위조/pending-update 큐 조회 가능(H2).
 //
-// 인증: 없음 (의도). 자세히는 lib/data/customers.ts::registerHeartbeatToken doc.
-//
-// 호출 예 (Rust agent):
-//   POST https://sepani.synology.me:3001/api/customers/register-heartbeat-token
-//   Content-Type: application/json
-//   { "remoteId": "129264698" }
-//
-//   200 → { "token": "<64 hex>" }  ← customer 존재. 새 토큰 발급/회전
-//   409 → { "error": "거래처 미등록" }  ← Chang 이 패널에 미등록 (등록 후 재시도)
+// 폐기 근거: ⑤ auto-enroll 도입 후 온라인 거래처 전량이 per-tenant enroll-key 인증(/api/customers/enroll)
+//   으로 토큰을 받는다(agent acquire_token: enroll-key 있으면 enroll, 없으면 이 경로 폴백이었음).
+//   enroll-key 없는 옛 빌드는 오프라인 1대뿐 → 실사용 호출자 0. 무인증 발급 경로를 완전 제거해 H2 박멸.
+//   (heartbeat 토큰은 패널 가시성/자동업뎃용이지 원격 접속과 무관 — 옛 박스도 원격은 계속 가능.
+//    옛 박스가 돌아오면 auto-enroll 인스톨러 재설치로 enroll 경로 전환.)
 
-import * as data from "@/lib/data/customers";
-import { clientIp } from "@/lib/request-ip";
-import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
-
-export async function POST(req: Request) {
-  try {
-    // rate-limit: remote_id 스캔으로 토큰 긁어가기 방지. 정상 agent 는 부팅+회복 시 드물게 호출.
-    const ip = clientIp(req) ?? "unknown";
-    const rl = rateLimit(`hbtoken:${ip}`, 20, 60_000);
-    if (!rl.allowed) return tooManyRequests(rl.retryAfterSec);
-
-    const body = (await req.json().catch(() => ({}))) as { remoteId?: unknown };
-    const remoteId =
-      typeof body.remoteId === "string" ? body.remoteId.trim() : "";
-    if (!remoteId) {
-      return Response.json({ error: "remoteId 필수" }, { status: 400 });
-    }
-    const token = await data.registerHeartbeatToken(remoteId);
-    if (!token) {
-      return Response.json(
-        { error: "거래처 미등록" },
-        { status: 409 },
-      );
-    }
-    return Response.json({ token });
-  } catch (e) {
-    return Response.json({ error: String(e) }, { status: 500 });
-  }
+export async function POST() {
+  return Response.json(
+    {
+      error:
+        "이 경로는 폐기되었습니다. 최신 에이전트(auto-enroll)를 설치하세요. (/api/customers/enroll 사용)",
+    },
+    { status: 410 },
+  );
 }

@@ -109,29 +109,11 @@ export async function importPeer(
   return row;
 }
 
-/**
- * 거래처 heartbeat 토큰 발급 (자가 발급, idempotent rotation).
- *
- * Agent 가 첫 실행 시 + heartbeat 403 회복 시 호출. customer 가 remoteId 로 존재하면
- * 무조건 새 토큰 발급 + DB 갱신 + 반환. 이전 버전(2026-05-29 까지)은 isNull 조건으로
- * 1회 제약 — 인스톨 후 Agent 가 LocalConfig 토큰 잃으면 영원히 409 stuck 되는 결함.
- * 거래처 50~200곳 자동업데이트 사업화 인프라 핵심이라 idempotent 회복으로 전환.
- *
- * 보안 모델: 인스톨러에 토큰 못 박는 환경 자가 발급 그대로 유지. 공격자가 같은 remote_id
- * 로 register 호출하면 토큰 탈취 가능 (legit Agent 는 다음 tick 에서 다시 회복) — 단
- * remote_id (9자리) + HTTP only + 9시간 lock-out 등 향후 강화 검토.
- * Customer 미존재 시 null 반환 (route 가 409).
- */
-export async function registerHeartbeatToken(remoteId: string): Promise<string | null> {
-  // H3: 평문은 agent 에 반환, DB 엔 sha-256 해시만 저장.
-  const plaintext = generateHeartbeatToken();
-  const [row] = await db
-    .update(customers)
-    .set({ heartbeatToken: hashHeartbeatToken(plaintext) })
-    .where(eq(customers.remoteId, remoteId))
-    .returning({ id: customers.id });
-  return row ? plaintext : null;
-}
+// [H2 폐기, 2026-07-01] registerHeartbeatToken 제거.
+//   remote_id(비밀 아님)만으로 무인증 토큰 발급/회전이 가능했던 벡터(코워크 검토 H2). auto-enroll(⑤)
+//   도입 후 온라인 거래처는 전부 per-tenant enroll-key 인증(enrollCustomer)으로 토큰을 받으므로 이 무인증
+//   경로는 실사용 호출자가 없어짐 → 함수·라우트 완전 삭제(register-heartbeat-token 라우트는 410 Gone).
+//   무인증 토큰 발급기를 코드베이스에서 없애 실수 재배선 여지 제거.
 
 /**
  * Heartbeat 기록. 토큰 검증 + last_heartbeat_at + last_version update.
