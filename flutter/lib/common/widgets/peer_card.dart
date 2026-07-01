@@ -877,9 +877,13 @@ abstract class BasePeerCard extends StatelessWidget {
                   // ChainRemote: 등록거래처면 패널 customer.name 에도 기록 → 최근/즐겨찾기/패널/
                   //   전 직원 모두 같은 이름으로 수렴(누가 바꾸든 전파). orphan 이면 서버 no-op +
                   //   로컬 alias 유지. Rust 가 성공 시 캐시 재워밍(백그라운드)으로 전 탭 갱신.
-                  bind.chainremoteRenameCustomer(
+                  // ★결과를 확인해 정직하게 피드백 — 종전엔 실패(미등록/네트워크)해도 무조건
+                  //   '성공'을 띄워 "패널에 반영된 줄" 착각을 유발했음(2026-07-01 버그수정).
+                  final synced = bind.chainremoteRenameCustomer(
                       payload: jsonEncode({"remoteId": id, "name": newName}));
-                  showToast(translate('Successful'));
+                  showToast(synced
+                      ? translate('Successful')
+                      : '이 기기에만 적용됨 (패널 미반영 — 미등록 거래처이거나 저장 실패)');
                   _update();
                 }
               }
