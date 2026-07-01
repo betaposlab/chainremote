@@ -111,6 +111,14 @@ Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num
 ; 0.5. ★ silent-install 직전 옛 ChainRemote 강제 종료 (옛 file 잠금 해제 + 옛/새 프로세스 공존 방지)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; taskkill /F /IM ChainRemote.exe /T >$null 2>&1; Start-Sleep -Seconds 2"""; StatusMsg: "옛 ChainRemote 프로세스 정리 중..."; Flags: runhidden waituntilterminated
 
+; 0.7. ★★ per-tenant overlay 를 silent-install '前'에 적용 (2026-07-01 fix — Win7 실측으로 확정).
+;    install_me() 가 페이로드의 custom.txt 를 그대로 설치폴더로 복사 + 서비스를 즉시 시작하므로,
+;    여기서 키를 심어야 서비스가 "키를 든 채" 시작 → 첫 실행에 바로 enroll (재부팅 불필요).
+;    (예전엔 1.4/1.5 에서 서비스 시작 '後' 적용 → 첫 실행은 키 없이 떠서 재부팅 전까지 자동등록 안 됨.
+;     GN50840785 Win7 실설치: 재부팅 후에야 등록됨 = 이 순서 버그 확정.)
+;    overlay 없으면(베이스/자동업뎃) 스크립트가 파일 무변경 → 기존 동작 그대로.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\extract-enroll-overlay.ps1"" -Setup ""{srcexe}"" -Stage ""{tmp}\chainremote_payload\custom.txt"""; StatusMsg: "ChainRemote 거래처 식별 설정 적용 중..."; Flags: runhidden waituntilterminated
+
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 페이로드 폴더 전체를 Program Files 로 복사
 ;    + ChainRemote Service 등록 + 서비스 시작 + ChainRemote.lnk 단축아이콘 자동 생성.
 ;    (x64 = Flutter 빌드 / x86 = Sciter 빌드 — 같은 코어라 동작 동일)
