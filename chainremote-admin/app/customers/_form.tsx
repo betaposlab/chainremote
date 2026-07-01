@@ -11,15 +11,17 @@ export type CustomerFormData = {
   remoteId?: string | null;
   accessPassword?: string | null;
   notes?: string | null;
+  assignedUserId?: string | null;
 };
 
 type Props = {
   initial?: CustomerFormData;
   action: (formData: FormData) => Promise<void>;
   submitLabel?: string;
+  staff?: { id: string; displayName: string }[];
 };
 
-export function CustomerForm({ initial, action, submitLabel = "저장" }: Props) {
+export function CustomerForm({ initial, action, submitLabel = "저장", staff }: Props) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +74,22 @@ export function CustomerForm({ initial, action, submitLabel = "저장" }: Props)
           className="input"
         />
       </Field>
+      {staff && staff.length > 0 && (
+        <Field label="담당 직원">
+          <select
+            name="assignedUserId"
+            defaultValue={initial?.assignedUserId ?? ""}
+            className="input"
+          >
+            <option value="">(미배정)</option>
+            {staff.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.displayName}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label="원격 ID (선택)">
         <input
           name="remoteId"

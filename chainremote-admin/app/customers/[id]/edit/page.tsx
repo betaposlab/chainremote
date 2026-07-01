@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CustomerForm } from "../../_form";
 import { updateCustomer } from "@/lib/actions/customers";
+import { listTenantStaff } from "@/lib/data/users";
 import { DeleteButton } from "./_delete";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export default async function EditCustomerPage({
 
   if (!row) notFound();
 
+  const staff = await listTenantStaff(tenant.id);
   const update = updateCustomer.bind(null, id);
 
   return (
@@ -46,7 +48,7 @@ export default async function EditCustomerPage({
         <DeleteButton id={id} name={row.name} />
       </header>
       <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <CustomerForm initial={row} action={update} submitLabel="저장" />
+        <CustomerForm initial={row} action={update} submitLabel="저장" staff={staff} />
       </div>
     </div>
   );

@@ -17,6 +17,10 @@ export interface CustomerFields {
   remoteId: string | null;
   accessPassword: string | null;
   notes: string | null;
+  // 담당 직원(수동 배정). null = 미배정. create 시 null/미지정이면 ctx.assignedUserId(생성자)로 폴백.
+  // 옵셔널 — HQ-facing API(app/api/customers)는 배정 개념 없이 CustomerFields 를 만들며, undefined 는
+  //   update 의 drizzle .set 에서 무시되어 기존 배정 보존.
+  assignedUserId?: string | null;
 }
 
 export async function listCustomers(tenantId: string) {
@@ -44,8 +48,9 @@ export async function createCustomer(
     .insert(customers)
     .values({
       tenantId: ctx.tenantId,
-      assignedUserId: ctx.assignedUserId,
       ...fields,
+      // fields.assignedUserId 가 null 이면 생성자(ctx)로 폴백. (spread 뒤라 명시값이 우선)
+      assignedUserId: fields.assignedUserId ?? ctx.assignedUserId,
     })
     .returning();
   // remote_id 로 등록했다면, 그 ID 의 orphan 즐겨찾기를 새 거래처에 연결.

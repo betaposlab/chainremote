@@ -5,11 +5,23 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import * as data from "@/lib/data/customers";
 import * as favData from "@/lib/data/favorites";
+import { listTenantStaff } from "@/lib/data/users";
 
 async function requireSession() {
   const session = await auth();
   if (!session?.user) throw new Error("로그인 필요");
   return session.user;
+}
+
+// 담당 배정 검증 — 폼에서 온 assignedUserId 가 이 테넌트의 실제 직원일 때만 허용(타테넌트 배정 차단).
+//   빈값/미소속이면 null(미배정) 반환.
+async function sanitizeAssignee(
+  assignedUserId: string | null | undefined,
+  tenantId: string,
+): Promise<string | null> {
+  if (!assignedUserId) return null;
+  const staff = await listTenantStaff(tenantId);
+  return staff.some((s) => s.id === assignedUserId) ? assignedUserId : null;
 }
 
 function pickFields(formData: FormData): data.CustomerFields {
@@ -33,12 +45,16 @@ function pickFields(formData: FormData): data.CustomerFields {
     remoteId,
     accessPassword: get("accessPassword"),
     notes: get("notes"),
+    assignedUserId: get("assignedUserId"),
   };
 }
 
 export async function createCustomer(formData: FormData) {
   const session = await requireSession();
-  await data.createCustomer(pickFields(formData), {
+  const fields = pickFields(formData);
+  fields.assignedUserId = await sanitizeAssignee(fields.assignedUserId, session.tenantId);
+  // 폼에서 담당 미선택 시 생성자(ctx)로 폴백(data.createCustomer 내부 처리).
+  await data.createCustomer(fields, {
     tenantId: session.tenantId,
     assignedUserId: session.id,
   });
@@ -48,7 +64,9 @@ export async function createCustomer(formData: FormData) {
 
 export async function updateCustomer(id: string, formData: FormData) {
   const session = await requireSession();
-  await data.updateCustomer(id, pickFields(formData), { tenantId: session.tenantId });
+  const fields = pickFields(formData);
+  fields.assignedUserId = await sanitizeAssignee(fields.assignedUserId, session.tenantId);
+  await data.updateCustomer(id, fields, { tenantId: session.tenantId });
   revalidatePath("/customers");
   redirect("/customers");
 }
