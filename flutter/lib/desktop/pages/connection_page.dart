@@ -353,10 +353,33 @@ class _ConnectionPageState extends State<ConnectionPage>
       bool isViewCamera = false,
       bool isTerminal = false}) {
     var id = _idController.id;
-    connect(context, id,
+    if (id.isEmpty) return;
+    void doConnect() => connect(context, id,
         isFileTransfer: isFileTransfer,
         isViewCamera: isViewCamera,
         isTerminal: isTerminal);
+    // ChainRemote: 미등록 ID 접속 시 안내 — 오타로 무반응 클릭을 반복하는 문제 방지.
+    //   등록 거래처(전체 거래처 = 패널 DB) 목록에 없으면 확인 다이얼로그(취소 / 그래도 접속).
+    //   목록이 아직 로드 안 됐으면(빈 배열) 오판 방지로 바로 접속. 하드 차단 아님 —
+    //   방금 설치한 새 에이전트 ID 를 수동 접속하는 정상 케이스를 막지 않기 위함.
+    final customers = gFFI.allCustomersPeersModel.peers;
+    final known = customers.any((p) => p.id == id);
+    if (customers.isNotEmpty && !known) {
+      gFFI.dialogManager.show((setState, close, context) => CustomAlertDialog(
+            title: Text(translate('등록되지 않은 ID')),
+            content: Text(
+                '입력한 ID  ${formatID(id)}  는 등록된 거래처가 아닙니다.\nID 를 다시 확인해 주세요. 그래도 접속할까요?'),
+            actions: [
+              dialogButton('취소', onPressed: close, isOutline: true),
+              dialogButton('그래도 접속', onPressed: () {
+                close();
+                doConnect();
+              }),
+            ],
+          ));
+      return;
+    }
+    doConnect();
   }
 
   /// UI for the remote ID TextField.
