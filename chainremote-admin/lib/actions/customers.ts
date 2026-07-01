@@ -21,12 +21,16 @@ function pickFields(formData: FormData): data.CustomerFields {
   };
   const name = get("name");
   if (!name) throw new Error("상호는 필수입니다");
+  // 원격 ID 정규화 — 에이전트 저장값(대문자·공백없음)과 정확히 일치해야 매칭(대소문자 구분 eq)됨.
+  //   신형 AB ID "AB12345678"(표시 "AB 1234 5678") / 구형 숫자 둘 다 공백 제거 + 대문자화.
+  const rawRemoteId = get("remoteId");
+  const remoteId = rawRemoteId ? rawRemoteId.replace(/\s+/g, "").toUpperCase() : null;
   return {
     name,
     contactName: get("contactName"),
     phone: get("phone"),
     address: get("address"),
-    remoteId: get("remoteId"),
+    remoteId,
     accessPassword: get("accessPassword"),
     notes: get("notes"),
   };

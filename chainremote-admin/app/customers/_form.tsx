@@ -72,12 +72,12 @@ export function CustomerForm({ initial, action, submitLabel = "저장" }: Props)
           className="input"
         />
       </Field>
-      <Field label="원격 ID (9자리, 선택)">
+      <Field label="원격 ID (선택)">
         <input
           name="remoteId"
           defaultValue={initial?.remoteId ?? ""}
-          placeholder="123456789"
-          pattern="[0-9 ]*"
+          placeholder="AB12345678 또는 123456789"
+          pattern="[A-Za-z0-9 ]*"
           className="input font-mono"
         />
         <p className="mt-1 text-xs text-slate-500">
