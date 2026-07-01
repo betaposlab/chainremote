@@ -1,8 +1,8 @@
 #!/bin/bash
 # ChainRemote 관리패널(NAS docker) 재배포 — 1.4.42 기기지문 앵커 코드 + 마이그018.
 #
-# 왜 이 스크립트인가: 프로덕션 NAS 의 DB/배포 쓰기는 AI(자동 게이트)가 막는다(안전장치).
-#   소유자(Chang)가 자기 맥에서 직접 실행 = 정상 경로. 한 번만 돌리면 끝.
+# 배포 정책(2026-07-01~): AI 가 코드+검증 완료 후 Chang 승인을 받고 직접 실행한다.
+#   (종전엔 AI 실행을 자동 게이트가 막아 Chang 이 손수 돌렸음 — 이제 승인창 승인 후 AI 실행.)
 #
 # 사용:  bash ~/내작업/ChainRemote/deploy/nas/redeploy-panel.sh
 #
