@@ -14,10 +14,58 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomersPage() {
+// 컬럼 헤더 클릭 정렬 — 화이트리스트(임의 컬럼 주입 방지). 값 = drizzle 컬럼.
+const SORT_COLUMNS = {
+  name: customers.name,
+  assigned: users.displayName,
+  contact: customers.contactName,
+  phone: customers.phone,
+  remoteId: customers.remoteId,
+  status: customers.lastHeartbeatAt,
+} as const;
+type SortKey = keyof typeof SORT_COLUMNS;
+
+// 정렬 가능한 컬럼 헤더 — 클릭 시 방향 토글(활성 컬럼) 또는 asc 시작. ▲/▼/↕ 표시.
+function SortHeader({
+  label,
+  col,
+  activeSort,
+  activeDir,
+}: {
+  label: string;
+  col: SortKey;
+  activeSort: SortKey | null;
+  activeDir: "asc" | "desc";
+}) {
+  const active = activeSort === col;
+  const nextDir = active && activeDir === "asc" ? "desc" : "asc";
+  return (
+    <th className="text-left px-4 py-3 font-medium">
+      <Link
+        href={`/customers?sort=${col}&dir=${nextDir}`}
+        className="inline-flex items-center gap-1 hover:text-[#00A0E5]"
+      >
+        {label}
+        <span className="text-[10px] text-slate-400">
+          {active ? (activeDir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </Link>
+    </th>
+  );
+}
+
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; dir?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const currentUserId = session.user.id;
+  const sp = await searchParams;
+  const sortKey: SortKey | null =
+    sp.sort && sp.sort in SORT_COLUMNS ? (sp.sort as SortKey) : null;
+  const sortDir: "asc" | "desc" = sp.dir === "desc" ? "desc" : "asc";
   // ★ 테넌트 격리: 로그인 사용자 회사로 한정 (하드코딩 betaposlab 제거).
   const tenant = (
     await db.select().from(tenants).where(eq(tenants.id, session.user.tenantId)).limit(1)
@@ -44,8 +92,15 @@ export default async function CustomersPage() {
     .from(customers)
     .leftJoin(users, eq(users.id, customers.assignedUserId))
     .where(eq(customers.tenantId, tenant.id))
-    // 내부 기기(pin_order 1..N) 를 상단 고정, 그 아래 일반 거래처는 등록순(최신 위).
-    .orderBy(asc(customers.pinOrder), desc(customers.createdAt));
+    // 기본: 내부 기기(pin_order) 상단 고정 + 등록순(최신 위). 헤더 클릭 시: 그 컬럼 정렬(등록순 tiebreak).
+    .orderBy(
+      ...(sortKey
+        ? [
+            sortDir === "desc" ? desc(SORT_COLUMNS[sortKey]) : asc(SORT_COLUMNS[sortKey]),
+            desc(customers.createdAt),
+          ]
+        : [asc(customers.pinOrder), desc(customers.createdAt)]),
+    );
 
   // 거래처별 대기 중 푸시 (있으면 행에 표시).
   const pendingRows = await db
@@ -175,12 +230,12 @@ export default async function CustomersPage() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="text-left px-4 py-3 font-medium">상호</th>
-              <th className="text-left px-4 py-3 font-medium">직원</th>
-              <th className="text-left px-4 py-3 font-medium">거래처 담당자</th>
-              <th className="text-left px-4 py-3 font-medium">연락처</th>
-              <th className="text-left px-4 py-3 font-medium">원격 ID</th>
-              <th className="text-left px-4 py-3 font-medium">상태</th>
+              <SortHeader label="상호" col="name" activeSort={sortKey} activeDir={sortDir} />
+              <SortHeader label="직원" col="assigned" activeSort={sortKey} activeDir={sortDir} />
+              <SortHeader label="거래처 담당자" col="contact" activeSort={sortKey} activeDir={sortDir} />
+              <SortHeader label="연락처" col="phone" activeSort={sortKey} activeDir={sortDir} />
+              <SortHeader label="원격 ID" col="remoteId" activeSort={sortKey} activeDir={sortDir} />
+              <SortHeader label="상태" col="status" activeSort={sortKey} activeDir={sortDir} />
               <th className="text-left px-4 py-3 font-medium">메모</th>
               <th className="text-right px-4 py-3 font-medium">작업</th>
             </tr>
