@@ -21,6 +21,8 @@ export const dynamic = "force-dynamic";
 const BASE_URL =
   process.env.AGENT_BASE_URL ??
   "https://sepani.synology.me/chainremote/ChainRemote_Agent_Base_v1.4.42.exe";
+// 다운로드 파일명 버전 표시용 — 베이스 URL 의 vX.Y.Z 에서 추출(베이스 교체 시 자동 반영).
+const BASE_VERSION = BASE_URL.match(/v(\d+\.\d+\.\d+)/)?.[1] ?? "";
 const MAGIC = "CRENROL1";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -87,8 +89,9 @@ export async function POST(_req: Request, ctx: Ctx) {
     t.displayName.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim() ||
     t.slug
   ).slice(0, 50);
-  const utf8Name = encodeURIComponent(`ChainRemote_${safeName}_가맹점설치용.exe`);
-  const asciiFallback = `ChainRemote_Agent_${t.slug}.exe`;
+  const verSuffix = BASE_VERSION ? `_v${BASE_VERSION}` : "";
+  const utf8Name = encodeURIComponent(`ChainRemote_${safeName}_가맹점설치용${verSuffix}.exe`);
+  const asciiFallback = `ChainRemote_Agent_${t.slug}${verSuffix}.exe`;
   return new Response(new Uint8Array(out), {
     status: 200,
     headers: {
@@ -96,6 +99,8 @@ export async function POST(_req: Request, ctx: Ctx) {
       "Content-Disposition": `attachment; filename="${asciiFallback}"; filename*=UTF-8''${utf8Name}`,
       "Content-Length": String(out.length),
       "Cache-Control": "no-store",
+      // 클라(카드)가 blob 저장 시 파일명에 버전 붙이도록 전달.
+      "X-Agent-Version": BASE_VERSION,
     },
   });
 }

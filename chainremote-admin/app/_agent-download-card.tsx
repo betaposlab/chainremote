@@ -41,10 +41,13 @@ export function AgentDownloadCard({
       const safe =
         (displayName.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim() ||
           tenantId).slice(0, 50);
+      // 파일명에 버전 표시 (라우트가 X-Agent-Version 헤더로 베이스 버전 전달).
+      const ver = resp.headers.get("X-Agent-Version");
+      const verSuffix = ver ? `_v${ver}` : "";
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ChainRemote_${safe}_가맹점설치용.exe`;
+      a.download = `ChainRemote_${safe}_가맹점설치용${verSuffix}.exe`;
       document.body.appendChild(a);
       a.click();
       a.remove();
