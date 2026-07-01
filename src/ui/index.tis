@@ -1298,8 +1298,14 @@ class ID: Reactor.Component {
 }
 
 var reg = /^\d+$/;
+var abReg = /^([A-Za-z]{2})(\d{4})(\d{4})$/;
 function formatId(id) {
     id = id.replace(/\s/g, "");
+    // ChainRemote 새 형식: 글자2 + 숫자8 ("AB12345678") -> "AB 1234 5678" (앞글자 대문자).
+    var ab = abReg.exec(id);
+    if (ab) {
+        return ab[1].toUpperCase() + " " + ab[2] + " " + ab[3];
+    }
     if (reg.test(id) && id.length > 3) {
         var n = id.length;
         var a = n % 3 || 3;

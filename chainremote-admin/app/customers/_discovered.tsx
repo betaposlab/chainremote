@@ -4,6 +4,7 @@ import { useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { importPeer, dismissCandidate } from "@/lib/actions/customers";
 import type { OrphanFavorite } from "@/lib/data/favorites";
+import { formatRemoteId } from "@/lib/id-formatter";
 
 export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
   const router = useRouter();
@@ -82,7 +83,7 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
               </div>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">
-                  {p.remoteId}
+                  {formatRemoteId(p.remoteId)}
                 </span>
                 {p.favoritedBy.length > 0 && (
                   <span className="text-slate-400 text-xs">
@@ -123,7 +124,7 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
             <header className="border-b border-slate-200 px-5 py-3">
               <h2 className="text-base font-semibold">거래처 등록</h2>
               <p className="text-xs text-slate-500 mt-0.5 font-mono">
-                {dialogPeer.remoteId}
+                {formatRemoteId(dialogPeer.remoteId)}
                 {dialogPeer.hostname ? ` · ${dialogPeer.hostname}` : ""}
               </p>
             </header>

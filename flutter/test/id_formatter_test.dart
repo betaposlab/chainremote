@@ -16,6 +16,12 @@ void main() {
       expect(trimID('AB 1234 5678'), 'AB12345678');
       expect(trimID('AB12345678'), 'AB12345678');
     });
+    test('앞 2글자 자동 대문자 (소문자로 쳐도 접속됨)', () {
+      expect(formatID('gn50840785'), 'GN 5084 0785');
+      expect(formatID('Gn 5084 0785'), 'GN 5084 0785');
+      expect(trimID('gn 5084 0785'), 'GN50840785');
+      expect(trimID('gn50840785'), 'GN50840785');
+    });
   });
 
   group('formatID — 기존 숫자 ID 하위호환', () {

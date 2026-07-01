@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { customers, pendingUpdates, supportSessions, tenants, users } from "@/lib/schema";
 import { eq, desc, asc, and, isNull, isNotNull, or } from "drizzle-orm";
 import { listOrphanFavorites } from "@/lib/data/favorites";
+import { formatRemoteId } from "@/lib/id-formatter";
 import { DiscoveredPeerBanner } from "./_discovered";
 import { RemoteButton } from "./_remote-button";
 import { CustomerStatus, computeUpdateHealth } from "./_status";
@@ -225,7 +226,7 @@ export default async function CustomersPage() {
                   <td className="px-4 py-3 font-mono text-xs">
                     {c.remoteId ? (
                       <span className="inline-block bg-[#00A0E5]/10 text-[#0070a8] px-2 py-0.5 rounded">
-                        {c.remoteId}
+                        {formatRemoteId(c.remoteId)}
                       </span>
                     ) : (
                       <span className="text-slate-400">미등록</span>
