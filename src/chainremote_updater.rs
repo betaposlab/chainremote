@@ -1,23 +1,17 @@
-//! ChainRemote 자체 업데이트 모듈 — NAS(latest.json) 폴링 → setup.exe 다운로드 → 부팅 시 무방해 적용
+//! HQ 자체 업데이트 — NAS(latest.json) 폴링 → setup.exe 다운로드 → 무방해 적용.
+//! CLAUDE.md "옵션 B" 결정. 호스팅은 Chang 댁 NAS Web Station.
 //!
-//! 설계 (CLAUDE.md "옵션 B" 결정사항):
-//!   - 호스팅: Chang 댁 NAS Web Station (`https://sepani.synology.me/chainremote/`)
-//!   - 트리거 채널 2개:
-//!     (a) latest.json — 24h 정기 폴링 (수동 갱신 없이 자연스러운 배포)
-//!     (b) push.json   — 5분 폴링, 본사가 timestamp 갱신 시 즉시 적용 사이클 발동
-//!   - 적용 시점: 다운로드 완료 후 즉시 (서비스가 LocalSystem 권한으로 setup.exe 사일런트 실행)
-//!     → Inno Setup 의 CloseApplications=yes 가 ChainRemote.exe 자동 종료/재시작 처리
-//!     → install_me() 가 서비스 stop/start 처리
-//!   - 활성 원격 세션 중에는 어느 채널이든 적용 보류 (거래처 작업 보호)
+//! 트리거 채널 두 개: latest.json 은 24h 정기 폴링(수동 갱신 없이 자연스러운 배포), push.json 은
+//! 5분 폴링으로 본사가 timestamp 를 갱신하면 즉시 적용 사이클을 발동한다. 다운로드 끝나면 바로
+//! 적용 — 서비스가 LocalSystem 권한으로 setup.exe 를 사일런트 실행하고, Inno 의
+//! CloseApplications=yes 가 ChainRemote.exe 종료/재시작을, install_me() 가 서비스 stop/start 를
+//! 처리한다. 활성 원격 세션 중엔 어느 채널이든 적용을 보류한다(거래처 작업 보호).
 //!
-//! 권한:
-//!   - 모든 로직이 Windows 서비스(LocalSystem) 컨텍스트에서 실행됨 → UAC 없음
-//!   - Pending 파일은 `C:\ProgramData\ChainRemote\pending\` (LocalSystem 이 owner, Users 는 read-only)
+//! 전부 Windows 서비스(LocalSystem)에서 도니 UAC 없음. pending 파일은
+//! C:\ProgramData\ChainRemote\pending\ (LocalSystem owner, Users read-only).
 //!
-//! 기존 RustDesk 업데이트 인프라와의 분리:
-//!   - RustDesk 의 `src/updater.rs` 는 GitHub releases 가정 + `OPTION_ALLOW_AUTO_UPDATE` 게이트
-//!   - 우리 거래처는 그 옵션을 OFF 로 두므로 기존 채널은 비활성
-//!   - 본 모듈은 ChainRemote 포크에만 존재하므로 빌드되면 무조건 동작
+//! RustDesk 기본 업데이트(src/updater.rs)는 GitHub releases 가정 + OPTION_ALLOW_AUTO_UPDATE
+//! 게이트인데 우리는 그 옵션을 OFF 로 두니 안 돈다. 이 모듈은 포크에만 있어 빌드되면 무조건 동작.
 
 #![cfg(target_os = "windows")]
 
@@ -38,21 +32,19 @@ const FIRST_CHECK_DELAY: Duration = Duration::from_secs(60 * 5); // 부팅 후 5
 const PENDING_DIR: &str = r"C:\ProgramData\ChainRemote\pending";
 const PENDING_FILE: &str = "ChainRemote_Setup.exe";
 const UPDATER_LOG_PATH: &str = r"C:\ProgramData\ChainRemote\updater.log";
-// 수동 "지금 설치" 트리거 파일. 비권한 UI(트레이)가 이 파일을 만들면
-// SYSTEM 서비스가 ≤TICK_INTERVAL 안에 감지 → 즉시 적용(다운로드+권한설치).
-// UI 는 직접 설치 불가(winlogon 토큰 없음)라 서비스에 신호만 보낸다.
-// ProgramData\ChainRemote ACL: Users 에 파일생성 권한 있음(검증됨) → UI 가 쓰고
-// SYSTEM 이 읽고 지움.
+// 수동 "지금 설치" 트리거 파일. 비권한 UI(트레이)가 이 파일을 만들면 SYSTEM 서비스가
+// ≤TICK_INTERVAL 안에 감지해 즉시 적용(다운로드+권한설치)한다. UI 는 winlogon 토큰이 없어
+// 직접 설치를 못 하니 서비스에 신호만 던지는 것. ProgramData\ChainRemote ACL 은 Users 파일생성
+// 허용(검증됨)이라 UI 가 쓰고 SYSTEM 이 읽고 지운다.
 const MANUAL_TRIGGER_FLAG: &str = r"C:\ProgramData\ChainRemote\update_now.flag";
-// 루프 granularity — 수동 트리거를 "지체없이"(≤2초) 잡기 위한 짧은 주기.
-// push(5분)/full(24h) 은 elapsed 게이트라 NAS 를 매 tick hammer 하지 않음.
-// 매 tick 비용은 사실상 파일 존재 확인 1회 — 무시 가능.
+// 짧은 tick 으로 수동 트리거를 ≤2초 안에 잡는다. push(5분)/full(24h)은 elapsed 게이트라
+// NAS 를 매 tick 두들기지 않고, 매 tick 비용은 사실상 파일 존재 확인 한 번이라 무시할 만하다.
 const TICK_INTERVAL: Duration = Duration::from_secs(2);
 const HTTP_TIMEOUT: Duration = Duration::from_secs(60);
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 10); // 인스톨러 ~30MB
 
-/// updater 전용 로그 파일에 한 줄 append. hbb_common::log 와 별도로 디스크에 영구 보존 — 다음 디버깅 즉시.
-/// 실패해도 무시 (디스크 가득 등 예외 상황에서 메인 동작 막지 않음).
+/// updater 전용 로그 파일에 한 줄 append. hbb_common::log 와 별개로 디스크에 남겨 다음 디버깅에
+/// 바로 쓴다. 실패는 무시(디스크 가득 같은 상황에서 메인 동작을 막지 않게).
 fn flog(msg: &str) {
     let _ = std::fs::create_dir_all(r"C:\ProgramData\ChainRemote");
     if let Ok(mut f) = std::fs::OpenOptions::new()
@@ -82,25 +74,18 @@ struct LatestRelease {
     notes: String,
 }
 
-/// 2026-05-28 dual-channel 개편 — HQ 와 Agent 가 서로 다른 인스톨러로 업데이트되게 함.
-/// 단일 채널이던 옛 schema 에서 HQ 가 Agent 인스톨러로 덮어쓰는 사고 (2026-05-28 오전) 재발 방지.
-///
-/// 새 latest.json schema:
-/// ```json
-/// {
-///   "hq":    { "version": "...", "url": "...", "sha256": "...", "size": ..., "released_at": "...", "notes": "..." },
-///   "agent": { "version": "...", "url": "...", "sha256": "...", "size": ..., "released_at": "...", "notes": "..." }
-/// }
-/// ```
+/// 2026-05-28 dual-channel 개편 — HQ 와 Agent 를 각자 인스톨러로 업데이트되게 나눴다.
+/// 단일 채널이던 옛 schema 에서 HQ 가 Agent 인스톨러로 덮어써진 사고(2026-05-28 오전) 재발 방지.
+/// 새 schema 는 { "hq": {...}, "agent": {...} } 로 채널을 분리한다.
 #[derive(serde::Deserialize, Debug)]
 struct DualChannelManifest {
     hq: LatestRelease,
     agent: LatestRelease,
 }
 
-/// 본사가 latest.json 외에 별도로 박는 "지금 즉시 폴링하라" 신호.
-/// `timestamp` 가 갱신될 때마다 클라이언트가 새 푸시로 인식. (값 자체는 ISO8601 권장이지만 비교는 동등성 only)
-/// 파일이 없거나 비어 있으면 클라이언트는 무시 (24h 정기 채널만 동작).
+/// 본사가 latest.json 과 별개로 박는 "지금 폴링하라" 신호. timestamp 가 바뀔 때마다 클라이언트가
+/// 새 푸시로 본다(값은 ISO8601 권장이지만 비교는 동등성만). 파일이 없거나 비면 무시하고 24h
+/// 정기 채널만 돈다.
 #[derive(serde::Deserialize, Debug, Default)]
 struct PushSignal {
     #[serde(default)]
@@ -112,13 +97,13 @@ struct PushSignal {
     notes: String,
 }
 
-/// 서비스(LocalSystem)에서 호출. 부팅 후 5분 → 그 다음 5분 주기로 push.json 폴링,
-/// 24h 마다 latest.json 정기 체크 (단 Deferred 시 15분 후 재시도). `run_service()` 의 진입부에서 한 번만 호출.
+/// 서비스(LocalSystem)에서 호출, run_service() 진입부에서 한 번만. 부팅 후 5분 뒤부터 push.json
+/// 을 5분 주기로 폴링하고 latest.json 을 24h 마다 정기 체크한다(Deferred 면 15분 후 재시도).
 ///
-/// 2026-05-29 변경 — Agent (incoming-only) 빌드는 이 채널 안 씀. 대신 `chainremote_push_agent`
-/// 가 관리 패널 API (`/api/customers/pending-update`) 폴링으로 본사 수동 푸시만 수신.
-/// 배경: 2026-05-28 중앙리 사고 (영업시간 12:50PM 자동 인스톨러 마법사) 의 영구 차단.
-/// 본사가 새벽 0~7시 영업시간 가드 박은 푸시만 받게 함.
+/// 2026-05-29 변경 — Agent(incoming-only) 빌드는 이 채널을 안 쓰고 chainremote_push_agent 가
+/// 패널 API(/api/customers/pending-update) 폴링으로 본사 수동 푸시만 받는다. 2026-05-28 중앙리
+/// 사고(영업시간 12:50PM 자동 인스톨러 마법사)를 영구 차단하려는 것 — 새벽 0~7시 영업시간
+/// 가드를 박은 푸시만 받게 한다.
 pub fn start_in_service() {
     if hbb_common::config::is_incoming_only() {
         flog("agent build → skip latest.json updater (push API handles updates)");
@@ -131,17 +116,16 @@ pub fn start_in_service() {
         ));
         std::thread::sleep(FIRST_CHECK_DELAY);
 
-        // last_full_check: AlreadyLatest / Err 시에만 갱신. Deferred 는 별도 변수로 추적해 짧은 주기로 재시도.
+        // last_full_check 는 AlreadyLatest/Err 때만 갱신. Deferred 는 짧은 주기 재시도하려고 별도 추적.
         let mut last_full_check: Option<Instant> = None;
         let mut last_deferred_retry: Option<Instant> = None;
         let mut last_push_timestamp: Option<String> = None;
-        // push.json 폴링은 5분 주기 유지 (루프는 60s tick 이지만 NAS 를 매 tick hammer 하지 않도록 게이트)
+        // push.json 폴링은 5분 게이트(루프는 짧은 tick 이라 NAS 를 매 tick 두들기지 않게).
         let mut last_push_poll: Option<Instant> = None;
 
         loop {
-            // (0) ★ 수동 "지금 설치" — 최우선, 즉시 적용. 비권한 UI 가 만든 플래그를
-            //     SYSTEM 이 감지·삭제 후 check_and_apply_once (다운로드+검증+
-            //     launch_privileged_process 로 우리 Inno 인스톨러 사일런트 실행).
+            // 수동 "지금 설치" — 최우선, 즉시 적용. 비권한 UI 가 만든 플래그를 SYSTEM 이 감지·삭제한
+            //     뒤 check_and_apply_once(다운로드+검증+launch_privileged_process 로 Inno 사일런트 실행).
             if std::path::Path::new(MANUAL_TRIGGER_FLAG).exists() {
                 let _ = std::fs::remove_file(MANUAL_TRIGGER_FLAG);
                 flog("manual trigger detected -> applying now");
@@ -162,7 +146,7 @@ pub fn start_in_service() {
                 }
             }
 
-            // (a) 본사 강제 푸시 채널 — 5분 게이트. timestamp 갱신 시 즉시 적용 사이클
+            // 본사 강제 푸시 채널 — 5분 게이트. timestamp 갱신 시 즉시 적용 사이클.
             let need_push_poll = last_push_poll
                 .map(|t| t.elapsed() >= PUSH_POLL_INTERVAL)
                 .unwrap_or(true);
@@ -189,7 +173,7 @@ pub fn start_in_service() {
                 }
             }
 
-            // (b) 정기/재시도 채널 — 둘 중 하나라도 만료면 사이클 1회
+            // 정기/재시도 채널 — 둘 중 하나라도 만료면 사이클 1회.
             let need_full = last_full_check
                 .map(|t| t.elapsed() >= FULL_CHECK_INTERVAL)
                 .unwrap_or(true);
@@ -208,24 +192,24 @@ pub fn start_in_service() {
                         last_deferred_retry = None;
                     }
                     Ok(CycleResult::Deferred) => {
-                        // ★ 결함 1 fix: Deferred 는 last_full_check 를 갱신하지 않음.
-                        // 대신 last_deferred_retry 만 갱신 → 15분 후 재시도. alive_conns 풀리면 즉시 적용.
+                        // Deferred 는 last_full_check 를 갱신하지 않고 last_deferred_retry 만 갱신해
+                        // 15분 후 재시도한다. alive_conns 가 풀리면 즉시 적용된다.
                         flog("scheduled cycle → Deferred (active session, will retry in 15m)");
                         last_deferred_retry = Some(Instant::now());
                     }
                     Err(e) => {
                         flog(&format!("scheduled check failed: {}", e));
-                        // ★ sha-mismatch 등 실패 시 first-boot(last_full_check=None)면 매 tick(2초)
-                        //   25MB 재다운로드 해머가 됨. last_full_check 갱신으로 매-tick 해머 종료 +
-                        //   last_deferred_retry 로 15분 후 재시도 (per-cycle fetch_latest 가 정정된
-                        //   latest.json sha 를 그때 집어 자가복구). NAS 대역폭 보호 + 무증상 방지(flog).
+                        // sha-mismatch 등으로 실패했을 때 first-boot(last_full_check=None)면 매 tick(2초)
+                        //   마다 25MB 를 재다운로드하는 해머가 된다. last_full_check 를 갱신해 그 해머를
+                        //   끊고 last_deferred_retry 로 15분 후 재시도 — 그때 per-cycle fetch_latest 가
+                        //   정정된 latest.json sha 를 집어 자가복구한다. NAS 대역폭 보호 + 무증상 방지(flog).
                         last_full_check = Some(Instant::now());
                         last_deferred_retry = Some(Instant::now());
                     }
                 }
             }
 
-            // 짧은 tick — 수동 트리거 플래그를 ≤15s 안에 감지. push/full 폴링은 위에서 elapsed 게이트.
+            // 짧은 tick 으로 수동 트리거 플래그를 빨리 감지. push/full 폴링은 위 elapsed 게이트가 조인다.
             std::thread::sleep(TICK_INTERVAL);
         }
     });
@@ -238,7 +222,7 @@ enum CycleResult {
     Deferred,
 }
 
-/// push.json 은 본사가 안 박았을 수도 (404 OK). 실패는 조용히 None.
+/// push.json 은 본사가 안 박았을 수 있다(404 정상). 실패는 조용히 None.
 fn try_fetch_push() -> Option<PushSignal> {
     let client = reqwest::blocking::Client::builder()
         .timeout(HTTP_TIMEOUT)
@@ -251,7 +235,7 @@ fn try_fetch_push() -> Option<PushSignal> {
     resp.json::<PushSignal>().ok()
 }
 
-/// 한 사이클: latest.json 가져오기 → 버전 비교 → 다운 → SHA256 검증 → setup.exe 사일런트 실행.
+/// 한 사이클: latest.json → 버전 비교 → 다운 → SHA256 검증 → setup.exe 사일런트 실행.
 fn check_and_apply_once() -> ResultType<CycleResult> {
     let latest = fetch_latest()?;
     flog(&format!("latest.json → version={}, url={}", latest.version, latest.url));
@@ -264,7 +248,7 @@ fn check_and_apply_once() -> ResultType<CycleResult> {
 
     let pending_path = pending_file_path();
     ensure_pending_dir(&pending_path)?;
-    // 이전 사이클에서 이미 받아둔 파일이 그대로면 재다운 스킵 (세션 중이라 보류된 상황 등)
+    // 지난 사이클에 받아둔 파일이 아직 유효하면 재다운 스킵(세션 중이라 보류됐던 경우 등).
     if !(pending_path.exists() && verify_sha256(&pending_path, &latest.sha256).is_ok()) {
         flog(&format!("new version {} > {}, downloading...", latest.version, crate::CHAINREMOTE_VERSION));
         download_to(&latest.url, &pending_path)?;
@@ -274,7 +258,7 @@ fn check_and_apply_once() -> ResultType<CycleResult> {
         flog("pending file already valid, reusing");
     }
 
-    // 진행 중인 원격 세션 중에는 적용 보류 — pending 파일은 그대로 두고 다음 사이클에서 재시도
+    // 원격 세션이 진행 중이면 적용 보류 — pending 파일은 두고 다음 사이클에 재시도.
     let alive = crate::Connection::alive_conns();
     if !alive.is_empty() {
         flog(&format!("active sessions ({} conn) → deferring install", alive.len()));
@@ -297,8 +281,8 @@ fn fetch_latest() -> ResultType<LatestRelease> {
     }
     let body = resp.text()?;
 
-    // 2026-05-28 dual-channel: 새 schema { hq:{...}, agent:{...} } 우선 시도.
-    // 실패 시 옛 schema (flat) 폴백 — 점진 마이그레이션 안전망.
+    // 2026-05-28 dual-channel: 새 schema { hq:{...}, agent:{...} } 를 먼저 시도하고
+    // 실패하면 옛 flat schema 로 폴백 — 점진 마이그레이션 안전망.
     let is_agent = hbb_common::config::is_incoming_only();
     if let Ok(dual) = serde_json::from_str::<DualChannelManifest>(&body) {
         let chan = if is_agent { dual.agent } else { dual.hq };
@@ -309,7 +293,7 @@ fn fetch_latest() -> ResultType<LatestRelease> {
         ));
         return Ok(chan);
     }
-    // 옛 단일 schema 폴백.
+    // 옛 flat schema 폴백.
     let release: LatestRelease = match serde_json::from_str(&body) {
         Ok(r) => r,
         Err(e) => bail!("latest.json parse fail (dual & flat both): {}", e),
@@ -351,7 +335,7 @@ fn download_to(url: &str, dest: &PathBuf) -> ResultType<()> {
         f.write_all(&bytes)?;
         f.sync_all()?;
     }
-    // atomic rename — 부분 파일이 보일 일 없음
+    // atomic rename — 반쯤 받은 파일이 노출될 일 없음.
     if dest.exists() {
         std::fs::remove_file(dest).ok();
     }
@@ -363,18 +347,16 @@ fn download_to(url: &str, dest: &PathBuf) -> ResultType<()> {
 
 /// pending Inno 인스톨러를 활성 사용자 세션에 권한승격으로 사일런트 실행.
 ///
-/// 이력: v1.2.5 직접 CreateProcess → 세션0 hang. ~v1.2.14 schtasks 우회 →
-///   동작 불안정(거짓 unhealthy/미적용 사고의 한 갈래). 두 방식 다
-///   "서비스(세션0) → 사용자세션 권한실행" 을 자력으로 흉내내다 실패.
+/// 여기까지 온 길: v1.2.5 는 직접 CreateProcess 했다가 세션0 hang, ~v1.2.14 는 schtasks 로
+/// 우회했다가 불안정(거짓 unhealthy/미적용 사고의 한 갈래). 둘 다 "서비스(세션0) → 사용자세션
+/// 권한실행"을 자력으로 흉내내려다 깨졌다.
 ///
-/// 정석(2026-05-18): RustDesk 가 자체 자가업데이트에 쓰는 검증된 프리미티브
-///   `launch_privileged_process(session_id, cmd)` (platform/windows.rs) 를
-///   그대로 사용. updater.rs 의 네이티브 경로와 동일 메커니즘.
-///   - 세션: `get_current_session_id(false)` = WTS 활성 콘솔(로그인 사용자) 세션.
-///     무인(로그인 사용자 없음)이면 0xFFFFFFFF → 서비스 자기 세션으로 폴백
-///     (/VERYSILENT 라 UI 불필요, SYSTEM 토큰이라 UAC 도 불필요).
-///   - 네이티브 `--update` 자가교체는 안 씀: 우리 Inno 인스톨러의 필수 작업
-///     (toml→LocalService, 단축아이콘, watchdog, sc start 견고화)을 보존해야 함.
+/// 정석(2026-05-18): RustDesk 가 자기 자가업데이트에 쓰는 검증된 프리미티브
+/// launch_privileged_process(session_id, cmd) (platform/windows.rs)를 그대로 쓴다.
+///   - 세션은 get_current_session_id(false) = WTS 활성 콘솔(로그인 사용자). 무인이면
+///     0xFFFFFFFF 라 서비스 자기 세션으로 폴백(/VERYSILENT 라 UI 불필요, SYSTEM 토큰이라 UAC 도 불필요).
+///   - 네이티브 --update 자가교체는 안 쓴다 — 우리 Inno 인스톨러의 필수 작업(toml→LocalService,
+///     단축아이콘, watchdog, sc start 견고화)을 보존해야 하기 때문.
 pub(crate) fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
     let setup_str = setup_path.to_string_lossy().to_string();
     let log_path = std::path::Path::new(&setup_str)
@@ -382,13 +364,13 @@ pub(crate) fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
         .map(|p| p.join("installer.log").to_string_lossy().to_string())
         .unwrap_or_else(|| "C:\\ProgramData\\ChainRemote\\pending\\installer.log".to_string());
 
-    // 일반 Windows 인용(실제 큰따옴표). 경로 공백 대비 exe·LOG 경로 인용.
+    // 경로에 공백 있을 수 있어 exe·LOG 경로를 큰따옴표로 감싼다.
     let cmd = format!(
         "\"{}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=\"{}\"",
         setup_str, log_path
     );
 
-    // 활성 콘솔 세션 우선. 없으면(무인) 서비스 자기 세션으로 폴백.
+    // 활성 콘솔 세션 우선, 없으면(무인) 서비스 자기 세션으로 폴백.
     let mut sid = crate::platform::get_current_session_id(false);
     if sid == 0xFFFF_FFFF {
         match crate::platform::get_current_process_session_id() {
@@ -410,14 +392,14 @@ pub(crate) fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
 
 #[cfg(test)]
 mod tests {
-    //! ChainRemote latest.json 매니페스트 파싱 단위테스트.
-    //! 버전비교(parse_version/is_newer)·sha256 검증 테스트는 chainremote_update_common::tests 로
-    //! 이전 (cross-platform → Mac/Linux 빌드에서도 동작). 여기엔 updater 고유의 dual/legacy 스키마만.
+    //! latest.json 매니페스트 파싱 테스트. 버전비교/sha256 검증 테스트는
+    //! chainremote_update_common::tests 로 옮겼고(cross-platform), 여기엔 updater 고유의
+    //! dual/legacy 스키마 파싱만 남긴다.
     use super::*;
 
     #[test]
     fn dual_channel_manifest_parses_v137() {
-        // 운영 latest.json 의 실제 schema. agent 채널은 0.0.0 영구 락.
+        // 운영 latest.json 실제 schema. agent 채널은 0.0.0 으로 영구 락.
         let body = r#"{
             "hq": {
                 "version": "1.3.7",

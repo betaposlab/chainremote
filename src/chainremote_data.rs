@@ -1,14 +1,10 @@
-// ChainRemote 본사 앱 데이터 fetcher — 관리 패널 DB 가 진실 원천.
+// 본사 앱 데이터 fetcher — 진실 원천은 관리 패널 DB.
+// 거래처 목록(GET /api/customers), 즐겨찾기(GET/POST/DELETE /api/me/favorites),
+// 그리고 remote_id(9자리) ↔ customer UUID 매핑 캐시.
 //
-// 책임:
-//   - 거래처 목록: GET /api/customers → "load_recent_peers" 이벤트
-//   - 즐겨찾기 목록: GET /api/me/favorites → "load_fav_peers" 이벤트
-//   - 즐겨찾기 추가/제거: POST/DELETE /api/me/favorites/...
-//   - remote_id (RustDesk 9자리) ↔ customer UUID (DB) 매핑 캐시
-//
-// 인증: chainremote_auth::get_token() 의 Bearer JWT.
-// 응답 wrapper: common.rs 의 http_request_sync 는 raw 를 {"body":"<json>"} 로 감싸므로
-//              HttpWrapper 로 한 번 풀고 두번째 from_str.
+// 인증은 chainremote_auth::get_token() 의 Bearer JWT.
+// http_request_sync 가 raw 를 {"body":"<json>"} 로 감싸 돌려주므로 HttpWrapper 로 한 번
+// 풀고 안쪽 JSON 을 다시 from_str 한다.
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -18,7 +14,7 @@ use serde::Deserialize;
 
 use crate::chainremote_auth;
 
-/// 관리 패널의 customers 행 형태 (필요한 필드만).
+/// 패널 customers 행 (필요한 필드만).
 #[derive(Debug, Deserialize)]
 struct CustomerRow {
     id: String,
@@ -29,18 +25,18 @@ struct CustomerRow {
     contact_name: Option<String>,
     address: Option<String>,
     notes: Option<String>,
-    // 자가등록(⑤) 상태: "active"(확정) | "pending"(미확정 후보). 없으면 None → 확정으로 간주.
-    // '전체 거래처' 탭에서 pending 시각 표시 + 마스터 확정 버튼 게이트에 사용.
+    // 자가등록 상태: "active"(확정) | "pending"(미확정 후보). None 이면 확정으로 간주.
+    // '전체 거래처' 탭 pending 표시 + 마스터 확정 버튼 게이트에 쓴다.
     #[serde(rename = "enrollStatus")]
     enroll_status: Option<String>,
-    // 담당 직원(③). null/빈값 = 미배정("등록대기") — 신규 거래처를 아직 아무도 안 잡은 상태.
+    // 담당 직원. null/빈값 = 미배정("등록대기") — 아직 아무도 안 잡은 신규 거래처.
     #[serde(rename = "assignedUserId")]
     assigned_user_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct FavoriteRow {
-    // 2026-05-27 개편: remote_id 가 primary, customer 는 orphan(customers 미등록 머신)일 때 None.
+    // 2026-05-27 개편으로 remote_id 가 primary. customer 는 orphan(customers 미등록 머신)이면 None.
     #[serde(rename = "remoteId")]
     remote_id: String,
     customer: Option<CustomerRow>,
@@ -51,17 +47,15 @@ struct FavoritesResponse {
     favorites: Vec<FavoriteRow>,
 }
 
-// (remote_id → customer UUID) 매핑. 즐겨찾기 토글에 필요.
-// 캐시는 chainremote_load_customers / chainremote_load_favorites 호출 시 갱신.
+// remote_id → customer UUID. 즐겨찾기 토글에 필요. customers/favorites fetch 때 갱신.
 static REMOTE_TO_UUID: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 
-// 내가 즐겨찾기한 customer UUID 집합 — UI 가 동기로 빠르게 fav 상태 표시.
-// chainremote_load_favorites 호출 시 갱신.
+// 내 즐겨찾기 remote_id 집합 — UI 가 동기로 fav 상태를 빠르게 표시. favorites fetch 때 갱신.
 static MY_FAV_REMOTE_IDS: Mutex<Option<std::collections::HashSet<String>>> = Mutex::new(None);
 
-// (remote_id → 거래처명) 매핑. 최근 세션 탭이 숫자 ID 대신 거래처 이름을 표시하는 데 사용
-// (main_load_recent_peers 가 peer.alias 를 이 이름으로 덮음). 전체 거래처(fetch_customers)와
-// 즐겨찾기(fetch_favorites) 양쪽에서 merge 로 채워, 패널 rename 이 즐겨찾기 refresh 에 반영되게 함(live).
+// remote_id → 거래처명. 최근 세션 탭이 숫자 ID 대신 거래처명을 보이게 하는 용도
+// (main_load_recent_peers 가 peer.alias 를 이 값으로 덮는다). customers·favorites 양쪽에서
+// merge 로 채워 패널 rename 이 즐겨찾기 refresh 에도 살아 반영되게 한다.
 static REMOTE_TO_NAME: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 
 fn update_remote_to_uuid(rows: &[&CustomerRow]) {
@@ -83,9 +77,9 @@ fn remote_to_uuid(remote_id: &str) -> Option<String> {
         .and_then(|g| g.as_ref()?.get(remote_id).cloned())
 }
 
-/// REMOTE_TO_NAME 에 거래처명을 merge(insert). full(customers)+subset(favorites) 양쪽에서
-/// 호출되므로 통째 replace 가 아닌 merge — favorites 가 전체 이름 캐시를 subset 으로 줄이지 않도록.
-/// 같은 remote_id 면 최신 이름으로 덮음 → 패널 rename 반영.
+/// REMOTE_TO_NAME 에 거래처명 merge. customers(전체)·favorites(부분) 양쪽에서 부르므로
+/// replace 가 아닌 merge — favorites 가 전체 캐시를 부분집합으로 깎아먹지 않게. 같은 remote_id 는
+/// 최신 이름으로 덮어 패널 rename 을 반영.
 fn merge_remote_names(rows: &[&CustomerRow]) {
     if let Ok(mut guard) = REMOTE_TO_NAME.lock() {
         let map = guard.get_or_insert_with(HashMap::new);
@@ -99,7 +93,7 @@ fn merge_remote_names(rows: &[&CustomerRow]) {
     }
 }
 
-/// remote_id → 거래처명. 최근 세션 카드가 ID 대신 거래처 이름을 표시할 때 사용.
+/// remote_id → 거래처명. 최근 세션 카드가 ID 대신 이름을 표시할 때 조회.
 pub fn get_remote_name(remote_id: &str) -> Option<String> {
     REMOTE_TO_NAME
         .lock()
@@ -112,19 +106,14 @@ struct CustomersResponse {
     customers: Vec<CustomerRow>,
 }
 
-/// http_request_sync 의 응답 wrapper — raw body 를 {"body":"<json string>"} 로 감쌈.
-/// common.rs 의 http 응답 처리 흐름이 그러함.
+/// http_request_sync 응답 wrapper — raw body 를 {"body":"<json string>"} 로 감싼다.
 #[derive(Debug, Deserialize)]
 struct HttpWrapper {
     body: String,
 }
 
-/// Flutter Peer JSON 한 행을 생성.
-/// 컬럼 매핑 (DB → Peer):
-///   remoteId      → id    (없으면 그 거래처는 skip)
-///   name          → alias (UI 의 별칭)
-///   contactName   → hostname (보조 정보로 카드에 표시됨)
-///   notes         → note
+/// CustomerRow → Flutter Peer JSON 한 행.
+/// remoteId→id(없으면 skip) / name→alias / contactName→hostname / notes→note.
 fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_json::Value> {
     let id = c.remote_id.clone()?;
     if id.trim().is_empty() {
@@ -133,9 +122,9 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
     let empty_tags: Vec<String> = Vec::new();
     let is_pending = c.enroll_status.as_deref() == Some("pending");
     let is_unassigned = c.assigned_user_id.as_deref().unwrap_or("").trim().is_empty();
-    // 별칭 앞 마커(카드 렌더 변경 없이 시각 구분): pending ⏳ / 미배정 신규 🆕(등록대기).
-    // with_marker=true 인 '전체 거래처' 탭에서만 표시 — 즐겨찾기/최근 탭엔 노이즈라 raw 이름.
-    // 누가 먼저 즐겨찾기해 차지(claim)하면 assigned 되어 다음 fetch 에서 마커가 전 HQ 에서 사라짐.
+    // 별칭 앞에 마커를 붙여 카드 렌더 손 안 대고 시각 구분: pending ⏳ / 미배정 신규 🆕.
+    // '전체 거래처' 탭(with_marker=true)에서만 — 즐겨찾기/최근 탭엔 노이즈라 raw 이름.
+    // 누군가 먼저 즐겨찾기로 차지(claim)하면 assigned 되어 다음 fetch 때 전 HQ 에서 마커가 사라진다.
     let alias = if with_marker && is_pending {
         format!("⏳ {}", c.name)
     } else if with_marker && is_unassigned {
@@ -149,9 +138,9 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
         "password": "",
         "username": "",
         "hostname": c.contact_name.clone().or_else(|| c.address.clone()).unwrap_or_default(),
-        // ChainRemote 거래처는 99% Windows POS/키오스크. 빈 platform 이면 RustDesk UI 가
-        // OS 아이콘 자리에 회색 사각형 → 무조건 "Windows" 박음. 향후 다른 OS 거래처 생기면
-        // DB 에 platform 컬럼 추가 + 여기 매핑.
+        // 거래처는 99% Windows POS/키오스크. platform 이 비면 UI 가 OS 아이콘 자리에 회색
+        // 사각형을 그려서 그냥 "Windows" 로 박는다. 다른 OS 거래처가 생기면 DB 에 platform
+        // 컬럼 추가하고 여기서 매핑.
         "platform": "Windows",
         "alias": alias,
         "tags": empty_tags,
@@ -162,19 +151,19 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
         "device_group_name": "",
         "note": c.notes.clone().unwrap_or_default(),
         "same_server": serde_json::Value::Null,
-        // Flutter Peer.enrollStatus 로 흘러가 마스터 확정 버튼 게이트에 사용(pending 만 노출).
+        // Flutter Peer.enrollStatus 로 흘러가 마스터 확정 버튼 게이트(pending 만 노출)에 쓰임.
         "enrollStatus": c.enroll_status.clone().unwrap_or_default(),
     }))
 }
 
-/// customers 에 등록 안 된 머신(orphan) peer placeholder — remote_id 만 있고 별칭/메모는 빈 값.
-/// 2026-05-27: HQ workstation 등 옵션 B+ 본사 PC 즐겨찾기 지원용.
+/// customers 미등록 머신(orphan)용 placeholder peer — remote_id 만, 별칭/메모는 빈 값.
+/// 2026-05-27 옵션 B+ 본사 PC(HQ workstation 등) 즐겨찾기 지원용.
 fn orphan_peer_json(remote_id: &str) -> serde_json::Value {
     let empty_tags: Vec<String> = Vec::new();
-    // ChainRemote: orphan(미등록) 즐겨찾기는 서버에 이름이 없어 즐겨찾기 탭에 ID만 떴다.
-    // 이 기기에 로컬 별칭(우클릭 이름변경 → set_peer_option id "alias")이 있으면 폴백으로 채워
-    // 최근세션 표시('내 맥미니' 등)와 즐겨찾기 표시를 한 기기 안에서 일치시킨다.
-    // (별칭은 로컬 저장 → 별칭을 붙이지 않은 다른 기기에선 여전히 ID. 서버 동기화는 별도 과제.)
+    // orphan 즐겨찾기는 서버에 이름이 없어 탭에 ID 만 떴었다. 이 기기에 로컬 별칭(우클릭
+    // 이름변경 → set_peer_option id "alias")이 있으면 폴백으로 채워, 한 기기 안에서 최근세션
+    // 표시('내 맥미니' 등)와 즐겨찾기 표시를 맞춘다.
+    // (별칭은 로컬 저장이라 안 붙인 다른 기기에선 여전히 ID. 서버 동기화는 별도 과제.)
     let alias = hbb_common::config::PeerConfig::load(remote_id)
         .options
         .get("alias")
@@ -207,7 +196,7 @@ fn push_event(name: &str, peers_json: String) {
     );
 }
 
-/// 인증된 GET. 응답 wrapper 풀기까지 한다. 호출 측은 inner JSON 받음.
+/// 인증된 GET. wrapper 까지 풀어서 inner JSON 을 돌려준다.
 fn authed_get(url: String) -> Result<String, String> {
     let token = chainremote_auth::get_token();
     if token.is_empty() {
@@ -219,18 +208,18 @@ fn authed_get(url: String) -> Result<String, String> {
     Ok(unwrap_body(raw))
 }
 
-/// 인증된 POST. body JSON string.
+/// 인증된 POST. body 는 JSON string.
 fn authed_post(url: String, body: String) -> Result<String, String> {
     let token = chainremote_auth::get_token();
     if token.is_empty() {
         return Err("토큰 없음".to_owned());
     }
-    // post_request_ 의 헤더 단순 split. Authorization 만 박음.
+    // post_request_sync 는 헤더를 단순 split — Authorization 한 줄만 박는다.
     let header = format!("Authorization: Bearer {}", token);
     crate::post_request_sync(url, body, &header).map_err(|e| e.to_string())
 }
 
-/// 인증된 DELETE — http_request_sync 사용 (post_request_sync 는 POST 전용).
+/// 인증된 DELETE — post_request_sync 는 POST 전용이라 http_request_sync 를 쓴다.
 fn authed_delete(url: String) -> Result<String, String> {
     let token = chainremote_auth::get_token();
     if token.is_empty() {
@@ -248,10 +237,10 @@ fn unwrap_body(raw: String) -> String {
         .unwrap_or(raw)
 }
 
-/// GET /api/customers → remote_id → uuid 매핑 캐시 갱신 + "전체 거래처" 탭 push.
-/// 매핑은 즐겨찾기 추가 시 remote_id → uuid 변환 + 최근세션 이름 덮어쓰기에 쓰인다.
-/// 추가로 "load_all_customers" 이벤트로 테넌트 전체 거래처(pending 포함)를 push →
-/// HQ '전체 거래처' 탭(allCustomersPeersModel)이 목록 표시. 어느 직원이 등록했든 다 보임.
+/// GET /api/customers → remote_id→uuid 매핑 캐시 갱신 + "전체 거래처" 탭 push.
+/// 매핑은 즐겨찾기 추가 시 remote_id→uuid 변환 + 최근세션 이름 덮어쓰기에 쓴다.
+/// "load_all_customers" 이벤트로 테넌트 전체(pending 포함)를 push → HQ '전체 거래처'
+/// 탭(allCustomersPeersModel)에 뜬다. 어느 직원이 등록했든 다 보인다.
 fn fetch_customers_blocking() -> bool {
     let url = format!("{}/api/customers", chainremote_auth::api_base());
     match authed_get(url) {
@@ -264,13 +253,13 @@ fn fetch_customers_blocking() -> bool {
                 let peers: Vec<_> = resp
                     .customers
                     .iter()
-                    .filter_map(|c| customer_to_peer_json(c, true)) // 전체 거래처 = 🆕 마커 표시
+                    .filter_map(|c| customer_to_peer_json(c, true)) // 전체 거래처 = 마커 표시
                     .collect();
                 let json = serde_json::ser::to_string(&peers).unwrap_or_default();
                 push_event("load_all_customers", json);
-                // ChainRemote: 매핑(REMOTE_TO_NAME) 갱신 후 최근세션 재푸시 → 패널에서 거래처명을
-                //   수정한 게 HQ 새로고침(또는 재로그인) 시 최근세션 탭에 즉시 반영된다. 매핑은
-                //   main_load_recent_peers 가 peer.alias 를 덮는 데 쓰이므로, 재푸시 안 하면 화면 안 바뀜.
+                // REMOTE_TO_NAME 갱신 후 최근세션을 재푸시해야 패널에서 고친 거래처명이 HQ
+                // 새로고침(또는 재로그인) 시 최근세션 탭에 반영된다. main_load_recent_peers 가
+                // peer.alias 를 이 매핑으로 덮으므로, 재푸시 안 하면 화면이 그대로다.
                 crate::flutter_ffi::main_load_recent_peers();
                 true
             }
@@ -286,14 +275,13 @@ fn fetch_customers_blocking() -> bool {
     }
 }
 
-/// GET /api/me/favorites → "load_fav_peers" 이벤트로 push.
-/// 동시에 내 즐겨찾기 remote_id 집합 캐시 갱신 (UI sync 토글 표시).
+/// GET /api/me/favorites → "load_fav_peers" push + 내 즐겨찾기 remote_id 집합 캐시 갱신.
 fn fetch_favorites_blocking() -> bool {
     let url = format!("{}/api/me/favorites", chainremote_auth::api_base());
     match authed_get(url) {
         Ok(inner) => match serde_json::from_str::<FavoritesResponse>(&inner) {
             Ok(resp) => {
-                // 캐시 갱신 — remote_id 가 primary (orphan 도 포함).
+                // remote_id 가 primary (orphan 포함).
                 let mut fav_remote_ids = std::collections::HashSet::new();
                 for f in &resp.favorites {
                     if !f.remote_id.is_empty() {
@@ -302,7 +290,7 @@ fn fetch_favorites_blocking() -> bool {
                 }
                 *MY_FAV_REMOTE_IDS.lock().unwrap() = Some(fav_remote_ids);
 
-                // customers 매핑 가능한 항목만 update_remote_to_uuid 에 사용.
+                // customer 정보가 붙은 항목만 uuid 매핑에 사용.
                 let mapped_customers: Vec<&CustomerRow> = resp
                     .favorites
                     .iter()
@@ -311,7 +299,7 @@ fn fetch_favorites_blocking() -> bool {
                 update_remote_to_uuid(&mapped_customers);
                 merge_remote_names(&mapped_customers);
 
-                // peer 리스트 — customer 정보 있는 건 그대로, orphan 은 remote_id 만으로 placeholder.
+                // customer 정보 있으면 그대로, orphan 은 remote_id 만으로 placeholder.
                 let peers: Vec<_> = resp
                     .favorites
                     .iter()
@@ -325,29 +313,29 @@ fn fetch_favorites_blocking() -> bool {
                 true
             }
             Err(e) => {
-                // ★ 실패 시 화면을 비우지 않는다(마지막 정상 목록 유지). 옛 코드는 여기서
-                //   push_empty 로 즐겨찾기를 지워 — 패널 일시장애(재배포/네트워크 블립)에
-                //   즐겨찾기가 통째로 증발하는 버그가 있었음(거래처 fetch 는 원래 안 지움).
+                // 파싱 실패해도 화면은 안 비운다(마지막 정상 목록 유지). 옛 코드는 여기서
+                // push_empty 로 즐겨찾기를 지웠고, 그 탓에 패널 일시장애(재배포/네트워크 블립)에
+                // 즐겨찾기가 통째로 증발했다. (거래처 fetch 는 원래 안 지웠음.)
                 log::warn!("ChainRemote favorites 파싱 실패(목록 유지): {} ({:.200})", e, inner);
                 false
             }
         },
         Err(e) => {
-            // ★ 위와 동일 — fetch 실패 시 마지막 목록 유지(증발 방지). 워밍 재시도가 복구.
+            // 위와 동일 — fetch 실패해도 마지막 목록 유지. 워밍 재시도가 복구한다.
             log::warn!("ChainRemote /api/me/favorites 실패(목록 유지): {}", e);
             false
         }
     }
 }
 
-/// 즐겨찾기 추가 (POST). 2026-05-27 개편: remote_id 만 보내고 서버가 customer_id 매칭.
+/// 즐겨찾기 추가 (POST). 2026-05-27 개편으로 remote_id 만 보내고 customer_id 매칭은 서버가.
 /// customers 에 없는 머신(HQ workstation, 옵션 B+ 본사 PC)도 orphan 으로 즐겨찾기 가능.
 fn add_favorite_blocking(remote_id: String) -> bool {
     let url = format!("{}/api/me/favorites", chainremote_auth::api_base());
-    // ChainRemote 신규 거래처 식별: 이 기기가 아는 원격 hostname(PeerConfig.info.hostname) + 로컬
-    //   별칭(우클릭 이름변경 → options["alias"], orphan_peer_json 과 동일 출처)을 같이 전송 →
-    //   패널 "신규 거래처 후보"가 9자리 ID 만이 아니라 이름으로 식별 + "추가" 상호 프리필.
-    //   (둘 다 빈 값 가능 — 서버가 alias→hostname→placeholder 폴백. FFI/브리지 무변경 = 안전.)
+    // 이 기기가 아는 원격 hostname(PeerConfig.info.hostname) + 로컬 별칭(우클릭 이름변경 →
+    // options["alias"], orphan_peer_json 과 같은 출처)을 함께 보내 → 패널 "신규 거래처 후보"가
+    // 9자리 ID 뿐 아니라 이름으로 식별되고 "추가" 시 상호가 프리필된다.
+    // (둘 다 빈 값이어도 서버가 alias→hostname→placeholder 로 폴백. FFI/브리지는 안 건드림.)
     let pc = hbb_common::config::PeerConfig::load(&remote_id);
     let hostname = pc.info.hostname.clone();
     let alias = pc.options.get("alias").cloned().unwrap_or_default();
@@ -359,7 +347,7 @@ fn add_favorite_blocking(remote_id: String) -> bool {
     .to_string();
     match authed_post(url, body) {
         Ok(_) => {
-            // 캐시 즉시 업데이트 → UI 가 다음 read 에서 정확.
+            // 캐시 즉시 반영 → 다음 read 부터 정확.
             if let Ok(mut g) = MY_FAV_REMOTE_IDS.lock() {
                 if g.is_none() {
                     *g = Some(std::collections::HashSet::new());
@@ -368,7 +356,7 @@ fn add_favorite_blocking(remote_id: String) -> bool {
                     s.insert(remote_id);
                 }
             }
-            // 서버 반영 후 즐겨찾기 탭 재푸시 → 앱 홈(즐겨찾기) 즉시 갱신.
+            // 서버 반영 후 즐겨찾기 탭 재푸시 → 앱 홈 즉시 갱신.
             fetch_favorites_blocking();
             true
         }
@@ -379,9 +367,8 @@ fn add_favorite_blocking(remote_id: String) -> bool {
     }
 }
 
-/// 즐겨찾기 제거 (DELETE).
+/// 즐겨찾기 제거 (DELETE). 2026-05-27 개편으로 remote_id 직접 사용(customer_id 매핑 불필요).
 fn remove_favorite_blocking(remote_id: String) -> bool {
-    // 2026-05-27 개편: remote_id 직접 사용. customer_id 매핑 불필요.
     let url = format!(
         "{}/api/me/favorites/{}",
         chainremote_auth::api_base(),
@@ -394,7 +381,7 @@ fn remove_favorite_blocking(remote_id: String) -> bool {
                     s.remove(&remote_id);
                 }
             }
-            // 서버 반영 후 즐겨찾기 탭 재푸시 → 앱 홈(즐겨찾기) 즉시 갱신.
+            // 서버 반영 후 즐겨찾기 탭 재푸시 → 앱 홈 즉시 갱신.
             fetch_favorites_blocking();
             true
         }
@@ -406,7 +393,7 @@ fn remove_favorite_blocking(remote_id: String) -> bool {
 }
 
 /// 캐시된 내 즐겨찾기 remote_id 목록 — UI sync 호출용.
-/// 캐시가 비어 있으면 빈 리스트 반환 (background fetch 가 채우길 대기).
+/// 아직 캐시가 비었으면 빈 리스트(background fetch 가 채울 때까지).
 pub fn get_my_favorite_remote_ids() -> Vec<String> {
     MY_FAV_REMOTE_IDS
         .lock()
@@ -415,10 +402,10 @@ pub fn get_my_favorite_remote_ids() -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// 워밍 재시도 — 패널 일시장애(재배포/네트워크 블립/응답지연)에 목록이 비거나 안 채워지는 걸 방지.
-/// fetch 가 실패해도 화면을 비우지 않으므로(마지막 정상 목록 유지) + 여기서 백그라운드 재시도해
-/// 패널 복구 시 자동으로 다시 채운다. 성공 즉시 종료. 최대 10회×5s(~45s, 재배포 다운타임 커버)
-/// 후 포기(마지막 목록 유지 — 사용자는 새로고침/재로그인으로 언제든 강제 워밍 가능).
+/// 워밍 재시도 — 패널 일시장애(재배포/네트워크 블립/응답지연)에 목록이 안 채워지는 걸 막는다.
+/// fetch 실패는 화면을 안 비우므로(마지막 목록 유지) 여기서 백그라운드로 재시도해 패널이 살아나면
+/// 자동으로 다시 채운다. 성공 즉시 종료. 최대 10회×5s(~45s, 재배포 다운타임 커버) 후 포기 —
+/// 그래도 목록은 유지되고 사용자가 새로고침/재로그인으로 강제 워밍 가능.
 fn spawn_warm_with_retry(name: &'static str, f: fn() -> bool) {
     std::thread::spawn(move || {
         for attempt in 0..10u32 {
@@ -436,7 +423,7 @@ fn spawn_warm_with_retry(name: &'static str, f: fn() -> bool) {
     });
 }
 
-/// FFI 진입점 — 모두 thread spawn 으로 UI non-blocking.
+/// FFI 진입점 — thread spawn 으로 UI 안 막는다.
 pub fn spawn_load_customers() {
     spawn_warm_with_retry("customers", fetch_customers_blocking);
 }
@@ -451,7 +438,7 @@ pub fn spawn_add_favorite(remote_id: String) {
     });
 }
 
-/// FFI sync 진입점 — 결과를 토스트로 정확히 표시 위해 UI thread 가 결과 기다림.
+/// FFI sync 진입점 — 결과 토스트를 정확히 띄우려 UI thread 가 결과를 기다린다.
 pub fn add_favorite_blocking_pub(remote_id: String) -> bool {
     add_favorite_blocking(remote_id)
 }
@@ -460,9 +447,9 @@ pub fn remove_favorite_blocking_pub(remote_id: String) -> bool {
     remove_favorite_blocking(remote_id)
 }
 
-/// 자가등록(⑤) 후보 거래처 확정 — POST /api/customers/confirm {remoteId}.
-/// 마스터(owner) 전용 강제는 서버(requireOwner)가 담당 — HQ UI 는 마스터에게만 버튼 노출(이중).
-/// 성공 시 전체 거래처 재fetch → '전체 거래처' 탭에서 ⏳ 마커 사라지고 active 로 갱신.
+/// 자가등록 후보 거래처 확정 — POST /api/customers/confirm.
+/// 마스터(owner) 전용 강제는 서버(requireOwner)가 담당하고, HQ UI 는 마스터에게만 버튼을
+/// 노출한다(이중 방어). 성공 시 전체 거래처 재fetch → ⏳ 마커 사라지고 active 로 바뀜.
 fn confirm_customer_blocking(remote_id: String) -> bool {
     let url = format!("{}/api/customers/confirm", chainremote_auth::api_base());
     let body = serde_json::json!({ "remoteId": remote_id }).to_string();
@@ -482,8 +469,9 @@ pub fn confirm_customer_blocking_pub(remote_id: String) -> bool {
     confirm_customer_blocking(remote_id)
 }
 
-/// ① HQ 어느 직원이든 거래처명 변경 → 패널 customer.name(진실원천)에 기록 → 최근/즐겨찾기/패널/전 직원 일관.
-/// payload = JSON {"remoteId","name"} (1-arg 으로 add_favorite 브리지 패턴 재사용). 등록거래처면 true.
+/// HQ 어느 직원이든 거래처명 변경 → 패널 customer.name(진실 원천)에 기록 → 최근/즐겨찾기/패널/
+/// 전 직원이 일관. payload 는 JSON {"remoteId","name"}(1-arg add_favorite 브리지 패턴 재사용).
+/// 등록 거래처면 true.
 fn rename_customer_blocking(payload: String) -> bool {
     let v: serde_json::Value = match serde_json::from_str(&payload) {
         Ok(v) => v,
@@ -516,7 +504,7 @@ fn rename_customer_blocking(payload: String) -> bool {
                 .unwrap_or(false);
             if ok {
                 // 패널 반영됨 → 전 표면 재워밍(최근 overlay + 전체거래처 push + 즐겨찾기).
-                //   UI 멈춤 방지: 재fetch 는 백그라운드 spawn(POST 결과만 동기 반환).
+                // 재fetch 는 백그라운드 spawn 으로 돌려 UI 를 안 막고, POST 결과만 동기로 반환.
                 std::thread::spawn(|| {
                     fetch_customers_blocking();
                     fetch_favorites_blocking();

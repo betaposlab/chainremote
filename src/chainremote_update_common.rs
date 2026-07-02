@@ -1,18 +1,18 @@
-//! ChainRemote 자동업데이트 공용 로직 — push_agent(거래처 푸시 채널)와 updater(latest.json 채널) 공유.
+//! 자동업데이트 공용 로직 — push_agent(거래처 푸시 채널)와 updater(latest.json 채널)가 공유.
+//! 2026-06-14 신규(코워크 검토 C2/C3 정석화).
 //!
-//! 2026-06-14 신규 (코워크 검토 C2/C3 정석화).
-//!   종전엔 `parse_version`/`is_newer` 는 updater 에만, `verify_sha256` 는 양쪽에 **중복** 존재했고,
-//!   둘 다 expected sha 의 빈값/잘린값/비-hex 를 거르지 않아 "sha-mismatch 무증상 무한 재다운"
-//!   (CLAUDE.md '사업화 전 필수' 항목) 의 근원이 됐다. 한 곳으로 모으고 가드를 추가한다.
+//! 종전엔 parse_version/is_newer 가 updater 에만 있고 verify_sha256 은 양쪽에 중복이었다.
+//! 게다가 둘 다 expected sha 의 빈값/잘린값/비-hex 를 안 걸러 "sha-mismatch 무증상 무한 재다운"
+//! (CLAUDE.md '사업화 전 필수')의 근원이 됐다. 한 곳으로 모으고 가드를 붙였다.
 //!
-//! 이 모듈은 의도적으로 **플랫폼 무관** (windows cfg 게이트 없음) — 순수 로직이라
-//! `cargo test` 가 Mac/Linux 빌드 머신에서도 그물망으로 동작한다 (윈컴 전용 모듈의 한계 제거).
+//! 일부러 플랫폼 무관으로 뒀다(windows cfg 게이트 없음). 순수 로직이라 cargo test 가 Mac/Linux
+//! 빌드 머신에서도 돌아 — 윈컴 전용 모듈이던 시절의 사각지대를 없앤다.
 
 use hbb_common::{bail, ResultType};
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
-/// "major.minor.build" → (u32,u32,u32). build 부분의 알파/베타/rc suffix 는 숫자 prefix 만 취함.
+/// "major.minor.build" → (u32,u32,u32). build 의 알파/베타/rc suffix 는 숫자 prefix 만 취한다
 /// (예: "1.4.19-pushtest" → (1,4,19)). 3파트 미만이거나 major/minor 가 비-숫자면 Err.
 pub fn parse_version(s: &str) -> ResultType<(u32, u32, u32)> {
     let parts: Vec<&str> = s.trim().split('.').collect();
@@ -21,7 +21,7 @@ pub fn parse_version(s: &str) -> ResultType<(u32, u32, u32)> {
     }
     let major: u32 = parts[0].parse()?;
     let minor: u32 = parts[1].parse()?;
-    // build 부분에 알파/베타 suffix 가 붙는 경우 대비 — 숫자 prefix 만 취함
+    // build 에 알파/베타 suffix 가 붙을 수 있어 숫자 prefix 만 취한다.
     let build_str: String = parts[2].chars().take_while(|c| c.is_ascii_digit()).collect();
     let build: u32 = if build_str.is_empty() { 0 } else { build_str.parse()? };
     Ok((major, minor, build))
@@ -32,26 +32,26 @@ pub fn is_newer(a: (u32, u32, u32), b: (u32, u32, u32)) -> bool {
     a > b
 }
 
-/// 두 버전 문자열을 파싱해 `a` 가 `b` 보다 새 버전인지 반환. 둘 중 하나라도 파싱 실패면 Err.
-/// (push 채널 버전 가드용 — 문자열 비교 로직을 한 곳에 둔다.)
+/// 두 버전 문자열을 파싱해 a 가 b 보다 새 버전인지. 하나라도 파싱 실패면 Err.
+/// (push 채널 버전 가드용 — 문자열 비교를 한 곳에 둔다.)
 pub fn is_newer_str(a: &str, b: &str) -> ResultType<bool> {
     Ok(is_newer(parse_version(a)?, parse_version(b)?))
 }
 
-/// expected sha256 hex 문자열이 **형식상** 유효한가 — trim 후 정확히 64자 + 전부 ascii hex.
-/// 빈값/자리표시자/잘린 해시(예: latest.json 의 빈 agent 채널 "", "deadbeef")를 거른다.
+/// expected sha256 hex 가 형식상 유효한지 — trim 후 정확히 64자 + 전부 ascii hex.
+/// 빈값/자리표시자/잘린 해시(latest.json 빈 agent 채널의 "", "deadbeef" 등)를 걸러낸다.
 pub fn is_valid_sha256_hex(expected_hex: &str) -> bool {
     let t = expected_hex.trim();
     t.len() == 64 && t.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
-/// 파일의 sha256 을 expected 와 비교.
-/// - expected 가 형식상 불량(빈값/길이≠64/비-hex)이면 **파일을 보존한 채** 명확한 에러로 bail.
-///   (매니페스트 결함이지 파일 결함이 아니므로 재다운로드로 해결되지 않음 — 무한 재다운 루프 차단.)
-/// - 형식은 맞으나 실제 해시가 다르면 손상 파일로 보고 삭제 + mismatch bail (다음 사이클 재다운).
+/// 파일 sha256 을 expected 와 비교.
+/// - expected 가 형식상 불량(빈값/길이≠64/비-hex)이면 파일을 지우지 않고 명확히 bail 한다.
+///   매니페스트 결함이지 파일 결함이 아니라 재다운으로는 안 고쳐지니까 — 무한 재다운 루프 차단.
+/// - 형식은 맞는데 실제 해시가 다르면 손상 파일로 보고 삭제 + mismatch bail(다음 사이클 재다운).
 pub fn verify_sha256(path: &Path, expected_hex: &str) -> ResultType<()> {
     if !is_valid_sha256_hex(expected_hex) {
-        // 빈값/자리표시자/잘린 해시 — 재다운으로 못 고침. 파일 보존하고 명확히 실패시켜 가시화.
+        // 빈값/자리표시자/잘린 해시 — 재다운으로 못 고친다. 파일 보존한 채 명확히 실패시켜 드러낸다.
         bail!(
             "invalid expected sha256 (need 64 hex chars, got {:?} len={})",
             expected_hex.trim(),
@@ -72,7 +72,7 @@ pub fn verify_sha256(path: &Path, expected_hex: &str) -> ResultType<()> {
     let got = hex::encode(hasher.finalize());
     let expected = expected_hex.trim().to_lowercase();
     if got != expected {
-        // 손상된 파일 정리 — 다음 사이클에서 재다운로드 시도
+        // 손상 파일 정리 — 다음 사이클에 재다운로드
         std::fs::remove_file(path).ok();
         bail!("SHA256 mismatch: expected {}, got {}", expected, got);
     }
@@ -81,8 +81,8 @@ pub fn verify_sha256(path: &Path, expected_hex: &str) -> ResultType<()> {
 
 #[cfg(test)]
 mod tests {
-    //! 자동업데이트 핵심 로직 단위테스트. 종전엔 chainremote_updater(윈도우 전용) 안에 있어
-    //! 윈컴에서만 돌았으나, 공용 모듈로 옮겨 Mac/Linux 빌드에서도 매 빌드 그물망이 된다.
+    //! 자동업데이트 핵심 로직 단위테스트. 종전엔 chainremote_updater(윈도우 전용)에 있어 윈컴에서만
+    //! 돌았지만, 공용 모듈로 옮겨 Mac/Linux 빌드에서도 매 빌드 그물망이 된다.
     use super::*;
     use std::path::PathBuf;
 

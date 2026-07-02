@@ -1,41 +1,38 @@
-// ChainRemote — Phase 3-Win 마이그레이션 모듈.
+// Phase 3-Win 마이그레이션 — 옛 RustDesk 의 데이터/서비스/레지스트리/단축아이콘/자동시작을
+// 새 ChainRemote 로 옮긴다. 거래처 PC 가 자동업데이트나 신규 인스톨러로 새 exe 를 받았을 때
+// 옛 영구비번·peer 설정을 보존해 거래처가 재설정을 안 하게 하는 게 목적.
 //
-// 옛 RustDesk 데이터/서비스/레지스트리/단축아이콘/자동시작을 새 ChainRemote 로 옮긴다.
-// 거래처 PC 가 자동업데이트 또는 신규 인스톨러로 새 ChainRemote.exe 를 받았을 때,
-// 옛 영구비번과 peer 설정을 보존해야 거래처가 재설정을 안 해도 된다.
+// 원칙:
+// - 멱등: 마커 파일 있으면 두 번째 실행은 즉시 return.
+// - 삭제하지 않고 복사만. 옛 데이터 정리는 인스톨러 [InstallDelete] 나 별도 cleanup 이.
+// - 한 단계 실패해도 다음 단계 계속(log::warn! 로 남기기만).
 //
-// 핵심 원칙:
-// - 멱등성: 마커 파일이 있으면 두 번째 실행은 즉시 return.
-// - 안전: 옛 데이터 삭제 X (복사만). 인스톨러의 [InstallDelete] 또는 별도 cleanup 에서 처리.
-// - 한 단계 실패해도 다음 단계 계속. log::warn! 으로 기록만.
-//
-// 호출 위치: core_main 의 가장 이른 시점 (APP_NAME 사용 직전).
+// 호출은 core_main 의 가장 이른 시점, APP_NAME 쓰기 직전.
 
 #![allow(unused_imports)]
 
 use hbb_common::log;
 use std::path::{Path, PathBuf};
 
-/// 마이그레이션 완료 마커 파일명. 새 ChainRemote 데이터 폴더 안에 박는다.
-/// v1 = 첫 번째 마이그레이션 스킴. 향후 다른 마이그레이션 추가 시 v2, v3 로 분리 가능.
+/// 완료 마커 파일명 — 새 데이터 폴더 안에 박는다. v1 = 첫 마이그레이션 스킴,
+/// 나중에 다른 스킴이 필요하면 v2/v3 로 분리.
 const MIGRATION_MARKER: &str = ".chainremote_migrated_from_rustdesk_v1";
 
-/// 옛 RustDesk 의 윈도우 서비스명. ChainRemote core 이전 (RustDesk 1.4.6 fork) 의 기본값.
+/// 옛 RustDesk 윈도우 서비스명 (ChainRemote core 이전, RustDesk 1.4.6 fork 기본값).
 #[cfg(target_os = "windows")]
 const OLD_SERVICE_NAME: &str = "RustDesk";
 
-/// 옛 RustDesk 의 트레이/메인 프로세스명.
+/// 옛 트레이/메인 프로세스명.
 #[cfg(target_os = "windows")]
 const OLD_EXE_NAMES: &[&str] = &["RustDesk.exe", "rustdesk.exe"];
 
 /// 옛 APP_NAME (데이터 폴더명).
 const OLD_APP_NAME: &str = "RustDesk";
 
-/// 새 APP_NAME (데이터 폴더명). config.rs 의 APP_NAME 과 일치해야 함.
+/// 새 APP_NAME (데이터 폴더명). config.rs 의 APP_NAME 과 일치해야 한다.
 const NEW_APP_NAME: &str = "ChainRemote";
 
-/// 마이그레이션 진입점. core_main 의 가장 이른 시점에 호출.
-/// 한 번만 실행 + 멱등성. 한 단계 실패해도 다음 단계 계속.
+/// 마이그레이션 진입점. core_main 최이른 시점 호출, 멱등, 한 단계 실패해도 계속.
 pub fn migrate_from_rustdesk_once() {
     #[cfg(target_os = "windows")]
     {
@@ -48,11 +45,10 @@ pub fn migrate_from_rustdesk_once() {
         };
         let marker = new_data_root.join(MIGRATION_MARKER);
         if marker.exists() {
-            // 이미 한 번 돌았음. skip.
-            return;
+            return; // 이미 돌았음
         }
 
-        // 옛 RustDesk 데이터가 실제로 있는지 검사. 없으면 clean install — skip + 마커만 박음.
+        // 옛 데이터가 실제로 있나 본다. 없으면 clean install — 마커만 박고 끝.
         let old_data_root = old_appdata_root();
         let has_old_data = old_data_root.as_ref().map(|p| p.exists()).unwrap_or(false);
         let has_old_service = service_exists(OLD_SERVICE_NAME);
@@ -72,10 +68,10 @@ pub fn migrate_from_rustdesk_once() {
             has_old_service
         );
 
-        // Step 1: 옛 트레이/메인 프로세스 종료. 파일 잠금 회피.
+        // Step 1: 옛 트레이/메인 프로세스 종료(파일 잠금 회피).
         kill_old_processes();
 
-        // Step 2: 옛 윈도우 서비스 stop + delete. (sc.exe 사용)
+        // Step 2: 옛 윈도우 서비스 stop + delete (sc.exe).
         if has_old_service {
             stop_and_delete_service(OLD_SERVICE_NAME);
         }
@@ -111,14 +107,14 @@ pub fn migrate_from_rustdesk_once() {
             log::warn!("[chainremote_migrate] HKLM 레지스트리 복사 실패: {}", e);
         }
 
-        // Step 6: 옛 자동시작 키 정리. HKCU\Software\Microsoft\Windows\CurrentVersion\Run\RustDesk.
-        // (단축아이콘 자체는 인스톨러가 ChainRemote.lnk 로 atomic rename 처리.)
+        // Step 6: 옛 자동시작 키(HKCU\...\Run\RustDesk) 정리.
+        // (단축아이콘 자체는 인스톨러가 ChainRemote.lnk 로 atomic rename 한다.)
         cleanup_old_autostart_key();
 
-        // Step 7: 옛 단축아이콘 (RustDesk.lnk) 정리.
+        // Step 7: 옛 단축아이콘(RustDesk.lnk) 정리.
         cleanup_old_shortcuts();
 
-        // Step 8: 마이그레이션 완료 마커 박기.
+        // Step 8: 완료 마커 박기.
         let _ = std::fs::create_dir_all(&new_data_root);
         if let Err(e) = std::fs::write(&marker, b"migrated") {
             log::warn!("[chainremote_migrate] 마커 파일 쓰기 실패: {} ({:?})", e, marker);
@@ -127,7 +123,7 @@ pub fn migrate_from_rustdesk_once() {
         }
     }
 
-    // Mac/Linux: 옛 데이터 그대로 둠 (Mac 은 HQ 빌드만 영향, 위험 회피).
+    // Mac/Linux 는 옛 데이터 안 건드림 (Mac 은 HQ 빌드뿐이라 굳이 위험 감수할 이유 없음).
     #[cfg(not(target_os = "windows"))]
     {
         let _ = MIGRATION_MARKER;
@@ -186,13 +182,13 @@ fn service_exists(name: &str) -> bool {
 #[cfg(target_os = "windows")]
 fn stop_and_delete_service(name: &str) {
     use std::process::Command;
-    // stop (실패해도 무시 — 이미 중지된 상태일 수 있음).
+    // stop (실패 무시 — 이미 멈춰 있을 수 있음).
     let _ = Command::new("sc").args(["stop", name]).output();
 
-    // STOPPED 상태가 될 때까지 최대 30초 polling.
-    // 옛 1.5초 sleep 은 STOP_PENDING 상태에서 delete 거부 발생 → 옛 서비스 잔류 사고 (2026-05-25).
-    // sc query 출력은 영문 'STOPPED' 또는 한국어 윈도우 '중지됨' 둘 다 검사
-    // (메모리 [project_v127_build_pitfalls] 의 한국어 윈도우 sc 출력 함정 참조).
+    // STOPPED 될 때까지 최대 30초 polling. 옛날엔 1.5초 sleep 뒤 바로 delete 했다가
+    // STOP_PENDING 상태에서 delete 가 거부돼 옛 서비스가 잔류하는 사고를 냈다(2026-05-25).
+    // sc query 출력은 영문 'STOPPED' 와 한국어 윈도우 '중지됨' 둘 다 봐야 한다
+    // (메모리 [project_v127_build_pitfalls] 한국어 윈도우 sc 출력 함정).
     for _ in 0..30 {
         std::thread::sleep(std::time::Duration::from_secs(1));
         match Command::new("sc").args(["query", name]).output() {
@@ -201,7 +197,7 @@ fn stop_and_delete_service(name: &str) {
                 if s.contains("STOPPED") || s.contains("중지됨") {
                     break;
                 }
-                // 서비스 자체가 not found 면 이미 정리됨 → break (sc 의 1060 exit)
+                // 서비스 자체가 없으면(sc 1060) 이미 정리된 것 → break.
                 if !out.status.success() {
                     break;
                 }
@@ -230,7 +226,7 @@ fn stop_and_delete_service(name: &str) {
 fn kill_old_processes() {
     use std::process::Command;
     for name in OLD_EXE_NAMES {
-        // /F = 강제, /T = 자식까지. 실패 무시.
+        // /F 강제 + /T 자식까지. 실패 무시.
         let _ = Command::new("taskkill")
             .args(["/F", "/T", "/IM", name])
             .output();
@@ -247,21 +243,18 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
         let entry = entry?;
         let ft = entry.file_type()?;
         let src_path = entry.path();
-        // ★ 파일 이름의 RustDesk/rustdesk 접두사를 ChainRemote 로 rename (2026-05-25 v2 fix).
-        //
-        // 새 ChainRemote core 는 APP_NAME 따라 `ChainRemote.toml`, `ChainRemote2.toml`,
-        // `ChainRemote_default.toml` 같은 파일을 찾는다. 옛 RustDesk*.toml 을 그대로
-        // 옮기면 새 core 가 못 읽고 빈 toml 을 새로 만듦 → 영구비번 / peer config 잃음.
-        //
-        // v1 마이그레이션의 핵심 버그였음: 같은 이름으로 복사 → 옛 비번 무효화.
-        // v2 수정: 최상위 접두사만 변환. peers/ 안의 ID 기반 파일은 영향 없음.
+        // 파일명의 RustDesk/rustdesk 접두사를 ChainRemote 로 바꿔 복사 (2026-05-25 v2 fix).
+        // 새 core 는 APP_NAME 을 따라 ChainRemote.toml / ChainRemote2.toml /
+        // ChainRemote_default.toml 을 찾는다. 옛 RustDesk*.toml 을 이름 그대로 옮기면 못 읽고
+        // 빈 toml 을 새로 만들어 영구비번·peer config 를 잃는다 — v1 마이그레이션의 핵심 버그였다.
+        // 접두사 변환은 최상위 파일만. peers/ 안 ID 기반 파일은 그대로 둔다.
         let dst_name = rename_legacy(&entry.file_name());
         let dst_path = dst.join(&dst_name);
         if ft.is_dir() {
             copy_dir_recursive(&src_path, &dst_path)?;
         } else if ft.is_file() {
-            // 새 경로에 이미 같은 파일이 있으면 덮어쓰지 않음 — 우리 ChainRemote 가 만든
-            // 데이터가 있을 수도. 옛 데이터로 덮어쓰면 새 설정 잃음.
+            // 새 경로에 같은 파일이 이미 있으면 안 덮는다 — 우리가 만든 데이터일 수 있고,
+            // 옛 데이터로 덮으면 새 설정을 잃는다.
             if !dst_path.exists() {
                 if let Err(e) = std::fs::copy(&src_path, &dst_path) {
                     log::warn!(
@@ -273,17 +266,14 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
                 }
             }
         }
-        // 심볼릭 링크 / 디바이스 등은 무시.
+        // 심볼릭 링크/디바이스 등은 무시.
     }
     Ok(())
 }
 
-/// 파일 이름의 RustDesk/rustdesk 접두사를 ChainRemote 로 변환.
-/// - "RustDesk.toml" → "ChainRemote.toml"
-/// - "RustDesk2.toml" → "ChainRemote2.toml"
-/// - "RustDesk_r2026-05-25_19-52-03.log" → "ChainRemote_r2026-05-25_19-52-03.log"
-/// - "rustdesk_r..." → "ChainRemote_r..." (소문자도 동일 처리)
-/// - "peers" (디렉터리) / "445497548.toml" 등 prefix 없는 건 그대로.
+/// 파일명 앞의 RustDesk/rustdesk 접두사를 ChainRemote 로 바꾼다(대소문자 둘 다).
+/// 예: "RustDesk2.toml" → "ChainRemote2.toml", "rustdesk_r....log" → "ChainRemote_r....log".
+/// prefix 없는 것(peers 디렉터리, "445497548.toml" 등)은 그대로 둔다.
 #[cfg(target_os = "windows")]
 fn rename_legacy(name: &std::ffi::OsStr) -> std::ffi::OsString {
     let s = name.to_string_lossy();
@@ -312,7 +302,7 @@ fn copy_hklm_software_key(old_name: &str, new_name: &str) -> std::io::Result<()>
     let old_key = match hklm.open_subkey_with_flags(&old_path, KEY_READ) {
         Ok(k) => k,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(()); // 옛 키 없음 — clean install.
+            return Ok(()); // 옛 키 없음 = clean install
         }
         Err(e) => {
             log::warn!(
@@ -339,17 +329,17 @@ fn copy_reg_key_recursive(src: &winreg::RegKey, dst: &winreg::RegKey) -> std::io
     use winreg::enums::*;
     use winreg::types::FromRegValue;
 
-    // Values 복사.
+    // Values.
     for value_result in src.enum_values() {
         let (name, data) = value_result?;
-        // 새 경로에 이미 같은 값이 있으면 skip (새 ChainRemote 가 만든 값 보존).
+        // 새 경로에 같은 값이 이미 있으면 skip(우리가 만든 값 보존).
         if dst.get_raw_value(&name).is_ok() {
             continue;
         }
         dst.set_raw_value(&name, &data)?;
     }
 
-    // Subkeys 재귀 복사.
+    // Subkeys 재귀.
     for sub_result in src.enum_keys() {
         let sub_name = sub_result?;
         let src_sub = src.open_subkey_with_flags(&sub_name, KEY_READ)?;
@@ -370,7 +360,7 @@ fn cleanup_old_autostart_key() {
     let Ok(run) = hkcu.open_subkey_with_flags(run_path, KEY_READ | KEY_WRITE) else {
         return;
     };
-    // 옛 키 이름은 'RustDesk' 일 수 있음 (인스톨러가 atomic rename 했다면 이미 ChainRemote).
+    // 옛 키 이름은 'RustDesk'(인스톨러가 atomic rename 했으면 이미 ChainRemote).
     if let Err(e) = run.delete_value("RustDesk") {
         if e.kind() != std::io::ErrorKind::NotFound {
             log::warn!("[chainremote_migrate] 옛 자동시작 키 삭제 실패: {}", e);
@@ -380,8 +370,8 @@ fn cleanup_old_autostart_key() {
 
 #[cfg(target_os = "windows")]
 fn cleanup_old_shortcuts() {
-    // 바탕화면 + 시작 메뉴 (현재 사용자 + Public) 의 RustDesk.lnk 정리.
-    // 인스톨러가 이미 ChainRemote.lnk 로 atomic rename 했을 가능성이 크지만 안전망.
+    // 바탕화면 + 시작 메뉴(현재 사용자 + Public)의 RustDesk.lnk 정리.
+    // 인스톨러가 이미 ChainRemote.lnk 로 atomic rename 했을 공산이 크지만 안전망으로.
     let candidates = ["RustDesk.lnk", "Uninstall RustDesk.lnk", "RustDesk Tray.lnk"];
 
     let mut dirs: Vec<PathBuf> = Vec::new();
