@@ -1,15 +1,14 @@
 #!/bin/bash
-# ChainRemote Mac(HQ) 재배포 — 빌드 후 실행.
-# (2026-06-02 갱신: 빌드 산출물 ChainRemote.app + Developer ID 서명 + HQ custom.txt)
+# Mac(HQ) 재배포 — 빌드 후 실행. (2026-06-02: ChainRemote.app + Developer ID 서명 + HQ custom.txt)
 #
-# 동작:
+# 순서:
 #   1. 실행 중인 ChainRemote/RustDesk 종료
 #   2. /Applications/ChainRemote.app 갱신 (빌드 폴더의 ChainRemote.app 복사)
-#   3. HQ custom.txt(custom-hq.txt) 적용 — 서명 전에 넣어 seal 에 포함
-#   4. Developer ID 서명 (ad-hoc 금지 — cdhash 안정 → TCC 권한 유지, 매 빌드 재요청 없음)
+#   3. HQ custom.txt(custom-hq.txt) 적용 — 서명 전에 넣어야 seal 에 포함됨
+#   4. Developer ID 서명. ad-hoc 는 쓰지 말 것 — cdhash 가 안정돼야 TCC 권한이 유지되고 빌드마다 재요청이 안 뜬다.
 #   5. 실행
 #
-# 운영 정책: ChainRemote.app 은 /Applications 에서만 실행 (다른 path 동시 존재 = Dock 중복 + TCC 분리).
+# 운영 정책: ChainRemote.app 은 /Applications 에서만 실행. 다른 경로에 같이 두면 Dock 중복 + TCC 가 갈린다.
 #
 # 사용: ./deploy/mac/redeploy.sh   (또는 빌드 명령 끝에 && 로 연결)
 
@@ -18,8 +17,8 @@ set -e
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 SRC="$REPO/flutter/build/macos/Build/Products/Release/ChainRemote.app"
 APPS="/Applications/ChainRemote.app"
-# Developer ID — TCC(화면기록/손쉬운사용/입력모니터링) 권한이 빌드마다 유지됨.
-# (ad-hoc 은 cdhash 가 매번 바뀌어 권한이 silently invalidate → tccutil 리셋 필요했음)
+# Developer ID 로 서명해야 TCC(화면기록/손쉬운사용/입력모니터링) 권한이 빌드마다 유지된다.
+# ad-hoc 은 cdhash 가 매번 바뀌어 권한이 소리소문없이 무효화됐고, 그때마다 tccutil 리셋을 해야 했다.
 SIGN_ID="Developer ID Application: changhyun kim (5Q25RTUTDW)"
 
 if [ ! -d "$SRC" ]; then

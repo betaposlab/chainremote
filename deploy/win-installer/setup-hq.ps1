@@ -1,10 +1,10 @@
-# 집윈컴: ChainRemote 에이전트 → HQ 전환 (좌석 enforcement 2기기 테스트용).
-# 실행법: 집윈컴에서 이 파일을 PowerShell로 실행 (UAC 자동 요청 → 승인).
+# 집윈컴: 에이전트 → HQ 전환 (좌석 enforcement 2기기 테스트용).
+# 실행법: 집윈컴에서 이 파일을 PowerShell 로 실행 (UAC 자동 요청 → 승인).
 #   예) 탐색기에서 우클릭 "PowerShell에서 실행", 또는
 #       powershell -ExecutionPolicy Bypass -File C:\src\ChainRemote\deploy\win-installer\setup-hq.ps1
 #
 # 하는 일: watchdog 예약작업 제거 + 옛 config 제거 + HQ 인스톨러(silent) 실행 + 검증.
-# 에이전트 서비스 정지/프로세스 종료/HQ 코어 설치는 인스톨러가 처리.
+# 에이전트 서비스 정지/프로세스 종료/HQ 코어 설치는 인스톨러가 처리한다.
 
 $ErrorActionPreference = 'Continue'
 
@@ -18,7 +18,7 @@ if (-not $me.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
 
 Write-Host "===== ChainRemote 에이전트 -> HQ 전환 =====" -ForegroundColor Cyan
 
-# [1] watchdog 예약작업 제거 (HQ엔 불필요 — 에이전트 잔재. 두면 서비스 자동 재assert)
+# [1] watchdog 예약작업 제거 (HQ엔 불필요한 에이전트 잔재. 두면 서비스를 자동으로 다시 살려버린다)
 Write-Host "[1] watchdog 예약작업 제거..." -ForegroundColor Yellow
 Get-ScheduledTask -ErrorAction SilentlyContinue |
     Where-Object { $_.TaskName -like '*ChainRemote*' -or $_.TaskName -like '*Watchdog*' } |
@@ -39,7 +39,7 @@ Write-Host "[2] 옛 에이전트 config 제거..." -ForegroundColor Yellow
 
 # [3] HQ 인스톨러 실행 (옛 서비스 정지 + HQ 코어 설치 + 서비스 시작은 인스톨러가 처리)
 Write-Host "[3] HQ 인스톨러 실행 (silent, ~10초)..." -ForegroundColor Yellow
-# 최신 HQ 인스톨러 자동 탐색 — 버전 하드코딩 제거(빌드마다 경로 수정 불필요).
+# 최신 HQ 인스톨러 자동 탐색 — 버전을 하드코딩 안 하니 빌드마다 경로를 고칠 필요 없다.
 $installer = Get-ChildItem "C:\src\ChainRemote\deploy\win-installer\ChainRemote_HQ_Setup_v*.exe" -ErrorAction SilentlyContinue |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
 if (-not $installer -or -not (Test-Path $installer)) {

@@ -39,8 +39,8 @@ rustup default 1.81
 
 # 3. Git, Python, CMake, LLVM, NASM
 Write-Host "[3/8] Git/Python/CMake/LLVM/NASM 설치..." -ForegroundColor Yellow
-# LLVM 은 18.1.8 LTS 로 핀: 22.x 같은 dev/최신 빌드는 bindgen 의 libclang API 와
-# 호환 깨져서 aom 구조체를 opaque 로 잘못 생성함 (필드 다 사라짐). 18.1.8 검증됨.
+# LLVM 은 18.1.8 LTS 로 핀. 22.x 같은 최신/dev 빌드는 bindgen 의 libclang API 와 호환이 깨져
+# aom 구조체를 opaque 로 잘못 생성한다(필드가 다 사라짐). 18.1.8 은 검증된 버전.
 choco install -y git python cmake nasm 7zip pkgconfiglite
 choco install -y llvm --version=18.1.8 --allow-downgrade
 
@@ -64,7 +64,7 @@ if ($userPath -notlike "*flutter-3.24.5\bin*") {
 }
 $env:Path += ";$flutterDir\bin"
 
-# 6. Flutter 패치 (RustDesk 필수 — issue #133533 회피)
+# 6. Flutter 패치 (RustDesk 필수 — flutter issue #133533 회피)
 Write-Host "[6/8] Flutter SDK 패치..." -ForegroundColor Yellow
 $bindingFile = "$flutterDir\packages\flutter\lib\src\scheduler\binding.dart"
 if (Test-Path $bindingFile) {
@@ -79,11 +79,11 @@ if (Test-Path $bindingFile) {
 }
 
 # 7. vcpkg 부트스트랩만 (의존성 설치는 build-all.ps1 에서 manifest 모드로)
-# - RustDesk 는 vcpkg.json + res/vcpkg/ 오버레이 포트로 aom/mfx-dispatch/ffmpeg 등을 패치해 빌드함.
-# - 과거: classic 모드(`vcpkg install <name>`)로 깔았더니 오버레이 무시 → aom_codec_dec_cfg 에
-#   RustDesk 가 추가한 h/allow_lowbitdepth 필드 없음 → 컴파일 에러. mfx-dispatch/ffmpeg 누락.
-# - 정석: ChainRemote 루트(vcpkg.json 위치)에서 vcpkg install (manifest 모드 자동 인식).
-#   baseline 커밋과 overlay-ports 가 vcpkg.json 에 박혀있으므로 별도 git checkout 불필요.
+# - RustDesk 는 vcpkg.json + res/vcpkg/ 오버레이 포트로 aom/mfx-dispatch/ffmpeg 등을 패치해 빌드한다.
+# - 과거 classic 모드(`vcpkg install <name>`)로 깔았더니 오버레이가 무시돼 aom_codec_dec_cfg 에
+#   RustDesk 가 추가한 h/allow_lowbitdepth 필드가 없어 컴파일 에러가 났고 mfx-dispatch/ffmpeg 도 누락됐다.
+# - ChainRemote 루트(vcpkg.json 위치)에서 vcpkg install 하면 manifest 모드로 자동 인식된다.
+#   baseline 커밋과 overlay-ports 가 vcpkg.json 에 박혀있어 별도 git checkout 은 불필요.
 Write-Host "[7/8] vcpkg 부트스트랩..." -ForegroundColor Yellow
 $vcpkgDir = "C:\src\vcpkg"
 if (-not (Test-Path $vcpkgDir)) {

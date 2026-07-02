@@ -1,11 +1,11 @@
-; ChainRemote 본사 빌드용 인스톨러 (Inno Setup)
+; 본사 빌드용 인스톨러 (Inno Setup)
 ; 빌드: 윈컴에서 ISCC.exe hq-installer.iss
 ; 결과물: ChainRemote_HQ_Setup_v{version}.exe
 ;
 ; Phase 1 분기: 본사 빌드 = conn-type=outgoing (custom-hq.txt → {app}\custom.txt).
-; Flutter Windows 산출물은 agent-installer.iss 와 동일 빌드를 공유.
-; 차이점은 (1) 박히는 custom.txt 가 outgoing, (2) 영구 비번 toml 제외 (본사 PC 는 피지원자 아님),
-; (3) watchdog 예약작업 제외 (재성이 PC 는 interactive 사용자, 자가치유 불필요).
+; Flutter Windows 산출물은 agent-installer.iss 와 같은 빌드를 공유한다.
+; agent 와 다른 점: 박히는 custom.txt 가 outgoing, 영구 비번 toml 제외(본사 PC 는 피지원자 아님),
+; watchdog 예약작업 제외(재성이 PC 는 interactive 사용자라 자가치유 불필요).
 ;
 ; 사용처: 재성이 윈도우 본사 PC (jaesung 계정 로그인).
 
@@ -17,8 +17,8 @@
 #define BUILD_DIR      "C:\src\ChainRemote\flutter\build\windows\x64\runner\Release"
 
 [Setup]
-; AppId 는 agent 와 다르게 — 같은 PC 에 둘 다 깔리지 않게 하려면 같이 두는 게 안전하나,
-; HQ 와 agent 는 서로 다른 PC 에서만 돌므로 별 AppId 가 안전.
+; AppId 는 agent 와 다르게 둔다. 같은 PC 에 둘 다 못 깔리게 하려면 AppId 를 공유하는 게 나으나,
+; HQ 와 agent 는 서로 다른 PC 에서만 도므로 별도 AppId 가 안전하다.
 AppId={{C7E4D8B2-9F3A-4B5C-8D1E-6F2A3C5E9B7D}
 AppName={#APP_NAME}
 AppVersion={#APP_VERSION}
@@ -33,8 +33,8 @@ OutputBaseFilename=ChainRemote_HQ_Setup_v{#APP_VERSION}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-; 설치 마법사 첫 단계 = 서비스 이용약관 동의 페이지 (좌석/오남용 책임 + AGPL 고지. 파일은 UTF-8 BOM 필수 — 없으면 CP949 로 읽혀 한글 깨짐).
-; 자동 업데이트(/VERYSILENT)는 이 페이지를 표시하지 않음.
+; 설치 마법사 첫 단계 = 서비스 이용약관 동의 페이지 (좌석/오남용 책임 + AGPL 고지. 파일은 UTF-8 BOM 필수 — 없으면 CP949 로 읽혀 한글이 깨진다).
+; 자동 업데이트(/VERYSILENT)는 이 페이지를 안 띄운다.
 LicenseFile=license-hq-ko.txt
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -51,18 +51,18 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "{#BUILD_DIR}\*"; DestDir: "{tmp}\chainremote_payload"; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
 
-; ★ 2026-06-05: custom.txt 를 exe 옆(payload)에도 강제 배치 — install_me(--silent-install)가 *이 시점*에
-;    custom.txt 의 option-b-plus 마커를 읽어 서비스 생성을 결정함(get_create_service). {#BUILD_DIR} 의
-;    옛/stale custom.txt 를 덮어써 보장. (설치 후 {app} 복사는 아래 1.5 단계 그대로 유지.)
+; 2026-06-05: custom.txt 를 exe 옆(payload)에도 강제 배치 — install_me(--silent-install)가 바로 이 시점에
+;    custom.txt 의 option-b-plus 마커를 읽어 서비스 생성 여부를 정한다(get_create_service). {#BUILD_DIR} 의
+;    옛 stale custom.txt 를 덮어써 보장. (설치 후 {app} 복사는 아래 1.5 단계 그대로 유지.)
 Source: "..\custom-hq.txt"; DestDir: "{tmp}\chainremote_payload"; DestName: "custom.txt"; Flags: deleteafterinstall ignoreversion
 
-; 옵션 B+ (2026-05-21): HQ 도 영구비번 toml 박음. 사용자가 "외부 원격 접속 허용"
-; 토글 ON 만 하면 별도 비번 설정 없이 즉시 무인 incoming 가능 (Chang→재성이 컴 시나리오).
-; 토글 OFF 일 땐 hbbs 등록 자체 안 함 → 영구비번 박혀있어도 외부 ID 못 찾음.
-; ★ DestName 으로 ChainRemote*.toml 로 rename — APP_NAME=ChainRemote 라 앱은 Config=ChainRemote.toml /
+; 옵션 B+ (2026-05-21): HQ 도 영구비번 toml 을 박는다. 사용자가 "외부 원격 접속 허용"
+; 토글만 ON 하면 별도 비번 설정 없이 즉시 무인 incoming 이 된다 (Chang→재성이 컴 시나리오).
+; 토글 OFF 면 hbbs 등록 자체를 안 하므로 영구비번이 박혀있어도 외부에서 ID 를 못 찾는다.
+; DestName 으로 ChainRemote*.toml 로 rename — APP_NAME=ChainRemote 라 앱은 Config=ChainRemote.toml /
 ;   Config2=ChainRemote2.toml / UserDefault=ChainRemote_default.toml 만 읽는다 (config.rs file_(suffix)).
-;   종전엔 RustDesk*.toml 그대로 배치 → 앱이 안 읽어 rendezvous/relay/key 가 빌드 baked 기본값에만 의존
-;   (무증상 결함). agent-installer.iss 와 동일하게 교정. toml 값은 baked 기본값과 동일이라 동작 불변.
+;   종전엔 RustDesk*.toml 을 그대로 배치해 앱이 못 읽었고 rendezvous/relay/key 가 빌드 baked 기본값에만
+;   의존했다(무증상 결함). agent-installer.iss 와 동일하게 교정. toml 값이 baked 기본값과 같아 동작은 불변.
 Source: "RustDesk.toml";         DestDir: "{tmp}\chainremote_config"; DestName: "ChainRemote.toml";         Flags: deleteafterinstall ignoreversion
 Source: "RustDesk2.toml";        DestDir: "{tmp}\chainremote_config"; DestName: "ChainRemote2.toml";        Flags: deleteafterinstall ignoreversion
 Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; DestName: "ChainRemote_default.toml"; Flags: deleteafterinstall ignoreversion
@@ -70,53 +70,53 @@ Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; DestName: 
 Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Phase 1 — 본사 분기 플래그. silent-install([Run]1번)이 {app} 폴더를 클린업하므로
-; 임시 폴더에 박아두고 [Run]에서 silent-install 후에 {app}\custom.txt 로 복사한다.
-; ordering 버그 픽스 (2026-05-21): 옛 [Files] 에서 {app} 으로 박았을 때 silent-install 이
-; 덮어써서 custom.txt 가 사라졌음. 본사 custom 파일은 win-installer 외부(deploy/) 에 있음.
+; 임시 폴더에 박아두고 [Run]에서 silent-install 후 {app}\custom.txt 로 복사한다.
+; ordering 버그 픽스 (2026-05-21): 옛 [Files] 처럼 {app} 에 바로 박으면 silent-install 이
+; 덮어써 custom.txt 가 사라졌다. 본사 custom 파일은 win-installer 밖(deploy/)에 있다.
 Source: "..\custom-hq.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.txt"; Flags: deleteafterinstall ignoreversion
 
 [Run]
-; 0. ★ Windows ephemeral port range 확장 (2026-05-25 사업화 안전망).
-;    동일 사유로 HQ 인스톨러도 적용 — Chang/재성이 PC 에 다른 SW (코이노 등) 깔려있을
-;    때 그쪽 SW 의 누수 영향에서 ChainRemote 보호. 자세히는 agent-installer.iss 참조.
+; 0. Windows ephemeral port range 확장 (2026-05-25 사업화 안전망).
+;    HQ 인스톨러도 같은 이유로 적용 — Chang/재성이 PC 에 다른 SW(코이노 등)가 깔려있을 때
+;    그쪽 SW 의 누수 영향에서 ChainRemote 를 보호. 자세히는 agent-installer.iss 참조.
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
 Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
 
-; 0.5. ★ silent-install 직전 옛 ChainRemote.exe 강제 종료 (v1.3.6 신규, 2026-05-29).
-;     v1.3.4 → v1.3.5 마이그레이션 후 트레이 아이콘 2개 잔재 해소. 자세히는 agent-installer.iss.
+; 0.5. silent-install 직전 옛 ChainRemote.exe 강제 종료 (v1.3.6 신규, 2026-05-29).
+;     v1.3.4 → v1.3.5 마이그레이션 후 남던 트레이 아이콘 2개 잔재 해소. 자세히는 agent-installer.iss.
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; taskkill /F /IM ChainRemote.exe /T *>$null; Start-Sleep -Seconds 2"""; StatusMsg: "옛 ChainRemote 프로세스 정리 중..."; Flags: runhidden waituntilterminated
 
-; (Phase 3-Win v2 2026-05-25): 옛 'sc delete RustDesk' + 'taskkill rustdesk.exe' 단계 제거.
-;     Microsoft Defender false positive (Trojan:Win32/Bearfoos.B!ml) 트리거 회피.
-;     동일 정리 동작은 src/chainremote_migrate.rs 가 첫 실행 시 처리. agent 와 동일.
+; (Phase 3-Win v2 2026-05-25): 옛 'sc delete RustDesk' + 'taskkill rustdesk.exe' 단계는 제거했다.
+;     Microsoft Defender 오탐(Trojan:Win32/Bearfoos.B!ml) 트리거 회피. 같은 정리 동작은
+;     src/chainremote_migrate.rs 가 첫 실행 때 처리한다. agent 와 동일.
 
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 C:\Program Files\ChainRemote\ 로 모든 파일 복사
-;    + ChainRemote Service 등록. HQ 는 outgoing-only 이므로 서비스가 incoming 을 받을 일 없지만,
-;    install_me 의 기본 흐름 그대로 둠 (옵션 B+ 토글 ON 시 incoming 도 가능).
+;    + ChainRemote Service 등록. HQ 는 outgoing-only 라 서비스가 incoming 을 받을 일은 없지만,
+;    install_me 의 기본 흐름을 그대로 둔다 (옵션 B+ 토글 ON 시엔 incoming 도 가능).
 Filename: "{tmp}\chainremote_payload\ChainRemote.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
-; 1.5. ★ custom.txt 박기 (silent-install 후) — Phase 3-Win 절대 경로 강제 (2026-05-26 fix).
-;    agent-installer.iss 와 동일 사유: install_me() 가 {commonpf}\ChainRemote\ 에 설치하므로
-;    custom.txt 도 같은 위치여야 load_custom_client() 가 인식. {app} 은 옛 AppId 잔재로
-;    옛 RustDesk 폴더 가리킬 수 있음.
+; 1.5. custom.txt 박기 (silent-install 후) — Phase 3-Win 절대 경로 강제 (2026-05-26 fix).
+;    agent-installer.iss 와 같은 이유: install_me() 가 {commonpf}\ChainRemote\ 에 설치하므로
+;    custom.txt 도 같은 위치에 있어야 load_custom_client() 가 인식한다. {app} 은 옛 AppId 잔재로
+;    옛 RustDesk 폴더를 가리킬 수 있다.
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$dst='{commonpf}\ChainRemote'; New-Item -Path $dst -ItemType Directory -Force *>$null; Copy-Item '{tmp}\custom_payload\custom.txt' (Join-Path $dst 'custom.txt') -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
 
 ; 2. 서비스/UI 강제 정지 — toml 박기 전 file lock 해제
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }}; Start-Sleep -Seconds 1 }}; taskkill /F /IM ChainRemote.exe /T *>$null; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
 
-; 3. toml 3종을 사용자/서비스 두 경로에 동시 배치 (rendezvous server 인식). Phase 3-Win 이후 경로 ChainRemote.
-;    ★ 보존 가드(M4) + 검증 대상 교정(H5): dst 에 ChainRemote2.toml 이미 있으면 안 박음
+; 3. toml 3종을 사용자/서비스 두 경로에 동시 배치 (rendezvous server 인식). Phase 3-Win 이후 경로는 ChainRemote.
+;    보존 가드(M4) + 검증 대상 교정(H5): dst 에 ChainRemote2.toml 이 이미 있으면 안 박는다
 ;    (재설치/자동업뎃 때 머신 고유 id/key_pair=ChainRemote.toml 및 사용자 설정 보존 — agent 와 동일).
-;    검증은 [System.IO.File]::ReadAllText(ChainRemote2.toml) — 종전 Get-Content RustDesk2.toml 은 앱이
-;    안 읽는 파일을 보던 거짓 PASS 였음.
+;    검증은 [System.IO.File]::ReadAllText(ChainRemote2.toml) 로 한다. 종전 Get-Content RustDesk2.toml 은
+;    앱이 안 읽는 파일을 보던 거짓 PASS 였다.
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ([System.IO.File]::ReadAllText(""$dst\ChainRemote2.toml"") -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ([System.IO.File]::ReadAllText(""$dst\ChainRemote2.toml"") -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
 
 ; 4. 서비스 재시작 (간단판 — HQ 는 watchdog 없으므로 1회 시도면 충분)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Start-Service ChainRemote -ErrorAction Stop }} catch {{ sc.exe start ChainRemote *>$null }}"""; StatusMsg: "ChainRemote 서비스 시작 중..."; Flags: runhidden waituntilterminated
 
-; 5. 옛 RustDesk 단축아이콘 잔재 정리 (Phase 3-Win). install_me 가 APP_NAME=ChainRemote
-;    따라 ChainRemote.lnk 자동 생성하므로 RENAME 불필요. 옛 잔재만 제거.
+; 5. 옛 RustDesk 단축아이콘 잔재 정리 (Phase 3-Win). install_me 가 APP_NAME=ChainRemote 를
+;    따라 ChainRemote.lnk 를 자동 생성하므로 RENAME 은 불필요. 옛 잔재만 제거.
 Filename: "{cmd}"; Parameters: "/c del /F /Q ""%PUBLIC%\Desktop\RustDesk.lnk"" 2>nul"; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c del /F /Q ""%USERPROFILE%\Desktop\RustDesk.lnk"" 2>nul"; Flags: runhidden
 
@@ -129,12 +129,12 @@ Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\
 ; 8. 단축아이콘 IconLocation 갱신
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
-; 8.5. ★ 인스톨 후 self-test 스모크 (v1.3.7 신규, 2026-05-29).
-;     자세히는 agent-installer.iss 의 동일 단계 doc 참조.
+; 8.5. 인스톨 후 self-test 스모크 (v1.3.7 신규, 2026-05-29).
+;     자세히는 agent-installer.iss 의 동일 단계 주석 참조.
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Start-Sleep -Seconds 8; $log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $svc=(Get-Service ChainRemote -EA SilentlyContinue).Status; $procs=(Get-Process ChainRemote -EA SilentlyContinue).Count; $exe='C:\Program Files\ChainRemote\ChainRemote.exe'; $exists=(Test-Path $exe); $verdict='FAIL'; if (($svc -eq 'Running') -and ($procs -ge 1) -and $exists) {{ $verdict='PASS' }; Add-Content -Path $log -Value ($st + ' installer: SELFTEST v{#APP_VERSION} svc=' + $svc + ' procs=' + $procs + ' exe=' + $exists + ' -> ' + $verdict)"""; StatusMsg: "ChainRemote 설치 self-test 중..."; Flags: runhidden waituntilterminated
 
 ; 9. 설치 직후 실행 (재성이 검증용) — 절대 경로 강제 (Phase 3-Win 사고 fix, 2026-05-25).
-;    옛 RustDesk 설치본의 {app} mismatch 회피. agent-installer 와 동일 사유.
+;    옛 RustDesk 설치본의 {app} mismatch 회피. agent-installer 와 같은 이유.
 Filename: "{commonpf}\ChainRemote\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
 
 [Registry]
@@ -146,11 +146,11 @@ Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
   Flags: uninsdeletevalue
 
 [Code]
-// ── ChainRemote 다운그레이드 가드 (2026-06-06) ────────────────────────────────
+// ── 다운그레이드 가드 (2026-06-06) ────────────────────────────────
 // 설치된 버전이 이 인스톨러보다 높으면 설치 거부. updater(is_newer)는 자동업뎃 경로만
-// 막지만, 인스톨러를 직접 실행하는 stray 경로(잔재 예약작업·수동 더블클릭 등)는 우회 가능.
-// 그 클래스를 인스톨러 레벨에서 영구 차단. 의도적 롤백은 /FORCE=1 로만.
-// updater 정상 푸시는 항상 상향이라 가드가 막지 않음 → 정상 동작 영향 0.
+// 막지만, 인스톨러를 직접 실행하는 stray 경로(잔재 예약작업·수동 더블클릭 등)는 우회가 가능하다.
+// 그 부류를 인스톨러 레벨에서 영구 차단. 의도적 롤백은 /FORCE=1 로만.
+// updater 정상 푸시는 늘 상향이라 가드에 안 걸린다 → 정상 동작엔 영향 0.
 procedure CRLog(Msg: String);
 begin
   try
@@ -192,9 +192,9 @@ var
   Installed: String;
 begin
   Result := True;
-  // [ChainRemote] HQ(본사앱)는 x64 전용 — 32비트 Windows 에선 코어 exe 가 못 돌고
+  // HQ(본사앱)는 x64 전용 — 32비트 Windows 에선 코어 exe 가 못 돌고
   //   "CreateProcess 실패 코드 216(아키텍처 불일치)" 로 깨진다. 거래처 32비트 POS 에 실수로
-  //   HQ 를 받는 경우를 위해, 32비트면 명확히 안내하고 중단(거래처용은 Agent 설치).
+  //   HQ 를 받는 경우를 대비해, 32비트면 명확히 안내하고 중단한다(거래처용은 Agent 설치).
   if not IsWin64() then begin
     MsgBox('ChainRemote 본사앱(HQ)은 64비트 Windows 전용입니다.' + #13#10 +
            '이 컴퓨터는 32비트라 설치할 수 없습니다.' + #13#10 + #13#10 +

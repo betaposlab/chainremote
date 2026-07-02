@@ -15,7 +15,7 @@
 #   - 시작 메뉴 / 바탕화면 단축아이콘 (RustDesk / ChainRemote 모두)
 #   - 프로그램 추가/제거 reg key
 #
-# 안 건드리는 것: 다른 사용자 프로필의 %APPDATA%\RustDesk (있어도 무해, 새 설치 후 자동 정리됨)
+# 안 건드리는 것: 다른 사용자 프로필의 %APPDATA%\RustDesk (있어도 무해하고 새 설치 후 자동 정리됨)
 
 $ErrorActionPreference = 'Continue'
 

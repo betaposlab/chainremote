@@ -3,7 +3,7 @@ Write-Host "=== vcpkg 핀 커밋 정렬 + 라이브러리 재설치 ===" -Foregr
 Write-Host ""
 
 $vcpkgDir = "C:\src\vcpkg"
-$pinnedCommit = "120deac3062162151622ca4860575a33844ba10b"  # RustDesk CI 핀 (2025.08.27)
+$pinnedCommit = "120deac3062162151622ca4860575a33844ba10b"  # RustDesk CI 핀 커밋 (2025.08.27)
 
 if (-not (Test-Path $vcpkgDir)) {
   Write-Host "❌ vcpkg 폴더 없음 ($vcpkgDir)" -ForegroundColor Red

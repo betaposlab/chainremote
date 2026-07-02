@@ -10,7 +10,7 @@ $dir = $PSScriptRoot
 if (-not $dir) { $dir = (Get-Location).Path }
 Push-Location $dir
 
-# Phase 1: 거래처(agent) / 본사(hq) 분기 빌드 선택
+# 거래처(agent) / 본사(hq) 분기 빌드 선택
 $targets = switch ($Target) {
   "agent" { @("agent-installer.iss") }
   "hq"    { @("hq-installer.iss") }

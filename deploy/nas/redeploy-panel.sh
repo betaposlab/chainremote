@@ -1,14 +1,14 @@
 #!/bin/bash
-# ChainRemote 관리패널(NAS docker) 재배포 — 1.4.42 기기지문 앵커 코드 + 마이그018.
+# 관리패널(NAS docker) 재배포 — 1.4.42 기기지문 앵커 코드 + 마이그018.
 #
-# 배포 정책(2026-07-01~): AI 가 코드+검증 완료 후 Chang 승인을 받고 직접 실행한다.
-#   (종전엔 AI 실행을 자동 게이트가 막아 Chang 이 손수 돌렸음 — 이제 승인창 승인 후 AI 실행.)
+# 배포 정책(2026-07-01~): AI 가 코드+검증을 끝내고 Chang 승인을 받은 뒤 직접 실행한다.
+#   (종전엔 자동 게이트가 AI 실행을 막아 Chang 이 손수 돌렸다. 이제는 승인창 승인 후 AI 가 실행.)
 #
 # 사용:  bash ~/내작업/ChainRemote/deploy/nas/redeploy-panel.sh
 #
-# 동작: ① 패널 소스 tar→NAS(.env 보존) ② 마이그018(machine_uuid 컬럼) ③ 이미지 rebuild ④ up -d ⑤ 검증
-#   - 안전: 빌드 성공 전까지 구 컨테이너 계속 가동(무중단). 마이그는 멱등(ADD COLUMN IF NOT EXISTS).
-#   - .env / postgres·hbbs·hbbr 컨테이너는 절대 안 건드림(패널 서비스만 교체).
+# 순서: 패널 소스 tar→NAS(.env 보존) → 마이그018(machine_uuid 컬럼) → 이미지 rebuild → up -d → 검증
+#   - 빌드 성공 전까지 구 컨테이너를 그대로 가동해 무중단. 마이그는 멱등(ADD COLUMN IF NOT EXISTS).
+#   - .env / postgres·hbbs·hbbr 컨테이너는 손대지 않는다. 패널 서비스만 교체.
 set -uo pipefail
 
 NAS="chang@100.93.42.91"

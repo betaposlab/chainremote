@@ -1,5 +1,5 @@
-﻿# -RegenBridge: src/flutter_ffi.rs(코어↔화면 연결부)를 바꿨을 때만 다리파일(bridge) 재생성.
-#   기본은 git 에 커밋된 다리파일을 그대로 사용 (Mac+Win 공용 설계). 재생성엔 RUSTC_BOOTSTRAP=1 +
+﻿# -RegenBridge: src/flutter_ffi.rs(코어↔화면 연결부)를 바꿨을 때만 다리파일(bridge)을 재생성한다.
+#   기본은 git 에 커밋된 다리파일을 그대로 쓴다 (Mac+Win 공용 설계). 재생성엔 RUSTC_BOOTSTRAP=1 +
 #   flutter_rust_bridge_codegen 1.80.1 / cargo-expand 1.0.95 (집윈컴 ~/.cargo/bin) 필요.
 param([switch]$RegenBridge)
 
@@ -87,10 +87,10 @@ if ($head -ne $branchHead) {
 Pop-Location
 
 # 3.5. flutter_rust_bridge 다리파일 (bridge)
-# ★ 다리파일 3종(src\bridge_generated.rs / .io.rs / flutter\lib\generated_bridge.dart)은
-#    git 추적(커밋)됨 — .gitignore 에서 의도적 해제, Mac+Win 두 머신 공용. 그래서 기본 동작 =
-#    커밋된 다리파일을 그대로 사용(재생성 안 함). 일반 `python build.py` 도 codegen 을 안 돌리므로
-#    (도커 전용 함수에만 있음) 이게 빌드의 유일한 다리파일 단계. 재생성은 src\flutter_ffi.rs
+# 다리파일 3종(src\bridge_generated.rs / .io.rs / flutter\lib\generated_bridge.dart)은
+#    .gitignore 에서 의도적으로 풀어 git 에 커밋한다 — Mac+Win 두 머신 공용. 기본 동작은
+#    커밋된 다리파일을 그대로 쓰는 것(재생성 안 함). 일반 `python build.py` 도 codegen 을 안 돌리므로
+#    (도커 전용 함수에만 있음) 이게 빌드에서 유일한 다리파일 단계다. 재생성은 src\flutter_ffi.rs
 #    (코어↔화면 연결부)를 바꿨을 때만 -RegenBridge 로 명시 실행(RUSTC_BOOTSTRAP=1 필요).
 Write-Host "[3.5/5] flutter_rust_bridge 다리파일..." -ForegroundColor Yellow
 $bridgeFiles = @("src\bridge_generated.rs", "src\bridge_generated.io.rs", "flutter\lib\generated_bridge.dart")
@@ -120,7 +120,7 @@ if ($RegenBridge) {
 }
 $ErrorActionPreference = $prevEAP
 
-# 다리파일 존재 + 비어있지 않음 검증 (커밋본 손상/누락을 빌드 전에 잡음 = 옛 '거짓 OK' 버그 방지)
+# 다리파일 존재 + 비어있지 않음 검증 — 커밋본 손상/누락을 빌드 전에 잡는다(옛 '거짓 OK' 버그 방지).
 foreach ($bf in $bridgeFiles) {
   if ((-not (Test-Path $bf)) -or ((Get-Item $bf).Length -eq 0)) {
     Write-Host "❌ 다리파일 없음/비어있음: $bf" -ForegroundColor Red
@@ -135,9 +135,9 @@ if ($RegenBridge) {
 }
 
 # 3.8. vcpkg 의존성 (manifest 모드 — vcpkg.json + res/vcpkg 오버레이 포트 자동 사용)
-# - 정석: ChainRemote 루트(vcpkg.json 위치)에서 vcpkg install → aom/mfx-dispatch/ffmpeg 패치본 설치
-# - idempotent: 이미 설치된 항목은 hash 일치 시 skip. ffmpeg 첫 빌드는 30~60분.
-# - 과거 classic 모드 잔재(C:\src\vcpkg\installed)는 aom 구버전이라 manifest install 이 재빌드함.
+# - ChainRemote 루트(vcpkg.json 위치)에서 vcpkg install → aom/mfx-dispatch/ffmpeg 패치본 설치.
+# - 멱등: 이미 설치된 항목은 hash 일치 시 skip. ffmpeg 첫 빌드는 30~60분.
+# - 과거 classic 모드 잔재(C:\src\vcpkg\installed)는 aom 구버전이라 manifest install 이 재빌드한다.
 Write-Host "[3.8/5] vcpkg manifest install (의존성 동기화)..." -ForegroundColor Yellow
 if (-not $env:VCPKG_ROOT) { $env:VCPKG_ROOT = "C:\src\vcpkg" }
 if (-not (Test-Path "$env:VCPKG_ROOT\vcpkg.exe")) {
@@ -146,8 +146,8 @@ if (-not (Test-Path "$env:VCPKG_ROOT\vcpkg.exe")) {
 }
 $vcpkgLog = "$env:TEMP\chainremote-vcpkg.log"
 $vcpkgInstallRoot = "$env:VCPKG_ROOT\installed"
-# --host-triplet 도 x64-windows-static 으로 강제: vcpkg.json 의 ffmpeg 가 host=true 로 박혀있어
-# 기본 host-triplet (x64-windows) 으로 설치되면 target 빌드에서 avcodec.lib 못 찾음.
+# --host-triplet 도 x64-windows-static 으로 강제한다. vcpkg.json 의 ffmpeg 가 host=true 라
+# 기본 host-triplet(x64-windows)으로 깔리면 target 빌드에서 avcodec.lib 를 못 찾는다.
 cmd /c "`"$env:VCPKG_ROOT\vcpkg.exe`" install --triplet x64-windows-static --host-triplet x64-windows-static --x-install-root=`"$vcpkgInstallRoot`" > `"$vcpkgLog`" 2>&1"
 if ($LASTEXITCODE -ne 0) {
   Write-Host "❌ vcpkg manifest install 실패. 로그: $vcpkgLog" -ForegroundColor Red
@@ -157,7 +157,7 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "    OK: 의존성 동기화 완료" -ForegroundColor Gray
 
 # 4. 빌드 (Rust + Flutter + portable installer)
-# PowerShell의 stderr-as-error 처리를 우회하기 위해 cmd.exe로 위임
+# PowerShell 의 stderr=error 처리를 피하려고 cmd.exe 로 위임한다.
 Write-Host "[4/5] 빌드 시작 (30~60분 소요)..." -ForegroundColor Yellow
 Write-Host "    cmd.exe로 위임 실행. 진행은 $env:TEMP\chainremote-build.log 에서 실시간 확인 가능." -ForegroundColor Gray
 Write-Host "    (다른 PowerShell 창에서: Get-Content $env:TEMP\chainremote-build.log -Wait)" -ForegroundColor Gray
@@ -167,10 +167,10 @@ if (Test-Path $buildLog) { Remove-Item $buildLog -Force }
 $prevEAP = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
 
-# v1.2.7+: --hwcodec 추가 — H.264/H.265 HW 인코더 활성 (Mac 측 HW 디코더와 페어).
-# 사전 조건: vcpkg 에 ffmpeg 깔려있어야 함 (`vcpkg install ffmpeg` 1회).
-# 첫 빌드는 hwcodec C++ 소스의 ffmpeg 8.x 비호환 (key_frame / FF_PROFILE / swresample) 으로 실패함.
-# 그래서 첫 빌드 후 자동으로 patch-hwcodec.ps1 실행 → 재빌드. 패치 적용된 후엔 재실행 시 그대로 성공.
+# v1.2.7+: --hwcodec — H.264/H.265 HW 인코더 활성(Mac 측 HW 디코더와 페어).
+# 사전 조건: vcpkg 에 ffmpeg 설치(`vcpkg install ffmpeg` 1회).
+# 첫 빌드는 hwcodec C++ 소스가 ffmpeg 8.x 와 안 맞아(key_frame / FF_PROFILE / swresample) 실패한다.
+# 그래서 첫 빌드 실패 시 patch-hwcodec.ps1 을 자동 실행하고 재빌드한다. 패치 후엔 재실행해도 그대로 성공.
 $buildArgs = "--flutter --hwcodec --portable"
 cmd /c "python build.py $buildArgs > `"$buildLog`" 2>&1"
 $buildExitCode = $LASTEXITCODE
@@ -197,10 +197,10 @@ if ($buildExitCode -ne 0) {
 }
 Write-Host "    빌드 성공" -ForegroundColor Gray
 
-# 4.8. Win7 런타임 app-local 동봉 (UCRT + VC++) — 깨끗한(미업데이트) Win7 거래처 대응.
-#   stock Win7 엔 UCRT/VC++ 런타임이 없어 exe 가 실행조차 안 됨 → DLL 을 exe 옆에 동봉.
-#   best-effort: SDK/VS 못 찾아도 빌드는 성공 처리(경고만). 이 x64 경로용이며,
-#   32비트 에이전트는 build-agent32.ps1 이 동일 스크립트를 -Arch x86 으로 직접 호출.
+# 4.8. Win7 런타임(UCRT + VC++) app-local 동봉 — 갓 설치한(미업데이트) Win7 거래처 대응.
+#   stock Win7 엔 UCRT/VC++ 런타임이 없어 exe 가 실행조차 안 된다 → DLL 을 exe 옆에 동봉.
+#   best-effort: SDK/VS 못 찾아도 빌드는 성공으로 넘어간다(경고만). 이건 x64 경로용이고,
+#   32비트 에이전트는 build-agent32.ps1 이 같은 스크립트를 -Arch x86 으로 직접 호출한다.
 Write-Host "[4.8/5] Win7 런타임(UCRT+VC++) app-local 동봉..." -ForegroundColor Yellow
 $releaseX64 = "$repoDir\flutter\build\windows\x64\runner\Release"
 $bundleScript = "$repoDir\deploy\win-build\bundle-win7-runtime.ps1"

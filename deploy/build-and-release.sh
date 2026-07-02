@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
-# ChainRemote 빌드+배포 원샷 자동화 (2026-05-19).
+# 빌드+배포 원샷 (2026-05-19).
+# 버전 bump → 커밋·푸시 → 윈컴 원격 빌드(SSH/Tailscale) → 산출물 회수(scp) → NAS 게시(release.sh).
+# 손으로 하던 복붙·Finder·SMB·exe 이동을 전부 걷어냈다.
 #
-# 한 줄로: 버전 bump → 커밋·푸시 → 윈컴 원격 빌드(SSH/Tailscale) →
-#          산출물 회수(scp) → NAS 게시(release.sh).
-# 복붙·Finder·SMB·수동 exe 이동 전부 제거.
-#
-# 전제(1회 셋업 완료):
+# 전제(1회 셋업):
 #   - 윈컴에 OpenSSH 서버 + Mac 공개키(administrators_authorized_keys)
-#   - 윈컴·Mac·NAS 동일 Tailscale tailnet
+#   - 윈컴·Mac·NAS 가 같은 Tailscale tailnet
 #   - 윈컴 Tailscale IP / 계정은 아래 상수. (Tailscale IP 는 기기별 고정)
 #
 # 사용: ./deploy/build-and-release.sh <새버전> ["릴리즈노트"]
 #   예:  ./deploy/build-and-release.sh 1.2.19 "xxx 수정"
 #
-# 길게 걸림(원격 cargo+flutter 빌드 5~20분). 호출 측에서 백그라운드 권장.
+# 원격 cargo+flutter 빌드가 5~20분 걸린다. 호출 측에서 백그라운드로 돌리는 게 낫다.
 
 set -euo pipefail
 
@@ -53,8 +51,8 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 git push origin HEAD:master
 
 echo "=== [3/5] 윈컴 원격 빌드 (SSH/Tailscale, 수 분~십수 분) ==="
-# 윈컴은 빌드 슬레이브(개발은 Mac 에서만) → 누적 cruft 무시하고 origin/master 로
-# 강제 동기. 단순 git pull 은 더러운/어긋난 트리에서 갱신 실패 → 옛 버전 빌드 사고.
+# 윈컴은 빌드 슬레이브일 뿐(개발은 Mac 에서만). 누적 cruft 무시하고 origin/master 로 강제 동기한다.
+# git pull 로는 더럽거나 어긋난 트리에서 갱신이 조용히 실패해 옛 버전을 빌드하는 사고가 났다.
 PS_BUILD="cd $WIN_REPO; git fetch origin --quiet; git reset --hard origin/master; \
 Remove-Item -Force $WIN_REPO\\rustdesk-*-install.exe -EA SilentlyContinue; \
 Remove-Item -Force $WIN_REPO\\rustdesk_portable.exe -EA SilentlyContinue; \

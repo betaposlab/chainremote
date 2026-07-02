@@ -8,7 +8,7 @@ if (-not (Test-Path $log)) {
 $content = Get-Content $log -Raw
 $lines = Get-Content $log
 
-# error[ 패턴 주위 컨텍스트 추출 + 마지막 80줄
+# error 라인 주변 컨텍스트 + 마지막 80줄 추출
 $errorLines = @()
 for ($i = 0; $i -lt $lines.Count; $i++) {
     if ($lines[$i] -match "^error(\[|:)") {
@@ -32,8 +32,6 @@ Write-Host $report
 Set-Clipboard -Value $report
 Write-Host "`n✅ 위 내용이 클립보드에 복사됐습니다. 붙여넣어 Claude 에게 보내주세요." -ForegroundColor Green
 
-# 또한 Mac 으로 자동 업로드 (Mac 의 SMB 가 켜져 있으면)
-# 단순히 파일을 우리가 봐야 할 위치에 둠 - Chang 의 OneDrive 같은 거 활용하거나
-# 파일 자체 위치 안내
+# 원본 로그 파일 위치 안내 (직접 열어보거나 공유용)
 Write-Host "`n   원본 로그 파일: $log" -ForegroundColor Gray
 Write-Host "   크기: $([Math]::Round((Get-Item $log).Length/1KB,1)) KB" -ForegroundColor Gray

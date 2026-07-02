@@ -4,14 +4,13 @@
 # 파이프라인:
 #   1. build.py --flutter --hwcodec --portable --skip-portable-pack
 #      → cargo lib + Flutter Release 만 빌드 (SFX 패킹은 skip)
-#   2. deploy\custom-portable.txt 를 Flutter Release\custom.txt 로 복사
-#      (포터블 inner exe 의 conn-type=outgoing 보장)
+#   2. deploy\custom-portable.txt 를 Flutter Release\custom.txt 로 복사 (inner exe 의 conn-type=outgoing 보장)
 #   3. libs\portable\generate.py 로 Flutter Release 를 SFX 페이로드로 변환
 #   4. cargo build --release (libs/portable) → rustdesk-portable-packer.exe
 #   5. deploy\portable\ChainGo.exe 로 rename·이동
 #
-# 흔적 메모: ChainGo.exe 실행 시 %TEMP%\ChainGo_<rand>\ 에 풀고 종료 시 정리.
-# inner 가 %APPDATA%\RustDesk 안 건드림 (Config::path() 가 APP_DIR 우선).
+# 실행 시 %TEMP%\ChainGo_<rand>\ 에 풀고 종료 시 정리한다.
+# inner 는 %APPDATA%\RustDesk 를 안 건드린다 (Config::path() 가 APP_DIR 우선).
 
 $ErrorActionPreference = "Stop"
 $repoDir = "C:\src\ChainRemote"
@@ -44,15 +43,14 @@ foreach ($f in @("rustdesk_portable.exe","rustdesk-1.4.6-install.exe")) {
   if (Test-Path $f) { Remove-Item $f -Force; Write-Host "removed stale $f" }
 }
 
-# Rust core 변경이라 풀빌드. HQ 스크립트와 같은 클린 패턴 사용
+# Rust core 가 바뀌었으니 풀빌드. HQ 스크립트와 같은 클린 패턴
 # (flutter clean → rm .dart_tool/build → flutter pub get).
-# 추가 방어: pub advisories 캐시가 손상되면 readAdvisoriesFromCache 가
-# "Null check operator used on a null value" 로 panic (Dart pub 알려진 버그).
-# .advisories 폴더만 골라 제거하여 다음 fetch 시 재생성되게 함.
+# pub advisories 캐시가 손상되면 readAdvisoriesFromCache 가
+# "Null check operator used on a null value" 로 panic 한다 (Dart pub 알려진 버그).
+# .advisories 폴더만 지워 다음 fetch 때 재생성되게 한다.
 Write-Host "[clean] pub advisories cache 정리"
-# 손상된 advisories 캐시는 hosted\pub.dev\.cache\*-advisories.json. 그 .cache 폴더만
-# 통째로 정리(패키지 archives 와 분리된 위치라 재다운로드 비용 없음). pub 가 다음
-# resolve 시 재생성.
+# 손상 캐시는 hosted\pub.dev\.cache\*-advisories.json. 그 .cache 폴더만 통째로 지운다
+# (패키지 archives 와 분리된 위치라 재다운로드 비용 없음). pub 가 다음 resolve 때 재생성.
 $pubMetaCache = "$env:LOCALAPPDATA\Pub\Cache\hosted\pub.dev\.cache"
 if (Test-Path $pubMetaCache) {
   Remove-Item -Recurse -Force $pubMetaCache -ErrorAction SilentlyContinue
@@ -68,9 +66,9 @@ cmd /c "flutter pub get" 2>&1 | Select-Object -Last 3
 Pop-Location
 $ErrorActionPreference = $prevEAP
 
-# pub advisories 검색이 Dart pub 의 알려진 버그(Null check panic)로 죽음.
-# PUB_OFFLINE=1 = 어제 cached 패키지로만 풀어 advisories 네트워크 조회 skip.
-# 만약 캐시 누락이 있으면 그때만 PUB_OFFLINE 빼고 재시도하면 됨.
+# pub advisories 조회가 Dart pub 의 알려진 버그(Null check panic)로 죽는다.
+# PUB_OFFLINE=1 이면 캐시된 패키지로만 풀어 advisories 네트워크 조회를 건너뛴다.
+# 캐시가 빠진 게 있으면 그때만 PUB_OFFLINE 빼고 다시 돌리면 된다.
 $env:PUB_OFFLINE = "1"
 Write-Host "[env] PUB_OFFLINE=1 (advisories panic 회피)"
 
@@ -130,7 +128,7 @@ if ($cargoCode -ne 0) {
 Pop-Location
 
 # 5) deploy\portable\ChainGo.exe 로 이동
-# cargo workspace 때문에 target 이 libs/portable 가 아니라 워크스페이스 루트.
+# cargo workspace 라 target 이 libs/portable 가 아니라 워크스페이스 루트에 생긴다.
 $candidates = @(
   "$repoDir\target\release\rustdesk-portable-packer.exe",
   "$repoDir\libs\portable\target\release\rustdesk-portable-packer.exe"
@@ -144,8 +142,8 @@ if (-not $srcPacker) {
 $outDir = "$repoDir\deploy\portable"
 if (-not (Test-Path $outDir)) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }
 $outExe = "$outDir\ChainGo.exe"
-# 이전에 띄운 ChainGo/inner 가 살아있으면 파일 잠금 → Copy-Item access denied.
-# 출력 덮어쓰기 전에 살짝 정리.
+# 앞서 띄운 ChainGo/inner 가 살아있으면 파일 잠금 → Copy-Item access denied.
+# 출력 덮어쓰기 전에 정리.
 Get-Process ChainGo,rustdesk -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Start-Sleep -Milliseconds 500
 if (Test-Path $outExe) { Remove-Item $outExe -Force -ErrorAction SilentlyContinue }

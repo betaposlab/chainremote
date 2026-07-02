@@ -1,10 +1,10 @@
-# extract-enroll-overlay.ps1 — ChainRemote per-tenant enroll overlay extractor.
+# extract-enroll-overlay.ps1 — per-tenant enroll overlay 추출기.
 #
 # 관리 패널이 베이스 인스톨러 .exe 끝에 대리점별 설정 blob 을 덧붙인다:
 #   [ UTF-8 custom.txt JSON ][ int32 LE length ][ 8-byte ASCII magic "CRENROL1" ]
-# 이 스크립트는 실행 중인 setup .exe 의 그 blob 을 읽어, 유효하면 스테이징 custom.txt 에
-# 써넣는다 → [Run] 1.5 가 그 per-tenant 설정을 설치한다.
-# overlay 가 없으면(=베이스 그대로/자동업뎃) 번들 custom.txt 를 손대지 않음 = 기존 동작 무변경.
+# 이 스크립트는 실행 중인 setup .exe 의 그 blob 을 읽어 유효하면 스테이징 custom.txt 에 써넣는다
+# → [Run] 1.5 가 그 per-tenant 설정을 설치한다.
+# overlay 가 없으면(베이스 그대로/자동업뎃) 번들 custom.txt 를 안 건드린다 = 기존 동작 무변경.
 #
 # PS 2.0 안전(Win7), ASCII only (CP949 ParserError 회피).
 param([string]$Setup, [string]$Stage)

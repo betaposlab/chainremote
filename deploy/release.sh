@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# ChainRemote 새 버전을 NAS 에 배포 — 거래처 PC 들이 자동 업데이트로 받아감.
+# 새 버전을 NAS 에 게시 — 거래처 PC 들이 자동 업데이트로 받아간다.
 #
-# ★ 정석 워크플로 (절대 어기지 말 것)
-#   1. (Mac) 새 버전 X.Y.Z 를 src 의 세 곳에 직접 동기화 + git commit + push
+# 워크플로 (순서 지킬 것):
+#   1. (Mac) 새 버전 X.Y.Z 를 src 세 곳에 동기화 + git commit + push
 #        - src/chainremote_version.rs               : pub const CHAINREMOTE_VERSION: &str = "X.Y.Z";
 #        - flutter/lib/common.dart                  : const chainRemoteVersion = 'X.Y.Z';
 #        - deploy/win-installer/agent-installer.iss : #define APP_VERSION "X.Y.Z"
@@ -10,7 +10,7 @@
 #   2. (윈컴) git pull → build-all.ps1 → ISCC (agent) → ChainRemote_Agent_Setup_v*.exe
 #   3. (Mac) SMB / 파일 전송으로 dist/ 에 가져옴
 #   4. (Mac) ./deploy/release.sh dist/ChainRemote_Agent_Setup_v*.exe ["릴리즈 노트"]
-#        → 거래처 자동업데이트 채널은 agent 전용. HQ (본사) 빌드는 NAS 푸시 X — 재성이 PC 에 수동 설치.
+#        자동업데이트 채널은 agent 전용. HQ(본사) 빌드는 NAS 에 안 올린다 — 재성이 PC 에 수동 설치.
 #
 # 사용법: ./deploy/release.sh <agent setup.exe 경로> [릴리즈노트]
 # 예시:   ./deploy/release.sh dist/ChainRemote_Agent_Setup_v1.3.0.exe "Phase 1 거래처 빌드"
@@ -33,7 +33,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# ★ 버전 정합성 검증 — 세 곳에서 추출 + 일치 확인
+# 버전 정합성 검증 — 세 곳에서 추출해 일치하는지 확인
 RUST_FILE="$SCRIPT_DIR/src/chainremote_version.rs"
 DART_FILE="$SCRIPT_DIR/flutter/lib/common.dart"
 ISS_FILE="$SCRIPT_DIR/deploy/win-installer/agent-installer.iss"
@@ -100,15 +100,15 @@ echo "  - Released   : $RELEASED_AT"
 echo "  - Remote URL : $PUBLIC_BASE_URL/$REMOTE_FILENAME"
 echo ""
 
-# 1. 인스톨러 업로드 — Synology SFTP 가 사용자를 home dir 에 chroot 시키므로 SCP 대신 ssh stream 사용.
-#    ★ 원자적(H6): .partial 로 올린 뒤 SHA 검증을 통과해야만 최종 파일명으로 mv. 전송 중단/부분 파일이
-#    최종 경로에 노출돼 거래처가 깨진 .exe 를 받고 sha-mismatch 무한 재다운에 빠지는 사고 차단.
-#    (latest.json 과 동일한 tmp→mv 패턴. 실패해도 기존 최종 파일은 손대지 않아 옛 버전 그대로 안전.)
+# 1. 인스톨러 업로드 — Synology SFTP 는 사용자를 home dir 에 chroot 시키므로 SCP 대신 ssh stream 을 쓴다.
+#    원자적 업로드: .partial 로 올린 뒤 SHA 검증을 통과해야만 최종 파일명으로 mv 한다. 전송 중단·부분 파일이
+#    최종 경로에 노출되면 거래처가 깨진 .exe 를 받아 sha-mismatch 무한 재다운에 빠진다 — 그 사고를 막는 장치.
+#    (latest.json 과 같은 tmp→mv 패턴. 실패해도 기존 최종 파일은 안 건드려 옛 버전 그대로 남는다.)
 TMP_REMOTE="$NAS_WEB_DIR/$REMOTE_FILENAME.partial"
 echo "[1/4] Uploading installer to NAS (atomic via .partial)..."
 ssh "$NAS_HOST" "cat > $TMP_REMOTE && chmod 644 $TMP_REMOTE" < "$SETUP_EXE"
 
-# 2. 최종 경로로 옮기기 전 NAS 측 SHA256 재검증 (전송 무결성) → 통과해야만 atomic mv (publish).
+# 2. 최종 경로로 옮기기 전 NAS 측 SHA256 재검증(전송 무결성). 통과해야만 atomic mv 로 publish.
 echo "[2/4] Verifying upload integrity (NAS-side SHA256) before publish..."
 NAS_SHA=$(ssh "$NAS_HOST" "sha256sum $TMP_REMOTE | awk '{print \$1}'")
 if [[ "$NAS_SHA" != "$SHA256" ]]; then
@@ -117,7 +117,7 @@ if [[ "$NAS_SHA" != "$SHA256" ]]; then
   ssh "$NAS_HOST" "rm -f $TMP_REMOTE" 2>/dev/null || true
   exit 1
 fi
-# 검증 통과 → 최종 파일명으로 원자적 교체 (이 mv 성공 이후에만 latest.json 갱신)
+# 검증 통과 → 최종 파일명으로 원자적 교체. latest.json 갱신은 이 mv 성공 이후에만.
 ssh "$NAS_HOST" "mv -f $TMP_REMOTE $NAS_WEB_DIR/$REMOTE_FILENAME"
 
 # 3. latest.json 갱신 (atomic — 임시 파일에 쓰고 mv)

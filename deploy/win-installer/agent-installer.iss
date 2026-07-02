@@ -1,16 +1,16 @@
-; ChainRemote 거래처 배포용 ★통합★ 인스톨러 (Inno Setup) — x64 + 32비트 자동 판별
+; 거래처 배포용 통합 인스톨러 (Inno Setup) — x64 + 32비트 자동 판별
 ; 빌드: 윈컴에서 ISCC.exe agent-installer.iss  (사전: build-all.ps1 → x64 / build-agent32.ps1 → x86 페이로드)
 ; 결과물: ChainRemote_Agent_Setup_v{version}.exe  (파일명 규약 유지 — 패널 푸시/release 파이프라인 무변경)
 ;
-; ★ 통합 동작 (2026-06-10, Chang 결정):
-;   Inno 의 셋업 본체(stub)는 원래 32비트 → Win7 SP1 32비트부터 Win11 x64 까지 어디서든 실행됨.
-;   두 페이로드를 모두 담고, 설치 시 OS 아키텍처에 맞는 쪽만 풀어서 설치:
+; 통합 동작 (2026-06-10, Chang 결정):
+;   Inno 셋업 본체(stub)는 원래 32비트라 Win7 SP1 32비트부터 Win11 x64 까지 어디서든 실행된다.
+;   두 페이로드를 모두 담고, 설치 시 OS 아키텍처에 맞는 쪽만 풀어서 설치한다:
 ;     - 64비트 OS (Is64BitInstallMode)  → Flutter x64 빌드 (기존 거래처 빌드 그대로)
 ;     - 32비트 OS                        → Sciter i686 빌드 (ChainRemote.exe + sciter.dll + custom.txt)
-;   → 패널/업데이트 채널이 arch 구분할 필요 자체가 소멸 (한 파일을 아무 거래처에나 푸시 OK).
+;   덕분에 패널/업데이트 채널이 arch 를 구분할 필요가 사라진다 (한 파일을 아무 거래처에나 푸시 OK).
 ;
 ; Phase 1 분기: 거래처 빌드 = conn-type=incoming (..\custom-agent.txt → custom.txt, click-only override 포함).
-; 본사 빌드는 hq-installer.iss (x64 전용) 가 별도.
+; 본사 빌드는 hq-installer.iss (x64 전용) 로 따로 있다.
 ;
 ; 설치 순서 (두 아키텍처 동일):
 ;   1. 페이로드를 {tmp}\chainremote_payload 에 풀고 ChainRemote.exe --silent-install 실행
@@ -20,7 +20,7 @@
 ;   3. 서비스 기동 + watchdog 예약작업 + 잔재 정리 + self-test
 ;
 ; ⚠ PowerShell 단계는 전부 PS 2.0 호환 문법 (Win7 기본 PS2: *>$null / -Raw / -Directory 금지).
-;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일됨 (2026-06-10).
+;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일했다 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
 #define APP_VERSION    "1.4.43"
@@ -42,23 +42,23 @@ DefaultGroupName={#APP_NAME}
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 OutputDir=.
-; 파일명에 버전 박기 — 옛/새 빌드 혼동 방지 + NAS URL 캐시 무관
+; 파일명에 버전 박기 — 옛/새 빌드 혼동 방지 + NAS URL 캐시 이슈 회피
 OutputBaseFilename=ChainRemote_Agent_Setup_v{#APP_VERSION}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-; 설치 마법사 첫 단계 = 사용 동의 페이지 (원격 수신 동의 + AGPL 고지. 파일은 UTF-8 BOM 필수 — 없으면 CP949 로 읽혀 한글 깨짐).
-; 자동 업데이트(/VERYSILENT)는 이 페이지를 표시하지 않음 → 기존 푸시/업데이트 플로우 무영향.
+; 설치 마법사 첫 단계 = 사용 동의 페이지 (원격 수신 동의 + AGPL 고지. 파일은 UTF-8 BOM 필수 — 없으면 CP949 로 읽혀 한글이 깨진다).
+; 자동 업데이트(/VERYSILENT)는 이 페이지를 안 띄운다 → 기존 푸시/업데이트 플로우 무영향.
 LicenseFile=license-agent-ko.txt
 PrivilegesRequired=admin
-; 64비트 OS 에선 64비트 설치 모드 ({commonpf}=C:\Program Files), 32비트 OS 에선 자동으로 32비트 모드.
-; 어느 쪽이든 {commonpf}\ChainRemote = install_me() 의 %ProgramFiles% 계산과 일치.
+; 64비트 OS 는 64비트 설치 모드({commonpf}=C:\Program Files), 32비트 OS 는 자동으로 32비트 모드.
+; 어느 쪽이든 {commonpf}\ChainRemote 이 install_me() 의 %ProgramFiles% 계산과 맞는다.
 ArchitecturesInstallIn64BitMode=x64compatible
-; Win7 이상 (XP/Vista 차단). ★2026-06-17: 'sp1' 명시 제거 — Win7 Enterprise K POS 일부가
-;   실제 SP1 인데도 Inno 의 SP 감지가 SP0 으로 떨어져 "Windows 버전 미지원" 으로 설치가 막힘
-;   (호환shim/POS이미지/에디션 quirk; Windows 자체는 SP1 표시). SP 요구는 런타임 동봉(app-local
-;   UCRT/VC++)으로 대체되므로 major.minor(6.1)만 검사 → 진짜 SP1 머신이 안 막힘. 비-SP1 은 실행시
-;   런타임 부재로 걸러짐(설치 진단 팝업이 가시화).
+; Win7 이상만 허용 (XP/Vista 차단). 2026-06-17: 'sp1' 명시를 뺐다 — Win7 Enterprise K POS 일부가
+;   실제로는 SP1 인데 Inno 의 SP 감지가 SP0 으로 떨어져 "Windows 버전 미지원" 으로 설치가 막혔다
+;   (호환shim/POS이미지/에디션 quirk. Windows 자체는 SP1 로 표시). SP 요구는 런타임 동봉(app-local
+;   UCRT/VC++)으로 대체되므로 major.minor(6.1)만 검사하면 진짜 SP1 머신이 안 막힌다. 비-SP1 은
+;   실행 시 런타임 부재로 걸러진다(설치 진단 팝업으로 드러남).
 MinVersion=6.1
 ; 자동 업데이트 호환성 — 기존 ChainRemote 프로세스 자동 종료/재시작
 CloseApplications=yes
@@ -74,10 +74,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 ; ── 아키텍처별 페이로드 (둘 다 패키지에 담기고, 설치 시 한쪽만 풀림) ──
 Source: "{#BUILD_DIR_X64}\*"; DestDir: "{tmp}\chainremote_payload"; Check: Is64BitInstallMode; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
-; ★ x64 페이로드에도 custom.txt 동봉 — x86(build-agent32.ps1:108)과 대칭. install_me 의 XCOPY(/E,
+; x64 페이로드에도 custom.txt 동봉 — x86(build-agent32.ps1:108)과 대칭. install_me 의 XCOPY(/E,
 ;   windows.rs:1351)가 payload 폴더 전체를 "설치된 exe 옆"으로 복사하므로, 레지스트리 InstallLocation 이
-;   옛 설치 잔재로 어긋나도(삼성공판장 사례) custom.txt 가 항상 서비스 exe 옆에 존재 → is_incoming_only 보장.
-;   (그동안 x64 는 1.5 의 하드코딩 {commonpf} 복사에만 의존 → 경로 갈라지면 무음 미적용되던 구조적 결함 박멸, 2026-06-20)
+;   옛 설치 잔재로 어긋나도(삼성공판장 사례) custom.txt 가 항상 서비스 exe 옆에 있어 is_incoming_only 가 보장된다.
+;   (그동안 x64 는 1.5 의 하드코딩 {commonpf} 복사에만 의존해, 경로가 갈라지면 조용히 미적용되던 구조적 결함을 없앰. 2026-06-20)
 Source: "..\custom-agent.txt"; DestDir: "{tmp}\chainremote_payload"; DestName: "custom.txt"; Check: Is64BitInstallMode; Flags: deleteafterinstall ignoreversion
 Source: "{#BUILD_DIR_X86}\*"; DestDir: "{tmp}\chainremote_payload"; Check: not Is64BitInstallMode; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
 
@@ -88,12 +88,12 @@ Source: "{#BUILD_DIR_X86}\*"; DestDir: "{tmp}\chainremote_payload"; Check: not I
 Source: "RustDesk2-agent.toml";  DestDir: "{tmp}\chainremote_config"; DestName: "ChainRemote2.toml"; Flags: deleteafterinstall ignoreversion
 Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; DestName: "ChainRemote_default.toml"; Flags: deleteafterinstall ignoreversion
 
-; Phase 1 분기 플래그 — ★단일 원천 = 루트 deploy/custom-agent.txt (override-settings approve-mode=click 포함).
-; silent-install 이 {app} 을 클린업하므로 임시 폴더에 두고 [Run] 1.5 에서 절대 경로로 박음.
-; (32비트 페이로드엔 build-agent32.ps1 이 같은 파일을 동봉 — XCOPY 로도 들어감. 이중 안전벨트.)
+; Phase 1 분기 플래그 — 단일 원천은 루트 deploy/custom-agent.txt (override-settings approve-mode=click 포함).
+; silent-install 이 {app} 을 클린업하므로 임시 폴더에 두고 [Run] 1.5 에서 절대 경로로 박는다.
+; (32비트 페이로드엔 build-agent32.ps1 이 같은 파일을 동봉 — XCOPY 로도 들어간다. 이중 안전벨트.)
 Source: "..\custom-agent.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.txt"; Flags: deleteafterinstall ignoreversion
 
-; ⑤ per-tenant overlay 추출기 — 패널이 베이스 .exe 끝에 덧붙인 대리점 설정을 custom.txt 로 적용.
+; per-tenant overlay 추출기 — 패널이 베이스 .exe 끝에 덧붙인 대리점 설정을 custom.txt 로 적용.
 ;   overlay 없으면 번들 custom.txt 그대로 = 기존(자동업뎃 포함) 동작 무변경.
 Source: "extract-enroll-overlay.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
 
@@ -104,19 +104,19 @@ Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "watchdog.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignoreversion
 
 [Run]
-; 0. ★ Windows ephemeral port range 확장 (사업화 안전망 — 다른 원격 SW 의 socket 누수에 피해 안 봄)
+; 0. Windows ephemeral port range 확장 (사업화 안전망 — 다른 원격 SW 의 socket 누수에 휘말리지 않게)
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
 Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
 
-; 0.5. ★ silent-install 직전 옛 ChainRemote 강제 종료 (옛 file 잠금 해제 + 옛/새 프로세스 공존 방지)
+; 0.5. silent-install 직전 옛 ChainRemote 강제 종료 (파일 잠금 해제 + 옛/새 프로세스 공존 방지)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; taskkill /F /IM ChainRemote.exe /T >$null 2>&1; Start-Sleep -Seconds 2"""; StatusMsg: "옛 ChainRemote 프로세스 정리 중..."; Flags: runhidden waituntilterminated
 
-; 0.7. ★★ per-tenant overlay 를 silent-install '前'에 적용 (2026-07-01 fix — Win7 실측으로 확정).
-;    install_me() 가 페이로드의 custom.txt 를 그대로 설치폴더로 복사 + 서비스를 즉시 시작하므로,
-;    여기서 키를 심어야 서비스가 "키를 든 채" 시작 → 첫 실행에 바로 enroll (재부팅 불필요).
-;    (예전엔 1.4/1.5 에서 서비스 시작 '後' 적용 → 첫 실행은 키 없이 떠서 재부팅 전까지 자동등록 안 됨.
-;     GN50840785 Win7 실설치: 재부팅 후에야 등록됨 = 이 순서 버그 확정.)
-;    overlay 없으면(베이스/자동업뎃) 스크립트가 파일 무변경 → 기존 동작 그대로.
+; 0.7. per-tenant overlay 를 silent-install '前'에 적용 (2026-07-01 fix — Win7 실측으로 확정).
+;    install_me() 가 페이로드의 custom.txt 를 설치폴더로 그대로 복사하고 서비스를 즉시 시작하므로,
+;    여기서 키를 심어야 서비스가 "키를 든 채" 시작해 첫 실행에 바로 enroll 된다 (재부팅 불필요).
+;    (예전엔 1.4/1.5 에서 서비스 시작 '後' 적용 → 첫 실행은 키 없이 떠서 재부팅 전까진 자동등록이 안 됐다.
+;     GN50840785 Win7 실설치에서 재부팅 후에야 등록된 게 이 순서 버그였다.)
+;    overlay 없으면(베이스/자동업뎃) 스크립트가 파일을 안 건드려 기존 동작 그대로.
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\extract-enroll-overlay.ps1"" -Setup ""{srcexe}"" -Stage ""{tmp}\chainremote_payload\custom.txt"""; StatusMsg: "ChainRemote 거래처 식별 설정 적용 중..."; Flags: runhidden waituntilterminated
 
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 페이로드 폴더 전체를 Program Files 로 복사
@@ -124,28 +124,28 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Fil
 ;    (x64 = Flutter 빌드 / x86 = Sciter 빌드 — 같은 코어라 동작 동일)
 Filename: "{tmp}\chainremote_payload\ChainRemote.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
-; 1.4. ★ ⑤ per-tenant overlay 적용 — setup .exe 끝의 대리점 설정 blob 을 읽어 스테이징 custom.txt 덮어씀.
-;    overlay 없으면(베이스/자동업뎃) custom_payload\custom.txt 를 안 건드림 → 아래 1.5 가 번들 그대로 박음 = 무변경.
+; 1.4. per-tenant overlay 적용 — setup .exe 끝의 대리점 설정 blob 을 읽어 스테이징 custom.txt 를 덮어쓴다.
+;    overlay 없으면(베이스/자동업뎃) custom_payload\custom.txt 를 안 건드려 아래 1.5 가 번들 그대로 박는다 = 무변경.
 ;    (인터랙티브/사일런트 무관하게 동작 — 패널이 만든 per-tenant .exe 면 어느 경로든 그 대리점으로 enroll.)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\extract-enroll-overlay.ps1"" -Setup ""{srcexe}"" -Stage ""{tmp}\custom_payload\custom.txt"""; StatusMsg: "ChainRemote 거래처 식별 설정 확인 중..."; Flags: runhidden waituntilterminated
 
-; 1.5. ★ custom.txt 절대 경로 박기 (silent-install 후) — load_custom_client() 는 설치된 exe 옆만 읽음.
-;    옛 Inno AppId 잔재로 {app} 이 다른 폴더를 가리켜도 안전하도록 절대 경로 강제 (2026-05-26 fix).
+; 1.5. custom.txt 절대 경로 박기 (silent-install 후) — load_custom_client() 는 설치된 exe 옆만 읽는다.
+;    옛 Inno AppId 잔재로 {app} 이 다른 폴더를 가리켜도 안전하도록 절대 경로로 강제 (2026-05-26 fix).
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$dst='{commonpf}\ChainRemote'; New-Item -Path $dst -ItemType Directory -Force | Out-Null; Copy-Item '{tmp}\custom_payload\custom.txt' (Join-Path $dst 'custom.txt') -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
 
-; 2. ★ 서비스 + 잔여 프로세스 강제 정지 — toml 박기 전 필수 (file lock 해제).
-;    .NET Status enum 비교 = 한국어 Windows "중지됨" 문자열 미스매치 회피.
+; 2. 서비스 + 잔여 프로세스 강제 정지 — toml 박기 전 필수 (file lock 해제).
+;    상태는 .NET Status enum 으로 비교 — 한국어 Windows "중지됨" 문자열 미스매치 회피.
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }}; Start-Sleep -Seconds 1 }}; taskkill /F /IM ChainRemote.exe /T >$null 2>&1; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
 
-; 3. ★ toml 을 두 경로에 동시 배치 (LICENSE_MISMATCH 근본 해결) + 자동업데이트 보존 가드
-;    (dst 에 ChainRemote2.toml 이미 있으면 안 박음 — 거래처 자체 설정 보존. 신규 설치만 박힘.)
+; 3. toml 을 두 경로에 동시 배치 (LICENSE_MISMATCH 근본 해결) + 자동업데이트 보존 가드
+;    (dst 에 ChainRemote2.toml 이 이미 있으면 안 박는다 — 거래처 자체 설정 보존. 신규 설치만 박힘.)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force | Out-Null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ([System.IO.File]::ReadAllText(""$dst\ChainRemote2.toml"") -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force | Out-Null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ([System.IO.File]::ReadAllText(""$dst\ChainRemote2.toml"") -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
 
-; 4. ★ 서비스 재시작 — Running 도달 폴링 + 3회 재시도 + updater.log 기록 (죽으면 진단 단서 남김)
+; 4. 서비스 재시작 — Running 도달 폴링 + 3회 재시도 + updater.log 기록 (죽으면 진단 단서 남김)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$log='C:\ProgramData\ChainRemote\updater.log'; New-Item -Path (Split-Path $log) -ItemType Directory -Force | Out-Null; $ok=$false; for ($a=0; $a -lt 3; $a++) {{ try {{ Start-Service ChainRemote -ErrorAction Stop }} catch {{ sc.exe start ChainRemote >$null 2>&1 }}; for ($i=0; $i -lt 30; $i++) {{ $svc=Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($svc -ne $null -and $svc.Status -eq 'Running') {{ $ok=$true; break }}; Start-Sleep -Seconds 1 }}; if ($ok) {{ break }} }}; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $res= if ($ok) {{ 'Running OK' }} else {{ 'FAILED to reach Running after 3x30s' }}; Add-Content -Path $log -Value ($st + ' installer: sc start ChainRemote -> ' + $res)"""; StatusMsg: "ChainRemote 서비스 시작 중..."; Flags: runhidden waituntilterminated
 
-; 4b. ★ 서비스 watchdog 예약작업 — 죽은 서비스를 재부팅 없이 복구 (10분 주기 SYSTEM)
+; 4b. 서비스 watchdog 예약작업 — 죽은 서비스를 재부팅 없이 복구 (10분 주기 SYSTEM)
 Filename: "schtasks.exe"; Parameters: "/Create /TN ChainRemoteServiceWatchdog /TR ""powershell -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\ChainRemote\watchdog.ps1"" /SC MINUTE /MO 10 /RU SYSTEM /RL HIGHEST /F"; StatusMsg: "ChainRemote 자동복구 등록 중..."; Flags: runhidden waituntilterminated
 Filename: "schtasks.exe"; Parameters: "/Run /TN ChainRemoteServiceWatchdog"; Flags: runhidden waituntilterminated
 
@@ -158,12 +158,12 @@ Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\
 ; 8. 단축아이콘 IconLocation 을 ChainRemote .ico 로 갱신
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
-; 8.5. ★ 인스톨 후 self-test 스모크 — Service/Process/Exe 3종 체크를 updater.log 에 PASS/FAIL 기록
+; 8.5. 인스톨 후 self-test 스모크 — Service/Process/Exe 3종 체크를 updater.log 에 PASS/FAIL 기록.
 ;     (절대 경로 하드코딩 대신 {commonpf} — 32/64비트 설치 모드 모두 정확)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Start-Sleep -Seconds 8; $log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $svcobj=Get-Service ChainRemote -ErrorAction SilentlyContinue; $svc='None'; if ($svcobj) {{ $svc=[string]$svcobj.Status }}; $procs=@(Get-Process ChainRemote -ErrorAction SilentlyContinue).Count; $exe='{commonpf}\ChainRemote\ChainRemote.exe'; $exists=Test-Path $exe; $verdict='FAIL'; if (($svc -eq 'Running') -and ($procs -ge 1) -and $exists) {{ $verdict='PASS' }}; Add-Content -Path $log -Value ($st + ' installer: SELFTEST v{#APP_VERSION} svc=' + $svc + ' procs=' + $procs + ' exe=' + $exists + ' -> ' + $verdict)"""; StatusMsg: "ChainRemote 설치 self-test 중..."; Flags: runhidden waituntilterminated
 
-; 8.6. ★ 설치 환경(Win7 변종) 기록 — "모든 윈도우 버전 대비"의 눈. Win7 은 RTM/SP1/POSReady/
-;     Embedded + 에디션 + x86/x64 로 제각각이라 거래처별 실제 변종을 모르면 대응 불가.
+; 8.6. 설치 환경(Win7 변종) 기록 — 거래처 환경을 파악하는 눈. Win7 은 RTM/SP1/POSReady/
+;     Embedded + 에디션 + x86/x64 로 제각각이라 거래처별 실제 변종을 모르면 대응이 안 된다.
 ;     OS Caption/버전/SP/아키텍처 + PowerShell 버전 + UCRT(시스템/exe옆) + VC++(exe옆) 유무를
 ;     updater.log 에 한 줄로 남긴다. PS 2.0 안전: Get-WmiObject(CIM 아님) + '*>' 없음 + 스칼라 .Count 미사용.
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $os=Get-WmiObject -Class Win32_OperatingSystem -EA SilentlyContinue; $psv=$PSVersionTable.PSVersion.ToString(); $exe='{commonpf}\ChainRemote\ChainRemote.exe'; $ucrtSys=Test-Path ($env:windir + '\System32\ucrtbase.dll'); $ucrtLocal=Test-Path (Join-Path (Split-Path $exe) 'api-ms-win-crt-runtime-l1-1-0.dll'); $vcrLocal=Test-Path (Join-Path (Split-Path $exe) 'vcruntime140.dll'); Add-Content -Path $log -Value ($st + ' installer: ENV os=[' + $os.Caption + '] ver=' + $os.Version + ' sp=' + $os.ServicePackMajorVersion + ' arch=' + $os.OSArchitecture + ' ps=' + $psv + ' ucrt_sys=' + $ucrtSys + ' ucrt_local=' + $ucrtLocal + ' vcr_local=' + $vcrLocal)"""; StatusMsg: "ChainRemote 설치 환경 기록 중..."; Flags: runhidden waituntilterminated
@@ -184,9 +184,9 @@ Filename: "schtasks.exe"; Parameters: "/Delete /TN ChainRemoteServiceWatchdog /F
 
 [Code]
 var
-  EnrollPage: TInputQueryWizardPage;  // ⑤ auto-enroll 거래처 상호 입력 페이지
+  EnrollPage: TInputQueryWizardPage;  // auto-enroll 거래처 상호 입력 페이지
 
-// ── ChainRemote 다운그레이드 가드 (2026-06-06) ────────────────────────────────
+// ── 다운그레이드 가드 (2026-06-06) ────────────────────────────────
 // 설치된 버전이 이 인스톨러보다 높으면 설치 거부. 의도적 롤백은 /FORCE=1 로만.
 procedure CRLog(Msg: String);
 begin
@@ -199,12 +199,12 @@ begin
   end;
 end;
 
-// ── ⑤ auto-enroll: 거래처 상호 수집 + 레지스트리 기록 ─────────────────────────
-// 한국어 상호를 파일(CP949)/custom.txt 로 보내면 인코딩 깨짐 → 레지스트리 REG_SZ(유니코드 네이티브)에 기록.
-// 에이전트(Rust)가 HKLM\SOFTWARE\ChainRemote\CustomerName 을 읽어 enroll 시 거래처명으로 사용.
+// ── auto-enroll: 거래처 상호 수집 + 레지스트리 기록 ─────────────────────────
+// 한국어 상호를 파일(CP949)/custom.txt 로 보내면 인코딩이 깨진다 → 레지스트리 REG_SZ(유니코드 네이티브)에 기록.
+// 에이전트(Rust)가 HKLM\SOFTWARE\ChainRemote\CustomerName 을 읽어 enroll 시 거래처명으로 쓴다.
 procedure CRWriteCustomerName(Name: String);
 begin
-  if Name = '' then Exit;  // 빈칸이면 안 씀 → 서버가 hostname placeholder 로 명명.
+  if Name = '' then Exit;  // 빈칸이면 안 쓴다 → 서버가 hostname placeholder 로 명명.
   try
     if RegWriteStringValue(HKLM, 'SOFTWARE\ChainRemote', 'CustomerName', Name) then
       CRLog('installer: CustomerName registry write OK')
@@ -217,8 +217,8 @@ end;
 
 procedure InitializeWizard();
 begin
-  // 거래처 상호 입력 페이지 (라이선스 동의 다음). 자동업뎃(/VERYSILENT)은 마법사 미표시라 안 뜸 →
-  //   기존 푸시/업데이트 플로우 무영향. ssPostInstall 의 WizardSilent 가드가 silent 기록도 차단.
+  // 거래처 상호 입력 페이지 (라이선스 동의 다음). 자동업뎃(/VERYSILENT)은 마법사를 안 띄우므로 안 뜬다 →
+  //   기존 푸시/업데이트 플로우 무영향. ssPostInstall 의 WizardSilent 가드가 silent 기록도 막는다.
   EnrollPage := CreateInputQueryPage(wpLicense,
     '거래처 상호',
     '이 PC가 설치될 매장(거래처)의 상호를 입력하세요.',
@@ -266,22 +266,22 @@ begin
     Result := False;
     Exit;
   end;
-  // [ChainRemote] 임시 시작 진단 팝업(2026-06-15 향우정 설치실패 규명용) 제거(2026-06-18).
-  //   정상 설치 확인 완료. 자동업뎃/수동설치 모두 팝업 없이 진행. 설치 전 쓰기검증은
-  //   아래 PrepareToInstall() 가 (팝업 없이) 계속 수행하며, 실패 시에만 한글 사유를 보여줌.
+  // 임시 시작 진단 팝업(2026-06-15 향우정 설치실패 규명용)은 제거됨(2026-06-18).
+  //   정상 설치 확인 완료. 자동업뎃/수동설치 모두 팝업 없이 진행한다. 설치 전 쓰기검증은
+  //   아래 PrepareToInstall() 이 (팝업 없이) 계속 수행하고, 실패 시에만 한글 사유를 보여준다.
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssInstall then begin
-    // 옛 Agent32 단독 인스톨러(2026-06-10, 테스트 POS 1대에만 배포됨) 의 제어판 중복 항목 정리.
-    // 같은 경로/서비스에 덮어 설치되므로 uninstall 레지스트리 키만 제거하면 됨.
+    // 옛 Agent32 단독 인스톨러(2026-06-10, 테스트 POS 1대에만 배포됨)의 제어판 중복 항목 정리.
+    // 같은 경로/서비스에 덮어 설치되므로 uninstall 레지스트리 키만 지우면 된다.
     RegDeleteKeyIncludingSubkeys(HKLM, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{7C4D9A2E-5B31-4F8C-B2D6-1E9F3A6C8D52}_is1');
     RegDeleteKeyIncludingSubkeys(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{7C4D9A2E-5B31-4F8C-B2D6-1E9F3A6C8D52}_is1');
   end;
   if CurStep = ssPostInstall then begin
-    // ⑤ auto-enroll — 인터랙티브 설치면 입력한 상호를 레지스트리에 기록(에이전트 enroll 시 사용).
-    //   자동업뎃(/VERYSILENT)은 WizardSilent=True → 스킵 = 기존 CustomerName 보존(상호 안 지워짐).
+    // auto-enroll — 인터랙티브 설치면 입력한 상호를 레지스트리에 기록(에이전트 enroll 시 사용).
+    //   자동업뎃(/VERYSILENT)은 WizardSilent=True 라 스킵 = 기존 CustomerName 보존(상호가 안 지워짐).
     if (not WizardSilent()) and Assigned(EnrollPage) then
       CRWriteCustomerName(Trim(EnrollPage.Values[0]));
   end;
@@ -289,20 +289,20 @@ end;
 
 // ── 설치 전 쓰기 보호 자가진단 (2026-06-15) ──────────────────────────────────
 // {app}(=Program Files\ChainRemote)에 실제 파일 쓰기를 미리 시도한다. 쓰기 보호
-//   (쓰기 필터 UWF/FBWF/EWF · 폴더 Deny 권한 · 백신 실시간 차단)면 설치 중간(install_me
+//   (쓰기 필터 UWF/FBWF/EWF · 폴더 Deny 권한 · 백신 실시간 차단)면 설치 도중(install_me
 //   복사 단계)에 뜨던 암호 같은 'CreateFile 실패 코드5' / '디렉터리 생성 액세스 거부'
-//   대신, 여기서 원인+처방을 한글로 보여주고 깔끔히 중단한다. (향우정 Win7 32bit 사고 가시화.)
-// 자동 업데이트(/VERYSILENT, 이미 설치돼 쓰기 가능한 기기)는 중단하지 않음 — 기존 플로우 무영향.
+//   대신, 여기서 원인+처방을 한글로 보여주고 깔끔히 중단한다. (향우정 Win7 32bit 사고를 드러냄.)
+// 자동 업데이트(/VERYSILENT, 이미 설치돼 쓰기 가능한 기기)는 중단하지 않는다 — 기존 플로우 무영향.
 function CRDiag(): String;
 var
   V: TWindowsVersion;
   S: String;
 begin
-  // 실패해도(=[Files] 전) updater.log/메시지에 남길 환경 한 줄. 향우정류 진단의 핵심 데이터.
+  // 실패해도([Files] 전) updater.log/메시지에 남길 환경 한 줄. 향우정류 진단의 핵심 데이터.
   GetWindowsVersionEx(V);
   S := 'os=' + IntToStr(V.Major) + '.' + IntToStr(V.Minor) + ' sp=' + IntToStr(V.ServicePackMajor);
   if Is64BitInstallMode() then S := S + ' mode=x64' else S := S + ' mode=x86';
-  // ★ 핵심: 이 설치가 실제로 관리자 권한으로 승격됐는지. no 면 "권한 승격 실패"가 범인.
+  // 핵심: 이 설치가 실제로 관리자 권한으로 승격됐는지. no 면 "권한 승격 실패"가 범인.
   if IsAdminInstallMode() then S := S + ' admin=yes' else S := S + ' admin=no';
   Result := S;
 end;
@@ -328,7 +328,7 @@ begin
     Exit;
   end;
   if WizardSilent() then begin
-    // 자동 업데이트 경로(이미 설치/쓰기가능 기기)는 기존대로 진행 — 무영향.
+    // 자동 업데이트 경로(이미 설치돼 쓰기 가능한 기기)는 기존대로 진행 — 무영향.
     CRLog('installer: write-probe FAILED (' + Dir + ') silent -> proceed; ' + Diag);
     Exit;
   end;

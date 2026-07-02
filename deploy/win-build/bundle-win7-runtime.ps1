@@ -1,14 +1,13 @@
-﻿# ChainRemote — Win7 런타임 app-local 동봉 (2026-06-15)
+﻿# Win7 런타임 app-local 동봉 (2026-06-15)
 #
-# 왜 필요한가:
-#   우리 ChainRemote.exe 는 Flutter/MSVC 로 Win10 가정 하에 빌드된다. 실행에 두 런타임이 필요:
-#     (1) Universal CRT (UCRT)  : ucrtbase.dll + api-ms-win-crt-*.dll
-#     (2) VC++ 런타임           : vcruntime140.dll (+x64: vcruntime140_1.dll) + msvcp140.dll
-#   Win10/11 은 UCRT 가 OS 내장이고 VC++ 는 흔히 깔려있어 문제 없다. 그러나
-#   "갓 설치한 깨끗한 Windows 7"(윈도우 업데이트 미적용)엔 둘 다 없어서 exe 가 실행조차
-#   안 된다(api-ms-win-crt-runtime-l1-1-0.dll / vcruntime140.dll 없음 에러).
-#   → 이 DLL들을 exe 옆에 같이 두면(app-local) OS 업데이트 상태와 무관하게 어떤 Win7 에서도 실행된다.
-#   (향우정 메인포스 = POS 프로그램이 Win10 미지원이라 Win7 다운그레이드 필수 → bone-stock Win7 대응.)
+# ChainRemote.exe 는 Flutter/MSVC 로 Win10 을 가정하고 빌드된다. 실행엔 두 런타임이 필요하다:
+#   - Universal CRT (UCRT)  : ucrtbase.dll + api-ms-win-crt-*.dll
+#   - VC++ 런타임           : vcruntime140.dll (+x64: vcruntime140_1.dll) + msvcp140.dll
+# Win10/11 은 UCRT 가 OS 내장이고 VC++ 도 흔히 깔려있어 문제없다. 하지만 갓 설치한 깨끗한
+# Windows 7(윈도우 업데이트 미적용)엔 둘 다 없어 exe 가 실행조차 안 된다
+# (api-ms-win-crt-runtime-l1-1-0.dll / vcruntime140.dll 없음 에러).
+# 이 DLL 들을 exe 옆에 같이 두면(app-local) OS 업데이트 상태와 무관하게 어떤 Win7 에서도 실행된다.
+# (향우정 메인포스 POS 가 Win10 미지원이라 Win7 다운그레이드가 필수 → bone-stock Win7 대응.)
 #
 # 사용:
 #   # 64비트 에이전트 빌드 후
