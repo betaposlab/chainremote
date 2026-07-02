@@ -37,7 +37,7 @@
 ChainRemote 는 [GNU Affero General Public License v3](LICENCE) 에 따라 배포됩니다.
 
 - **소스 코드**: 본 저장소 (https://github.com/betaposlab/chainremote) 가 진실 원천입니다.
-- **변경 내역**: RustDesk 대비 우리 fork 가 추가/수정한 부분의 요약은 [`CHAINREMOTE_CHANGES.md`](CHAINREMOTE_CHANGES.md) 에서 확인할 수 있습니다.
+- **변경 내역**: 본 소프트웨어는 RustDesk 를 fork 하여 수정·확장한 것입니다. 구체적인 변경 사항은 커밋 히스토리에서 확인할 수 있습니다.
 - **재배포**: AGPL v3 의 조건을 따른다면 누구나 본 소프트웨어를 사용 · 수정 · 재배포할 수 있습니다. 특히 SaaS 형태로 서비스 제공 시에도 사용자에게 소스 접근권을 보장해야 합니다.
 
 ### 원본 저작권
