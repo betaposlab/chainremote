@@ -12,7 +12,7 @@
 # 사용:
 #   # 64비트 에이전트 빌드 후
 #   .\bundle-win7-runtime.ps1 -ReleaseDir "C:\src\ChainRemote\flutter\build\windows\x64\runner\Release" -Arch x64
-#   # 32비트(Win7 32bit 거래처) 에이전트 빌드 후 — ★ -Arch x86 필수
+#   # 32비트(Win7 32bit 거래처) 에이전트 빌드 후 — 이땐 -Arch x86 을 빠뜨리지 말 것
 #   .\bundle-win7-runtime.ps1 -ReleaseDir "<32비트 Release 폴더>" -Arch x86
 #
 #   ISCC 로 인스톨러 묶기 직전 1회 실행. 멱등(이미 있으면 덮어쓰기만). [Files] 가 Release 폴더를
