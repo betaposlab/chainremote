@@ -1,14 +1,12 @@
 -- ChainRemote 마이그레이션 005 — 직원별 즐겨찾기 (user × customer)
 --
--- 목적:
---   본사 앱에서 "즐겨찾기" 탭은 로그인한 직원 본인의 것만 보임.
---   관리 패널에서는 모든 직원의 즐겨찾기를 모두 조회 가능.
---   기존 RustDesk 로컬 toml(RustDesk_local.toml의 fav: Vec<String>)을 DB로 이관.
+-- 본사 앱의 "즐겨찾기" 탭은 로그인한 직원 본인 것만 보이고, 관리 패널에서는 전 직원의 즐겨찾기를
+-- 모두 조회할 수 있다. 기존 RustDesk 로컬 toml(RustDesk_local.toml 의 fav: Vec<String>)을 DB 로 옮긴다.
 --
 -- 정책:
---   - 한 직원이 같은 거래처를 두 번 즐겨찾기 불가 → PK (user_id, customer_id)
---   - 사용자/거래처 삭제 시 즐겨찾기 자동 정리 → CASCADE
---   - tenant_id 명시 보관 (다른 테이블과 일관성 + 향후 RLS 도입 대비)
+--   - 한 직원이 같은 거래처를 두 번 즐겨찾기하지 못하게 PK (user_id, customer_id).
+--   - 사용자/거래처 삭제 시 즐겨찾기는 CASCADE 로 자동 정리.
+--   - tenant_id 를 명시 보관 — 다른 테이블과 일관성 + 향후 RLS 대비.
 
 BEGIN;
 

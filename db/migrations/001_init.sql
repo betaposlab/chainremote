@@ -1,5 +1,5 @@
 -- ChainRemote 초기 스키마
--- 설계 원칙: 멀티테넌시 (SaaS) 첫날부터, 모든 비-tenant 테이블은 tenant_id 보유
+-- 설계 원칙: 첫날부터 멀티테넌시(SaaS) 전제 — 모든 비-tenant 테이블은 tenant_id 를 갖는다.
 
 -- 확장
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

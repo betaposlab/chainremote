@@ -1,16 +1,15 @@
 -- 009: 거래처 PC 푸시 업데이트 큐 (2026-05-29, Chang 결정).
 --
--- 배경:
---   - 2026-05-28 사고: 옛 latest.json 채널이 v1.3.2 거래처(중앙리) 에게도 단일채널로 적용 →
---     영업시간(12:50PM) 에 인스톨러 마법사 창이 떠 사장님이 본 사고.
---   - 결정: Agent 의 자동 latest.json 폴링 폐지. 본사가 관리 패널에서 "푸시" 클릭 시에만 적용.
---   - 영업시간 가드 (default 00:00~07:00) + 무작위지연 (default 0~7시간 분산) 으로 NAS/회선 부하 분산.
+-- 계기: 2026-05-28, 옛 latest.json 단일 채널이 v1.3.2 거래처(중앙리)에도 그대로 적용돼
+-- 영업시간(12:50) 에 인스톨러 마법사 창이 사장님 앞에서 떠버린 사고. 그래서 Agent 의 자동
+-- latest.json 폴링을 폐지하고, 본사가 관리 패널에서 "푸시" 를 눌렀을 때만 적용되게 바꿨다.
+-- 영업시간 가드(default 00:00~07:00) + 무작위지연(default 0~7시간)으로 NAS/회선 부하를 분산한다.
 --
--- 모델: Pull. NAS 가 Agent 에게 신호 안 쏨. Agent 가 자기 페이스(5분)로 폴링.
---   → 2000+ 거래처 일괄 푸시해도 NAS 부하 = N개 INSERT 1회.
+-- 모델은 pull — NAS 가 Agent 에게 신호를 쏘지 않고 Agent 가 5분마다 스스로 폴링한다.
+-- 덕분에 2000+ 거래처 일괄 푸시도 NAS 부하는 N개 INSERT 한 번이 전부다.
 --
--- 일괄 푸시: bulk_batch_id 로 N행 묶음. 개별 푸시는 bulk_batch_id NULL.
--- 상태: applied_at / cancelled_at / failed_at 셋 다 NULL = 대기 중. 셋 중 1개만 채워짐.
+-- 일괄 푸시는 bulk_batch_id 로 N행을 묶고, 개별 푸시는 NULL.
+-- 상태는 applied_at / cancelled_at / failed_at — 셋 다 NULL 이면 대기, 처리되면 셋 중 하나만 채워진다.
 
 CREATE TABLE IF NOT EXISTS pending_updates (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -30,13 +29,13 @@ CREATE TABLE IF NOT EXISTS pending_updates (
     -- 무작위지연 상한 (초). default 25200 = 7시간 창 전체.
     randomize_max_sec integer NOT NULL DEFAULT 25200,
 
-    -- 일괄 그룹 ID. 동일 일괄 푸시의 N행이 같은 UUID. 개별 푸시는 NULL.
+    -- 일괄 그룹 ID. 같은 일괄 푸시의 N행이 같은 UUID 를 공유. 개별 푸시는 NULL.
     bulk_batch_id uuid,
 
     -- 푸시 요청자 (관리 패널 로그인 사용자).
     requested_by uuid REFERENCES users(id) ON DELETE SET NULL,
 
-    -- 상태 timestamp. 셋 다 NULL = 대기. 1개만 채워짐.
+    -- 상태 timestamp. 셋 다 NULL 이면 대기, 처리되면 하나만 채워짐.
     applied_at   timestamptz,
     cancelled_at timestamptz,
     failed_at    timestamptz,
@@ -46,8 +45,7 @@ CREATE TABLE IF NOT EXISTS pending_updates (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Agent 폴링 핫패스: (tenant, customer, 미적용 상태) 로 1행 픽업.
--- partial index 로 dead rows 스킵.
+-- Agent 폴링 핫패스: (tenant, customer, 미적용) 로 1행 픽업. partial index 로 처리 끝난 행은 건너뛴다.
 CREATE INDEX IF NOT EXISTS idx_pending_updates_customer
     ON pending_updates (tenant_id, customer_id)
     WHERE applied_at IS NULL AND cancelled_at IS NULL AND failed_at IS NULL;
@@ -62,7 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_pending_updates_tenant_pending
     ON pending_updates (tenant_id)
     WHERE applied_at IS NULL AND cancelled_at IS NULL AND failed_at IS NULL;
 
--- 동일 거래처에 동일 버전 중복 큐 방지. cancelled/failed 후 재시도는 가능 (partial).
+-- 같은 거래처에 같은 버전이 중복으로 큐잉되는 걸 방지. cancelled/failed 후 재시도는 partial 조건 덕에 가능.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_pending_updates_customer_version_active
     ON pending_updates (customer_id, target_version)
     WHERE applied_at IS NULL AND cancelled_at IS NULL AND failed_at IS NULL;

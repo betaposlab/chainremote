@@ -1,16 +1,16 @@
 -- 010: 좌석 과금 — 단일 동시세션 enforcement (코이노식 takeover, 2026-06-04 Chang 결정).
 --
--- 배경: 사업화 좌석 과금 핵심. 한 HQ 계정(아이디) = 동시 1세션.
---   재성이가 같은 아이디로 다른 기기 로그인 시 → "다른 기기 사용 중" 모달 →
---   ① 강제 종료(takeover): 옛 기기 RustDesk 세션 끊기고 로그아웃, ② 취소: 토큰 0.
+-- 사업화 좌석 과금의 핵심. 한 HQ 계정 = 동시 1세션.
+-- 같은 아이디로 다른 기기에서 로그인하면 "다른 기기 사용 중" 모달이 뜨고, 강제 종료(takeover)를 고르면
+-- 옛 기기의 RustDesk 세션이 끊기고 로그아웃되며, 취소하면 토큰을 발급하지 않는다.
 --
--- 모델: user_id PK = 계정당 active 1건 강제. takeover = UPSERT(덮어쓰기).
---   HQ 앱이 ~10초 heartbeat 로 last_seen_at 갱신. 자기 jti 가 active 와 불일치 →
---   인계당함 → 앱이 스스로 disconnect + 로그아웃 (서버는 revoke 신호만, 실행은 클라).
+-- 모델: user_id PK 로 계정당 active 1건을 강제하고, takeover 는 UPSERT(덮어쓰기)로 처리한다.
+-- HQ 앱이 ~10초 heartbeat 로 last_seen_at 을 갱신하다가 자기 jti 가 active 와 어긋나면 인계당한 것 —
+-- 앱이 스스로 disconnect + 로그아웃한다(서버는 revoke 신호만 주고 실행은 클라 몫).
 --
--- 추가만 (기존 테이블 무변경) = 안전. 백워드 호환(§8): 옛 앱(device_id 미전송)은
---   이 테이블에 행을 안 만들고 enforcement 미적용 — 전환기 동안 옛/새 앱 공존.
---   상세 설계: docs/chainremote/SEAT_ENFORCEMENT.md
+-- 기존 테이블은 안 건드리고 추가만 하므로 안전하다. 옛 앱(device_id 미전송)은 이 테이블에 행을 안 만들어
+-- enforcement 가 적용되지 않으므로 전환기 동안 옛/새 앱이 공존한다(스펙 §8).
+-- 상세 설계: docs/chainremote/SEAT_ENFORCEMENT.md
 
 CREATE TABLE IF NOT EXISTS active_login_sessions (
     user_id      uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,  -- 계정당 1행 (단일세션)

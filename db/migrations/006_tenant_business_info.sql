@@ -1,19 +1,17 @@
 -- 006_tenant_business_info.sql
 --
--- 목적: tenants 테이블에 사업자 정보 + 구독/요금 컬럼 추가. super_admin role 도입.
--- 배경: 사업화(SaaS 멀티테넌트) 1단계 — Chang 이 신규 대리점(회사) 을 등록할 때
---      사업자등록증/통장사본/연락처/요금 정보를 한 row 에 저장.
+-- tenants 에 사업자 정보 + 구독/요금 컬럼을 추가하고 super_admin role 을 도입한다.
+-- 사업화(SaaS 멀티테넌트) 1단계 — Chang 이 신규 대리점을 등록할 때
+-- 사업자등록증/통장사본/연락처/요금 정보를 한 row 에 담는다.
 --
 -- 정책:
---   - 모든 추가 컬럼 NULLable — 기존 betaposlab tenant row 가 깨지지 않게.
---     신규 등록 폼에서 필수 필드 검증.
---   - monthly_fee_krw 는 부가세 별도(공급가액). 청구서/UI 에서 +VAT 10% 자동 계산.
---   - subscription_status 는 CHECK constraint (enum 불사용 — 단순화).
---   - payment_method 도 CHECK constraint (cms/bank_transfer/credit_card).
---   - user_role enum 에 'super_admin' 추가. Postgres 특성상 ALTER TYPE ADD VALUE 는
---     트랜잭션 안에서 사용 불가 → COMMIT 분리.
+--   - 추가 컬럼은 전부 NULLable — 기존 betaposlab row 가 깨지지 않게. 필수 검증은 등록 폼에서.
+--   - monthly_fee_krw 는 부가세 별도(공급가액). 청구서/UI 에서 VAT 10% 를 얹어 계산한다.
+--   - subscription_status, payment_method 는 enum 대신 CHECK constraint 로 단순화.
+--   - user_role enum 에 'super_admin' 추가. Postgres 는 ALTER TYPE ADD VALUE 를 같은
+--     트랜잭션 안에서 쓰지 못하므로 COMMIT 을 분리한다.
 --
--- 적용 후 수동 1줄 (별도 트랜잭션):
+-- 적용 후 별도 트랜잭션에서 수동 실행:
 --   UPDATE users SET role='super_admin' WHERE email='chang';
 --
 -- 관련: chainremote-admin/lib/schema.ts (Drizzle 스키마 동기화 필요)
@@ -43,7 +41,7 @@ ALTER TABLE tenants ADD COLUMN IF NOT EXISTS payment_day SMALLINT;         -- �
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subscription_started_at TIMESTAMPTZ;
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS notes TEXT;                   -- 비고
 
--- 5. CHECK constraint (DROP/ADD 패턴 — IF NOT EXISTS 미지원이라 안전하게 동적)
+-- 5. CHECK constraint — ADD CONSTRAINT 는 IF NOT EXISTS 를 지원 안 하므로 pg_constraint 로 존재 확인 후 추가
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'tenants_subscription_status_chk') THEN
@@ -60,9 +58,8 @@ END $$;
 
 COMMIT;
 
--- 6. user_role enum 에 super_admin 추가 (별도 트랜잭션 — Postgres 가 enum 변경을
---    같은 트랜잭션 안에서 사용 못 하게 막음)
+-- 6. user_role enum 에 super_admin 추가 (별도 트랜잭션 — 새 enum 값은 같은 트랜잭션 안에서 못 씀)
 ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'super_admin';
 
--- 7. (수동) 위 ALTER TYPE 가 commit 된 다음 별도 세션에서 실행:
+-- 7. 위 ALTER TYPE 가 commit 된 다음 별도 세션에서 수동 실행:
 --    UPDATE users SET role='super_admin' WHERE email='chang';

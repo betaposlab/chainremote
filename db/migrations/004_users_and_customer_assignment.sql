@@ -1,14 +1,12 @@
 -- ChainRemote 마이그레이션 004 — multi-user 인증 + 거래처 담당자
 --
--- 목적:
---   1. customers 에 assigned_user_id (담당 직원 표시용) 추가
---   2. 기존 4 거래처를 chang 사용자에게 할당 (시드 후)
---   3. 시드는 별도 SQL 로 (006_seed_initial_users.sql)
+-- customers 에 assigned_user_id(담당 직원 표시용)를 추가한다. 기존 거래처의 chang 할당,
+-- 사용자 시드는 별도 SQL(006_seed_initial_users.sql)에서 처리한다.
 --
 -- 정책:
---   - 같은 tenant 내 모든 user 는 모든 customer 를 보고 원격 가능 (사내 운영 정책)
---   - assigned_user_id 는 "누가 영업했는지 / 주담당" 표시일 뿐 격리 X
---   - 향후 SaaS 판매 시점에 격리 정책 (tenant 안에서 user 별 필터) 도입
+--   - 같은 tenant 안에서는 모든 user 가 모든 customer 를 보고 원격 가능(사내 운영 정책).
+--   - assigned_user_id 는 "누가 영업했는지 / 주담당" 표시일 뿐 접근 격리는 아니다.
+--   - user 별 필터 격리는 SaaS 판매 시점에 도입한다.
 
 BEGIN;
 
