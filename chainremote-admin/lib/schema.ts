@@ -14,8 +14,8 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-// "super_admin" = 플랫폼 운영자(Chang) — tenant 생성/관리 권한. 다른 tenant 의
-// 거래처/세션/이력은 *조회하지 않음* (코드 단계에서 강제). 격리 모델 깨끗.
+// "super_admin" = 플랫폼 운영자(Chang) — tenant 생성/관리용. 다른 tenant 의
+// 거래처/세션/이력은 코드 단에서 막아 못 본다.
 export const userRole = pgEnum("user_role", [
   "owner",
   "admin",
@@ -38,8 +38,8 @@ export const resolutionStatus = pgEnum("resolution_status", [
   "in_progress",
 ]);
 
-// SaaS 멀티테넌트: 한 row = 한 대리점(회사). 사업자등록증/통장/연락처/구독
-// 정보를 한 곳에 보관. 신규 컬럼 추가는 마이그레이션 006 참조.
+// 한 row = 한 대리점(회사). 사업자등록증/통장/연락처/구독 정보를 여기 모은다.
+// 컬럼 추가는 마이그 006 참조.
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
@@ -64,18 +64,18 @@ export const tenants = pgTable("tenants", {
   bankAccount: text("bank_account"),
   bankHolder: text("bank_holder"),
 
-  // 구독/요금 — monthly_fee_krw 는 공급가액(부가세 별도), UI 가 +VAT 10% 표시
+  // 구독/요금 — monthly_fee_krw 는 공급가액(부가세 별도). UI 가 +VAT 10% 붙여 표시.
   monthlyFeeKrw: integer("monthly_fee_krw"),
   paymentDay: integer("payment_day"),                // 매월 1~31
   paymentMethod: text("payment_method"),             // CHECK: cms|bank_transfer|credit_card
   subscriptionStartedAt: timestamp("subscription_started_at", { withTimezone: true }),
   subscriptionStatus: text("subscription_status").notNull().default("active"),
   notes: text("notes"),                              // 비고
-  // 거래처 agent 자가등록(⑤ auto-enroll) 인증용 per-tenant enroll-key 의 sha-256 해시.
-  // 평문은 그 tenant 의 agent 빌드 custom.txt(enroll-key)에만. NULL = 자가등록 비활성. 마이그 016.
+  // agent 자가등록(auto-enroll) 인증용 per-tenant enroll-key 의 sha-256 해시.
+  // 평문은 그 tenant 의 agent 빌드 custom.txt 에만. NULL = 자가등록 끔. 마이그 016.
   enrollSecretHash: text("enroll_secret_hash"),
-  // 같은 enroll-key 평문을 AUTH_SECRET 파생키로 AES-256-GCM 암호화 저장 (마이그 017).
-  // 다운로드 시 복호화해 *같은 키* 재사용 → 재다운로드해도 같은 .exe (대리점 자가 다운로드).
+  // 같은 enroll-key 평문을 AUTH_SECRET 파생키로 AES-256-GCM 암호화 보관 (마이그 017).
+  // 다운로드 때 복호화해 같은 키를 재사용 → 재다운로드해도 같은 .exe (대리점 자가 다운로드).
   enrollSecretEnc: text("enroll_secret_enc"),
 
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -93,7 +93,7 @@ export const users = pgTable(
     role: userRole("role").notNull().default("operator"),
     isActive: boolean("is_active").notNull().default(true),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
-    // HQ 데스크탑앱이 heartbeat(/api/auth/heartbeat)로 보고 — 패널에서 직원별 HQ 버전/생존 가시화.
+    // HQ 데스크탑앱이 heartbeat 로 보고 — 패널에서 직원별 HQ 버전/생존을 본다.
     // customers.lastVersion/lastHeartbeatAt 의 HQ 판. 마이그 014.
     lastVersion: text("last_version"),
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
@@ -115,28 +115,28 @@ export const customers = pgTable(
     remoteId: text("remote_id"),
     accessPassword: text("access_password"),
     notes: text("notes"),
-    // 담당 직원 — 영업/주담당 표시용. 같은 tenant 내 모든 user 가 모든 customer 를
-    // 볼 수 있도록 필터 강제는 안 함 (사내 운영 정책). 향후 SaaS 격리 시점에 정책 변경.
+    // 담당 직원 — 표시용. 같은 tenant 안에선 모든 user 가 모든 customer 를 보게
+    // 두고 필터는 안 건다 (사내 운영 정책). SaaS 격리 시점에 재검토.
     assignedUserId: uuid("assigned_user_id").references(() => users.id, { onDelete: "set null" }),
     isActive: boolean("is_active").notNull().default(true),
-    // 거래처 heartbeat (마이그레이션 007, 2026-05-26).
-    // 거래처 (agent) 가 5~15분 주기로 NAS 에 자기 상태 보고. 관리 패널 / 본사 앱이
-    // 마지막 접속 + 버전 가시화. 모든 컬럼 nullable — 옛 거래처는 lazy 채워짐.
+    // 거래처 heartbeat (마이그 007, 2026-05-26).
+    // agent 가 5~15분마다 NAS 에 자기 상태 보고 → 패널/본사 앱이 마지막 접속 + 버전
+    // 표시. 전부 nullable — 옛 거래처는 lazy 채워진다.
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }),
     lastVersion: text("last_version"),
-    // 거래처별 random secret 의 sha-256 *해시* (H3, 2026-06-14). 평문은 agent LocalConfig 에만,
-    // DB 엔 해시만 — 유출돼도 토큰 원본 비노출. 자가 발급 + idempotent rotation(호출마다 새 토큰,
-    // v1.3.7, LocalConfig 토큰 분실 시 영구 stuck 회피). lib/heartbeat-token.ts 가 발급/해시 담당.
+    // 거래처별 random secret 의 sha-256 해시 (2026-06-14). 평문은 agent LocalConfig 에만,
+    // DB 엔 해시만 두어 유출돼도 원본은 안 샌다. 자가 발급 + rotation(호출마다 새 토큰,
+    // v1.3.7 — LocalConfig 토큰 분실로 영영 stuck 되던 걸 회피). lib/heartbeat-token.ts 담당.
     heartbeatToken: text("heartbeat_token"),
-    // 기기지문 앵커(마이그 018). machine_uid(Windows=MachineGuid) — remote_id 와 별개로 안정적.
-    //   ID 가 충돌/랜카드교체로 바뀌어도 이 지문으로 같은 거래처 인식 → remote_id 만 갱신, 상호 유지.
-    //   nullable: 옛 거래처 + 지문 못 읽는 기기(빈값)는 NULL(매칭 제외 = 오매칭 방지).
+    // 기기지문 앵커(마이그 018). machine_uid(Windows=MachineGuid) — remote_id 보다 안정적.
+    // ID 가 충돌/랜카드교체로 바뀌어도 지문으로 같은 거래처를 알아봐 remote_id 만 갱신한다.
+    // nullable: 옛 거래처 + 지문 못 읽는 기기는 NULL 로 두어 매칭에서 빼 오매칭 방지.
     machineUuid: text("machine_uuid"),
-    // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그레이션 013). true 면 일괄푸시 제외 +
+    // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),
     pinOrder: integer("pin_order"),
-    // 자동등록(⑤ auto-enroll) 상태: 'active'(확정) | 'pending'(agent 자가등록 후보 — HQ 패널 확인 대기).
+    // auto-enroll 상태: 'active'(확정) | 'pending'(agent 자가등록 후보 — HQ 패널 확인 대기).
     // 기존/수동추가(importPeer·createCustomer) 거래처는 default 'active'. 마이그 016.
     enrollStatus: text("enroll_status").notNull().default("active"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -146,13 +146,13 @@ export const customers = pgTable(
     tenantIdx: index("idx_customers_tenant").on(t.tenantId),
     assignedIdx: index("idx_customers_assigned_user").on(t.tenantId, t.assignedUserId),
     enrollStatusIdx: index("idx_customers_enroll_status").on(t.tenantId, t.enrollStatus),
-    // 멀티테넌트 격리 + heartbeat-token 안전(마이그레이션 011): remote_id 는 RustDesk 머신 ID
-    // 라 글로벌 유일. 빈/NULL(거래처 ID 등록 전 placeholder) 은 제외하는 partial-unique.
+    // 멀티테넌트 격리 + heartbeat-token 안전(마이그 011): remote_id 는 RustDesk 머신 ID 라
+    // 글로벌 유일. 빈/NULL(거래처 ID 등록 전 placeholder) 은 빼는 partial-unique.
     remoteIdUniq: uniqueIndex("uq_customers_remote_id")
       .on(t.remoteId)
       .where(sql`${t.remoteId} IS NOT NULL AND ${t.remoteId} <> ''`),
-    // 기기지문 앵커(마이그 018). 한 기기 = 한 거래처(테넌트 내). 빈/NULL 제외 partial-unique
-    //   → 지문 못 읽는 기기들(빈값)이 서로 오매칭되지 않게.
+    // 기기지문 앵커(마이그 018). 테넌트 내 한 기기 = 한 거래처. 빈/NULL 빼는 partial-unique
+    // 라 지문 못 읽는 기기들끼리 오매칭되지 않는다.
     machineUuidIdx: index("idx_customers_machine_uuid").on(t.tenantId, t.machineUuid),
     machineUuidUniq: uniqueIndex("uq_customers_machine_uuid")
       .on(t.tenantId, t.machineUuid)
@@ -160,12 +160,11 @@ export const customers = pgTable(
   }),
 );
 
-// 직원별 즐겨찾기 — 본사 앱의 "즐겨찾기" 탭은 로그인한 직원 본인의 것만,
-// 관리 패널에서는 모든 직원의 즐겨찾기를 모두 조회 가능.
-// 마이그레이션: 005_user_favorites.sql (최초), 008_user_favorites_orphan.sql (remote_id 기반 개편).
+// 직원별 즐겨찾기 — 본사 앱의 "즐겨찾기" 탭은 본인 것만, 패널은 전 직원 것을 다 본다.
+// 마이그: 005_user_favorites.sql (최초), 008_user_favorites_orphan.sql (remote_id 기반 개편).
 //
-// 2026-05-27 개편: customers 에 없는 머신(HQ workstation, 옵션 B+ 본사 PC)도 즐겨찾기 가능하도록
-// remote_id 를 primary 식별자로 사용. customer_id 는 customers 에 있는 경우에만 채움.
+// 2026-05-27 개편: customers 에 없는 머신(HQ workstation, 옵션 B+ 본사 PC)도 즐겨찾기 되도록
+// remote_id 를 primary 식별자로. customer_id 는 customers 에 있을 때만 채운다.
 export const userFavorites = pgTable(
   "user_favorites",
   {
@@ -206,13 +205,13 @@ export const supportSessions = pgTable(
   (t) => ({ startedIdx: index("idx_sessions_tenant_started").on(t.tenantId, t.startedAt) }),
 );
 
-// 거래처 PC 푸시 업데이트 큐 (마이그레이션 009, 2026-05-29).
-// Chang 이 관리 패널에서 "v1.3.5 푸시" 클릭 시 거래처별 1행 INSERT.
-// Agent 가 자기 token + remote_id 로 5분 폴링 → 자기 행 발견하면 영업시간 가드 통과 후
-// 사일런트 설치 → applied_at 채워서 보고. 일괄 푸시는 bulk_batch_id 로 N행 묶음.
+// 거래처 PC 푸시 업데이트 큐 (마이그 009, 2026-05-29).
+// Chang 이 패널에서 "v1.3.5 푸시" 하면 거래처별 1행 INSERT. Agent 가 자기 token +
+// remote_id 로 5분 폴링, 자기 행을 찾으면 영업시간 가드 통과 후 사일런트 설치하고
+// applied_at 채워 보고. 일괄 푸시는 bulk_batch_id 로 N행을 묶는다.
 //
-// Pull 모델: NAS 가 Agent 에게 push 신호 안 쏨. Agent 가 자기 페이스로 폴링.
-// → 2000+ 거래처 일괄 푸시해도 NAS 부하 = N개 INSERT 1회. 트래픽 분산은 Agent 무작위지연.
+// Pull 모델 — NAS 가 push 신호를 쏘지 않고 Agent 가 자기 페이스로 폴링. 2000+ 거래처를
+// 일괄 푸시해도 NAS 부하는 INSERT N행 1회뿐. 트래픽 분산은 Agent 무작위지연이 맡는다.
 export const pendingUpdates = pgTable(
   "pending_updates",
   {
@@ -225,16 +224,16 @@ export const pendingUpdates = pgTable(
     assetSha256: text("asset_sha256").notNull(),
     assetSize: integer("asset_size").notNull(),
     // 영업시간 가드 (0~23 시). default 00:00~07:00 = 자정~새벽7시 무인적용.
-    // 24시간 영업/심야영업 거래처 보호 (Chang 결정 2026-05-29).
+    // 24시간/심야영업 거래처 보호 (Chang 결정 2026-05-29).
     windowStartHour: integer("window_start_hour").notNull().default(0),
     windowEndHour: integer("window_end_hour").notNull().default(7),
-    // 무작위지연 상한 (초). Agent 가 푸시 감지 후 rand(0..randomizeMaxSec) 대기.
-    // default 25200 = 7시간 창 전체. 2000+ 거래처 NAS/회선 부하 분산.
+    // 무작위지연 상한 (초). Agent 가 푸시 감지 후 rand(0..randomizeMaxSec) 만큼 대기.
+    // default 25200 = 7시간 창 전체. 2000+ 거래처 NAS/회선 부하 분산용.
     randomizeMaxSec: integer("randomize_max_sec").notNull().default(25200),
     // 일괄 푸시 그룹 ID. 일괄=N행이 같은 UUID, 개별=NULL.
     bulkBatchId: uuid("bulk_batch_id"),
     requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
-    // 상태 timestamp — applied/cancelled/failed 중 1개만 채워짐. 미채워짐 = 대기 중.
+    // 상태 timestamp — applied/cancelled/failed 중 하나만 채워진다. 셋 다 비면 대기 중.
     appliedAt: timestamp("applied_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     failedAt: timestamp("failed_at", { withTimezone: true }),
@@ -243,11 +242,11 @@ export const pendingUpdates = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    // Agent 폴링은 (tenant, customer, status=대기) 로 1행만 픽업.
+    // Agent 폴링이 (tenant, customer, status=대기) 로 1행만 집어간다.
     customerIdx: index("idx_pending_updates_customer").on(t.tenantId, t.customerId),
-    // 관리 패널의 일괄 진행률 조회 ("v1.3.5 적용 1847/2000").
+    // 패널 일괄 진행률 ("v1.3.5 적용 1847/2000").
     bulkIdx: index("idx_pending_updates_bulk").on(t.bulkBatchId),
-    // 거래처 표의 "대기 중 업데이트 있음" 배지 조회.
+    // 거래처 표의 "대기 중 업데이트 있음" 배지.
     tenantIdx: index("idx_pending_updates_tenant").on(t.tenantId),
   }),
 );
@@ -265,9 +264,9 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// 좌석 과금 — 단일 동시세션 enforcement (마이그레이션 010, 2026-06-04 Chang 결정).
-// 한 HQ 계정 = 동시 1세션. user_id PK 로 계정당 active 1건 강제. takeover = UPSERT.
-// HQ 앱이 ~10초 heartbeat 로 last_seen_at 갱신. jti 불일치 = 인계당함 = REVOKED.
+// 좌석 과금 — 단일 동시세션 enforcement (마이그 010, 2026-06-04 Chang 결정).
+// 한 HQ 계정 = 동시 1세션. user_id PK 로 계정당 active 1건만 강제, takeover 는 UPSERT.
+// HQ 앱이 ~10초 heartbeat 로 last_seen_at 갱신. jti 불일치면 인계당한 것 = REVOKED.
 // 백워드 호환(§8): 옛 앱(device_id 미전송)은 이 테이블에 행을 안 만든다.
 // 상세: docs/chainremote/SEAT_ENFORCEMENT.md
 export const activeLoginSessions = pgTable(

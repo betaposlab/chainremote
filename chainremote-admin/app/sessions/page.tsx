@@ -24,7 +24,7 @@ export default async function SessionsPage({
   const { period: periodParam, customerId } = await searchParams;
   const period: Period = periodParam && periodParam in PERIODS ? periodParam : "month";
 
-  // ★ 테넌트 격리: 로그인 사용자 회사로 한정 (하드코딩 betaposlab 제거).
+  // 테넌트 격리: 로그인 사용자 회사로 한정.
   const session = await auth();
   if (!session?.user) redirect("/login");
   const tenant = (

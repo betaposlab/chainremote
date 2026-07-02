@@ -1,6 +1,6 @@
-// 거래처 원격 ID 표시 포맷 — 앱(Flutter)·에이전트(Sciter)와 동일 규칙.
-//   새 형식 "AB12345678"(글자2+숫자8) → "AB 1234 5678" (앞글자 대문자).
-//   기존 숫자 ID(7~9자리 등)는 3자리씩 그룹화(하위호환). 그 외는 원본 그대로.
+// 거래처 원격 ID 표시 포맷 — 앱(Flutter)·에이전트(Sciter)와 같은 규칙.
+//   새 형식 "AB12345678" → "AB 1234 5678" (앞글자 대문자).
+//   구형 숫자 ID 는 3자리씩 그룹화(하위호환). 그 외는 원본 그대로.
 export function formatRemoteId(id: string | null | undefined): string {
   if (!id) return "";
   const s = id.replace(/\s/g, "");

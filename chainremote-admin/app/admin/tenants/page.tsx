@@ -1,5 +1,5 @@
-// 회사(tenant) 목록 — super_admin 전용. 다른 tenant 안 데이터(거래처/세션/이력)
-// 는 *조회하지 않음*. 등록일/요금/구독상태/비번 리셋만.
+// 회사(tenant) 목록 — super_admin 전용. 각 tenant 내부 데이터(거래처/세션/이력)는 보지 않고
+// 등록일/요금/구독상태/비번 리셋만 다룬다.
 
 import Link from "next/link";
 import { redirect } from "next/navigation";

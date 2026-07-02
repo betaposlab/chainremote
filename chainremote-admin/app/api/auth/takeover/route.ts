@@ -1,9 +1,6 @@
-// POST /api/auth/takeover — 기기 B 가 "강제 종료하고 사용" 선택 시.
-// 요청: { email, password, deviceId, deviceLabel? }
-// 응답: { token, expiresIn, user }  /  401 자격 실패  /  400 입력 누락
-//
-// 자격 재검증(로그인과 동일) → active 를 새 기기로 덮어씀(새 jti) → 토큰 발급.
-// 옛 기기의 jti 는 이 순간 무효 → 옛 기기 다음 heartbeat 가 401 REVOKED 받고 스스로 종료.
+// POST /api/auth/takeover — 기기 B 가 "강제 종료하고 사용" 눌렀을 때.
+// 자격 재검증(로그인과 동일) → active 좌석을 새 기기로 덮어쓰고(새 jti) 토큰 발급.
+// 옛 기기의 jti 는 이 순간 무효 → 다음 heartbeat 가 401 REVOKED 받고 스스로 종료.
 // 스펙: docs/chainremote/SEAT_ENFORCEMENT.md §5
 
 import { and, eq } from "drizzle-orm";
@@ -39,7 +36,7 @@ export async function POST(req: Request) {
     const emailRl = rateLimit(`login:email:${email.toLowerCase()}`, 6, 60_000);
     if (!emailRl.allowed) return tooManyRequests(emailRl.retryAfterSec);
 
-    // C1: email 전역 유니크(마이그레이션 012)라 단독 조회 안전. H1: 테넌트 상태 동시 조회.
+    // email 전역 유니크(마이그 012)라 단독 조회 안전 + 테넌트 상태도 같이 join.
     const rows = await db
       .select({
         id: users.id,
@@ -60,7 +57,7 @@ export async function POST(req: Request) {
     if (!bcrypt.compareSync(password, u.passwordHash)) {
       throw new ApiAuthError(401, "자격 실패");
     }
-    // H1: 정지/해지 테넌트 차단 (super_admin 예외 — 자기잠금 방지).
+    // 정지/해지 테넌트 차단 (super_admin 은 자기잠금 방지로 예외).
     if (
       u.role !== "super_admin" &&
       (!u.tenantActive || u.subscriptionStatus !== "active")

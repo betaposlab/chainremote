@@ -33,7 +33,7 @@ export function TenantRowActions({
     null,
   );
 
-  // ⑤ 이 대리점 전용 에이전트 .exe 다운로드 — 키 (재)발급 + overlay 박힌 설치파일.
+  // 이 대리점 전용 에이전트 .exe 다운로드 — 키 (재)발급 후 overlay 를 박아 내려준다.
   async function doDownload() {
     const warn = hasEnrollKey
       ? `'${displayName}' 전용 거래처 에이전트(.exe)를 다시 다운로드합니다.\n\n⚠️ 새 키가 발급되어, 이전에 받은 .exe 는 신규 거래처 등록이 안 됩니다.\n(이미 등록·설치된 거래처는 영향 없이 계속 작동)\n→ 이 새 .exe 를 대리점에 전달하세요.`
@@ -53,8 +53,8 @@ export function TenantRowActions({
         throw new Error(msg);
       }
       const blob = await resp.blob();
-      // 파일명 = 회사명 기반 (slug 랜덤문자열 노출 방지). 파일명 금지문자 제거 + 공백압축 +
-      //   50자 캡(상호가 길어도 NTFS 255/MAX_PATH 260 안전 — 실제론 35자 내외).
+      // 파일명은 slug 랜덤문자열 대신 회사명 기반. 금지문자 제거 + 공백 압축 + 50자 캡으로
+      //   NTFS 255/MAX_PATH 260 안에 안전하게 둔다(실제론 35자 내외).
       const safe =
         (displayName.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim() ||
           tenantId).slice(0, 50);
@@ -191,7 +191,7 @@ export function TenantRowActions({
   );
 }
 
-// ⑤ 에이전트 키 발급 결과 — reveal-once. 평문 키는 *이 화면에서만* 보임.
+// 에이전트 키 발급 결과 — reveal-once. 평문 키는 이 화면에서만 보인다.
 function EnrollKeyDialog({
   result,
   onClose,

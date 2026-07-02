@@ -1,10 +1,10 @@
 "use server";
 
-// 회사(다른 tenant)의 직원(아이디) 관리 — super_admin(Chang) 전용.
+// 다른 tenant 의 직원(아이디) 관리 — super_admin(Chang) 전용.
 //
-// lib/actions/users.ts 는 자기 tenant 격리(me.tenantId) 라 다른 회사 사용자를 못 다룸.
-// 여기는 super_admin 이 회사 상세(/admin/tenants/[id]/edit)에서 지정한 tenantId 안에서만
-// 동작 — 모든 쿼리 WHERE 에 tenantId 를 강제해 엉뚱한 회사 사용자를 건드리지 못하게 한다.
+// users.ts 는 me.tenantId 로 자기 회사에 격리돼 다른 회사 사용자를 못 건드린다.
+// 여기선 super_admin 이 회사 상세 페이지에서 고른 tenantId 안에서만 동작하며,
+// 모든 쿼리 WHERE 에 그 tenantId 를 강제해 엉뚱한 회사를 건드리지 못하게 한다.
 
 import { db } from "@/lib/db";
 import { users } from "@/lib/schema";
@@ -50,7 +50,7 @@ export async function adminCreateUser(tenantId: string, formData: FormData) {
   if (!displayName) throw new Error("이름 필수");
   if (!password || password.length < 4) throw new Error("비번 4자 이상");
 
-  await assertEmailAvailable(email); // C1: 전역 email 중복 사전검사 (최종 방어는 마이그레이션 012)
+  await assertEmailAvailable(email); // 전역 email 중복 사전검사 (최종 방어는 마이그 012 유니크)
   const passwordHash = bcrypt.hashSync(password, BCRYPT_COST);
   await db.insert(users).values({
     tenantId,
@@ -76,7 +76,7 @@ export async function adminCreateUserGlobal(formData: FormData) {
   if (!displayName) throw new Error("이름 필수");
   if (!password || password.length < 4) throw new Error("비번 4자 이상");
 
-  await assertEmailAvailable(email); // C1: 전역 email 중복 사전검사 (최종 방어는 마이그레이션 012)
+  await assertEmailAvailable(email); // 전역 email 중복 사전검사 (최종 방어는 마이그 012 유니크)
   const passwordHash = bcrypt.hashSync(password, BCRYPT_COST);
   await db.insert(users).values({
     tenantId,

@@ -1,21 +1,16 @@
-// 거래처 상태 — "마지막 접속" relative time + 버전 + 색상 코드 + 업데이트 건강도(brick 감지).
+// 거래처 상태 — 마지막 heartbeat 상대시각 + 버전 + 색상 + 업데이트 건강도(brick 감지).
 //
-// heartbeat 색상 규칙:
-//   - 녹색 (online): 10분 이내 heartbeat
-//   - 주황 (idle): 10분 ~ 1시간
-//   - 빨강 (offline): 1시간 이상 또는 heartbeat 없음 (옛 v1.3.1 미만)
-//   - 회색 (unknown): heartbeat 0건 — 거래처가 옛 binary 또는 신규 등록 직후
+// heartbeat 색상: 10분 이내 녹색, 1시간 이내 주황, 그 이상/미보고 빨강,
+// heartbeat 0건이면 회색(옛 binary 거나 등록 직후).
 //
-// 업데이트 건강도 (자동업데이트 brick 가시화 — 2026-06-05):
-//   에이전트는 설치를 "실행"만 하면 즉시 패널에 applied 보고함(완료 확인 전). 이후 설치가
-//   실패(copy 깨짐 등)하면 패널엔 성공인데 거래처는 죽어있음(brick). heartbeat 가 보고하는
-//   버전이 push 목표 버전으로 안 올라가면 그 사고를 여기서 드러냄.
-//   - failed:  에이전트가 명시적으로 실패 보고 (failed_at)
-//   - brick:   applied 됐는데 GRACE 시간 지나도 heartbeat 버전이 목표로 안 올라감 (의심)
-//   - pending: applied 됐고 아직 GRACE 시간 내 (설치+heartbeat 도는 중)
-//   - ok:      heartbeat 버전 == 목표 버전 (정상 적용 확인)
+// 업데이트 건강도 (자동업데이트 brick 가시화, 2026-06-05):
+//   에이전트는 설치를 "실행"만 해도 완료 확인 전에 곧장 applied 를 보고한다. 그 뒤 설치가
+//   깨지면(copy 실패 등) 패널엔 성공, 거래처는 사망(brick) 상태가 된다. heartbeat 버전이
+//   push 목표 버전까지 안 올라오면 그 어긋남을 여기서 드러낸다.
+//   failed=명시적 실패 보고 / brick=applied 후 GRACE 지나도 버전 정체 / pending=GRACE 내 /
+//   ok=heartbeat 버전이 목표 이상.
 
-export const BRICK_GRACE_MIN = 20; // applied 후 이 시간 지나도 버전 안 오르면 brick 의심 (heartbeat 10분 주기 2회 여유)
+export const BRICK_GRACE_MIN = 20; // applied 후 이만큼 지나도 버전 안 오르면 brick 의심 (heartbeat 2주기 여유)
 
 export type UpdateInfo = {
   targetVersion: string;
@@ -31,8 +26,8 @@ export type UpdateHealth =
   | { kind: "ok"; targetVersion: string }
   | null;
 
-// 버전 비교 — "현재가 목표보다 낮은가"(=업뎃이 안 올라갔나). null(미보고)은 낮음으로 취급.
-// 현재가 목표 이상(같거나 더 새 버전)이면 정상 — 이후 더 새 버전을 받은 경우(예: 우리집)도 정상.
+// 현재 버전이 목표보다 낮은지. null(미보고)은 낮음으로 취급. 목표 이상이면 정상으로 보므로
+// 이후 더 새 버전을 받은 경우(예: 우리집)도 정상.
 function parseVer(v: string): [number, number, number] {
   const p = v.split(/[.\-+]/).map((x) => parseInt(x, 10) || 0);
   return [p[0] ?? 0, p[1] ?? 0, p[2] ?? 0];
@@ -48,7 +43,7 @@ function isOlder(current: string | null, target: string): boolean {
   return false; // 같음
 }
 
-// 순수 함수 — 컴포넌트(배지)와 페이지(요약 카운트) 양쪽에서 동일 판정.
+// 순수 함수라 배지 컴포넌트와 페이지 요약 카운트가 같은 판정을 공유한다.
 export function computeUpdateHealth(
   update: UpdateInfo | undefined,
   lastVersion: string | null,
@@ -57,11 +52,11 @@ export function computeUpdateHealth(
   if (update.failedAt)
     return { kind: "failed", targetVersion: update.targetVersion, failureReason: update.failureReason ?? null };
   if (update.appliedAt) {
-    // 현재 버전이 목표 이상이면 정상 적용 (같거나 더 새 버전 — 이후 다른 업뎃 받은 경우 포함).
+    // 현재 버전이 목표 이상이면 정상 적용 (이후 다른 업뎃 받은 경우 포함).
     if (!isOlder(lastVersion, update.targetVersion)) {
       return { kind: "ok", targetVersion: update.targetVersion };
     }
-    // 현재가 목표보다 낮음 = "적용됨" 보고됐는데 버전이 안 올라감 → 의심.
+    // "적용됨" 보고됐는데 버전은 그대로 = 의심.
     const ageMin = Math.floor((Date.now() - new Date(update.appliedAt).getTime()) / 60_000);
     if (ageMin >= BRICK_GRACE_MIN) {
       return { kind: "brick", targetVersion: update.targetVersion, ageMin };
@@ -82,7 +77,7 @@ export function CustomerStatus({
   update?: UpdateInfo;
   isInternal?: boolean;
 }) {
-  // 내부 기기(본사/Mac/빌드머신): 상태 칸 빈칸 — heartbeat/버전/배지 전부 숨김. 자동업뎃 대상 아님.
+  // 내부 기기(본사/Mac/빌드머신)는 자동업뎃 대상이 아니라 상태 칸을 통째로 비운다.
   if (isInternal) {
     return null;
   }
@@ -103,8 +98,8 @@ export function CustomerStatus({
   );
 }
 
-// HQ 본사앱 직원 상태 — 마지막 heartbeat(접속) + HQ 버전 + 옛버전 경고. 거래처(CustomerStatus)의 HQ 판.
-// lastHeartbeatAt 은 ISO 문자열(서버→클라 직렬화). targetVersion=최신 발행 HQ 버전(latest.json), null이면 비교 생략.
+// HQ 본사앱 직원 상태 — CustomerStatus 의 HQ 판. 마지막 접속 + HQ 버전 + 옛버전 경고.
+// lastHeartbeatAt 은 서버→클라 직렬화된 ISO 문자열. targetVersion(최신 발행 HQ 버전)이 null이면 비교 생략.
 export function HqStatus({
   lastVersion,
   lastHeartbeatAt,

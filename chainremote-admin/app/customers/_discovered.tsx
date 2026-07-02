@@ -11,7 +11,7 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
   const [pending, start] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // "추가" 클릭 시 상호 입력 다이얼로그를 띄울 대상 peer + 입력 초안.
+  // "추가" 클릭 시 상호 입력 다이얼로그를 띄울 대상 peer 와 입력 초안.
   const [dialogPeer, setDialogPeer] = useState<OrphanFavorite | null>(null);
   const [nameDraft, setNameDraft] = useState("");
 
@@ -43,7 +43,7 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
     });
   };
 
-  // 후보 삭제 — orphan 즐겨찾기를 제거해 배너에서 치움(테스트 머신 등). 확인 후 실행.
+  // 후보 삭제 — orphan 즐겨찾기를 지워 배너에서 치운다(테스트 머신 등). 확인 후 실행.
   const onDismiss = (p: OrphanFavorite) => {
     if (
       !confirm(

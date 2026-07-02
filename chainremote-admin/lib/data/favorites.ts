@@ -1,20 +1,20 @@
-// 직원별 즐겨찾기 데이터 레이어 — 본사 앱과 패널 양쪽 공유.
-// 마이그레이션: 005_user_favorites.sql (최초), 008_user_favorites_orphan.sql (remote_id 기반 개편).
+// 직원별 즐겨찾기 데이터 레이어 — 본사 앱과 패널이 공유.
+// 마이그: 005_user_favorites.sql(최초), 008_user_favorites_orphan.sql(remote_id 기반 개편).
 //
-// 2026-05-27 개편: remote_id 가 primary 식별자. customer_id 는 customers 에 등록된 경우만 채움.
-// 옵션 B+ HQ workstation 처럼 customers 에 없는 머신도 즐겨찾기 가능.
+// 2026-05-27 개편으로 remote_id 가 primary 식별자, customer_id 는 customers 에 등록된 경우만 채운다.
+// 덕분에 옵션 B+ HQ workstation 처럼 customers 에 없는 머신도 즐겨찾기할 수 있다.
 
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customers, userFavorites, users } from "@/lib/schema";
 
-/** 본사 앱의 "즐겨찾기" 탭 — 내가 즐겨찾기한 머신 전체.
- * customer 가 customers 에 등록돼 있으면 customer 정보, 아니면 orphan(null). */
+/** 본사 앱 "즐겨찾기" 탭 — 내가 즐겨찾기한 머신 전체.
+ * customers 에 등록된 머신이면 customer 정보, 아니면 orphan(null). */
 export async function listMyFavorites(userId: string, tenantId: string) {
   const rows = await db
     .select({
       remoteId: userFavorites.remoteId,
-      customer: customers, // LEFT JOIN → 매칭 없으면 모든 컬럼 null.
+      customer: customers, // LEFT JOIN — 매칭 없으면 모든 컬럼 null
       favoritedAt: userFavorites.createdAt,
     })
     .from(userFavorites)
@@ -24,8 +24,8 @@ export async function listMyFavorites(userId: string, tenantId: string) {
     )
     .orderBy(desc(userFavorites.createdAt));
 
-  // Drizzle leftJoin 은 매칭 없을 때 customer 의 모든 필드가 null 인 객체를 반환.
-  // 클라이언트가 Option<Customer> 로 해석 가능하도록 명시적 null 로 변환.
+  // Drizzle leftJoin 은 매칭이 없어도 필드가 전부 null 인 customer 객체를 준다.
+  //   클라이언트가 Option<Customer> 로 다루도록 그런 경우는 통째 null 로 바꿔준다.
   return rows.map((r) => ({
     remoteId: r.remoteId,
     customer: r.customer && r.customer.id ? r.customer : null,
@@ -33,7 +33,7 @@ export async function listMyFavorites(userId: string, tenantId: string) {
   }));
 }
 
-/** 머신이 내 즐겨찾기에 있는지 — UI 별표 토글 상태 표시용. remote_id 기준. */
+/** 이 머신이 내 즐겨찾기에 있는지 — 별표 토글 상태 표시용. remote_id 기준. */
 export async function isFavorited(
   userId: string,
   remoteId: string,
@@ -46,14 +46,14 @@ export async function isFavorited(
   return rows.length > 0;
 }
 
-/** 즐겨찾기 추가 — remote_id 기준 idempotent. customers 에 매칭되면 customer_id 도 박음. */
+/** 즐겨찾기 추가 — remote_id 기준 idempotent. customers 에 매칭되면 customer_id 도 채운다. */
 export async function addFavoriteByRemoteId(
   userId: string,
   remoteId: string,
   tenantId: string,
   meta?: { hostname?: string | null; alias?: string | null },
 ): Promise<{ matched: boolean }> {
-  // 1) customers 에 같은 remote_id 가 있으면 customer_id 동기화.
+  // 1) customers 에 같은 remote_id 가 있으면 customer_id 를 함께 채운다.
   const matched = await db
     .select({ id: customers.id })
     .from(customers)
@@ -61,8 +61,8 @@ export async function addFavoriteByRemoteId(
     .limit(1);
   const customerId = matched.length > 0 ? matched[0].id : null;
 
-  // 2) insert. 충돌 시: meta(hostname/alias)가 있으면 backfill 갱신, 없으면 그대로 둠
-  //    (메타 없는 재즐겨찾기가 기존 값을 null 로 덮지 않도록 가드).
+  // 2) insert. 충돌 시 meta(hostname/alias)가 있으면 backfill, 없으면 그대로 둔다
+  //    — meta 없는 재즐겨찾기가 기존 값을 null 로 덮지 않도록.
   await db
     .insert(userFavorites)
     .values({
@@ -80,9 +80,9 @@ export async function addFavoriteByRemoteId(
         : {},
     });
 
-  // ③ 즐겨찾기 = 차지(claim): 미배정(🆕 등록대기) 거래처를 처음 즐겨찾기한 사람이 담당이 됨.
-  //   원자적 first-wins — assigned_user_id IS NULL 일 때만 세팅. 이미 배정돼 있으면 no-op →
-  //   다른 직원도 같은 거래처를 공유 즐겨찾기 가능(담당은 그대로). 차지되면 🆕 가 전 HQ 에서 풀림.
+  // 즐겨찾기 = 차지(claim): 미배정(등록대기) 거래처를 처음 즐겨찾기한 사람이 담당이 된다.
+  //   assigned_user_id IS NULL 일 때만 세팅하는 원자적 first-wins. 이미 배정돼 있으면 no-op 이라
+  //   다른 직원도 같은 거래처를 공유 즐겨찾기할 수 있다(담당은 그대로). 차지되면 신규 표시가 전 HQ 에서 풀린다.
   if (customerId) {
     await db
       .update(customers)
@@ -103,9 +103,9 @@ export async function removeFavoriteByRemoteId(
     .where(and(eq(userFavorites.userId, userId), eq(userFavorites.remoteId, remoteId)));
 }
 
-/** "신규 거래처 후보" 무시/삭제 — 해당 remote_id 의 미등록(customer_id NULL) 즐겨찾기를
- *  테넌트 전체에서 제거 → 후보 배너에서 사라진다. customer_id 가 있는(등록된 거래처) 즐겨찾기는
- *  안 건드림(isNull 게이트). 테넌트 스코프 강제. */
+/** "신규 거래처 후보" 무시/삭제 — 그 remote_id 의 미등록(customer_id NULL) 즐겨찾기를
+ *  테넌트 전체에서 지워 후보 배너에서 사라지게 한다. 등록된 거래처(customer_id 있음)의
+ *  즐겨찾기는 isNull 게이트로 건드리지 않는다. */
 export async function dismissOrphanCandidate(
   tenantId: string,
   remoteId: string,
@@ -121,8 +121,8 @@ export async function dismissOrphanCandidate(
     );
 }
 
-/** 관리 패널 — 특정 거래처를 즐겨찾기한 직원 목록.
- * 거래처 등록된 머신만(customer_id 매칭) 추적 — orphan 즐겨찾기는 customer 없으니 자동 제외. */
+/** 관리 패널 — 이 거래처를 즐겨찾기한 직원 목록.
+ * customer_id 로 매칭하므로 등록된 머신만 잡히고 orphan 즐겨찾기는 자동 제외. */
 export async function listFavoritersOfCustomer(customerId: string, tenantId: string) {
   return db
     .select({
@@ -141,15 +141,15 @@ export async function listFavoritersOfCustomer(customerId: string, tenantId: str
 
 /** 관리 패널 "신규 거래처 후보" 배너의 데이터 출처.
  * customers 에 아직 없는 orphan 즐겨찾기(customer_id NULL)를 remote_id 로 묶어 반환한다.
- * 출처가 DB(진실 원천)이므로 패널이 NAS 에서 돌든 로컬이든 동일하게 작동한다.
- * (구 lib/peer-discovery.ts 의 로컬 .toml 스캔 방식을 대체 — 그건 패널이 Chang Mac 에서
- *  직접 실행될 때만 동작했고, NAS 컨테이너에선 항상 빈 배열이었음.) */
+ * DB(진실 원천)에서 읽으므로 패널이 NAS 든 로컬이든 똑같이 동작한다.
+ * (구 lib/peer-discovery.ts 의 로컬 .toml 스캔을 대체. 그건 패널이 Chang Mac 에서 직접
+ *  돌 때만 됐고 NAS 컨테이너에선 늘 빈 배열이었다.) */
 export type OrphanFavorite = {
   remoteId: string;
   favoritedBy: string[]; // 즐겨찾기한 직원 displayName 목록
   favoritedAt: Date; // 가장 최근 즐겨찾기 시각
-  hostname: string | null; // 원격PC hostname (HQ 가 즐겨찾기 시 동봉)
-  alias: string | null; // 운영자 별칭 (예 "삼성공판장")
+  hostname: string | null; // 원격PC hostname (HQ 가 즐겨찾기할 때 동봉)
+  alias: string | null; // 운영자 별칭 (예: "삼성공판장")
 };
 
 export async function listOrphanFavorites(
@@ -170,8 +170,8 @@ export async function listOrphanFavorites(
     )
     .orderBy(desc(userFavorites.createdAt));
 
-  // 같은 머신을 여러 직원이 즐겨찾기했을 수 있으니 remote_id 로 그룹핑.
-  // rows 가 createdAt desc → 첫 등장이 최신, Map 삽입 순서로 최신순 유지.
+  // 같은 머신을 여러 직원이 즐겨찾기했을 수 있어 remote_id 로 그룹핑.
+  //   rows 가 createdAt desc 라 각 remote_id 의 첫 등장이 최신 = Map 삽입 순서가 곧 최신순.
   const byRemote = new Map<string, OrphanFavorite>();
   for (const r of rows) {
     const existing = byRemote.get(r.remoteId);
@@ -179,7 +179,7 @@ export async function listOrphanFavorites(
       if (r.displayName && !existing.favoritedBy.includes(r.displayName)) {
         existing.favoritedBy.push(r.displayName);
       }
-      // 최신(첫 등장)이 우선이지만, 비어있으면 옛 행 값으로 backfill.
+      // 최신(첫 등장) 값이 우선이되, 비어 있으면 옛 행 값으로 backfill.
       if (!existing.hostname && r.hostname) existing.hostname = r.hostname;
       if (!existing.alias && r.alias) existing.alias = r.alias;
     } else {
@@ -196,8 +196,8 @@ export async function listOrphanFavorites(
 }
 
 /** importPeer/createCustomer 가 remote_id 로 거래처를 만들 때, 같은 remote_id 의
- * orphan 즐겨찾기(customer_id NULL)들을 새 customer 에 연결한다.
- * → "신규 거래처 후보" 배너에서 사라지고, 직원 즐겨찾기 탭엔 거래처 정보가 채워진다. */
+ * orphan 즐겨찾기(customer_id NULL)를 새 customer 에 연결한다.
+ * 그러면 "신규 거래처 후보" 배너에서 빠지고, 직원 즐겨찾기 탭엔 거래처 정보가 채워진다. */
 export async function linkFavoritesToCustomer(
   remoteId: string,
   customerId: string,

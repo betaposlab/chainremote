@@ -1,5 +1,5 @@
-// 회사(tenant) 정보 수정 — super_admin 전용. 등록 후 사업자/요금/연락처 변경.
-// slug 와 관리자 계정은 수정 불가(URL break + 별도 사용자 관리).
+// 회사(tenant) 정보 수정 — super_admin 전용. 사업자/요금/연락처를 바꾼다.
+// slug 는 URL 이 깨져서, 관리자 계정은 사용자 관리에서 따로 다뤄서 여기선 못 고친다.
 
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";

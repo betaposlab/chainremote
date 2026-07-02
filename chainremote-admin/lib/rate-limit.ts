@@ -1,8 +1,7 @@
-// 단순 in-memory 슬라이딩 윈도우 rate-limiter.
-// 용도: 인증/토큰 발급 엔드포인트의 brute-force·스캔 방어 (로그인 비번 대입,
-//       register-heartbeat-token 의 remote_id 스캔). 단일 NAS Node 프로세스라 모듈
-//       전역 상태가 요청 간 유지됨(서버리스 아님). 재시작 시 리셋 — 허용 가능한 트레이드오프.
-//       다중 인스턴스로 가면 PG/Redis 기반으로 교체.
+// in-memory 슬라이딩 윈도우 rate-limiter.
+// 인증/토큰 엔드포인트의 brute-force·스캔 방어용(로그인 비번 대입, register-heartbeat-token
+// 의 remote_id 스캔). 단일 NAS Node 프로세스라 모듈 전역 상태가 요청 간 살아있다(서버리스 아님).
+// 재시작하면 리셋되지만 감수. 다중 인스턴스로 가면 PG/Redis 로 교체.
 
 const buckets = new Map<string, number[]>();
 let lastSweep = 0;

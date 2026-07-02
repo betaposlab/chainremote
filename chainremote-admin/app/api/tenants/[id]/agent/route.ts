@@ -1,16 +1,12 @@
-// POST /api/tenants/[id]/agent
+// POST /api/tenants/[id]/agent — 대리점(tenant) 전용 거래처 에이전트 .exe 다운로드.
+// 베이스 설치파일 끝에 그 대리점 설정(overlay)을 덧붙여 스트리밍한다. 인스톨러의
+// extract-enroll-overlay.ps1 이 overlay 를 custom.txt 로 풀어, 그 .exe 로 깐 가맹점은
+// 자동으로 이 대리점 소속(tenant_id)으로 enroll 된다.
 //
-// 이 대리점(tenant) 전용 거래처 에이전트 설치파일(.exe) 다운로드 — super_admin(Chang) 전용.
-//   = enroll-key (재)발급 + 베이스 설치파일 끝에 그 대리점 설정(overlay)을 덧붙여 스트리밍.
-//   설치 시 인스톨러의 extract-enroll-overlay.ps1 이 이 overlay 를 읽어 custom.txt 로 적용 →
-//   그 .exe 로 깐 가맹점은 자동으로 이 대리점 소속(tenant_id)으로 enroll.
+// enroll-key 는 스테이블(암호화 평문이 있으면 재사용) — 재다운로드해도 같은 키라 이전
+// .exe 도 유효하다.
 //
-// ★ 다운로드할 때마다 키가 (재)발급된다(평문은 DB 에 저장 안 하므로 같은 .exe 재생성 불가).
-//   → 받은 .exe 를 보관/배포. 다시 받으면 새 키라 이전 .exe 는 *신규* 등록 불가
-//     (이미 등록된 거래처는 heartbeat-token 기반이라 무영향). UI 가 경고.
-//
-// overlay 포맷(= extract-enroll-overlay.ps1 가 읽는 형식):
-//   [ ...base.exe ][ UTF-8 custom.txt ][ int32 LE length ][ 8-byte ASCII "CRENROL1" ]
+// overlay 포맷: [ ...base.exe ][ UTF-8 custom.txt ][ int32 LE length ][ ASCII "CRENROL1" ]
 
 import { auth } from "@/auth";
 import { getTenant, getOrCreateEnrollKey } from "@/lib/data/tenants";

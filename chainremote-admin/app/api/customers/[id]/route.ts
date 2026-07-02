@@ -1,5 +1,5 @@
-// GET    /api/customers/:id  → 단일 조회 (chang/jaesung 둘 다)
-// PATCH  /api/customers/:id  → 수정 (owner 만 — Phase 2 결정 #7)
+// GET    /api/customers/:id  → 단일 조회 (전 직원)
+// PATCH  /api/customers/:id  → 수정 (owner 만 — 결정 #7)
 // DELETE /api/customers/:id  → 삭제 (owner 만)
 
 import {

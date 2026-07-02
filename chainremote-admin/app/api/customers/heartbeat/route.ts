@@ -1,18 +1,6 @@
-// POST /api/customers/heartbeat
-//
-// Agent 가 주기적으로 (10~15분) 호출. 토큰 검증 + last_heartbeat_at + last_version update.
-//
-// 인증: X-ChainRemote-Token 헤더. lib/data/customers.ts::recordHeartbeat 가 매칭 + update.
-//
-// 호출 예 (Rust agent):
-//   POST https://sepani.synology.me:3001/api/customers/heartbeat
-//   X-ChainRemote-Token: <64 hex>
-//   Content-Type: application/json
-//   { "remoteId": "129264698", "version": "1.3.2" }
-//
-//   200 → { "ok": true }
-//   401 → { "error": "token 헤더 필수" }
-//   403 → { "error": "token 또는 remoteId 불일치" }
+// POST /api/customers/heartbeat — agent 가 10~15분마다 호출.
+// X-ChainRemote-Token 헤더로 인증하고 last_heartbeat_at + last_version 갱신.
+// 매칭/업데이트는 lib/data/customers.ts::recordHeartbeat.
 
 import * as data from "@/lib/data/customers";
 import { clientIp } from "@/lib/request-ip";
@@ -20,8 +8,8 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
-    // H3: per-IP 완만한 rate-limit (스캔/DoS 백스톱). 600/분 — 실거래처 부하의 10배+ 여유라
-    //     한 NAT 뒤 다중 agent(대리점 수십 POS)도 throttle 안 됨. 토큰 자체가 1차 게이트.
+    // per-IP 완만한 rate-limit (스캔/DoS 백스톱). 600/분이면 NAT 뒤 대리점 수십 POS 도
+    // 안 걸릴 만큼 여유 — 토큰이 어차피 1차 게이트라 여긴 백스톱일 뿐.
     const ip = clientIp(req) ?? "unknown";
     const rl = rateLimit(`cust-hb:${ip}`, 600, 60_000);
     if (!rl.allowed) return tooManyRequests(rl.retryAfterSec);

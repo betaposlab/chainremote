@@ -1,11 +1,10 @@
-// GET /api/agent-push-meta — 푸시 다이얼로그 [최신 가져오기] 용 서버사이드 프록시.
+// GET /api/agent-push-meta — 푸시 다이얼로그 [최신 가져오기] 서버사이드 프록시.
 //
-// 왜 필요? NAS Web Station 의 agent-push.json 은 패널(:3443)과 포트가 달라
-// 브라우저 입장에선 다른 출처(:443) → cross-origin fetch 가 CORS 로 막힘
-// (파일 자체는 200 정상. ACAO 헤더가 없어서 브라우저만 차단).
-// 이 라우트가 서버↔서버(CORS 무관)로 받아 같은 출처로 되돌려줌 → 버튼이 깨끗이 동작.
+// NAS Web Station 의 agent-push.json 은 패널(:3443)과 포트가 달라 브라우저에선
+// cross-origin — 파일은 200 이지만 ACAO 헤더가 없어 브라우저만 CORS 로 막는다.
+// 서버↔서버 fetch 는 CORS 무관이라 여기서 받아 같은 출처로 되돌려준다.
 //
-// 컨테이너에서 도달 가능한 후보 URL 순차 시도 (공인 DDNS hairpin → NAS LAN IP).
+// 컨테이너에서 도달 가능한 후보 순차 시도 (공인 DDNS hairpin → NAS LAN IP).
 
 const META_CANDIDATES = [
   "https://sepani.synology.me/chainremote/agent-push.json",

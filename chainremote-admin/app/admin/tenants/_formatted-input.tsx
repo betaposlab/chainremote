@@ -1,17 +1,16 @@
 "use client";
 
-// 한국 번호 자동 하이픈 입력. 사용자는 숫자만 쭉 쳐도 표시는 하이픈 포함으로.
+// 한국 번호 자동 하이픈 입력. 숫자만 쭉 쳐도 표시는 하이픈이 들어간 꼴로 나온다.
+// 입력 중에는 되는 데까지 부분 포맷, 자릿수가 차면 완전한 하이픈.
 //
-// 포맷:
-//   - businessNo: 사업자번호 XXX-XX-XXXXX (10자리)
-//   - phone: 전화/휴대폰 통합 자동 감지
-//        - 02 (서울)    : 02-XXX-XXXX (9자리) | 02-XXXX-XXXX (10자리)
-//        - 0XX (지방)   : 0XX-XXX-XXXX (10자리) | 0XX-XXXX-XXXX (11자리)
-//        - 010/011/016/017/018/019 (휴대폰): 0XX-XXXX-XXXX (11자리) | 0XX-XXX-XXXX (10자리, 옛 휴대폰)
-//        - 070 (인터넷) : 070-XXXX-XXXX (11자리)
-//        - 050X (평생)  : 050X-XXXX-XXXX (12자리)
-//
-// 입력 중간에는 partial 포맷 (가능한 데까지). 완성되면 풀 하이픈.
+// 지원 포맷:
+//   businessNo: XXX-XX-XXXXX (10자리)
+//   phone(자동 감지):
+//     02 (서울)    02-XXX-XXXX(9) | 02-XXXX-XXXX(10)
+//     0XX (지방)   0XX-XXX-XXXX(10) | 0XX-XXXX-XXXX(11)
+//     휴대폰 01[016789]  0XX-XXXX-XXXX(11) | 0XX-XXX-XXXX(10, 옛 번호)
+//     070 (인터넷) 070-XXXX-XXXX(11)
+//     050X (평생)  050X-XXXX-XXXX(12)
 
 import { useState } from "react";
 

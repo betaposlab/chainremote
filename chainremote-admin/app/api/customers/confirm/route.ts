@@ -1,6 +1,6 @@
-// POST /api/customers/confirm  → 자가등록(⑤) 후보 거래처 확정 (owner=마스터 전용)
-// body: { remoteId }  — HQ '전체 거래처' 탭에서 마스터가 미확정 후보를 확정할 때 호출.
-// 정적 세그먼트 'confirm' 은 동적 '[id]' 보다 우선 매칭되므로 라우트 충돌 없음.
+// POST /api/customers/confirm  → auto-enroll pending 후보를 active 로 확정 (owner 전용).
+// HQ '전체 거래처' 탭에서 마스터가 미확정 후보를 확정할 때 호출.
+// 정적 세그먼트 'confirm' 이 동적 '[id]' 보다 먼저 매칭되므로 라우트 충돌 없음.
 
 import {
   requireApiAuth,
@@ -13,7 +13,7 @@ import * as data from "@/lib/data/customers";
 export async function POST(req: Request) {
   try {
     const me = await requireApiAuth(req);
-    requireOwner(me); // 확정 = 마스터(owner) 전용. jaesung(admin) 등은 403.
+    requireOwner(me); // 확정은 owner 전용. admin 등은 403.
     const body = (await req.json().catch(() => ({}))) as { remoteId?: unknown };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";

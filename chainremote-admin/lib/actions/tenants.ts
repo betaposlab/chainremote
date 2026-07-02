@@ -1,9 +1,8 @@
 "use server";
 
-// 사업화 1단계 — 신규 회사(tenant) 등록 + 회사 owner 1명 자동 생성.
-// 모든 액션은 super_admin (Chang) 만 호출 가능 — 다른 tenant 안 데이터는 *조회도
-// 안 함*. Chang 의 운영 책임은 tenant 라이프사이클 (생성/요금 변경/정지/비번 리셋)
-// 만으로 한정. 코이노식 운영.
+// 신규 회사(tenant) 등록 + owner 1명 자동 생성. 사업화 1단계.
+// 전 액션 super_admin(Chang) 전용 — 다른 tenant 데이터는 조회조차 안 한다.
+// Chang 의 책임은 tenant 라이프사이클(생성/요금 변경/정지/비번 리셋)에 한정.
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -33,8 +32,7 @@ async function requireSuperAdmin() {
   return session.user;
 }
 
-// Web Crypto 기반 random — bias 없는 모듈러 추출 위해 한 글자씩 256 범위에서
-// 뽑고 charset 길이로 reject sampling.
+// Web Crypto 기반 임시 비번. charset 길이 초과분은 버리며 한 글자씩 뽑는다.
 function generateTempPassword(): string {
   const buf = new Uint8Array(PASSWORD_LEN * 2);
   globalThis.crypto.getRandomValues(buf);
@@ -42,7 +40,7 @@ function generateTempPassword(): string {
   let i = 0;
   for (const b of buf) {
     if (out.length >= PASSWORD_LEN) break;
-    // 256 % charset.length 로 인한 약한 bias 는 charset>=32 이상에서 미미 — 무시.
+    // 256 % charset 의 modulo bias 는 charset>=32 에선 무시할 수준.
     out += PASSWORD_CHARSET[b % PASSWORD_CHARSET.length];
     i++;
   }
@@ -84,8 +82,8 @@ export async function createTenant(formData: FormData): Promise<CreateTenantResu
   if (!adminEmail) throw new Error("관리자 아이디 필수");
   const adminDisplayName = str("adminDisplayName") || displayName;
 
-  // 비번: 폼 입력값 우선. 비어있으면 '1234' 기본값 (영업단계에서 대리점이
-  // 첫 로그인 후 자유 변경. random 발급은 비번 분실 리셋 때만 사용).
+  // 비번은 폼 입력값 우선, 비어있으면 '1234'. 대리점이 첫 로그인 후 바꾸는 전제.
+  // (random 발급 함수는 비번 분실 리셋 때만 쓴다.)
   const inputPassword = str("adminPassword");
   const tempPassword = inputPassword || "1234";
   if (tempPassword.length < 4) throw new Error("비번 4자 이상");
@@ -133,9 +131,8 @@ export async function createTenant(formData: FormData): Promise<CreateTenantResu
   };
 }
 
-// 비번 분실 시 호출. 회사 owner 의 비번을 '1234' 로 강제 재설정.
-// (신규 등록 default 와 동일 정책 — 단순/일관성. 사용자가 첫 로그인 후 본인 비번
-// 으로 변경하는 것이 표준 운영. random 발급 함수는 보존 — 향후 정책 변경 시 재사용.)
+// 비번 분실 시 owner 비번을 '1234' 로 강제 재설정. 신규 등록 default 와 같은 정책.
+// (사용자가 첫 로그인 후 직접 바꾸는 게 표준. random 발급 함수는 정책 변경 대비 보존.)
 export async function resetTenantOwnerPassword(tenantId: string): Promise<{
   adminEmail: string;
   tempPassword: string;
@@ -199,8 +196,8 @@ export async function updateTenantFromForm(id: string, formData: FormData) {
   revalidatePath("/admin/tenants");
 }
 
-// 구독 상태 변경 (active/suspended/cancelled). suspended 면 그 회사 사용자
-// 로그인 불가하도록 별도 가드 추가 필요(다음 작업).
+// 구독 상태 변경 (active/suspended/cancelled).
+// TODO: suspended 회사의 사용자 로그인 차단 가드는 아직 없음.
 export async function setSubscriptionStatus(
   id: string,
   status: "active" | "suspended" | "cancelled",
@@ -210,16 +207,13 @@ export async function setSubscriptionStatus(
   revalidatePath("/admin/tenants");
 }
 
-// ⑤ auto-enroll — 이 대리점(tenant) 전용 enroll-key 발급/재발급.
-//   거래처 agent 가 설치 시 이 키로 "내가 이 대리점 소속"임을 증명 → 자가등록.
-//   평문 키는 *이 반환값으로 1회만* 노출(UI 표시), DB 엔 sha-256 해시만 저장.
-//   custom.txt = 그 대리점 전용 에이전트 인스톨러 빌드 입력값(이 키 박혀있음).
-// 방어:
-//   - super_admin 만 (requireSuperAdmin).
-//   - 회사 존재 검증 (없으면 친절한 에러).
-//   - hashHeartbeatToken 사용 → resolveTenantByEnroll 의 대조 해시와 100% 동일(틀리면 enroll 전부 403).
-//   - 재발급(reissued=true) 이면 옛 키로 만든 인스톨러는 *신규 등록* 불가(403),
-//     단 이미 등록된 거래처는 heartbeat-token 기반이라 무영향 → UI 가 경고.
+// auto-enroll: 이 대리점 전용 enroll-key 발급/재발급. 거래처 agent 가 설치 시
+// 이 키로 소속을 증명해 자가등록한다. 평문 키는 반환값으로 1회만 노출(UI 표시),
+// DB 엔 sha-256 해시만. custom.txt 는 이 키가 박힌 대리점 전용 인스톨러 빌드 입력값.
+//
+// 해싱은 resolveTenantByEnroll 의 대조 해시와 반드시 같은 함수(hashHeartbeatToken)를
+// 써야 한다 — 어긋나면 enroll 전부 403. 재발급하면 옛 키 인스톨러는 신규등록 불가(403)지만,
+// 이미 등록된 거래처는 heartbeat-token 기반이라 무영향(UI 가 경고).
 export interface IssueEnrollKeyResult {
   slug: string;
   tenantDisplayName: string;
@@ -236,10 +230,10 @@ export async function issueTenantEnrollKey(
   if (!t) throw new Error("회사를 찾을 수 없습니다");
 
   const reissued = !!t.enrollSecretHash;
-  // 새 키 발급 — 해시(검증)+암호화평문(재다운로드) 함께 저장.
+  // 해시(검증용) + 암호화 평문(재다운로드용) 함께 저장.
   const enrollKey = await reissueEnrollKey(tenantId);
 
-  // betaposlab 루트 custom-agent.txt 와 동일 포맷 (JSON.stringify 로 항상 유효 JSON).
+  // betaposlab 루트 custom-agent.txt 와 같은 포맷.
   const customTxt = JSON.stringify({
     "conn-type": "incoming",
     "tenant-slug": t.slug,

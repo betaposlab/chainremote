@@ -12,9 +12,9 @@ export async function listTenantStaff(tenantId: string) {
     .orderBy(asc(users.displayName));
 }
 
-// C1: email 전역 유니크 사전검사 — 사용자에게 읽기 쉬운 에러를 주기 위함.
-// 최종 방어선은 마이그레이션 012 의 unique index(lower(email)) — 사전검사~INSERT 사이 레이스에도
-// DB 제약이 최종 차단한다. 대소문자 무시 전역(모든 tenant) 검사.
+// email 전역 유니크 사전검사 — 읽기 쉬운 에러를 주기 위한 것일 뿐, 최종 방어선은
+// 마이그 012 의 unique index(lower(email)) 다. 사전검사~INSERT 레이스는 그 제약이 막는다.
+// 대소문자 무시, 모든 tenant 대상.
 export async function assertEmailAvailable(email: string): Promise<void> {
   const norm = email.trim().toLowerCase();
   const existing = await db

@@ -5,8 +5,7 @@ import Link from "next/link";
 import { createTenant, type CreateTenantResult } from "@/lib/actions/tenants";
 import { FormattedInput } from "../_formatted-input";
 
-// 다운로드 URL — 임시 placeholder. 실제 호스팅 URL 정해지면 교체.
-// (재성이 홈피 또는 NAS 공개 path 결정 후)
+// TODO: 임시 placeholder URL. 호스팅(재성이 홈피 또는 NAS 공개 path) 정해지면 교체.
 const HQ_DOWNLOAD_URL = "https://(설정 필요)/ChainRemote_HQ_Setup_v1.3.0.exe";
 const CHAINGO_DOWNLOAD_URL = "https://(설정 필요)/ChainGo.exe";
 

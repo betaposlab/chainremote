@@ -1,6 +1,5 @@
 // 사용자 관리 페이지.
-// - super_admin(Chang): 회사별 아코디언 — 회사 위 + 클릭하면 사용자 펼침 (CompanyAccordion).
-// - owner(대리점 owner): 자기 회사 직원만 (tenant 격리, 기존 동작).
+// super_admin(Chang) 은 회사별 아코디언(CompanyAccordion), owner 는 tenant 격리로 자기 회사 직원만 본다.
 
 import { db } from "@/lib/db";
 import { users } from "@/lib/schema";
@@ -14,7 +13,7 @@ import { listAllUsersWithCompany, listTenants } from "@/lib/data/tenants";
 
 export const dynamic = "force-dynamic";
 
-// 최신 발행 HQ 버전 (latest.json) — 직원 HQ 가 옛버전이면 경고용 비교 기준. 못 닿으면 null(배지 생략).
+// latest.json 의 최신 발행 HQ 버전 — 직원 HQ 옛버전 경고의 비교 기준. 못 닿으면 null(배지 생략).
 async function getTargetHqVersion(): Promise<string | null> {
   try {
     const ctrl = new AbortController();
@@ -48,7 +47,7 @@ export default async function UsersPage() {
 
   const targetHqVersion = await getTargetHqVersion();
 
-  // super_admin(Chang): 회사별 아코디언 (회사 위 + 클릭하면 그 회사 사용자 펼침).
+  // super_admin(Chang): 회사별 아코디언.
   if (session.user.role === "super_admin") {
     const companies = await listTenants();
     const allUsers = await listAllUsersWithCompany();

@@ -1,8 +1,8 @@
 "use client";
 
-// 자가등록(⑤ auto-enroll) 후보 확인 버튼. 거래처 표에서 enroll_status='pending' 행에만 표시.
-// 클릭 → confirmEnrollment 서버액션 → 'active' 확정 → 일괄푸시/버전관리 대상 포함.
-// cancelPushAction 버튼과 동일 패턴(useTransition + confirm).
+// auto-enroll 후보 확인 버튼 — enroll_status='pending' 행에만 뜬다. 클릭하면
+// confirmEnrollment 로 'active' 확정, 이후 일괄푸시/버전관리 대상에 든다.
+// cancelPushAction 버튼과 같은 useTransition + confirm 패턴.
 
 import { useTransition } from "react";
 import { confirmEnrollment } from "@/lib/actions/customers";

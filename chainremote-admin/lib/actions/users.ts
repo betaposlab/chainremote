@@ -12,8 +12,8 @@ import { assertEmailAvailable } from "@/lib/data/users";
 async function requireOwner() {
   const session = await auth();
   if (!session?.user) throw new Error("로그인 필요");
-  // super_admin (Chang, 플랫폼 운영자) 은 자기 tenant 의 owner 역할도 겸함.
-  // 다른 tenant 안의 user 는 어차피 me.tenantId 로 격리되므로 노출 X.
+  // super_admin(Chang)도 자기 tenant 의 owner 를 겸한다.
+  // 다른 tenant 사용자는 me.tenantId 격리로 어차피 안 보인다.
   if (session.user.role !== "owner" && session.user.role !== "super_admin") {
     throw new Error("owner 권한만 사용자 관리 가능");
   }
@@ -40,7 +40,7 @@ export async function createUser(formData: FormData) {
     throw new Error("잘못된 role");
   }
 
-  await assertEmailAvailable(email); // C1: 전역 email 중복 사전검사 (최종 방어는 마이그레이션 012)
+  await assertEmailAvailable(email); // 전역 email 중복 사전검사 (최종 방어는 마이그 012 유니크)
   const passwordHash = bcrypt.hashSync(password, BCRYPT_COST);
   await db.insert(users).values({
     tenantId: me.tenantId,
@@ -90,7 +90,7 @@ export async function resetPassword(id: string, formData: FormData) {
 
 export async function deleteUser(id: string) {
   const me = await requireOwner();
-  // 본인 삭제 차단 (자기 비번 지운 후 못 들어옴 방지)
+  // 본인 삭제 차단 — 지우면 자기가 못 들어온다.
   if (id === me.id) throw new Error("본인은 삭제 불가");
   await db
     .delete(users)

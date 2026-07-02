@@ -1,7 +1,7 @@
 /**
- * 거래처 접속 비밀번호 자동 생성.
- * 보안 RNG 사용. 혼동 문자(O/0, l/1, I) 제외해서 거래처에 구두 전달 가능하게.
- * 길이 8 = 약 6.4e11 조합 → 거래처 단위로는 충분, 보안 키처럼 강력할 필요는 없음.
+ * 거래처 접속 비밀번호 자동 생성. 보안 RNG 사용.
+ * 혼동 문자(O/0, l/1, I) 제외 — 거래처에 구두/카톡 전달 가능하게.
+ * 길이 8 ≈ 6.4e11 조합. 거래처 단위론 충분하고, 보안 키만큼 강할 필요는 없다.
  */
 export function generatePassword(length = 8): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";

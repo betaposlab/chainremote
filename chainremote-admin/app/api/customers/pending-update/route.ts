@@ -1,28 +1,8 @@
-// GET  /api/customers/pending-update — Agent 폴링 (대기 중 푸시 1건 조회)
-// POST /api/customers/pending-update — Agent 의 설치 완료/실패 보고
+// GET  /api/customers/pending-update — agent 가 5분마다 폴링 (대기 푸시 1건 조회)
+// POST /api/customers/pending-update — agent 의 설치 완료/실패 보고
 //
-// 둘 다 인증: X-ChainRemote-Token 헤더 + remoteId (heartbeat 와 동일 패턴).
-//
-// 호출 예 (Rust agent, 5분 주기):
-//   GET https://sepani.synology.me:3001/api/customers/pending-update?remoteId=129264698
-//   X-ChainRemote-Token: <64 hex>
-//
-//   200 (대기 있음) → {
-//     "id": "uuid",
-//     "targetVersion": "1.3.5",
-//     "assetUrl": "https://...",
-//     "assetSha256": "...",
-//     "assetSize": 12345678,
-//     "windowStartHour": 0,
-//     "windowEndHour": 7,
-//     "randomizeMaxSec": 25200
-//   }
-//   200 (대기 없음) → { "id": null }
-//   401 → token 헤더 누락
-//   403 → token / remoteId 불일치
-//
-// 적용/실패 보고:
-//   POST 본문 { "id": "uuid", "remoteId": "...", "status": "applied" | "failed", "reason": "..." }
+// 둘 다 X-ChainRemote-Token 헤더 + remoteId 로 인증 (heartbeat 와 동일 패턴).
+// GET 은 대기 없음/토큰 불일치를 구분 안 하고 둘 다 { id: null } — 아래 참조.
 
 import * as data from "@/lib/data/pending-updates";
 import { clientIp } from "@/lib/request-ip";
@@ -30,7 +10,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 export async function GET(req: Request) {
   try {
-    // H3: per-IP 완만한 rate-limit (GET+POST 공유 버킷). 600/분 — NAT 뒤 다중 agent 미throttle.
+    // per-IP 완만한 rate-limit (GET/POST 공유 버킷). 600/분 — NAT 뒤 다중 agent 안 걸림.
     const ip = clientIp(req) ?? "unknown";
     const rl = rateLimit(`cust-pu:${ip}`, 600, 60_000);
     if (!rl.allowed) return tooManyRequests(rl.retryAfterSec);
@@ -46,9 +26,8 @@ export async function GET(req: Request) {
     }
     const row = await data.getPendingForAgent(remoteId, token);
     if (!row) {
-      // 매칭 자체는 잠재적으로 OK 인데 (token 정상) 대기 push 가 없는 케이스 vs token 불일치.
-      // Agent 단순화 위해 대기 없음/불일치 둘 다 200 { id: null } 로 통일.
-      // 진짜 권한 오류는 GET 으론 구분 안 됨 (응답이 동일) — 보안상 비교 사이드채널 노출 안 함.
+      // "대기 없음"과 "토큰 불일치"를 둘 다 200 { id: null } 로 통일 — agent 도 단순해지고
+      // 응답이 같아 토큰 존재 여부를 떠보는 사이드채널도 안 생긴다.
       return Response.json({ id: null });
     }
     return Response.json(row);
@@ -59,7 +38,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    // H3: per-IP 완만한 rate-limit (GET 과 동일 버킷 공유).
+    // per-IP 완만한 rate-limit (GET 과 동일 버킷 공유).
     const ip = clientIp(req) ?? "unknown";
     const rl = rateLimit(`cust-pu:${ip}`, 600, 60_000);
     if (!rl.allowed) return tooManyRequests(rl.retryAfterSec);

@@ -13,8 +13,8 @@ async function requireSession() {
   return session.user;
 }
 
-// 담당 배정 검증 — 폼에서 온 assignedUserId 가 이 테넌트의 실제 직원일 때만 허용(타테넌트 배정 차단).
-//   빈값/미소속이면 null(미배정) 반환.
+// 담당 배정 검증 — assignedUserId 가 이 테넌트 소속 직원일 때만 통과(타테넌트 배정 차단).
+// 빈값/미소속이면 null(미배정).
 async function sanitizeAssignee(
   assignedUserId: string | null | undefined,
   tenantId: string,
@@ -33,8 +33,8 @@ function pickFields(formData: FormData): data.CustomerFields {
   };
   const name = get("name");
   if (!name) throw new Error("상호는 필수입니다");
-  // 원격 ID 정규화 — 에이전트 저장값(대문자·공백없음)과 정확히 일치해야 매칭(대소문자 구분 eq)됨.
-  //   신형 AB ID "AB12345678"(표시 "AB 1234 5678") / 구형 숫자 둘 다 공백 제거 + 대문자화.
+  // 원격 ID 정규화 — 공백 제거 + 대문자화. 매칭은 대소문자 구분 eq 라
+  // 에이전트 저장값(대문자·공백없음)과 정확히 일치해야 한다. 신형 AB ID·구형 숫자 공통.
   const rawRemoteId = get("remoteId");
   const remoteId = rawRemoteId ? rawRemoteId.replace(/\s+/g, "").toUpperCase() : null;
   return {
@@ -53,7 +53,7 @@ export async function createCustomer(formData: FormData) {
   const session = await requireSession();
   const fields = pickFields(formData);
   fields.assignedUserId = await sanitizeAssignee(fields.assignedUserId, session.tenantId);
-  // 폼에서 담당 미선택 시 생성자(ctx)로 폴백(data.createCustomer 내부 처리).
+  // 담당 미선택 시 생성자로 폴백(폴백 처리는 data.createCustomer 안).
   await data.createCustomer(fields, {
     tenantId: session.tenantId,
     assignedUserId: session.id,
@@ -92,15 +92,15 @@ export async function importPeer(input: {
   revalidatePath("/customers");
 }
 
-// 자가등록(⑤) 후보 거래처 확정 — enroll_status 'pending'→'active'. HQ 가 패널서 '확인' 클릭.
+// 자가등록 후보 거래처 확정 — enroll_status 'pending'→'active'. HQ 가 패널서 '확인' 클릭.
 export async function confirmEnrollment(id: string) {
   const session = await requireSession();
   await data.confirmEnrollment(id, { tenantId: session.tenantId });
   revalidatePath("/customers");
 }
 
-// "신규 거래처 후보"(orphan 즐겨찾기) 무시/삭제 — 그 remote_id 의 미등록 즐겨찾기를 테넌트서 제거.
-// 테스트 머신 등 거래처로 등록 안 할 후보를 배너에서 치울 때.
+// "신규 거래처 후보"(orphan 즐겨찾기) 무시 — 그 remote_id 의 미등록 즐겨찾기를 테넌트서 제거.
+// 테스트 머신처럼 등록 안 할 후보를 배너에서 치울 때.
 export async function dismissCandidate(remoteId: string) {
   const session = await requireSession();
   await favData.dismissOrphanCandidate(session.tenantId, remoteId);

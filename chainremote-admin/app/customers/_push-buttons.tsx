@@ -1,21 +1,21 @@
 "use client";
 
-// 푸시 버튼 + 다이얼로그. 거래처 표의 행별 [푸시] 버튼 (개별) 과 상단 [일괄 푸시] 버튼.
+// 푸시 버튼 + 다이얼로그. 거래처 표의 행별 [푸시] 와 상단 [일괄 푸시] 두 진입점.
 //
-// 다이얼로그에 직접 입력: targetVersion / assetUrl / assetSha256 / assetSize.
-// 설치 허용 시간대: 기본 0~23(하루 종일). 거래처는 퇴근 시 PC 를 꺼서 새벽(0~7)과 안 겹침
-//   → 하루 종일로 둬야 출근 후 켜진 시점에 적용됨. 24h 켜진 PC 만 0~7(새벽) 권장.
-// 무작위지연: 10분(600초) default (2026-06-20, 7h→10분) — 소규모 즉시성 우선. 수백~수천대 푸시 시
-//   NAS 대역폭 분산 위해 늘릴 것. 일괄푸시는 직전에 옛 대기 자동취소(pushBulk) → 항상 최신 1건만.
+// 다이얼로그에서 targetVersion / assetUrl / assetSha256 / assetSize 를 직접 넣는다.
+// 설치 허용 시간대는 기본 0~23(하루 종일). 거래처는 퇴근 때 PC 를 꺼서 새벽(0~7)과 안 겹치므로,
+//   출근 후 켜진 시점에 적용되려면 하루 종일이어야 한다. 24h 켜두는 PC 만 0~7 권장.
+// 무작위지연 기본 600초(2026-06-20 7h→10분) — 소규모라 즉시성 우선. 수백~수천대 푸시 땐
+//   NAS 대역폭 분산 위해 늘린다. 일괄푸시는 직전 대기를 자동 취소(pushBulk)해 항상 최신 1건만 남긴다.
 //
-// 자동 fetch: NAS 의 `agent-push.json` (별도 메타 파일) 에서 sha256/URL/size 자동 채움.
-// 옛 latest.json 의 agent 채널은 옛 v1.3.4 Agent 호환 위해 0.0.0 영구 유지.
-// agent-push.json 은 v1.3.6+ 패널에서만 fetch — 옛 Agent 안 봄.
+// 자동 채움은 NAS 의 agent-push.json(별도 메타 파일)에서 sha256/URL/size 를 끌어온다.
+// latest.json 의 agent 채널은 옛 v1.3.4 Agent 호환 위해 0.0.0 으로 영구 고정 — agent-push.json 은
+// v1.3.6+ 패널만 읽고 옛 Agent 는 안 본다.
 
 import { useState, useTransition } from "react";
 
-// 같은 출처(패널) 프록시 라우트 호출 → 브라우저 CORS 회피.
-// 실제 NAS agent-push.json fetch 는 서버사이드(app/api/agent-push-meta)에서 수행.
+// 같은 출처(패널) 프록시로 호출해 브라우저 CORS 를 피한다. 실제 NAS agent-push.json fetch 는
+// 서버사이드(app/api/agent-push-meta)에서 한다.
 const AGENT_PUSH_META_URL = "/api/agent-push-meta";
 
 async function fetchAgentPushMeta(): Promise<

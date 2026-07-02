@@ -1,11 +1,8 @@
 // 외부 클라이언트(본사 ChainRemote 데스크톱 앱) 인증 — Bearer JWT.
 //
-// NextAuth v5 의 세션 쿠키(JWE)와는 별도 시스템.
-// 같은 AUTH_SECRET 을 공유하지만 표준 HS256 JWT 로 발급/검증 (jose 라이브러리).
-// 이유: NextAuth 쿠키는 브라우저용 JWE. 데스크톱 앱이 jwt.verify 하기 번거로움.
-//
-// 발급: POST /api/auth/token (email + password) → { token, expiresIn }
-// 사용: Authorization: Bearer <token>  (모든 /api/* 호출)
+// NextAuth v5 세션 쿠키(JWE)와는 별도 시스템. AUTH_SECRET 은 공유하되 표준 HS256 JWT 로
+// 발급/검증(jose). NextAuth 쿠키는 브라우저용 JWE 라 데스크톱 앱이 검증하기 번거로워서다.
+// 발급 POST /api/auth/token, 사용은 모든 /api/* 에 Authorization: Bearer.
 
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 
@@ -38,9 +35,9 @@ export async function signApiToken(
     .setAudience(AUDIENCE)
     .setIssuedAt()
     .setExpirationTime(TOKEN_TTL);
-  // 좌석 enforcement(마이그레이션 010): jti 가 주어지면 토큰에 박아 heartbeat 가
-  // active_login_sessions 와 대조 가능하게 한다. 옛 앱(device_id 미전송) 경로는
-  // jti 없이 발급 → 백워드 호환(§8). jti 는 jose 표준 JWTPayload 필드.
+  // 좌석 enforcement(마이그레이션 010): jti 를 박아두면 heartbeat 가
+  // active_login_sessions 와 대조할 수 있다. device_id 를 안 보내는 옛 앱은
+  // jti 없이 발급 → 그대로 호환. jti 는 jose 표준 JWTPayload 필드.
   if (jti) builder = builder.setJti(jti);
   const token = await builder.sign(getSecret());
   return { token, expiresIn: 60 * 60 * 24 };
@@ -61,8 +58,7 @@ export class ApiAuthError extends Error {
   }
 }
 
-// 라우트 핸들러에서 사용: const me = await requireApiAuth(req);
-// 실패 시 ApiAuthError throw → 라우트는 jsonError 로 변환.
+// 라우트 핸들러용. 실패 시 ApiAuthError throw → 라우트가 jsonError 로 변환.
 export async function requireApiAuth(req: Request): Promise<ApiTokenClaims> {
   const header = req.headers.get("authorization") ?? "";
   const match = header.match(/^Bearer\s+(.+)$/i);
@@ -84,8 +80,8 @@ export function jsonError(e: unknown): Response {
   if (e instanceof ApiAuthError) {
     return Response.json({ error: e.message }, { status: e.status });
   }
-  // M8: remote_id 전역 partial-unique(011) 충돌 → 원시 SQL 500 대신 친절한 409.
-  //     (다른 거래처와 같은 9자리 RustDesk ID 등록 시도 — 오타/복붙/멀티테넌트 중복.)
+  // remote_id 전역 partial-unique(011) 충돌은 원시 SQL 500 대신 409 로.
+  // (다른 거래처와 같은 ID 등록 시도 — 오타/복붙/멀티테넌트 중복.)
   if (
     e instanceof Error &&
     /duplicate key|unique/i.test(e.message) &&

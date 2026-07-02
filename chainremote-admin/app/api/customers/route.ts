@@ -1,5 +1,5 @@
-// GET  /api/customers  → 테넌트 내 전체 거래처 (chang/jaesung 둘 다)
-// POST /api/customers  → 신규 거래처 등록 (chang/jaesung 둘 다 — Phase 2 결정 #7)
+// GET  /api/customers  → 테넌트 내 전체 거래처 (전 직원)
+// POST /api/customers  → 신규 거래처 등록 (전 직원 — 결정 #7)
 
 import { requireApiAuth, jsonError, ApiAuthError } from "@/lib/api-auth";
 import * as data from "@/lib/data/customers";

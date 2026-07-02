@@ -73,10 +73,10 @@ export async function pushBulkAction(formData: FormData) {
 }
 
 /**
- * ★ super_admin 전 대리점 에이전트 롤아웃 (벤더 원클릭).
- * 활성 대리점(listActiveTenants)마다 기존 pushBulk 를 호출 = 대리점이 일일이 누를 필요 없음.
- * 에이전트가 영업시간 가드 + 무작위 분산지연 + 세션보류 + sha검증으로 알아서 안전 적용.
- * 한 대리점 실패해도 나머지는 계속(per-tenant try/catch). super_admin 외엔 거부.
+ * 벤더가 전 대리점 에이전트를 한 번에 롤아웃 (super_admin 전용).
+ * 활성 대리점마다 pushBulk 를 돌려 대리점이 각자 누를 필요를 없앤다. 실제 적용 타이밍은
+ * 에이전트가 영업시간 가드 + 분산지연 + 세션보류 + sha검증으로 알아서 처리.
+ * 한 대리점이 실패해도 나머지는 계속 간다(per-tenant try/catch).
  */
 export async function rolloutAllTenantsAction(formData: FormData) {
   const session = await requireSession();

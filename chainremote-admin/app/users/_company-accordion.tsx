@@ -1,9 +1,8 @@
 "use client";
 
-// "사용자" 탭 — super_admin(Chang) 의 회사별 아코디언.
-// 회사가 위(굵게) + 아이디 N개. 회사 줄을 클릭하면 그 회사 사용자가 아래로 펼쳐지고
-// 그 자리에서 추가/수정/비번리셋/삭제. 회사별 격리라 반복(베타포스랩×N) 없음.
-// 액션: lib/actions/tenant-users.ts. 본인 계정 행은 읽기 전용(잠금 방지).
+// "사용자" 탭의 super_admin(Chang) 회사별 아코디언. 회사 줄을 클릭하면 그 회사 사용자가
+// 펼쳐지고 그 자리에서 추가/수정/비번리셋/삭제. 회사별로 묶여 있어 목록이 반복되지 않는다.
+// 액션은 lib/actions/tenant-users.ts. 본인 계정 행은 self-lockout 방지로 읽기 전용.
 
 import { useState, useTransition } from "react";
 import Link from "next/link";

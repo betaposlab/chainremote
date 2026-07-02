@@ -14,7 +14,7 @@ import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-// 컬럼 헤더 클릭 정렬 — 화이트리스트(임의 컬럼 주입 방지). 값 = drizzle 컬럼.
+// 정렬 가능 컬럼 화이트리스트 — 임의 컬럼 주입을 막는다. 값은 drizzle 컬럼.
 const SORT_COLUMNS = {
   name: customers.name,
   assigned: users.displayName,
@@ -25,7 +25,7 @@ const SORT_COLUMNS = {
 } as const;
 type SortKey = keyof typeof SORT_COLUMNS;
 
-// 정렬 가능한 컬럼 헤더 — 클릭 시 방향 토글(활성 컬럼) 또는 asc 시작. ▲/▼/↕ 표시.
+// 클릭하면 활성 컬럼은 방향 토글, 나머지는 asc 로 시작. ▲/▼/↕ 표시.
 function SortHeader({
   label,
   col,
@@ -66,12 +66,12 @@ export default async function CustomersPage({
   const sortKey: SortKey | null =
     sp.sort && sp.sort in SORT_COLUMNS ? (sp.sort as SortKey) : null;
   const sortDir: "asc" | "desc" = sp.dir === "desc" ? "desc" : "asc";
-  // ★ 테넌트 격리: 로그인 사용자 회사로 한정 (하드코딩 betaposlab 제거).
+  // 테넌트 격리: 로그인 사용자 회사로 한정.
   const tenant = (
     await db.select().from(tenants).where(eq(tenants.id, session.user.tenantId)).limit(1)
   )[0];
   if (!tenant) redirect("/login");
-  // 담당 직원 (assignedUser) 의 displayName 을 같이 가져오기 위한 LEFT JOIN
+  // 담당 직원의 displayName 을 같이 끌어오기 위한 LEFT JOIN.
   const rows = await db
     .select({
       id: customers.id,
@@ -92,7 +92,7 @@ export default async function CustomersPage({
     .from(customers)
     .leftJoin(users, eq(users.id, customers.assignedUserId))
     .where(eq(customers.tenantId, tenant.id))
-    // 기본: 내부 기기(pin_order) 상단 고정 + 등록순(최신 위). 헤더 클릭 시: 그 컬럼 정렬(등록순 tiebreak).
+    // 기본은 내부 기기(pin_order) 상단 고정 + 등록순(최신 위). 헤더 클릭 시 그 컬럼 정렬, 등록순 tiebreak.
     .orderBy(
       ...(sortKey
         ? [
@@ -102,7 +102,7 @@ export default async function CustomersPage({
         : [asc(customers.pinOrder), desc(customers.createdAt)]),
     );
 
-  // 거래처별 대기 중 푸시 (있으면 행에 표시).
+  // 거래처별 대기 중 푸시 — 있으면 행에 표시.
   const pendingRows = await db
     .select({
       id: pendingUpdates.id,
@@ -122,8 +122,8 @@ export default async function CustomersPage({
     );
   const pendingByCustomer = new Map(pendingRows.map((p) => [p.customerId, p]));
 
-  // 거래처별 최근 "적용/실패" 푸시 — 자동업데이트 brick 감지용.
-  // applied 됐는데 heartbeat 버전이 목표로 안 올라가면(또는 failed) _status 가 드러냄.
+  // 거래처별 최근 "적용/실패" 푸시 — 자동업데이트 brick 감지용. applied 됐는데 heartbeat
+  // 버전이 목표로 안 올라오거나 failed 면 _status 가 드러낸다.
   const updateRows = await db
     .select({
       customerId: pendingUpdates.customerId,
@@ -141,7 +141,7 @@ export default async function CustomersPage({
       ),
     )
     .orderBy(desc(pendingUpdates.createdAt));
-  // 거래처별 최신 1건만 (createdAt desc 라 first = 최신 결과).
+  // createdAt desc 로 정렬돼 있으니 거래처별 첫 행이 최신 결과.
   const updateByCustomer = new Map<
     string,
     { targetVersion: string; appliedAt: Date | null; failedAt: Date | null; failureReason: string | null }
@@ -156,7 +156,7 @@ export default async function CustomersPage({
       });
     }
   }
-  // brick/실패로 판정되는 거래처 (상단 경고 배너용).
+  // brick/실패로 판정된 거래처 — 상단 경고 배너용.
   const updateProblems = rows.filter((c) => {
     const h = computeUpdateHealth(updateByCustomer.get(c.id), c.lastVersion);
     return h?.kind === "brick" || h?.kind === "failed";
@@ -178,12 +178,12 @@ export default async function CustomersPage({
       .map((s) => [s.customerId, s]),
   );
 
-  // "신규 거래처 후보" — DB 의 orphan 즐겨찾기(아직 customers 에 등록 안 된 ID).
-  // (구: 로컬 .toml 스캔 → 패널이 NAS 컨테이너에서 돌면 항상 빈 배열이라 폐기)
+  // "신규 거래처 후보" = 아직 customers 에 없는 orphan 즐겨찾기.
+  // (옛 로컬 .toml 스캔은 패널이 NAS 컨테이너에서 돌면 항상 빈 배열이라 폐기했다.)
   const knownIds = new Set(rows.map((r) => r.remoteId).filter((x): x is string => !!x));
   const orphanFavorites = await listOrphanFavorites(tenant.id);
   const newPeers = orphanFavorites.filter((p) => !knownIds.has(p.remoteId));
-  // 자가등록(⑤ auto-enroll) 후보 — agent 가 스스로 등록한 미확정(pending) 거래처.
+  // auto-enroll 후보 — agent 가 스스로 등록한 미확정(pending) 거래처.
   const pendingEnroll = rows.filter((c) => c.enrollStatus === "pending");
 
   return (

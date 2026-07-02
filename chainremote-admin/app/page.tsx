@@ -8,8 +8,8 @@ import { AgentDownloadCard } from "./_agent-download-card";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  // ★ 테넌트 격리: 로그인한 사용자의 회사(tenant)로 한정. (하드코딩 betaposlab 제거 —
-  //   대리점이 로그인하면 자기 회사 현황만 봐야 함.) chang=betaposlab 이라 본사 화면 무변경.
+  // 테넌트 격리: 로그인 사용자 회사로 한정. 대리점은 자기 회사 현황만 봐야 한다.
+  // chang=betaposlab 이라 본사 화면은 그대로.
   const session = await auth();
   if (!session?.user) redirect("/login");
   const tenant = (

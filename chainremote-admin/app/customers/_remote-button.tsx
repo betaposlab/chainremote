@@ -19,12 +19,11 @@ type Props = {
   activeStartedAt: Date | null;
 };
 
-// 거래처가 오프라인으로 추정되면 사람이 읽는 "마지막 보고" 라벨, 온라인이면 null.
-// heartbeat 10분 주기 → 살아있는 POS 는 보통 ≤10분. 살아있는데 잠깐 amber(10~12분)인 걸
-// 헛경고하지 않도록 임계값을 주기보다 여유 있게 15분.
-// 트레이드오프(의도): 거짓경고(살아있는 POS 경고)를 줄이는 쪽 우선 → 마지막 보고 후 15분 이내에
-//   꺼진 기기는 경고 없이 시도될 수 있음. 그 경우 rustdesk:// 가 조용히 실패할 뿐 부작용 없음.
-// (브라우저는 실제 연결 성공 여부를 알 수 없음 — heartbeat 가 유일한 오프라인 단서.)
+// 오프라인 추정 시 "마지막 보고" 라벨, 온라인이면 null.
+// heartbeat 는 10분 주기라 살아있는 POS 는 보통 ≤10분. 잠깐 amber(10~12분)인 걸 헛경고하지
+// 않도록 임계값을 주기보다 넉넉한 15분으로 뒀다. 즉 거짓경고를 줄이는 쪽으로 편향돼 있어,
+// 마지막 보고 후 15분 안에 꺼진 기기는 경고 없이 시도될 수 있다 — rustdesk:// 가 조용히
+// 실패할 뿐 부작용은 없다. (브라우저는 연결 성공 여부를 모르고 heartbeat 가 유일한 단서.)
 function offlineWarning(lastHeartbeatAt: Date | null): string | null {
   if (!lastHeartbeatAt) return "보고 없음 (미보고)";
   const diffMin = Math.floor((Date.now() - new Date(lastHeartbeatAt).getTime()) / 60_000);
@@ -45,20 +44,20 @@ export function RemoteButton({
   const router = useRouter();
   const [pending, start] = useTransition();
 
-  // 서버(DB)에서 온 활성 세션 + 클라이언트에서 방금 시작한 세션의 오버레이.
-  // 서버 → 클라이언트 → 서버 의 race 를 피하기 위해 양쪽 합쳐서 판단.
+  // 서버(DB)의 활성 세션 위에 방금 클라에서 시작한 세션을 겹쳐 본다.
+  // 서버→클라→서버 왕복 사이의 race 를 피하려고 둘을 합쳐서 판단.
   const [localSessionId, setLocalSessionId] = useState<string | null>(null);
   const [localStartedAt, setLocalStartedAt] = useState<Date | null>(null);
   const effectiveSessionId = activeSessionId ?? localSessionId;
   const effectiveStartedAt = activeStartedAt ?? localStartedAt;
   const isActive = !!effectiveSessionId;
 
-  // 모달은 활성 세션 있을 때만 의미 있음. 페이지 로드 시 활성 세션 있으면 자동 오픈.
+  // 모달은 활성 세션이 있을 때만 의미 있음. 로드 시 활성 세션 있으면 바로 연다.
   const [modalOpen, setModalOpen] = useState(!!activeSessionId);
 
   const onConnect = () => {
-    // 오프라인(꺼져 있음) 추정 시 연결 전 경고 — heartbeat 가 stale/미보고면 원격이 안 될
-    // 가능성이 높음. 끄진 PC 에 헛 세션+모달이 뜨던 문제 방지. 그래도 시도는 사용자 선택.
+    // heartbeat 가 stale/미보고면 원격이 안 될 확률이 높으니 연결 전에 경고한다. 꺼진 PC 에
+    // 헛 세션+모달이 뜨던 문제 방지. 그래도 시도 여부는 사용자 몫.
     const offlineLabel = offlineWarning(lastHeartbeatAt);
     if (
       offlineLabel &&
@@ -68,7 +67,7 @@ export function RemoteButton({
           `원격이 안 될 수 있어요. 그래도 연결을 시도할까요?`,
       )
     ) {
-      return; // 취소 → 세션 생성도 모달도 없음
+      return; // 취소 = 세션도 모달도 없음
     }
     start(async () => {
       const sid = await startSession(customerId);
@@ -80,10 +79,10 @@ export function RemoteButton({
     });
   };
 
-  // "나중에" — 모달만 닫음, 세션은 그대로 진행 중.
+  // "나중에" — 모달만 닫고 세션은 계속 진행.
   const onCancel = () => setModalOpen(false);
 
-  // 저장/폐기 후 — 활성 세션 클리어 + 모달 닫음 + 서버 데이터 재조회.
+  // 저장/폐기 후 — 활성 세션 비우고 모달 닫고 서버 데이터 재조회.
   const onComplete = () => {
     setLocalSessionId(null);
     setLocalStartedAt(null);

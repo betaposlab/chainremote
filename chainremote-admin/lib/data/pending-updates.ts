@@ -1,9 +1,9 @@
 // 거래처 PC 푸시 업데이트 데이터 레이어 (마이그레이션 009, 2026-05-29).
 //
-// Pull 모델: NAS 가 Agent 에게 신호 안 쏨. Agent 가 자기 페이스(5분)로 폴링.
-// 관리 패널은 INSERT 만, 거래처가 자기 행 발견 후 영업시간 가드 통과 → 사일런트 설치 → markApplied.
+// Pull 모델 — NAS 가 Agent 에게 신호를 쏘지 않는다. Agent 가 자기 페이스(5분)로 폴링하고,
+// 관리 패널은 INSERT 만 한다. 거래처가 자기 행을 발견 → 영업시간 가드 통과 → 사일런트 설치 → markApplied.
 //
-// 모든 함수 tenantId 격리 강제. agent 측 폴링은 remote_id + heartbeat_token 으로 customer 매칭 후 호출.
+// 모든 함수 tenantId 격리 강제. agent 폴링은 remote_id + heartbeat_token 으로 customer 매칭 후 호출.
 
 import { and, eq, inArray, isNull, sql, desc, count } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -18,22 +18,22 @@ export interface PushAsset {
 }
 
 export interface PushOptions {
-  windowStartHour?: number;  // default 0 (자정)
-  windowEndHour?: number;    // default 7 (아침 7시)
-  randomizeMaxSec?: number;  // default 600 (10분) — 2026-06-20 7h→10분
+  windowStartHour?: number;  // 기본 0 (자정)
+  windowEndHour?: number;    // 기본 7 (아침 7시)
+  randomizeMaxSec?: number;  // 기본 600(10분). 2026-06-20 7h→10분
 }
 
 const DEFAULT_OPTIONS: Required<PushOptions> = {
   windowStartHour: 0,
   windowEndHour: 7,
-  // ChainRemote 2026-06-20: 7시간(25200)→10분(600). 옛 7h 기본이 적용을 0~7h 로 흩뿌려
-  //   "버전 제멋대로"로 보였음. 소규모(수십대)는 즉시성 우선. 수백~수천대 푸시는 UI 에서 늘릴 것.
+  // 2026-06-20: 7시간(25200)→10분(600). 옛 7h 기본이 적용을 0~7h 로 흩뿌려 "버전 제멋대로"로
+  //   보였다. 소규모(수십대)는 즉시성 우선. 수백~수천대 푸시는 UI 에서 늘릴 것.
   randomizeMaxSec: 600,
 };
 
 /**
- * 단일 거래처 푸시. 동일 거래처 동일 버전 대기 중 행 있으면 conflict 로 skip.
- * 반환: 생성된 행 (skip 시 null).
+ * 단일 거래처 푸시. 같은 거래처·같은 버전이 이미 대기 중이면 conflict 로 skip.
+ * 생성된 행 반환, skip 이면 null.
  */
 export async function pushToCustomer(
   customerId: string,
@@ -42,7 +42,7 @@ export async function pushToCustomer(
   ctx: { tenantId: string; requestedBy: string },
 ): Promise<{ id: string } | null> {
   const merged = { ...DEFAULT_OPTIONS, ...opts };
-  // tenant 격리 확인 — customer 가 진짜 이 tenant 인지.
+  // tenant 격리 — customer 가 정말 이 tenant 소속인지 확인.
   const owned = await db
     .select({ id: customers.id })
     .from(customers)
@@ -68,16 +68,15 @@ export async function pushToCustomer(
       .returning({ id: pendingUpdates.id });
     return row;
   } catch (e) {
-    // unique partial index 충돌 = 이미 대기 중. skip.
+    // partial unique index 충돌 = 이미 대기 중 → skip.
     if (e instanceof Error && /duplicate key|unique/i.test(e.message)) return null;
     throw e;
   }
 }
 
 /**
- * 일괄 푸시 — 해당 tenant 의 모든 활성 거래처에 N행 INSERT. 같은 bulk_batch_id 로 묶음.
- * 이미 대기 중인 거래처는 skip (partial unique 가 막음).
- * 반환: 신규 INSERT 된 행 수.
+ * 일괄 푸시 — tenant 의 활성 거래처 전체에 N행 INSERT, 같은 bulk_batch_id 로 묶는다.
+ * 이미 대기 중인 거래처는 partial unique 가 막아 skip. 신규 INSERT 된 행 수 반환.
  */
 export async function pushBulk(
   asset: PushAsset,
@@ -87,12 +86,12 @@ export async function pushBulk(
   const merged = { ...DEFAULT_OPTIONS, ...opts };
   const bulkBatchId = crypto.randomUUID();
 
-  // ChainRemote 2026-06-20: 새 일괄푸시는 이전 대기 행을 supersede.
-  //   기존엔 새 버전만 INSERT 해서 (customer_id, target_version) 가 다른 옛 대기(1.4.20/1.4.28...)가
-  //   계속 쌓여 패널이 "대기 버전 제각각"으로 보였음. 에이전트는 최신 1건만 집어가므로
-  //   (getPendingForAgent: desc createdAt) 기능상 옛 행은 무해하지만, 혼란 제거 + 깨끗한 상태를 위해
-  //   푸시 직전 이 tenant 의 활성 외부 거래처의 대기(미적용·미취소·미실패) 행을 전부 취소한다.
-  //   (applied/failed 행은 이력이라 건드리지 않음. INSERT 대상과 동일 거래처 집합.)
+  // 2026-06-20: 새 일괄푸시는 이전 대기 행을 supersede 한다. 전엔 새 버전만 INSERT 해서
+  //   (customer_id, target_version) 이 다른 옛 대기(1.4.20/1.4.28...)가 쌓여 패널이 "대기 버전
+  //   제각각"으로 보였다. 에이전트는 최신 1건만 집어가(getPendingForAgent: desc createdAt) 옛 행이
+  //   기능상 무해하지만, 상태를 깨끗이 하려고 푸시 직전 이 tenant 의 활성 외부 거래처 대기 행
+  //   (미적용·미취소·미실패)을 전부 취소한다. applied/failed 는 이력이라 건드리지 않고, 취소 대상은
+  //   아래 INSERT 대상과 같은 거래처 집합이다.
   await db.execute(sql`
     UPDATE pending_updates SET cancelled_at = now(), updated_at = now()
     WHERE tenant_id = ${ctx.tenantId}::uuid
@@ -103,11 +102,11 @@ export async function pushBulk(
       )
   `);
 
-  // ChainRemote 2026-06-02: 행별 루프 → 단일 bulk INSERT 로 교체 (스케일 대비).
-  // 활성 거래처 전체에 1쿼리로 INSERT. 이미 같은 (customer_id, target_version) 의 대기 행이
-  // 있으면 partial unique index `uq_pending_updates_customer_version_active`
-  //   (= UNIQUE (customer_id, target_version) WHERE applied/cancelled/failed 모두 NULL)
-  // 가 잡아 ON CONFLICT DO NOTHING 으로 skip. 1만 거래처도 쿼리 1번(O(1)).
+  // 2026-06-02: 스케일 대비로 행별 루프 → 단일 bulk INSERT 로 교체. 활성 거래처 전체를 1쿼리로
+  //   넣는다. 같은 (customer_id, target_version) 대기 행이 있으면 partial unique index
+  //   uq_pending_updates_customer_version_active (= UNIQUE (customer_id, target_version)
+  //   WHERE applied/cancelled/failed 모두 NULL) 가 잡아 ON CONFLICT DO NOTHING 으로 skip.
+  //   거래처가 1만이어도 쿼리는 1번.
   const result = await db.execute(sql`
     INSERT INTO pending_updates
       (tenant_id, customer_id, target_version, asset_url, asset_sha256, asset_size,
@@ -119,9 +118,9 @@ export async function pushBulk(
     FROM customers c
     WHERE c.tenant_id = ${ctx.tenantId}::uuid AND c.is_active = true
       AND c.is_internal = false  -- 내부 기기(본사/Mac/빌드머신, 마이그 013) 제외
-      -- ChainRemote 2026-06-29: 미확정 후보(pending)도 업뎃 받음. 자가등록된 진짜 에이전트라
-      --   확정 여부와 무관하게 최신 유지해야 함. '확인(✓)'은 과금/명명/관리용일 뿐(업뎃 게이트 아님).
-      --   대리점은 패널 관리 안 함이 현실 → 확정 안 해도 모든 거래처 자동 업뎃(Chang 합의).
+      -- 2026-06-29: pending(미확정 후보)도 업뎃 대상. 자가등록된 진짜 에이전트라 확정 여부와
+      --   무관하게 최신을 유지해야 한다. '확인'은 과금/명명/관리용일 뿐 업뎃 게이트가 아니다.
+      --   대리점이 패널 관리를 안 하는 게 현실 → 확정 안 해도 모든 거래처 자동 업뎃(Chang 합의).
       AND c.enroll_status IN ('active', 'pending')
     ON CONFLICT (customer_id, target_version)
       WHERE (applied_at IS NULL AND cancelled_at IS NULL AND failed_at IS NULL)
@@ -130,7 +129,7 @@ export async function pushBulk(
   `);
   const inserted = (result as unknown as { rows: unknown[] }).rows.length;
 
-  // 활성 거래처 총수 ("신규 N / 대상 M" 표시용).
+  // 활성 거래처 총수 — "신규 N / 대상 M" 표시용.
   const [eligibleRow] = await db
     .select({ cnt: count() })
     .from(customers)
@@ -139,7 +138,7 @@ export async function pushBulk(
         eq(customers.tenantId, ctx.tenantId),
         eq(customers.isActive, true),
         eq(customers.isInternal, false),
-        // 미확정 후보(pending) 포함 — 모든 실제 에이전트가 업뎃 대상 (위 INSERT 와 동일).
+        // pending 포함 — 위 INSERT 와 동일 집합.
         inArray(customers.enrollStatus, ["active", "pending"]),
       ),
     );
@@ -148,9 +147,9 @@ export async function pushBulk(
 }
 
 /**
- * Agent 폴링용 — 특정 거래처의 대기 중 푸시 1건 반환 (있으면).
- * remote_id + token 매칭으로 customer 찾고, 그 customer 의 active pending 1건.
- * tenant 격리는 customers.tenantId 가 결과에 자동 포함.
+ * Agent 폴링용 — 그 거래처의 대기 중 푸시 최신 1건(없으면 null).
+ * remote_id + token 으로 customer 를 찾고 그 customer 의 미완료 pending 1건을 낸다.
+ * customer join 자체가 tenant 경계라 별도 tenantId 인자가 필요 없다.
  */
 export async function getPendingForAgent(
   remoteId: string,
@@ -181,7 +180,7 @@ export async function getPendingForAgent(
     .where(
       and(
         eq(customers.remoteId, remoteId),
-        eq(customers.heartbeatToken, hashHeartbeatToken(token)), // H3: 해시 대조
+        eq(customers.heartbeatToken, hashHeartbeatToken(token)), // 저장은 해시라 대조도 해시
         isNull(pendingUpdates.appliedAt),
         isNull(pendingUpdates.cancelledAt),
         isNull(pendingUpdates.failedAt),
@@ -193,7 +192,7 @@ export async function getPendingForAgent(
 }
 
 /**
- * Agent 가 설치 완료 보고. id + (remote_id + token) 매칭으로 정합성 확인 후 applied_at 채움.
+ * Agent 의 설치 완료 보고 — id + (remote_id + token) 정합성 확인 후 applied_at 을 채운다.
  * 실패 보고는 markFailed.
  */
 export async function markApplied(
@@ -201,7 +200,7 @@ export async function markApplied(
   remoteId: string,
   token: string,
 ): Promise<boolean> {
-  // 정합성 — 이 push 가 이 token 의 customer 것인지.
+  // 정합성 — 이 push 가 정말 이 token 의 customer 것인지.
   const owns = await db
     .select({ id: pendingUpdates.id })
     .from(pendingUpdates)
@@ -210,7 +209,7 @@ export async function markApplied(
       and(
         eq(pendingUpdates.id, pushId),
         eq(customers.remoteId, remoteId),
-        eq(customers.heartbeatToken, hashHeartbeatToken(token)), // H3: 해시 대조
+        eq(customers.heartbeatToken, hashHeartbeatToken(token)), // 저장은 해시라 대조도 해시
       ),
     )
     .limit(1);
@@ -238,7 +237,7 @@ export async function markFailed(
       and(
         eq(pendingUpdates.id, pushId),
         eq(customers.remoteId, remoteId),
-        eq(customers.heartbeatToken, hashHeartbeatToken(token)), // H3: 해시 대조
+        eq(customers.heartbeatToken, hashHeartbeatToken(token)), // 저장은 해시라 대조도 해시
       ),
     )
     .limit(1);
@@ -252,9 +251,7 @@ export async function markFailed(
   return result.length > 0;
 }
 
-/**
- * 관리 패널 — 푸시 취소. 대기 중인 것만 취소 가능.
- */
+/** 관리 패널 — 단일 푸시 취소. 대기 중인 것만 취소 가능. */
 export async function cancelPush(
   pushId: string,
   ctx: { tenantId: string },
@@ -275,9 +272,7 @@ export async function cancelPush(
   return result.length > 0;
 }
 
-/**
- * 일괄 푸시 취소 — bulk_batch_id 의 모든 대기 행을 cancelled.
- */
+/** 일괄 푸시 취소 — bulk_batch_id 의 대기 행 전부 cancelled 로. */
 export async function cancelBulk(
   bulkBatchId: string,
   ctx: { tenantId: string },
@@ -298,9 +293,7 @@ export async function cancelBulk(
   return result.length;
 }
 
-/**
- * 관리 패널 — 일괄 진행률 ("v1.3.5 적용 1847/2000").
- */
+/** 관리 패널 — 일괄 진행률 ("v1.3.5 적용 1847/2000"). */
 export async function getBulkProgress(
   bulkBatchId: string,
   ctx: { tenantId: string },
@@ -328,12 +321,11 @@ export async function getBulkProgress(
 }
 
 /**
- * 관리 패널 거래처 표 — 거래처별 대기 중 푸시 1건씩 join.
- * customers 와 left join 하여 "대기 중" 배지 + 타겟 버전 가시화.
+ * 관리 패널 거래처 표 — 거래처마다 대기 중 푸시 1건을 left join.
+ * "대기 중" 배지 + 타겟 버전을 표에 노출하기 위한 것.
  */
 export async function listCustomersWithPending(tenantId: string) {
-  // 거래처 N + active pending 1 = N+0 또는 N+1 행. drizzle 의 leftJoin + filter.
-  // partial: applied/cancelled/failed 다 NULL 인 것만.
+  // leftJoin 이라 거래처당 0~1 pending → 거래처 N 개면 N 행. applied/cancelled/failed 가 다 NULL 인 것만.
   const rows = await db
     .select({
       customer: customers,
@@ -357,7 +349,7 @@ export async function listCustomersWithPending(tenantId: string) {
     .where(eq(customers.tenantId, tenantId))
     .orderBy(desc(customers.updatedAt));
 
-  // 같은 customer 가 (이론상 partial unique 로) 중복 안 나오지만 안전상 dedupe.
+  // partial unique 덕에 이론상 중복은 없지만 안전하게 한 번 더 dedupe.
   const seen = new Set<string>();
   const result: typeof rows = [];
   for (const r of rows) {

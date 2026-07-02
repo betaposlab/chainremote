@@ -1,9 +1,9 @@
 "use client";
 
-// super_admin(Chang) 전용 "전 대리점 에이전트 롤아웃" 버튼.
-// 발행된 에이전트 버전(agent-push.json)을 자동 확인 → 확인 1번 → 전 활성 대리점에 일괄 푸시.
-// 대리점은 일일이 누를 필요 없음. 각 POS 는 설치 시간대 + 무작위 분산 + 세션보류 + sha검증으로
-//   알아서 안전 적용(에이전트 측 기존 가드). blast-radius 통제 위해 Chang 의 명시 클릭 1번이 게이트.
+// super_admin(Chang) 전용 "전 대리점 에이전트 롤아웃" 버튼. 발행된 버전(agent-push.json)을
+// 자동 확인하고 확인 한 번으로 전 활성 대리점에 일괄 푸시한다. 각 POS 는 설치 시간대 +
+// 무작위 분산 + 세션보류 + sha검증(에이전트 측 기존 가드)으로 알아서 안전하게 적용한다.
+// blast-radius 를 통제하려고 Chang 의 명시 클릭 한 번을 게이트로 뒀다.
 
 import { useState, useTransition } from "react";
 import { rolloutAllTenantsAction } from "@/lib/actions/push";

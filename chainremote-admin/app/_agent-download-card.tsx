@@ -1,8 +1,8 @@
 "use client";
 
-// 대리점(owner)이 자기 회사 전용 거래처 에이전트(.exe)를 *직접* 받는 카드 (대시보드).
-// 라우트 POST /api/tenants/[id]/agent 가 owner-자기테넌트를 허용 + 스테이블 키(재다운로드해도
-// 같은 .exe). super_admin 도 보이지만 보통 '회사 관리'에서 대리점별로 받음.
+// 대시보드 카드 — owner 가 자기 회사 전용 거래처 에이전트(.exe)를 직접 받는다.
+// POST /api/tenants/[id]/agent 가 owner-자기테넌트를 허용하고, 키가 안정적이라 다시 받아도
+// 같은 .exe. super_admin 에게도 보이지만 보통은 '회사 관리'에서 대리점별로 받는다.
 
 import { useState } from "react";
 
@@ -41,7 +41,7 @@ export function AgentDownloadCard({
       const safe =
         (displayName.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim() ||
           tenantId).slice(0, 50);
-      // 파일명에 버전 표시 (라우트가 X-Agent-Version 헤더로 베이스 버전 전달).
+      // 라우트가 X-Agent-Version 헤더로 베이스 버전을 주면 파일명에 붙인다.
       const ver = resp.headers.get("X-Agent-Version");
       const verSuffix = ver ? `_v${ver}` : "";
       const url = URL.createObjectURL(blob);
