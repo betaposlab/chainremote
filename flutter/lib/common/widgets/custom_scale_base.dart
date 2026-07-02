@@ -135,8 +135,8 @@ abstract class CustomScaleControls<T extends StatefulWidget> extends State<T> {
     _debouncerScale.value = next;
   }
 
-  /// 직접 입력(숫자 타이핑)으로 절대 퍼센트 설정. clamp 후 적용.
-  /// 슬라이더가 5~1000% 넓은 범위라 미세조정이 어려워, 정확한 값 입력 경로 제공.
+  /// 숫자를 직접 입력해 절대 퍼센트를 설정한다. clamp 후 적용.
+  /// 슬라이더가 5~1000% 로 범위가 넓어 미세조정이 어렵기 때문에, 정확한 값을 넣을 경로를 둔다.
   void setScale(int v) {
     final next = _clampScale(v);
     if (next == _scaleValue) return;

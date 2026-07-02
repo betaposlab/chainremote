@@ -214,14 +214,14 @@ List<Widget> ServerConfigImportExportWidgets(
 }
 
 List<(String, String)> otherDefaultSettings() {
-  // ChainRemote 2026-05-27 정리 — 거래처 운영에 무용한 7개 항목 제거:
-  //   - View Mode (보기 전용 — 조작 목적인 우리 운영에 무용)
-  //   - Disable clipboard (권한 탭에서 이미 제어, 중복)
-  //   - Privacy mode (RustDesk 유료 클라우드 기능)
-  //   - True color 4:4:4 (성능 영향, 우리 무용)
-  //   - Reverse mouse wheel (특이 케이스)
-  //   - swap-left-right-mouse (특이 케이스)
-  //   - Keep terminal sessions on disconnect (터미널 거의 안 씀)
+  // 2026-05-27 정리: 거래처 운영에 안 쓰는 7개 항목 제거.
+  //   - View Mode: 보기 전용이라 조작이 목적인 우리 운영엔 무의미
+  //   - Disable clipboard: 권한 탭에서 이미 제어, 중복
+  //   - Privacy mode: RustDesk 유료 클라우드 기능
+  //   - True color 4:4:4: 성능만 먹고 우리한텐 불필요
+  //   - Reverse mouse wheel: 특이 케이스
+  //   - swap-left-right-mouse: 특이 케이스
+  //   - Keep terminal sessions on disconnect: 터미널을 거의 안 씀
   List<(String, String)> v = [
     if ((isDesktop || isWebDesktop))
       ('show_monitors_tip', kKeyShowMonitorsToolbar),

@@ -554,8 +554,8 @@ class _PeersViewState extends State<_PeersView>
 
   Future<List<Peer>>? matchPeers(
       String searchText, String sortedBy, List<Peer> peers) async {
-    // ChainRemote: 자기 자신 ID 를 모든 목록에서 숨김 (단일 필터 지점 = 전 탭 일괄 적용).
-    // async 라 첫 호출 때 실제 ID 를 await 로 받아 캐시 → 깜빡임 없음.
+    // 자기 자신 ID 를 모든 목록에서 숨긴다. 필터 지점이 하나라 전 탭에 일괄 적용된다.
+    // async 이므로 첫 호출 때 실제 ID 를 await 로 받아 캐시해 깜빡임이 없다.
     if (_myOwnIdCache.isEmpty) {
       _myOwnIdCache = (await bind.mainGetMyId()).trim();
     }
@@ -671,9 +671,9 @@ class RecentPeersView extends BasePeersView {
   @override
   Widget build(BuildContext context) {
     final widget = super.build(context);
-    // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록.
-    // 탭 진입 시 거래처명 캐시(REMOTE_TO_NAME) 재워밍 → 패널에서 새로 등록·개명된 거래처도
-    //   최근세션에 즉시 이름 반영(stale "숫자만" 표시 해소). fetch 완료 시 main_load_recent_peers 재push.
+    // 최근 세션은 네이티브 최근 접속 기록을 사용한다.
+    // 탭 진입 시 거래처명 캐시(REMOTE_TO_NAME)를 재워밍해, 패널에서 새로 등록·개명된 거래처도
+    // 최근세션에 이름이 즉시 반영된다(stale "숫자만" 표시 해소). fetch 완료 시 main_load_recent_peers 를 재push 한다.
     bind.chainremoteLoadCustomers();
     bind.mainLoadRecentPeers();
     return widget;
@@ -695,15 +695,15 @@ class FavoritePeersView extends BasePeersView {
   @override
   Widget build(BuildContext context) {
     final widget = super.build(context);
-    // ChainRemote 본사 앱: 즐겨찾기는 user 별로 DB 의 user_favorites 에서 옴. (Phase 2-D)
+    // 즐겨찾기는 user 별로 DB 의 user_favorites 에서 온다 (Phase 2-D).
     bind.chainremoteLoadFavorites();
     return widget;
   }
 }
 
-// ChainRemote: '전체 거래처' 탭 — 우리 회사(테넌트) 패널에 등록된 모든 거래처(pending 포함).
-// 누가 등록했든 chang/c-win/jaesung 모두 동일 목록을 보고 거기서 1클릭 원격.
-// 데이터는 Rust fetch_customers_blocking → "load_all_customers" 이벤트(allCustomersPeersModel).
+// '전체 거래처' 탭. 우리 회사(테넌트) 패널에 등록된 모든 거래처(pending 포함)를 보여준다.
+// 누가 등록했든 chang/c-win/jaesung 모두 같은 목록을 보고 거기서 1클릭 원격한다.
+// 데이터는 Rust fetch_customers_blocking 이 "load_all_customers" 이벤트(allCustomersPeersModel)로 넘긴다.
 class AllCustomersPeersView extends BasePeersView {
   AllCustomersPeersView(
       {Key? key, EdgeInsets? menuPadding, ScrollController? scrollController})
@@ -719,7 +719,7 @@ class AllCustomersPeersView extends BasePeersView {
   @override
   Widget build(BuildContext context) {
     final widget = super.build(context);
-    // on-demand 재요청 (자동 폴링 대신 — 50대리점 idle 트래픽 방지). 탭 진입 시 최신 거래처 fetch.
+    // 탭 진입 시 최신 거래처를 fetch 한다. 자동 폴링 대신 on-demand 로 재요청해 50대리점 idle 트래픽을 막는다.
     bind.chainremoteLoadCustomers();
     return widget;
   }
