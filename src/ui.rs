@@ -81,10 +81,11 @@ pub fn start(args: &mut [String]) {
     allow_err!(sciter::set_options(sciter::RuntimeOptions::ScriptFeatures(
         ALLOW_FILE_IO as u8 | ALLOW_SOCKET_IO as u8 | ALLOW_EVAL as u8 | ALLOW_SYSINFO as u8
     )));
-    // ChainRemote: 거래처 cm(--cm) 창은 프레임리스(타이틀바·창버튼 없음) — Flutter cm(타이틀바 숨긴
-    //   카드/배너)과 톤 통일. main_window()=SW_MAIN|RESIZEABLE|CONTROLS|TITLEBAR 라 OS 타이틀바가
-    //   생성 시점에 박혀 view.windowFrame 으론 못 뗀다. main()=SW_MAIN 만 → 타이틀바/창버튼 없음
-    //   (HTML <header> 는 cm.tis applyCmBanner 가 숨김). 본사 HQ/설치창(index/install)은 그대로.
+    // 거래처 cm(--cm) 창은 프레임리스(타이틀바·창버튼 없음)로 띄워 Flutter cm(타이틀바 숨긴
+    //   카드/배너)과 톤을 맞춘다. main_window()=SW_MAIN|RESIZEABLE|CONTROLS|TITLEBAR 는 생성
+    //   시점에 OS 타이틀바가 박혀 view.windowFrame 으로도 못 뗀다. main()=SW_MAIN 만 쓰면
+    //   타이틀바/창버튼이 없다(HTML <header> 는 cm.tis applyCmBanner 가 숨김). 본사 HQ/설치창
+    //   (index/install)은 그대로 둔다.
     let mut frame = if !args.is_empty() && args[0] == "--cm" {
         sciter::WindowBuilder::main().create()
     } else {
@@ -530,8 +531,8 @@ impl UI {
     }
 
     fn get_version(&self) -> String {
-        // ChainRemote: Sciter UI(Agent32 전용) 의 버전 표시는 ChainRemote 버전으로 —
-        // crate::VERSION(Cargo, 1.4.6 고정)이 아니라 인스톨러/업데이트 비교와 같은 값.
+        // Sciter UI(Agent32 전용)의 버전 표시는 ChainRemote 버전을 쓴다 — 1.4.6 에 고정된
+        // crate::VERSION(Cargo)이 아니라 인스톨러/업데이트 비교와 같은 값이어야 한다.
         crate::CHAINREMOTE_VERSION.to_owned()
     }
 

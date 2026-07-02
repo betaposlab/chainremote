@@ -110,8 +110,8 @@ pub fn translate(name: String) -> String {
 }
 
 pub fn translate_locale(name: String, _locale: &str) -> String {
-    // ChainRemote: 언어 기본값은 무조건 한국어. 설정에서 명시적으로 고른 경우(LocalConfig "lang")만 존중.
-    // upstream의 시스템 로케일 기반 자동 유도는 사용 안 함 — 거래처/본사 모두 한국 사용자.
+    // 기본 언어는 무조건 한국어. 설정에서 직접 고른 경우(LocalConfig "lang")만 존중한다.
+    // 거래처도 본사도 전부 한국 사용자라 upstream 의 시스템 로케일 자동 감지는 쓰지 않는다.
     let mut lang = hbb_common::config::LocalConfig::get_option("lang").to_lowercase();
     if lang.is_empty() {
         lang = "ko".to_owned();

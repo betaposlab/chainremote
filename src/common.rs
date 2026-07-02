@@ -121,16 +121,15 @@ impl Drop for SimpleCallOnReturn {
     }
 }
 
-/// ChainRemote 포터블(ChainGo) 모드 여부.
+/// ChainRemote 포터블(ChainGo) 모드인지.
 ///
-/// SFX 래퍼가 inner exe 진입 직전 `CHAINREMOTE_PORTABLE_DIR` env 를 박고,
-/// core_main 최상단 `chainremote_portable_init()` 가 그 하위 config 폴더를
-/// `APP_DIR` 에 세팅함. 그래서 데스크톱에서 APP_DIR 가 비어있지 않으면
-/// = 포터블 = 호스트 PC 에 흔적 남기는 어떤 동작도 자동 트리거 금지.
+/// SFX 래퍼가 inner exe 를 띄우기 직전 `CHAINREMOTE_PORTABLE_DIR` env 를 심고,
+/// core_main 최상단의 `chainremote_portable_init()` 가 그 하위 config 폴더를
+/// `APP_DIR` 로 잡는다. 포터블은 호스트 PC 에 흔적을 남기는 동작을 일절 하면 안 된다.
 ///
-/// ChainGo SFX 가 inner process 에 박은 env `CHAINREMOTE_PORTABLE_DIR` 로만 판별.
-/// APP_DIR 자체는 정식 Flutter UI 도 mainInit 시 박으므로 portable 판별 기준으로 못 씀
-/// (2026-05-26 사고 원인 — Phase 3-Win 영구비번 IPC 깨짐).
+/// 판별은 반드시 이 env 로만 한다. APP_DIR 은 정식 Flutter UI 도 mainInit 에서
+/// 채우므로 portable 기준으로 쓸 수 없다 — 2026-05-26 Phase 3-Win 영구비번 IPC 를
+/// 이걸로 헷갈려서 깨먹은 적이 있다.
 #[inline]
 pub fn is_chainremote_portable() -> bool {
     std::env::var_os("CHAINREMOTE_PORTABLE_DIR")
@@ -1029,13 +1028,11 @@ pub fn is_rustdesk() -> bool {
 
 #[inline]
 pub fn get_uri_prefix() -> String {
-    // ChainRemote Phase 3-Win (2026-05-25): APP_NAME 이 "ChainRemote" 로 변경됐어도 URL scheme
-    // 은 "rustdesk://" 그대로 유지. 이유:
-    // - 관리 패널의 1클릭 deep link (rustdesk://<id>) + Mac Info.plist + Windows HKCR + Flutter
-    //   parseUriScheme 가 모두 'rustdesk' 로 등록되어 있음. 호환성 유지가 가장 단순.
-    // - URL scheme 자체는 사용자 눈에 안 띔 (OS 가 클릭만 받아 ShellExecute 처리). 영업/브랜딩
-    //   가치 낮음.
-    // - 미래에 모든 곳을 chainremote:// 로 일제 교체 시점에 이 함수도 같이 풀어줄 것.
+    // Phase 3-Win 에서 APP_NAME 은 "ChainRemote" 로 바뀌었지만 URL scheme 은 "rustdesk://" 를
+    // 유지한다. 관리 패널 1클릭 딥링크(rustdesk://<id>), Mac Info.plist, Windows HKCR, Flutter
+    // parseUriScheme 이 모두 'rustdesk' 로 등록돼 있어 그대로 두는 게 가장 깔끔하다. scheme 은
+    // 사용자 눈에 안 띄므로(OS 가 클릭만 받아 ShellExecute) 브랜딩 이득도 없다.
+    // 나중에 chainremote:// 로 전면 교체할 때 이 함수도 같이 손본다.
     "rustdesk://".to_string()
 }
 
@@ -2204,9 +2201,9 @@ pub fn get_dst_align_rgba() -> usize {
 }
 
 pub fn read_custom_client(config: &str) {
-    // ChainRemote: 우리 포크 자체 빌드용 plain JSON 경로.
-    // 원본 RustDesk 는 base64 + ed25519 서명된 custom.txt 만 허용 (상용 anti-tamper).
-    // 우리는 빌드를 우리가 통제하므로 '{' 로 시작하면 서명 없이 그대로 적용.
+    // 우리 포크 빌드가 쓰는 plain JSON 경로. 원본 RustDesk 는 base64 + ed25519 서명된
+    // custom.txt 만 받는다(상용 anti-tamper). 빌드를 우리가 통제하므로 '{' 로 시작하면
+    // 서명 없이 그대로 적용한다.
     let trimmed = config.trim();
     let mut data: std::collections::HashMap<String, serde_json::Value> = if trimmed
         .starts_with('{')
@@ -2311,12 +2308,11 @@ pub fn get_hwid() -> Bytes {
 
 #[inline]
 pub fn get_builtin_option(key: &str) -> String {
-    // ChainRemote: 무인 원격지원 제품 — 거래처가 트레이/설정에서 서비스를
-    // 중지(=uninstall_service, sc delete)하지 못하게 "stop service" UI 를
-    // 모든 경로에서 영구 숨김. tray.rs·desktop_setting_page.dart·
-    // src/ui/index.tis 전부 이 함수를 경유하므로 단일지점 강제.
-    // (RustDesk 공식 HARD_SETTINGS/custom.txt 는 RustDesk 서명키가 있어야
-    //  주입 가능 → fork 에선 불가하여 여기서 직접 고정.)
+    // 무인 원격지원 제품이라 거래처가 트레이/설정에서 서비스를 내리지(uninstall_service,
+    // sc delete) 못하도록 "stop service" UI 를 전 경로에서 영구히 숨긴다. tray.rs,
+    // desktop_setting_page.dart, src/ui/index.tis 가 모두 이 함수를 거치므로 여기 한 곳에서
+    // 강제한다. 원래 방법인 RustDesk HARD_SETTINGS/custom.txt 는 RustDesk 서명키가 있어야
+    // 주입되므로 포크에선 못 쓴다 — 그래서 직접 고정한다.
     if key == "hide-stop-service" {
         return "Y".to_string();
     }

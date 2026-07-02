@@ -1,5 +1,5 @@
-// ChainRemote(Agent32): Windows 프레임리스는 ui.rs 가 창 생성 시 처리(--cm = SW_MAIN, 타이틀바 없음).
-//   여기 windowFrame 은 macOS(HQ) 확장 프레임용.
+// ChainRemote(Agent32): Windows 프레임리스는 ui.rs 가 창 생성 시 처리한다(--cm = SW_MAIN, 타이틀바 없음).
+//   여기 windowFrame 은 macOS(HQ) 확장 프레임 전용이다.
 view.windowFrame = is_osx ? #extended : #solid;
 
 var body;
@@ -39,23 +39,23 @@ class Body: Reactor.Component
         var right_style = show_chat ? "" : "display: none";
         var disconnected = c.disconnected;
         var show_elevation_btn = handler.can_elevate() && show_elevation && !c.is_file_transfer && !c.is_view_camera && !c.is_terminal && c.port_forward.length == 0;
-        // ChainRemote(Agent32): 권한 아이콘 그리드는 렌더하지 않는다 — 거래처 화면 단순화(클릭수락 정책),
-        // Flutter 수락카드와 톤 통일. 권한 기본값은 toml/서버 정책이 결정. Sciter cm 은 Agent32 에만 실림.
+        // ChainRemote(Agent32): 권한 아이콘 그리드는 렌더하지 않는다. 클릭수락 정책이라 거래처 화면을
+        // 단순하게 두고 Flutter 수락카드와 톤을 맞춘다. 권한 기본값은 toml/서버 정책이 정한다. Sciter cm 은 Agent32 전용.
         var show_accept_btn = handler.get_option('approve-mode') != 'password';
-        // ChainRemote(Agent32): 활성 세션 = 슬림 "원격지원 중" 배너 (Flutter 톤 통일).
-        //   빨간 점 + "원격지원 중" + [원격 종료]. 전체 카드 대신 표시 → 거래처가 원격 중임을 항상 인지.
+        // ChainRemote(Agent32): 활성 세션이면 슬림 "원격지원 중" 배너를 띄운다(Flutter 톤).
+        //   빨간 점 + "원격지원 중" + [원격 종료]. 전체 카드 대신 이걸 보여줘 거래처가 원격 중임을 항상 알게 한다.
         if (auth && !disconnected) {
-            // ChainRemote: role=window-caption → 배너를 잡고 끌어 이동 가능.
-            //   #disconnect 버튼은 interactive라 드래그서 제외(클릭 유지). no-focus(스캐너 보호)는
-            //   windowTopmost만 쓰고 view.focus 안 부르는 방식(applyCmBanner)이라 드래그와 무충돌.
+            // ChainRemote: role=window-caption 이면 배너를 잡고 끌어 옮길 수 있다.
+            //   #disconnect 버튼은 interactive라 드래그에서 빠진다(클릭 유지). no-focus(스캐너 보호)는
+            //   windowTopmost만 쓰고 view.focus 는 안 부르는 방식(applyCmBanner)이라 드래그와 충돌하지 않는다.
             return <div .support-banner role="window-caption">
                 <span .banner-dot />
                 <span .banner-label>{translate('Remote support in progress')}</span>
                 <button #disconnect .banner-end>{translate('Disconnect')}</button>
             </div>;
         }
-        // ChainRemote(Agent32): 대기(미수락) = Flutter "원격지원 요청" 카드와 톤 통일.
-        //   제목 + 안내문 + 본사 ID + [거부]/[수락]. translate() 사용(모지바케 회피).
+        // ChainRemote(Agent32): 대기(미수락) 상태는 Flutter "원격지원 요청" 카드와 톤을 맞춘다.
+        //   제목 + 안내문 + 본사 ID + [거부]/[수락]. 모지바케를 피하려 translate() 를 쓴다.
         if (!auth && !disconnected) {
             var who = c.peer_id ? c.peer_id : c.name;
             return <div .accept-card>
@@ -225,9 +225,9 @@ class Body: Reactor.Component
     }
 
     event click $(button#disconnect) {
-        // ChainRemote: 종료(원격 종료)는 원격 클릭도 허용 — Flutter 에이전트(_buildEndButton,
-        //   가드 없음)와 동작 통일. controller 가 세션 끊는 건 무해(자기 창 닫기와 동일).
-        //   수락/거부(#accept/#dismiss)의 checkClickTime 가드는 유지(셀프 수락 방지).
+        // ChainRemote: 원격 종료는 원격 클릭도 허용한다. Flutter 에이전트(_buildEndButton, 가드 없음)와
+        //   동작을 맞춘다. controller 가 세션을 끊는 건 자기 창 닫기와 같아 무해하다.
+        //   반면 수락/거부(#accept/#dismiss)의 checkClickTime 가드는 셀프 수락 방지를 위해 유지한다.
         handler.close(this.cid);
     }
 
@@ -359,19 +359,19 @@ function adaptSizeForChat() {
     if (show_chat && w < scaleIt(600)) {
         view.move(x - (scaleIt(600) - w), y, scaleIt(600), h);
     } else if (!show_chat && w > scaleIt(450)) {
-        // ChainRemote(Agent32): 채팅 닫을 때 기본 카드 폭(380)으로 복귀 (원본 300)
+        // ChainRemote(Agent32): 채팅을 닫으면 기본 카드 폭(380)으로 되돌린다 (원본은 300).
         view.move(x + (w - scaleIt(380)), y, scaleIt(380), h);
     }
 }
 
 var cm_banner_state = undefined;
-// ChainRemote(Agent32): 활성 세션이면 cm 창을 슬림 "원격지원 중" 배너로(상단중앙·상시 최상위),
-//   대기/끊김이면 카드 크기로 되돌린다. 전환 시에만 view.move (떨림 방지).
-//   ★ windowTopmost=true 만 설정하고 view.focus 는 건드리지 않음 → z-order 만 최상위,
-//     키보드 포커스는 안 뺏어 POS 바코드 스캐너 입력 보호 (2026-06-12 보류 건의 정공법).
+// ChainRemote(Agent32): 활성 세션이면 cm 창을 슬림 "원격지원 중" 배너로(상단 중앙, 상시 최상위),
+//   대기/끊김이면 카드 크기로 되돌린다. 떨림을 막으려 전환 시에만 view.move 한다.
+//   windowTopmost=true 만 설정하고 view.focus 는 건드리지 않는다. z-order 만 최상위로 올라가고
+//   키보드 포커스는 뺏지 않아 POS 바코드 스캐너 입력을 보호한다 (2026-06-12 보류 건의 정공법).
 function applyCmBanner() {
     if (connections.length == 0) return;
-    // 프레임리스(Flutter 톤): HTML 타이틀바 <header> 항상 숨김 — 수락카드·배너 모두 프레임 없음.
+    // 프레임리스(Flutter 톤): HTML 타이틀바 <header> 는 항상 숨긴다. 수락카드·배너 모두 프레임이 없다.
     var hdr = $(header);
     if (hdr) hdr.style.set { display: "none" };
     var active = false;
@@ -382,14 +382,14 @@ function applyCmBanner() {
     cm_banner_state = active;
     var (sw, sh) = view.screenBox(#workarea, #dimension);
     if (active) {
-        // 활성 = 슬림 "원격지원 중" 배너 (상단중앙·상시 최상위·focus 안뺏음=스캐너 보호).
+        // 활성: 슬림 "원격지원 중" 배너 (상단 중앙, 상시 최상위, focus 안 뺏음=스캐너 보호).
         var w = scaleIt(260);
         var h = scaleIt(48);
         setWindowState(View.WINDOW_SHOWN);
         view.move((sw - w) / 2, 0, w, h);
         view.windowTopmost = true;
     } else {
-        // 대기(수락카드)/끊김 = 카드 크기.
+        // 대기(수락카드)/끊김: 카드 크기.
         var w = scaleIt(380);
         var h = scaleIt(260);
         view.windowTopmost = false;
@@ -453,9 +453,9 @@ handler.addConnection = function(id, is_file_transfer, is_view_camera, is_termin
     bring_to_top();
     update();
     self.timer(1ms, adjustHeader);
-    // [ChainRemote] 수락 3초후 cm 창 최소화(원본 RustDesk 동작) 제거 — 항상 보이는
-    //   "원격지원 중" 배너와 충돌(수락 후 배너가 떴다가 3초 뒤 사라지던 원인).
-    //   창 상태는 applyCmBanner 가 관리(활성=슬림배너 / 대기·끊김=카드).
+    // ChainRemote: 수락 3초 후 cm 창을 최소화하던 원본 RustDesk 동작을 제거했다. 항상 보이는
+    //   "원격지원 중" 배너와 충돌해 배너가 떴다가 3초 뒤 사라지던 원인이었다.
+    //   창 상태는 applyCmBanner 가 관리한다(활성=슬림 배너 / 대기·끊김=카드).
 }
 
 handler.removeConnection = function(id, close) {
@@ -508,7 +508,7 @@ view << event statechange {
 function self.ready() {
     adjustBorder();
     var (sw, sh) = view.screenBox(#workarea, #dimension);
-    // ChainRemote(Agent32): Flutter 수락카드(상단 중앙)와 톤 통일 — 카드형 작은 창.
+    // ChainRemote(Agent32): Flutter 수락카드(상단 중앙)와 톤을 맞춘 카드형 작은 창.
     // "작게 띄우고 키우기 금지" 원칙(docs/chainremote/CM_WINDOW.md §2)은 Flutter 경로 얘기지만,
     // 여기서도 처음부터 최종 크기로 띄운다.
     var w = scaleIt(380);

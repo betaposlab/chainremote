@@ -59,11 +59,12 @@ impl RendezvousMediator {
 
     pub async fn start_all() {
         crate::test_nat_type();
-        // ChainRemote 옵션 B+: outgoing-only HQ 빌드도 incoming(피지원) 등록을 허용하는 두 경로 —
-        //   (1) custom.txt "option-b-plus" 마커 = "지원가능 HQ" 빌드(대리점 HQ). 빌드 단계 결정,
-        //       서비스 auto-start(install_me get_create_service)와 짝 → 로그인 전 피지원 가능. (2026-06-05)
-        //   (2) "외부 원격 접속 허용" 토글(chainremote-allow-incoming=Y) — 런타임 opt-in (Chang 본인 PC).
-        // 둘 다 아니면 원본 동작(sleep loop, hbbs 미등록). approve-mode=click 이 보안(매 접속 수락).
+        // 옵션 B+: outgoing-only HQ 빌드가 incoming(피지원) 등록까지 하도록 열어주는 두 경로.
+        //   - custom.txt "option-b-plus" 마커 = "지원가능 HQ" 빌드(대리점 HQ). 빌드 단계에서
+        //     정해지고 서비스 auto-start(install_me get_create_service)와 짝이라 로그인 전에도
+        //     피지원 가능(2026-06-05).
+        //   - "외부 원격 접속 허용" 토글(chainremote-allow-incoming=Y) = 런타임 opt-in(Chang 본인 PC).
+        // 둘 다 아니면 원본 동작(sleep loop, hbbs 미등록). 보안은 approve-mode=click(매 접속 수락)이 담당.
         if config::is_outgoing_only()
             && !option2bool(
                 "chainremote-allow-incoming",

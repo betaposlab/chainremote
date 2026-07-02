@@ -4,15 +4,15 @@ stdout.println("is_xfce: ", is_xfce);
 
 // See default height in common.tis `msgbox()`.
 const msgbox_default_height = 180;
-// ChainRemote: 180 -> 300 (2026-06-10 봉스푸드 POS — 안내 문구가 어색하게 줄바꿈/가려짐)
+// ChainRemote: 180 -> 300. 봉스푸드 POS 에서 안내 문구가 줄바꿈되며 잘렸음 (2026-06-10).
 const incoming_only_width = 300;
 
 const outgoing_only = handler.is_outgoing_only();
 const incoming_only = handler.is_incoming_only();
 const disable_installation = handler.is_disable_installation();
 const disable_account = handler.is_disable_account();
-// ChainRemote: 거래처(incoming-only, Agent32 Sciter) 빌드는 설정 일괄 잠금 —
-// 클릭수락 정책 + ID/릴레이 서버 등 거래처 노출 금지. Sciter UI 는 Agent32 에만 실림.
+// ChainRemote: 거래처(incoming-only, Agent32 Sciter) 빌드는 설정을 통째로 잠근다.
+// 클릭수락 정책이라 ID/릴레이 서버 등을 거래처에 노출하지 않는다. Sciter UI 는 Agent32 에만 실린다.
 const disable_settings = handler.is_disable_settings() || incoming_only;
 const is_custom_client = handler.is_custom_client();
 const disable_ab = handler.is_disable_ab();
@@ -88,7 +88,7 @@ class ConnectStatus: Reactor.Component {
         } else if (connect_status == 0) {
             return translate('connecting_status');
         }
-        // ChainRemote: 거래처 빌드는 서버 설정 안내(nag) 숨김 — 서버는 빌드에 고정 배포됨
+        // ChainRemote: 거래처 빌드는 서버 설정 안내(nag)를 숨긴다. 서버는 빌드에 고정 배포된다.
         if (incoming_only || !handler.using_public_server()) return translate('Ready');
         return <span>{translate("Ready")}, <span .link #setup-server>{translate("setup_server_tip")}</span></span>;
     }
@@ -561,8 +561,8 @@ class MyIdMenu: Reactor.Component {
     }
 
     function showSettingMenu() {
-        // ChainRemote: incoming-only 잠금으로 <AudioInputs/> 가 렌더 안 되면 undefined — 가드 필수
-        // (미가드 시 여기서 throw 되어 메뉴 팝업 자체가 안 뜸. 2026-06-10 봉스푸드 POS 사고)
+        // ChainRemote: incoming-only 잠금이면 <AudioInputs/> 가 렌더되지 않아 undefined 다. 반드시 가드한다.
+        // 가드가 없으면 여기서 throw 되어 메뉴 팝업 자체가 안 떴다 (2026-06-10 봉스푸드 POS 사고).
         if (audioInputMenu) audioInputMenu.update({ show: true });
         this.toggleMenuState();
         if (direct_server) direct_server.update();
@@ -1301,7 +1301,7 @@ var reg = /^\d+$/;
 var abReg = /^([A-Za-z]{2})(\d{4})(\d{4})$/;
 function formatId(id) {
     id = id.replace(/\s/g, "");
-    // ChainRemote 새 형식: 글자2 + 숫자8 ("AB12345678") -> "AB 1234 5678" (앞글자 대문자).
+    // ChainRemote 새 형식: 글자2 + 숫자8 ("AB12345678") -> "AB 1234 5678". 앞 글자는 대문자로.
     var ab = abReg.exec(id);
     if (ab) {
         return ab[1].toUpperCase() + " " + ab[2] + " " + ab[3];

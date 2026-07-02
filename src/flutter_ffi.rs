@@ -1364,8 +1364,8 @@ fn load_recent_peers(
     // There may be less peers than the batch size.
     // But no need to consider this case, because it is a rare case.
     let peers = peers_next.0.drain(..).map(|(id, _, mut p)| {
-        // ChainRemote: 최근 세션 카드가 숫자 ID 대신 거래처명을 표시하도록, 등록 거래처면
-        // alias 를 live 거래처명(REMOTE_TO_NAME)으로 덮는다(패널 rename 반영). 미등록이면 로컬 alias 유지.
+        // 최근 세션 카드에 숫자 ID 대신 거래처명이 뜨도록, 등록된 거래처면 alias 를 live
+        // 거래처명(REMOTE_TO_NAME)으로 덮는다(패널 rename 반영). 미등록이면 로컬 alias 유지.
         if let Some(name) = crate::chainremote_data::get_remote_name(&id) {
             if !name.trim().is_empty() {
                 p.options.insert("alias".to_string(), name);
@@ -1389,11 +1389,11 @@ pub fn main_load_recent_peers() {
         );
     };
 
-    // ChainRemote: macOS는 config 일관성(iCloud 동기화 회피 + startup 영구비번 보존, 커밋
-    // 1ff8d7f9b)을 위해 APP_DIR을 비워둔다. 데스크톱은 APP_DIR이 비어도 Config::path()가
-    // ProjectDirs(= peers 저장 경로와 동일)로 정상 해석되므로 최근 peer를 로드해야 한다.
-    // upstream의 빈-APP_DIR 게이트는 모바일(샌드박스 경로가 네이티브→APP_DIR로만 전달됨)
-    // init 보호용이라 데스크톱엔 부적합 → desktop은 APP_DIR 유무와 무관하게 로드.
+    // macOS 는 config 일관성(iCloud 동기화 회피 + startup 영구비번 보존, 커밋 1ff8d7f9b)을
+    // 위해 APP_DIR 을 비워둔다. 데스크톱에선 APP_DIR 이 비어도 Config::path() 가
+    // ProjectDirs(= peers 저장 경로)로 제대로 풀리므로 최근 peer 를 로드해야 한다.
+    // upstream 의 빈-APP_DIR 게이트는 샌드박스 경로가 네이티브→APP_DIR 로만 전달되는 모바일
+    // init 보호용이라 데스크톱엔 안 맞는다 → 데스크톱은 APP_DIR 유무와 무관하게 로드.
     let app_dir_ready = !config::APP_DIR.read().unwrap().is_empty()
         || cfg!(not(any(target_os = "android", target_os = "ios")));
     if app_dir_ready {
@@ -2741,20 +2741,20 @@ pub fn main_max_encrypt_len() -> SyncReturn<usize> {
 }
 
 // ============================================================================
-// ChainRemote 본사 앱 인증 FFI (Phase 2-B)
-// 관리 패널 /api/auth/token Bearer JWT 흐름. 구현: src/chainremote_auth.rs
+// 본사 앱 인증 FFI (Phase 2-B). 관리 패널 /api/auth/token Bearer JWT 흐름.
+// 구현은 src/chainremote_auth.rs.
 // ============================================================================
 
 pub fn chainremote_login(email: String, password: String) -> SyncReturn<String> {
-    // Reqwest blocking 은 별도 thread 에서 — flutter_rust_bridge 호출 thread 의
-    // tokio runtime 과 충돌(nested runtime panic) 회피. device_id/label 은 Rust 내부 계산.
+    // reqwest blocking 은 별도 thread 에서 돌린다 — frb 호출 thread 의 tokio runtime 과
+    // 겹치면 nested runtime panic 이 난다. device_id/label 은 Rust 안에서 계산.
     use crate::chainremote_auth::LoginOutcome;
     let result = std::thread::spawn(move || {
         match crate::chainremote_auth::login(&email, &password) {
             Ok(LoginOutcome::Success(user)) => {
                 serde_json::json!({ "ok": true, "user": user }).to_string()
             }
-            // 좌석 점유됨 — Flutter 가 "강제 종료하고 사용 / 취소" 모달 표시.
+            // 좌석이 이미 물려 있음 — Flutter 가 "강제 종료하고 사용 / 취소" 모달을 띄운다.
             Ok(LoginOutcome::Occupied {
                 device_label,
                 since,
@@ -2773,7 +2773,7 @@ pub fn chainremote_login(email: String, password: String) -> SyncReturn<String> 
     SyncReturn(result)
 }
 
-/// 좌석 인계 — "강제 종료하고 사용". 자격 재검증 + 좌석 덮어쓰기 + 새 토큰 발급.
+/// 좌석 인계("강제 종료하고 사용"). 자격을 다시 검증하고 좌석을 덮어쓴 뒤 새 토큰을 발급한다.
 /// 반환: `{"ok":true,"user":{...}}` 또는 `{"ok":false,"error":"..."}`.
 pub fn chainremote_takeover(email: String, password: String) -> SyncReturn<String> {
     let result = std::thread::spawn(move || {
@@ -2790,8 +2790,8 @@ pub fn chainremote_takeover(email: String, password: String) -> SyncReturn<Strin
 /// 좌석 heartbeat (~10초). 반환: `{"status":"ok"|"revoked"|"error"}`.
 ///   ok = 유지, revoked = 인계당함(앱이 세션 끊고 로그아웃), error = 일시오류(세션 유지).
 ///
-/// **async FFI** (SyncReturn 아님) — 10초 주기 호출이 UI isolate 를 블로킹하지 않도록
-/// frb worker thread 에서 실행. 내부 std::thread spawn 은 tokio nested-runtime 회피.
+/// SyncReturn 이 아닌 async FFI 다 — 10초마다 부르는 호출이 UI isolate 를 막지 않도록 frb
+/// worker thread 에서 돈다. 내부 std::thread spawn 은 tokio nested-runtime 을 피하려는 것.
 pub fn chainremote_heartbeat() -> String {
     use crate::chainremote_auth::HeartbeatStatus;
     std::thread::spawn(move || {
@@ -2832,9 +2832,9 @@ pub fn chainremote_set_api_base(url: String) -> SyncReturn<bool> {
     SyncReturn(true)
 }
 
-/// 본인 비번 변경. 현재 비번 검증 후 새 비번 저장.
+/// 본인 비번 변경. 현재 비번을 검증한 뒤 새 비번을 저장한다.
 /// 반환: `{"ok": true}` 또는 `{"ok": false, "error": "..."}` JSON 문자열.
-/// 별도 thread 에서 실행 — http_request_sync 의 tokio runtime 충돌 회피.
+/// 별도 thread 에서 실행 — http_request_sync 의 tokio runtime 과 충돌을 피한다.
 pub fn chainremote_change_password(
     current_password: String,
     new_password: String,
@@ -2850,21 +2850,20 @@ pub fn chainremote_change_password(
     SyncReturn(result)
 }
 
-/// 본사 앱 메인 화면용 — GET /api/customers 결과를 RustDesk Peer 포맷으로
-/// 변환해서 기존 `load_recent_peers` 이벤트로 push.
-/// UI 측은 별도 변경 없이 같은 코드 경로로 동작.
+/// 본사 앱 메인 화면용. GET /api/customers 결과를 RustDesk Peer 포맷으로 바꿔
+/// 기존 `load_recent_peers` 이벤트로 push 한다. UI 는 손댈 것 없이 같은 경로로 처리된다.
 pub fn chainremote_load_customers() {
     crate::chainremote_data::spawn_load_customers();
 }
 
-/// 즐겨찾기 탭 — GET /api/me/favorites → "load_fav_peers" 이벤트.
+/// 즐겨찾기 탭. GET /api/me/favorites → "load_fav_peers" 이벤트.
 pub fn chainremote_load_favorites() {
     crate::chainremote_data::spawn_load_favorites();
 }
 
-/// 즐겨찾기 토글 — peer_card 의 별표/메뉴 클릭 핸들러에서 호출.
-/// remote_id 는 RustDesk peer.id (9자리). 2026-05-27 개편: 서버가 remote_id 기준 처리.
-/// 동기 blocking — UI thread 가 결과 기다림 (~300ms). 토스트 메시지 정확성 위해 필요.
+/// 즐겨찾기 토글. peer_card 의 별표/메뉴 클릭 핸들러에서 부른다.
+/// remote_id 는 RustDesk peer.id (9자리). 2026-05-27 개편으로 서버가 remote_id 기준으로 처리.
+/// 동기 blocking(~300ms) — 토스트 메시지를 정확히 띄우려면 UI thread 가 결과를 기다려야 한다.
 pub fn chainremote_add_favorite(remote_id: String) -> SyncReturn<bool> {
     SyncReturn(crate::chainremote_data::add_favorite_blocking_pub(remote_id))
 }
@@ -2873,37 +2872,37 @@ pub fn chainremote_remove_favorite(remote_id: String) -> SyncReturn<bool> {
     SyncReturn(crate::chainremote_data::remove_favorite_blocking_pub(remote_id))
 }
 
-/// 자가등록 후보 확정 — '전체 거래처' 탭에서 마스터가 미확정 후보를 정식 거래처로 확정.
-/// 동기 blocking — UI thread 가 결과 기다림(토스트 정확성). 서버가 owner 권한 강제.
+/// 자가등록 후보 확정. '전체 거래처' 탭에서 마스터가 미확정 후보를 정식 거래처로 승격한다.
+/// 동기 blocking — 토스트 정확성을 위해 UI thread 가 결과를 기다린다. owner 권한은 서버가 강제.
 pub fn chainremote_confirm_customer(remote_id: String) -> SyncReturn<bool> {
     SyncReturn(crate::chainremote_data::confirm_customer_blocking_pub(
         remote_id,
     ))
 }
 
-/// ① 거래처명 변경 → 패널 customer.name 기록(최근/즐겨찾기/패널 3면 일관). payload=JSON {remoteId,name}.
-/// 1-arg(JSON) 으로 add_favorite 와 동일 브리지 형태. 등록거래처면 true(반영), orphan 이면 false.
+/// 거래처명 변경 → 패널 customer.name 에 기록(최근/즐겨찾기/패널 세 화면 일관). payload=JSON {remoteId,name}.
+/// add_favorite 와 같은 1-arg(JSON) 브리지 형태. 등록 거래처면 true(반영), orphan 이면 false.
 pub fn chainremote_rename_customer(payload: String) -> SyncReturn<bool> {
     SyncReturn(crate::chainremote_data::rename_customer_blocking_pub(
         payload,
     ))
 }
 
-/// UI 동기 호출 — "이 거래처가 내 즐겨찾기인가" 빠른 체크.
-/// 캐시 기반 (spawn_load_favorites 가 채움).
+/// "이 거래처가 내 즐겨찾기인가" 빠른 확인용 UI 동기 호출.
+/// spawn_load_favorites 가 채워둔 캐시를 본다.
 pub fn chainremote_is_favorite(remote_id: String) -> SyncReturn<bool> {
     let ids = crate::chainremote_data::get_my_favorite_remote_ids();
     SyncReturn(ids.contains(&remote_id))
 }
 
-/// UI 가 fav 리스트 전체 필요할 때 (peer_card 의 기존 mainGetFav 대체).
+/// UI 가 즐겨찾기 목록 전체를 필요로 할 때(peer_card 의 옛 mainGetFav 대체).
 pub fn chainremote_get_favorite_ids() -> SyncReturn<Vec<String>> {
     SyncReturn(crate::chainremote_data::get_my_favorite_remote_ids())
 }
 
-/// 옵션 B+ (2026-05-21): HQ 빌드에서 "외부 원격 접속 허용" 토글 상태 조회.
-/// `chainremote-allow-incoming` 옵션 Y/N. 디폴트 OFF (안전 디폴트).
-/// rendezvous_mediator.rs::start_all() 이 이 값 보고 hbbs 등록 여부 결정.
+/// 옵션 B+ (2026-05-21): HQ 빌드의 "외부 원격 접속 허용" 토글 상태 조회.
+/// `chainremote-allow-incoming` 옵션 Y/N, 기본은 안전하게 OFF.
+/// rendezvous_mediator.rs::start_all() 이 이 값으로 hbbs 등록 여부를 정한다.
 pub fn chainremote_get_allow_incoming() -> SyncReturn<bool> {
     let v = hbb_common::config::Config::get_option("chainremote-allow-incoming");
     SyncReturn(hbb_common::config::option2bool(
@@ -2912,19 +2911,18 @@ pub fn chainremote_get_allow_incoming() -> SyncReturn<bool> {
     ))
 }
 
-/// 토글 ON/OFF. 변경 직후 RendezvousMediator::restart() 로 서버 재시작 신호 →
-/// SHOULD_EXIT 플래그 박혀 메인 루프가 빠져나오고 start_all 재진입 → 새 차단
-/// 조건 평가. 사용자가 ChainRemote 재시작 안 해도 즉시 적용. 영구비번은
-/// 인스톨러가 박아둠.
+/// 토글 ON/OFF. 바꾸는 즉시 RendezvousMediator::restart() 로 서버 재시작 신호를 보낸다 —
+/// SHOULD_EXIT 플래그가 서면 메인 루프가 빠져나오고 start_all 이 다시 들어가 새 조건을
+/// 평가한다. 앱을 재시작하지 않아도 바로 반영된다. 영구비번은 인스톨러가 심어둔다.
 pub fn chainremote_set_allow_incoming(allow: bool) -> SyncReturn<bool> {
     let v = if allow { "Y" } else { "N" };
     hbb_common::config::Config::set_option(
         "chainremote-allow-incoming".to_owned(),
         v.to_owned(),
     );
-    // 서버 재시작 — UI 프로세스에서 호출되는 상황이라 데스크탑에서도 동작.
-    // restart() 는 atomic flag 만 박으므로 실패 케이스 없음.
-    // iOS(HQ 전용)에선 rendezvous_mediator 모듈이 cfg-out 이라 호출 제외.
+    // 서버 재시작. UI 프로세스에서 불리므로 데스크톱에서도 동작한다.
+    // restart() 는 atomic flag 만 세워서 실패할 여지가 없다.
+    // iOS(HQ 전용)는 rendezvous_mediator 모듈이 cfg-out 이라 호출에서 제외.
     #[cfg(not(target_os = "ios"))]
     crate::rendezvous_mediator::RendezvousMediator::restart();
     SyncReturn(true)

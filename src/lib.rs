@@ -30,12 +30,12 @@ pub mod ipc;
 pub mod ui;
 mod version;
 pub use version::*;
-// ChainRemote 자체 버전 (별도 파일 — version.rs 는 빌드 자동 생성이라 .gitignore)
+// ChainRemote 자체 버전. version.rs 는 빌드가 자동 생성해 .gitignore 라 별도 파일로 둔다.
 mod chainremote_version;
 pub use chainremote_version::*;
-// ChainRemote 관리 패널 인증 (Phase 2-B)
+// 관리 패널 인증 (Phase 2-B)
 pub mod chainremote_auth;
-// ChainRemote 관리 패널 데이터 fetcher (Phase 2-C)
+// 관리 패널 데이터 fetcher (Phase 2-C)
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 pub mod chainremote_data;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
@@ -70,25 +70,25 @@ mod whiteboard;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 mod updater;
 
-// ChainRemote 자동업데이트 공용 로직 (버전비교/sha256 검증) — push_agent·updater 공유.
-// 의도적으로 플랫폼 무관 → 단위테스트가 Mac/Linux 빌드에서도 동작 (윈컴 전용 한계 제거).
+// 자동업데이트 공용 로직(버전비교/sha256 검증) — push_agent 와 updater 가 공유.
+// 일부러 플랫폼 무관하게 뒀다 → 단위테스트가 Mac/Linux 빌드에서도 돈다.
 mod chainremote_update_common;
 
-// ChainRemote 자체 업데이트 (NAS latest.json 폴링 — 윈도우만)
+// 자체 업데이트 (NAS latest.json 폴링 — 윈도우만)
 #[cfg(target_os = "windows")]
 mod chainremote_updater;
 
-// ChainRemote 거래처 heartbeat (Agent 빌드만 — incoming-only 검사) — 윈도우만
+// 거래처 heartbeat (Agent 빌드만, incoming-only — 윈도우만)
 #[cfg(target_os = "windows")]
 mod chainremote_heartbeat;
 
-// ChainRemote Agent 푸시 폴링 (Agent 빌드만) — 관리 패널의 수동 푸시 트리거 수신.
-// 2026-05-29 신규. 옛 latest.json 자동 채널 (영업시간 사고 원인) 폐기 대체.
+// Agent 푸시 폴링 (Agent 빌드만). 관리 패널의 수동 푸시 트리거를 받는다.
+// 2026-05-29 신설 — 영업시간 사고를 낸 옛 latest.json 자동 채널을 대체.
 #[cfg(target_os = "windows")]
 mod chainremote_push_agent;
 
-// ChainRemote Phase 3-Win 마이그레이션 (옛 RustDesk → 새 ChainRemote 데이터/서비스/레지스트리)
-// 모든 플랫폼에서 컴파일 (Mac/Linux 는 빈 함수, Windows 만 실제 로직).
+// Phase 3-Win 마이그레이션(옛 RustDesk → 새 ChainRemote 데이터/서비스/레지스트리).
+// 전 플랫폼에서 컴파일된다(Mac/Linux 는 빈 함수, 실제 로직은 Windows 만).
 pub mod chainremote_migrate;
 
 mod ui_cm_interface;

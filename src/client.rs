@@ -116,8 +116,8 @@ pub const LOGIN_MSG_PASSWORD_WRONG: &str = "Wrong Password";
 pub const LOGIN_MSG_2FA_WRONG: &str = "Wrong 2FA Code";
 pub const REQUIRE_2FA: &'static str = "2FA Required";
 pub const LOGIN_MSG_NO_PASSWORD_ACCESS: &str = "No Password Access";
-// ChainRemote: 클릭수락 대기인데 상대가 윈도우 잠금/로그인 화면(보안 데스크톱)이라
-// 수락카드가 보이지 않는 상태 — 뷰어가 "전화로 잠금 해제 안내" 가이드를 띄울 수 있게 구분.
+// 클릭수락을 기다리는데 상대가 윈도우 잠금/로그인 화면(보안 데스크톱)이라 수락카드를 볼 수
+// 없는 상태. 뷰어가 "전화로 잠금 해제 안내" 가이드를 띄우도록 별도 구분한다.
 pub const LOGIN_MSG_NO_PASSWORD_ACCESS_LOCKED: &str = "No Password Access Locked";
 pub const LOGIN_MSG_OFFLINE: &str = "Offline";
 pub const LOGIN_SCREEN_WAYLAND: &str = "Wayland login screen is not supported";
@@ -2277,8 +2277,8 @@ impl LoginConfigHandler {
         }
         msg.supported_decoding = MessageField::some(self.get_supported_decoding());
 
-        // ChainRemote: virtual_display(서버측 다운스케일) 기능 제거됨 (2026-05-19).
-        // 4K 가독성 미해결(캡처기반 본질 한계) + 사고 유발 → 정석상 폐기.
+        // virtual_display(서버측 다운스케일)는 2026-05-19 제거했다. 캡처 기반의 본질적 한계라
+        // 4K 가독성 문제를 못 풀었고 사고만 유발해서 폐기.
 
         Some(msg)
     }

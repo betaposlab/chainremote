@@ -22,16 +22,14 @@ macro_rules! my_println{
     };
 }
 
-/// ChainRemote 포터블(ChainGo) 모드 감지 및 APP_DIR 세팅.
+/// ChainRemote 포터블(ChainGo) 모드를 감지하고 APP_DIR 을 잡는다.
 ///
-/// env `CHAINREMOTE_PORTABLE_DIR` 이 있으면 그 하위 `config/` 를 APP_DIR 로 박는다.
-/// (이 함수가 core_main 최상단에서 한 번 호출됨. global_init 보다 먼저.)
+/// env `CHAINREMOTE_PORTABLE_DIR` 이 있으면 그 하위 `config/` 를 APP_DIR 로 쓴다.
+/// core_main 최상단에서 global_init 보다 먼저 한 번 불린다.
 ///
-/// 동작:
-///   1. env 가 없으면 noop — 정식 빌드와 동일.
-///   2. env 가 있으면 `<env>/config` 폴더 생성 시도 + `APP_DIR.write()` 박음.
-///        - 폴더 생성 실패해도 APP_DIR 은 박음(Config 가 자체적으로 재시도).
-///        - env 값이 빈 문자열이면 무시(noop) — 안전.
+/// env 가 없거나 빈 문자열이면 아무것도 안 한다(정식 빌드와 동일). env 가 있으면
+/// `<env>/config` 를 만들고 APP_DIR 을 채운다. 폴더 생성이 실패해도 APP_DIR 은
+/// 채운다 — Config 가 알아서 다시 시도한다.
 fn chainremote_portable_init() {
     let dir = std::env::var("CHAINREMOTE_PORTABLE_DIR").unwrap_or_default();
     let dir = dir.trim().to_string();
@@ -44,13 +42,12 @@ fn chainremote_portable_init() {
     if let Ok(mut app_dir) = hbb_common::config::APP_DIR.write() {
         *app_dir = cfg_dir.to_string_lossy().to_string();
     }
-    // 호스트 PC 에 정식 ChainRemote(HQ) 가 떠있으면 Flutter runner 의
-    // `FindWindowW(class, app_name)` single-instance 체크가 호스트 창을 잡아
-    // 새 inner 가 자기 종료 → 호스트 HQ 가 활성화돼 버림(포터블 격리 실패).
-    // APP_NAME 을 "ChainGo" 로 바꿔주면 `get_rustdesk_app_name` FFI 가 다른
-    // 이름을 반환 → FindWindowW(class,"ChainGo") 가 호스트(="ChainRemote") 를
-    // 못 찾고 자기 창을 새로 띄움. 디스크는 APP_DIR, IPC 는 해시+APP_NAME
-    // 으로 이미 격리돼 있어 안전.
+    // 호스트 PC 에 정식 ChainRemote(HQ) 가 이미 떠 있으면, Flutter runner 의
+    // `FindWindowW(class, app_name)` single-instance 체크가 호스트 창을 잡아버려
+    // 새 inner 가 스스로 종료하고 호스트 HQ 만 앞으로 나온다(포터블 격리 실패).
+    // APP_NAME 을 "ChainGo" 로 바꾸면 `get_rustdesk_app_name` FFI 가 다른 이름을
+    // 돌려주어 FindWindowW(class,"ChainGo") 가 호스트("ChainRemote")를 못 찾고 제 창을
+    // 새로 띄운다. 디스크는 APP_DIR, IPC 는 해시+APP_NAME 으로 이미 갈라져 있어 안전.
     if let Ok(mut name) = hbb_common::config::APP_NAME.write() {
         *name = "ChainGo".to_string();
     }
@@ -63,21 +60,19 @@ fn chainremote_portable_init() {
 /// If it returns [`Some`], then the process will continue, and flutter gui will be started.
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn core_main() -> Option<Vec<String>> {
-    // ChainRemote 포터블(ChainGo) 진입점.
-    // SFX 래퍼가 inner exe 실행 전 env CHAINREMOTE_PORTABLE_DIR=<temp 디렉터리>
-    // 를 박아둠. 여기서 APP_DIR 을 그 하위 config 로 세팅하면 hbb_common 의
-    // Config::path() 가 ProjectDirs(%APPDATA%) 대신 그 폴더를 쓰게 됨 →
-    // 호스트 PC 의 %APPDATA% / 레지스트리에 흔적 안 남음.
+    // 포터블(ChainGo) 진입점. SFX 래퍼가 inner exe 실행 전 env
+    // CHAINREMOTE_PORTABLE_DIR=<temp 디렉터리> 를 심어둔다. 여기서 APP_DIR 을 그 하위
+    // config 로 잡으면 hbb_common 의 Config::path() 가 ProjectDirs(%APPDATA%) 대신 그
+    // 폴더를 쓰므로 호스트 PC 의 %APPDATA%/레지스트리에 흔적이 안 남는다.
     //
-    // 반드시 global_init() 보다 먼저: init_log, Config::path 호출 전에 박혀야 함.
+    // init_log·Config::path 호출 전에 잡혀야 하므로 반드시 global_init() 보다 먼저.
     chainremote_portable_init();
 
-    // ChainRemote Phase 3-Win 마이그레이션 (옛 RustDesk → 새 ChainRemote 데이터/서비스/레지스트리).
-    // - 윈도우 한정 (Mac/Linux 는 빈 함수).
-    // - ChainGo 포터블 모드는 skip — 포터블은 호스트 PC 흔적 안 남기는 게 목적이라 옛 데이터
-    //   복사하면 모순. CHAINREMOTE_PORTABLE_DIR 환경 변수 유무로 분기.
-    // - global_init() 보다 먼저 호출해서 Config::path 등이 마이그레이션 후 데이터를 읽도록.
-    // - 멱등성 마커가 박혀있으면 두 번째 실행은 즉시 return — 무한 비용 0.
+    // Phase 3-Win 마이그레이션(옛 RustDesk → 새 ChainRemote 데이터/서비스/레지스트리).
+    // 윈도우 전용(Mac/Linux 는 빈 함수). 포터블 모드는 건너뛴다 — 흔적을 안 남기는 게
+    // 목적인데 옛 데이터를 복사하면 모순이라 CHAINREMOTE_PORTABLE_DIR 유무로 가른다.
+    // Config::path 등이 마이그레이션된 데이터를 읽도록 global_init() 보다 먼저 부른다.
+    // 멱등성 마커가 있으면 두 번째 실행은 곧장 return 한다.
     #[cfg(target_os = "windows")]
     if std::env::var_os("CHAINREMOTE_PORTABLE_DIR").is_none() {
         crate::chainremote_migrate::migrate_from_rustdesk_once();
@@ -192,9 +187,9 @@ pub fn core_main() -> Option<Vec<String>> {
     }
     #[cfg(windows)]
     {
-        // ChainRemote 포터블(ChainGo): quick_support 자동 추론 금지. quick_support 가 켜지면
-        // 아래에서 start_portable_service 가 elevated 헬퍼를 띄워 호스트 PC 에 흔적/서비스
-        // 등록 시도를 할 수 있음. 포터블은 단순 outgoing viewer 라 불필요.
+        // 포터블(ChainGo)에선 quick_support 자동 추론을 막는다. quick_support 가 켜지면
+        // 아래 start_portable_service 가 elevated 헬퍼를 띄워 호스트 PC 에 흔적/서비스를
+        // 남기려 할 수 있다. 포터블은 단순 outgoing viewer 라 그럴 필요가 없다.
         if !crate::common::is_chainremote_portable() {
             _is_quick_support |= !crate::platform::is_installed()
                 && args.is_empty()
@@ -213,11 +208,11 @@ pub fn core_main() -> Option<Vec<String>> {
     }
     hbb_common::init_log(false, &log_name);
 
-    // [ChainRemote] panic 위치 가시화. profile.release 가 panic='abort' + strip 라
-    //   panic 이 나면 기본 hook(stderr)으로만 새고 파일 로그엔 안 남아, cm/서비스가
-    //   0xc0000409(abort→msvcrt)로 무증상 즉사한다(32비트 거래처 POS 연결종료 크래시 실측).
-    //   abort 직전에 hook 이 먼저 실행되므로, WriteMode::Direct 로그에 위치+메시지를 남긴 뒤
-    //   기존 hook 으로 체인한다. 로그 전용 — 동작 변경 없음.
+    // panic 위치를 로그에 남긴다. release 프로파일이 panic='abort' + strip 이라 panic 이
+    // 나면 기본 hook 은 stderr 로만 새고 파일 로그엔 안 남는다 — cm/서비스가
+    // 0xc0000409(abort→msvcrt)로 아무 흔적 없이 죽는다(32비트 POS 연결종료 크래시에서 실측).
+    // abort 직전에 hook 이 먼저 도므로 WriteMode::Direct 로그에 위치+메시지를 남긴 뒤 기존
+    // hook 으로 체인한다. 로그만 추가할 뿐 동작은 그대로.
     {
         let default_hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
