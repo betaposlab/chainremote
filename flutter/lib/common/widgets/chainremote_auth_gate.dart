@@ -1,10 +1,10 @@
-// ChainRemote 본사 앱 인증 게이트 (Phase 2-B).
+// 본사 앱 인증 게이트 (Phase 2-B).
+// DesktopHomePage 를 감싸서 토큰이 없으면 로그인 화면을, 있으면 홈을 보여준다.
+// 로그인이 성공하면 setState 로 child 로 넘어간다.
 //
-// DesktopHomePage 를 감싸서 토큰 없으면 로그인 화면, 있으면 원래 홈을 보여준다.
-// 로그인 성공 시 setState 로 child 로 전환.
-//
-// 백엔드: src/chainremote_auth.rs + /api/auth/token (Bearer JWT)
-// 토큰/사용자 저장: 프로세스 메모리 전용 (디스크 잔재 0). 앱 종료 시 소멸 → 재실행 시 재로그인.
+// 백엔드는 src/chainremote_auth.rs + /api/auth/token (Bearer JWT).
+// 토큰·사용자 정보는 프로세스 메모리에만 둔다(디스크 잔재 없음). 앱을 끄면 사라져
+// 다음 실행 때 다시 로그인해야 한다.
 
 import 'dart:async';
 import 'dart:convert';
@@ -14,13 +14,13 @@ import 'package:flutter_hbb/common.dart' show chainRemoteVersion;
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
 
-/// 본사 앱 인증 상태 전역 핸들. 홈 상단바의 로그아웃 버튼이 어디서든 호출.
-/// authed 노티파이어를 게이트가 구독 → false 면 로그인 화면으로 되돌아감.
+/// 인증 상태 전역 핸들. 홈 상단바의 로그아웃 버튼이 어디서든 호출한다.
+/// 게이트가 authed 노티파이어를 구독하고, false 가 되면 로그인 화면으로 돌아간다.
 class ChainRemoteAuth {
   ChainRemoteAuth._();
 
-  // 로그인 정보 저장(자동완성) LocalConfig 키 — B 방식(prefill, opt-in).
-  // RustDesk 계정 저장(user_model 의 access_token/user_info)과 동일 메커니즘.
+  // 로그인 정보 자동완성(prefill, opt-in)용 LocalConfig 키.
+  // RustDesk 계정 저장(user_model 의 access_token/user_info)과 같은 방식.
   static const kRememberId = 'chainremote-remember-id';
   static const kRememberPw = 'chainremote-remember-pw';
   static const kSavedEmail = 'chainremote-saved-email';
@@ -28,10 +28,10 @@ class ChainRemoteAuth {
 
   static final ValueNotifier<bool> authed = ValueNotifier<bool>(false);
 
-  /// 로그아웃: 메모리 자격증명 삭제(Rust static) + 저장된 자동완성 정보 삭제 + 로그인 화면 전환.
+  /// 로그아웃. 메모리 자격증명(Rust static)과 저장된 자동완성 정보를 지우고 로그인 화면으로.
   static void logout() {
     bind.chainremoteLogout();
-    // 저장된 자동완성 자격증명도 함께 삭제 (Chang 결정: 로그아웃 시 저장정보 제거).
+    // 저장된 자동완성 정보도 같이 지운다 (Chang 결정: 로그아웃하면 저장정보 제거).
     bind.mainSetLocalOption(key: kRememberId, value: '');
     bind.mainSetLocalOption(key: kRememberPw, value: '');
     bind.mainSetLocalOption(key: kSavedEmail, value: '');
@@ -39,8 +39,8 @@ class ChainRemoteAuth {
     authed.value = false;
   }
 
-  /// 본인 비밀번호 변경. 현재 비번 검증 후 새 비번 hash 로 DB 업데이트.
-  /// 반환: (ok, error). 토큰은 그대로 유효 — 재로그인 불필요.
+  /// 본인 비밀번호 변경. 현재 비번을 검증한 뒤 새 비번 해시로 DB 를 갱신한다.
+  /// (ok, error) 를 돌려준다. 토큰은 그대로 유효해서 다시 로그인할 필요 없다.
   static ({bool ok, String? error}) changePassword(
     String currentPassword,
     String newPassword,
@@ -58,7 +58,7 @@ class ChainRemoteAuth {
     }
   }
 
-  /// 현재 로그인 사용자 표시명 (없으면 빈 문자열).
+  /// 현재 로그인 사용자의 표시명. 없으면 빈 문자열.
   static String currentDisplayName() {
     try {
       final raw = bind.chainremoteGetUser();
@@ -72,7 +72,7 @@ class ChainRemoteAuth {
     }
   }
 
-  /// 로그인 캐시(get_user_json)에서 역할 추출. 'owner'|'admin'|'operator'|'viewer'|'super_admin'.
+  /// 로그인 캐시(get_user_json)에서 역할을 꺼낸다. 'owner'|'admin'|'operator'|'viewer'|'super_admin'.
   static String currentRole() {
     try {
       final raw = bind.chainremoteGetUser();
@@ -84,8 +84,8 @@ class ChainRemoteAuth {
     }
   }
 
-  /// 마스터 = 테넌트 owner(chang). '전체 거래처' 탭 확정 버튼 노출 게이트(UX).
-  /// 실제 권한은 서버 confirm 엔드포인트(requireOwner)가 강제 — 이 체크는 화면용일 뿐.
+  /// 마스터 = 테넌트 owner(chang). '전체 거래처' 탭의 확정 버튼을 보일지 정하는 UX 게이트다.
+  /// 실제 권한은 서버 confirm 엔드포인트(requireOwner)가 막으므로 이 체크는 화면용일 뿐.
   static bool isMaster() {
     final r = currentRole();
     return r == 'owner' || r == 'super_admin';
@@ -101,8 +101,8 @@ class ChainRemoteAuthGate extends StatefulWidget {
 }
 
 class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
-  // 좌석 enforcement — ~10초 heartbeat. 인계당함(revoked) 감지 시 세션 끊고 로그아웃.
-  // 스펙: docs/chainremote/SEAT_ENFORCEMENT.md §6
+  // 좌석 enforcement. 약 10초 주기 heartbeat 로, 인계당함(revoked)이 감지되면
+  // 세션을 끊고 로그아웃한다. 스펙은 docs/chainremote/SEAT_ENFORCEMENT.md §6.
   Timer? _heartbeatTimer;
   bool _revoking = false;
 
@@ -122,7 +122,7 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
     super.dispose();
   }
 
-  /// 로그인/로그아웃 상태에 따라 heartbeat 시작/정지.
+  /// 로그인/로그아웃 상태에 맞춰 heartbeat 을 켜고 끈다.
   void _onAuthChanged() {
     if (ChainRemoteAuth.authed.value) {
       _startHeartbeat();
@@ -133,9 +133,9 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
 
   void _startHeartbeat() {
     if (_heartbeatTimer != null) return;
-    // 5초 주기. chainremoteHeartbeat 는 async FFI(UI 비차단). 인계당함(REVOKED)
-    // 감지 지연 = 이 주기(최대 ~5초). 더 즉각적 차단(원격 시작 시점 좌석 확인)은
-    // 네이티브 연결 로직을 건드려야 해 백로그로 분리 (docs/chainremote/BACKLOG.md).
+    // 5초 주기. chainremoteHeartbeat 는 async FFI 라 UI 를 막지 않는다. 인계당함
+    // 감지가 최대 이 주기(약 5초)만큼 늦는다. 원격 시작 시점에 바로 좌석을 확인해
+    // 즉시 막는 건 네이티브 연결 로직을 건드려야 해서 백로그로 뺐다(BACKLOG.md).
     _heartbeatTimer =
         Timer.periodic(const Duration(seconds: 5), (_) => _heartbeatTick());
   }
@@ -150,7 +150,7 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
     try {
       raw = await bind.chainremoteHeartbeat();
     } catch (_) {
-      return; // 일시 오류 — 다음 tick 재시도(세션 유지, 스펙 §7).
+      return; // 일시 오류. 다음 tick 에 재시도한다(세션은 유지, 스펙 §7).
     }
     if (!mounted) return;
     String status;
@@ -163,17 +163,17 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
     if (status == 'revoked') await _onRevoked();
   }
 
-  /// 다른 기기에 인계당함 — 모든 원격 세션 종료 + 안내 모달 + 로그아웃.
+  /// 다른 기기에 좌석을 인계당했을 때. 원격 세션을 모두 끊고 안내 모달을 띄운 뒤 로그아웃.
   Future<void> _onRevoked() async {
     if (_revoking) return;
     _revoking = true;
     _stopHeartbeat();
-    // 1) 모든 원격 세션(서브윈도우) 강제 종료 = 원격 끊김.
+    // 열려 있는 원격 세션(서브윈도우)을 전부 닫는다. 곧 원격이 끊긴다.
     try {
       await rustDeskWinManager.closeAllSubWindows();
     } catch (_) {}
     if (mounted) {
-      // 2) 안내 모달 (모달 B).
+      // 안내 모달(모달 B).
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -192,16 +192,16 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
         ),
       );
     }
-    // 3) 로그아웃 → 로그인 화면. 저장된 자동완성(아이디/비번)은 유지(재로그인 편의).
+    // 로그아웃하고 로그인 화면으로. 저장된 자동완성(아이디/비번)은 재로그인 편의상 남겨둔다.
     bind.chainremoteLogout();
     ChainRemoteAuth.authed.value = false;
     _revoking = false;
   }
 
-  /// 본사 앱 메인 진입 직후 캐시 워밍.
-  /// - chainremoteLoadFavorites: 즐겨찾기 탭 + chainremoteGetFavoriteIds() 캐시 (peer_card 별표 분기).
-  /// - chainremoteLoadCustomers: remote_id→uuid 매핑만 silent 워밍 (즐겨찾기 추가 시 즉시 변환).
-  ///   전체 거래처를 화면에 뿌리지 않음 — 최근 세션은 네이티브, 전체는 관리 패널 전용.
+  /// 메인 진입 직후 캐시를 미리 데운다.
+  /// - chainremoteLoadFavorites: 즐겨찾기 탭과 chainremoteGetFavoriteIds() 캐시(peer_card 별표 분기).
+  /// - chainremoteLoadCustomers: remote_id→uuid 매핑만 조용히 채운다(즐겨찾기 추가 시 바로 변환).
+  ///   전체 거래처를 화면에 뿌리지는 않는다. 최근 세션은 네이티브, 전체는 관리 패널 몫.
   void _warmCaches() {
     bind.chainremoteLoadCustomers();
     bind.chainremoteLoadFavorites();
@@ -243,8 +243,8 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
   @override
   void initState() {
     super.initState();
-    // B 방식 prefill: '저장'이 켜져 있던 항목만 미리 채움 (자동 로그인은 안 함).
-    // 아이디·비밀번호 각각 독립.
+    // prefill: '저장'을 켜뒀던 항목만 미리 채운다. 자동 로그인은 하지 않는다.
+    // 아이디·비밀번호는 각각 따로 저장된다.
     if (bind.mainGetLocalOption(key: ChainRemoteAuth.kRememberId) == 'Y') {
       _rememberId = true;
       _emailCtrl.text = bind.mainGetLocalOption(key: ChainRemoteAuth.kSavedEmail);
@@ -280,9 +280,9 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
   }
 
   /// 로그인/인계 응답 처리.
-  ///   ok        → 자동완성 저장 + 메인 진입
-  ///   occupied  → 모달 A(강제 종료/취소). 강제면 takeover, 취소면 중단.
-  ///   error     → 에러 표시
+  ///   ok       → 자동완성 저장 후 메인 진입.
+  ///   occupied → 모달 A. 강제면 takeover, 취소면 중단.
+  ///   error    → 에러 표시.
   Future<void> _handleAuthResult(
     String raw,
     String email,
@@ -306,7 +306,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
       return;
     }
 
-    // 좌석 점유됨(409) — 강제 종료(인계) 여부 모달. takeover 응답엔 occupied 안 옴.
+    // 좌석 점유됨(409). 강제 종료할지 모달로 묻는다. takeover 응답에는 occupied 가 안 온다.
     if (!isTakeover && parsed['occupied'] == true) {
       final label = (parsed['deviceLabel'] as String?)?.trim();
       final force = await _showOccupiedDialog(label);
@@ -314,7 +314,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
       if (force == true) {
         await _takeover(email, password);
       } else {
-        setState(() => _busy = false); // 취소 — 토큰 발급 안 됨.
+        setState(() => _busy = false); // 취소. 토큰은 발급되지 않는다.
       }
       return;
     }
@@ -325,14 +325,14 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     });
   }
 
-  /// "강제 종료하고 사용" — 좌석 인계. busy 유지한 채 진행.
+  /// "강제 종료하고 사용" = 좌석 인계. busy 를 유지한 채 진행한다.
   Future<void> _takeover(String email, String password) async {
     final raw = bind.chainremoteTakeover(email: email, password: password);
     if (!mounted) return;
     await _handleAuthResult(raw, email, password, isTakeover: true);
   }
 
-  /// 점유 모달(모달 A) — true=강제 종료하고 사용, false/null=취소.
+  /// 점유 모달(모달 A). true=강제 종료하고 사용, false/null=취소.
   Future<bool?> _showOccupiedDialog(String? deviceLabel) {
     final where = (deviceLabel != null && deviceLabel.isNotEmpty)
         ? "'$deviceLabel' 기기"
@@ -360,7 +360,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     );
   }
 
-  /// 아이디·비밀번호 각각 독립 저장/삭제 (B 방식 opt-in).
+  /// 아이디·비밀번호를 각각 따로 저장하거나 지운다(opt-in).
   Future<void> _persistRemember(String email, String password) async {
     if (_rememberId) {
       await bind.mainSetLocalOption(
@@ -383,18 +383,18 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     }
   }
 
-  // ChainRemote 액센트 (베타포스랩 톤).
+  // 브랜드 액센트 (베타포스랩 톤).
   static const _brandPrimary = Color(0xFF1E5BFF);
   static const _brandDeep = Color(0xFF1E40AF);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Cool gray 톤 배경 + 양쪽 brand 색 옅은 블롭. 카드가 떠다니지 않도록
-      // 무게 있는 배경 + 카드 그림자 강화.
+      // 회청색 배경에 양쪽으로 옅은 브랜드색 블롭. 카드가 붕 떠 보이지 않게
+      // 배경을 묵직하게 깔고 카드 그림자를 키웠다.
       body: Stack(
         children: [
-          // 베이스 배경 — 위→아래 옅은 회청색 vertical gradient.
+          // 베이스 배경. 위에서 아래로 옅은 회청색 그라데이션.
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -404,7 +404,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
               ),
             ),
           ),
-          // 좌상단 brand 색 블롭 (옅게).
+          // 좌상단 브랜드색 블롭(옅게).
           Positioned(
             left: -120,
             top: -120,
@@ -422,7 +422,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
               ),
             ),
           ),
-          // 우하단 청록 블롭 (옅게).
+          // 우하단 청록 블롭(옅게).
           Positioned(
             right: -140,
             bottom: -140,
@@ -518,7 +518,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
                 ),
               ),
             ),
-            // 하단 회사 footer.
+            // 하단 회사 푸터.
             Positioned(
               left: 0,
               right: 0,
@@ -539,11 +539,11 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     );
   }
 
-  /// 워드마크 (chainremote_logo.png — 메인 상단바와 동일) + 부제.
+  /// 워드마크(chainremote_logo.png, 메인 상단바와 동일)와 부제.
   Widget _buildBrand() {
     return Column(
       children: [
-        // 워드마크 가로형 — 비율 2048:685 ≈ 2.99:1. 가로 240 → 세로 ~80.
+        // 가로형 워드마크. 비율 2048:685 ≈ 2.99:1 이라 가로 240 이면 세로는 약 80.
         Image.asset(
           'assets/chainremote_logo.png',
           width: 240,
@@ -563,7 +563,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     );
   }
 
-  /// 입력란 — focus 시 brand 색 강조 border.
+  /// 입력란. 포커스되면 브랜드색 border 로 강조한다.
   Widget _buildField({
     required TextEditingController controller,
     required String label,
@@ -609,7 +609,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     );
   }
 
-  /// 아이디 저장 / 비밀번호 저장 — 각각 독립 (B 방식 opt-in). 체크된 항목만 다음 실행 prefill.
+  /// 아이디 저장 / 비밀번호 저장. 각각 따로 켠다. 체크한 항목만 다음 실행 때 미리 채운다.
   Widget _buildRememberCheckbox() {
     return Row(
       children: [

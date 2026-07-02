@@ -39,8 +39,8 @@ class ToolbarState {
   bool _isInitializing = false;
 
   ToolbarState() {
-    // ChainRemote: 본사 HQ 원격 툴바는 기본 '핀 고정(항상 보임)'.
-    // (RustDesk 기본 false=자동숨김 — 본사 운영자가 매번 안 보여 불편. 거래처는 이 툴바 없음.)
+    // 본사 HQ 원격 툴바는 기본 핀 고정(항상 보임)으로 둔다.
+    // RustDesk 기본값은 false(자동숨김)인데 본사 운영자가 매번 안 보여 불편했다. 거래처엔 이 툴바가 없다.
     _pin = RxBool(true);
     final s = bind.getLocalFlutterOption(k: kOptionRemoteMenubarState);
     if (s.isEmpty) {
@@ -234,10 +234,10 @@ class RemoteToolbar extends StatefulWidget {
   final Function(int, Function(bool)) onEnterOrLeaveImageSetter;
   final Function(int) onEnterOrLeaveImageCleaner;
   final Function(VoidCallback) setRemoteState;
-  // ChainRemote: tab-tail 에 박힌 '항상 표시' 툴바는 업스트림의 async `initialized`
-  // 게이트(깜빡임 방지)를 건너뜀. 그 게이트가 cold 첫 접속에 안 풀려, 툴바가 첫
-  // 세션 내내 안 뜨고 재접속해야 보이던 버그의 원인이었음. 표시는 즉시,
-  // collapse/hide 는 init() 이 로드되면 반영(hide 기본 false 라 즉시 표시 안전).
+  // tab-tail 에 박힌 항상 표시 툴바는 업스트림의 async `initialized` 게이트(깜빡임 방지)를
+  // 건너뛴다. 이 게이트가 cold 첫 접속에서 안 풀려서, 툴바가 첫 세션 내내 안 뜨고
+  // 재접속해야 보이던 버그의 원인이었다. 그래서 표시는 즉시 하고, collapse/hide 는
+  // init() 이 로드되면 반영한다(hide 기본값이 false 라 즉시 표시해도 안전).
   final bool alwaysShow;
 
   RemoteToolbar({
@@ -295,7 +295,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       widget.state.init(widget.ffi.sessionId);
     });
 
-    // ChainRemote 2026-05-27: 자동숨김 5s → 2.5s 단축(Chang 피드백).
+    // 2026-05-27: 자동숨김 5s → 2.5s 로 단축(Chang 피드백).
     _debouncerHide = Debouncer<int>(
       Duration(milliseconds: 2500),
       onChanged: _debouncerHideProc,
@@ -329,8 +329,8 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
   Widget build(BuildContext context) {
     return Obx(() {
       // Wait for initialization to complete to prevent flickering.
-      // ChainRemote: alwaysShow(=tab-tail 툴바)면 이 게이트를 건너뜀 — cold 첫 접속에
-      // initialized 가 안 풀려 툴바가 첫 세션 내내 안 뜨던 버그 회피.
+      // alwaysShow(tab-tail 툴바)면 이 게이트를 건너뛴다. cold 첫 접속에서 initialized 가
+      // 안 풀려 툴바가 첫 세션 내내 안 뜨던 버그를 피하기 위함.
       if (!widget.alwaysShow && !widget.state.initialized.value) {
         return const SizedBox.shrink();
       }
@@ -338,8 +338,8 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       if (hide.value) {
         return const SizedBox.shrink();
       }
-      // ChainRemote 2026-05-27 v4: toolbar 가 DesktopTab.tail (항상 보이는 탭바 라인)에
-      // 박혀있으므로 auto-hide/collapse 무효화 — 항상 표시.
+      // 2026-05-27 v4: toolbar 가 DesktopTab.tail(항상 보이는 탭바 라인)에 박혀 있어
+      // auto-hide/collapse 를 무효화하고 항상 표시한다.
       return _buildToolbar(context);
     });
   }
@@ -378,7 +378,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
 
   Widget _buildToolbar(BuildContext context) {
     final List<Widget> toolbarItems = [];
-    // ChainRemote 2026-05-27 v4: 핀 메뉴 제거 — toolbar 가 탭바에 박혀 항상 보임, 핀 무용.
+    // 2026-05-27 v4: 핀 메뉴 제거. toolbar 가 탭바에 박혀 항상 보이므로 핀이 필요 없다.
     if (!isWebDesktop) {
       toolbarItems.add(_MobileActionMenu(ffi: widget.ffi));
     }
@@ -403,15 +403,15 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       state: widget.state,
       setFullscreen: _setFullscreen,
     ));
-    // ChainRemote: 음소거 빠른 토글 — 디스플레이 메뉴에도 있지만 눈에 띄는 최상위 아이콘으로.
-    // (기본 원격 연결 + 오디오 권한 있을 때만)
+    // 음소거 빠른 토글. 디스플레이 메뉴에도 있지만 눈에 띄게 최상위 아이콘으로 노출한다.
+    // 기본 원격 연결 + 오디오 권한이 있을 때만.
     if (widget.ffi.connType == ConnType.defaultConn &&
         widget.ffi.ffiModel.permissions['audio'] != false) {
       toolbarItems.add(_MuteMenu(id: widget.id, ffi: widget.ffi));
     }
-    // ChainRemote: in-session file transfer button (opens a new file transfer
-    // session to the same peer). Only for default remote-control sessions and
-    // not on web (web has no file transfer support).
+    // In-session file transfer button: opens a new file transfer session to the
+    // same peer. Only for default remote-control sessions, and not on web (web
+    // has no file transfer support).
     if (widget.ffi.connType == ConnType.defaultConn && !isWeb) {
       toolbarItems.add(_FileTransferMenu(id: widget.id));
     }
@@ -420,10 +420,10 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       toolbarItems.add(_KeyboardMenu(id: widget.id, ffi: widget.ffi));
     }
     toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));
-    // ChainRemote 2026-05-27: 거래처와 음성 통화 + 수동 녹화 toolbar 노출 제거(Chang 결정).
-    // 분쟁 증거가 필요하면 일반 설정 → "내가 거래처 원격할 때 영상 자동 저장" 토글로 대체.
+    // 2026-05-27: 거래처와의 음성 통화 및 수동 녹화 toolbar 노출을 제거했다(Chang 결정).
+    // 분쟁 증거가 필요하면 일반 설정의 "내가 거래처 원격할 때 영상 자동 저장" 토글로 대체한다.
     toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));
-    // ChainRemote 2026-05-27 v4: 탭바 라인의 tail 슬롯에 박힘 — 배경/보더 없이 자연스럽게.
+    // 2026-05-27 v4: 탭바 라인의 tail 슬롯에 박히므로 배경/보더 없이 자연스럽게 둔다.
     return Theme(
       data: themeData(),
       child: Padding(
@@ -474,7 +474,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
   }
 }
 
-// ChainRemote: 원격 오디오 음소거 빠른 토글 (disable-audio). 최상위 아이콘.
+// 원격 오디오 음소거 빠른 토글(disable-audio). 최상위 아이콘.
 class _MuteMenu extends StatefulWidget {
   final String id;
   final FFI ffi;
@@ -528,9 +528,8 @@ class _PinMenu extends StatelessWidget {
   }
 }
 
-// ChainRemote: in-session file transfer launcher.
-// Reuses connect(..., isFileTransfer: true) which spawns a new file
-// transfer window to the same peer.
+// In-session file transfer launcher. Reuses connect(..., isFileTransfer: true),
+// which spawns a new file transfer window to the same peer.
 class _FileTransferMenu extends StatelessWidget {
   final String id;
   const _FileTransferMenu({Key? key, required this.id}) : super(key: key);
@@ -1054,7 +1053,7 @@ class _DisplayMenuState extends State<_DisplayMenu> {
         Divider(),
         toggles(),
       ];
-      // ChainRemote 2026-05-27: 개인정보 보호 모드 — RustDesk 유료 클라우드 기능, 우리 무용 → 숨김.
+      // 2026-05-27: 개인정보 보호 모드는 RustDesk 유료 클라우드 기능이라 우리한텐 필요 없어 숨긴다.
       if (ffi.connType == ConnType.defaultConn) {
         menuChildren.add(widget.pluginItem);
       }
@@ -1306,7 +1305,7 @@ class _CustomScaleMenuControls extends StatefulWidget {
 
 class _CustomScaleMenuControlsState
     extends CustomScaleControls<_CustomScaleMenuControls> {
-  // ChainRemote: 직접 입력칸 — 슬라이더(5~1000%)가 미세조정이 어려워 정확한 % 타이핑 경로 제공.
+  // 직접 입력칸. 슬라이더(5~1000%)로는 미세조정이 어려워 정확한 % 를 타이핑할 경로를 제공한다.
   final TextEditingController _percentCtrl = TextEditingController();
   final FocusNode _percentFocus = FocusNode();
 
@@ -1421,7 +1420,7 @@ class _CustomScaleMenuControlsState
           ),
         ]),
       ),
-      // ChainRemote: 직접 입력 행 — 정확한 % 타이핑(예 110/120/130). Enter 또는 포커스 이동 시 적용.
+      // 직접 입력 행. 정확한 % 를 타이핑한다(예: 110/120/130). Enter 또는 포커스 이동 시 적용.
       Padding(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
         child: Row(
@@ -2330,8 +2329,8 @@ class _CloseMenu extends StatelessWidget {
       assetName: 'assets/close.svg',
       tooltip: 'Close',
       onPressed: () async {
-        // ChainRemote: 툴바 빨간 X 도 경고 없이 끊기지 않도록 확인.
-        // (창 X 와 별개 경로 — 둘 다 막아야 코이노식 무경고 끊김 방지.)
+        // 툴바 빨간 X 도 경고 없이 끊기지 않도록 확인받는다.
+        // 창 X 와는 별개 경로라 둘 다 막아야 코이노식 무경고 끊김을 방지할 수 있다.
         if (!await _chainremoteConfirmEndSession()) {
           return;
         }
@@ -2378,7 +2377,7 @@ class _IconMenuButton extends StatefulWidget {
   final double? vMargin;
   final bool topLevel;
   final double? width;
-  // ChainRemote 2026-05-27: 인라인 toolbar 라벨 (옵션). null 이면 아이콘만.
+  // 2026-05-27: 인라인 toolbar 라벨(선택). null 이면 아이콘만 표시.
   final String? label;
   const _IconMenuButton({
     Key? key,
@@ -2405,7 +2404,7 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
   @override
   Widget build(BuildContext context) {
     assert(widget.assetName != null || widget.icon != null);
-    // ChainRemote 2026-05-27: label 있으면 아이콘 + 텍스트 가로배치.
+    // 2026-05-27: label 이 있으면 아이콘 + 텍스트를 가로로 배치한다.
     final hasLabel = widget.label != null;
     final iconColor = hasLabel ? const Color(0xFF3182F6) : Colors.white;
     final iconSize = hasLabel ? 16.0 : _ToolbarTheme.buttonSize;
@@ -2488,7 +2487,7 @@ class _IconSubmenuButton extends StatefulWidget {
   final MenuStyle? menuStyle;
   final FFI? ffi;
   final double? width;
-  // ChainRemote 2026-05-27: 인라인 toolbar 라벨 (옵션). null 이면 아이콘만.
+  // 2026-05-27: 인라인 toolbar 라벨(선택). null 이면 아이콘만 표시.
   final String? label;
 
   _IconSubmenuButton({
@@ -2520,7 +2519,7 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
   @override
   Widget build(BuildContext context) {
     assert(widget.svg != null || widget.icon != null);
-    // ChainRemote 2026-05-27: 인라인 모드 — label 있으면 아이콘 + 텍스트 가로배치.
+    // 2026-05-27: 인라인 모드에서 label 이 있으면 아이콘 + 텍스트를 가로로 배치한다.
     final hasLabel = widget.label != null;
     final iconColor =
         hasLabel ? const Color(0xFF3182F6) : Colors.white; // 인라인: 브랜드 컬러 아이콘

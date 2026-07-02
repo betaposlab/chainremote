@@ -16,7 +16,7 @@ enum PeerTabIndex {
   lan,
   ab,
   group,
-  customers, // ChainRemote: '전체 거래처' — 테넌트 패널 등록 거래처 전체(pending 포함). append-only.
+  customers, // '전체 거래처'. 테넌트 패널에 등록된 거래처 전체(pending 포함). append-only.
 }
 
 class PeerTabModel with ChangeNotifier {
@@ -25,12 +25,12 @@ class PeerTabModel with ChangeNotifier {
   int _currentTab = 0; // index in tabNames
   static const int maxTabCount = 6;
   static const List<String> tabNames = [
-    'Recent sessions', // ChainRemote: 네이티브 최근 접속 기록 (앞으로 원격하면 쌓임).
+    'Recent sessions', // 네이티브 최근 접속 기록. 원격할 때마다 쌓인다.
     'Favorites',
     'Discovered',
     'Address book',
     'Accessible devices',
-    'All customers', // ChainRemote: 전체 거래처 (kr.rs 번역 '전체 거래처')
+    'All customers', // 전체 거래처 (kr.rs 번역 '전체 거래처')
   ];
   static const List<IconData> icons = [
     Icons.access_time_filled,
@@ -38,15 +38,15 @@ class PeerTabModel with ChangeNotifier {
     Icons.explore,
     IconFont.addressBook,
     IconFont.deviceGroupFill,
-    Icons.store, // ChainRemote: 전체 거래처
+    Icons.store, // 전체 거래처
   ];
   List<bool> isEnabled = List.from([
-    true, // 최근 세션 — 네이티브 최근 접속(mainLoadRecentPeers). 여기서 우클릭 → 즐겨찾기 추가.
-    true, // 즐겨찾기 — 앱 홈 기본 탭. GET /api/me/favorites (내 것만)
-    false, // ChainRemote: 발견됨(LAN) 탭 비활성화 — 거래처 운영에 의미 없음
-    false, // ChainRemote: 주소록 비활성화 — 별도 Next.js 관리 패널이 그 역할
-    false, // ChainRemote: 엑세스 가능한 장치 비활성화 — 클라우드 계정 서버 안 돌림
-    true, // ChainRemote: 전체 거래처 — 테넌트 패널 등록 거래처 전체(pending 포함)
+    true, // 최근 세션. 네이티브 최근 접속(mainLoadRecentPeers). 우클릭으로 즐겨찾기 추가.
+    true, // 즐겨찾기. 앱 홈 기본 탭. GET /api/me/favorites (내 것만)
+    false, // 발견됨(LAN). 거래처 운영에 쓸 일이 없어 끔.
+    false, // 주소록. 별도 Next.js 관리 패널이 대신하므로 끔.
+    false, // 접근 가능한 장치. 클라우드 계정 서버를 안 돌려서 끔.
+    true, // 전체 거래처. 테넌트 패널에 등록된 거래처 전체(pending 포함).
   ]);
   final List<bool> _isVisible = List.filled(maxTabCount, true, growable: false);
   List<bool> get isVisibleEnabled => () {
@@ -112,8 +112,8 @@ class PeerTabModel with ChangeNotifier {
     } catch (e) {
       debugPrint("failed to get peer tab order list: $e");
     }
-    // init currentTab — ChainRemote: 앱 홈은 항상 즐겨찾기 탭으로 착지.
-    // (저장된 탭 무시. 전체 거래처 탭은 즐겨찾기 추가할 때만 의도적으로 들어감.)
+    // 앱 홈은 항상 즐겨찾기 탭에서 시작한다(저장된 탭은 무시).
+    // 전체 거래처 탭은 즐겨찾기에 추가할 때만 일부러 들어간다.
     _currentTab = PeerTabIndex.fav.index;
     _trySetCurrentTabToFirstVisibleEnabled();
   }

@@ -29,7 +29,7 @@ class SettingsPage extends StatefulWidget implements PageShape {
   final icon = Icon(Icons.settings);
 
   @override
-  // ChainRemote: QR 스캔(피어 추가)은 스톡 RustDesk 기능 — HQ 미사용 → 숨김.
+  // QR 스캔(피어 추가)은 스톡 RustDesk 기능이라 HQ 에선 안 쓴다. 숨김.
   final appBarActions = [];
 
   @override
@@ -679,9 +679,9 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
     final disabledSettings = bind.isDisableSettings();
     final hideSecuritySettings =
         bind.mainGetBuildinOption(key: kOptionHideSecuritySetting) == 'Y';
-    // ChainRemote: RustDesk 스톡 항목(자체 계정 로그인/네트워크 설정/주소록 의존
-    // 기능)은 우리 제품에서 미사용 → 모바일 설정에서 숨김. 우리 인증은 대리점
-    // 로그인 게이트, 서버는 코어에 baked. (false 로 바꾸면 원래대로 노출)
+    // RustDesk 스톡 항목(자체 계정 로그인, 네트워크 설정, 주소록 의존 기능)은
+    // 우리 제품에서 안 쓰므로 모바일 설정에서 숨긴다. 인증은 대리점 로그인
+    // 게이트로, 서버는 코어에 baked 되어 있다. false 로 바꾸면 원래대로 노출된다.
     final crHideStock = true;
     final settings = SettingsList(
       sections: [

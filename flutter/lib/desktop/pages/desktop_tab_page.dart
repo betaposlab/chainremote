@@ -22,8 +22,8 @@ class DesktopTabPage extends StatefulWidget {
   static void onAddSetting(
       {SettingsTabKey initialPage = SettingsTabKey.general}) {
     try {
-      // ChainRemote: Agent(incoming-only) 빌드는 상단 탭이 1개만 유지되도록
-      // 설정을 새 탭이 아닌 모달 다이얼로그로 띄운다. 헤더 일관성.
+      // Agent(incoming-only) 빌드는 상단 탭을 1개로 유지하려고, 설정을 새 탭이
+      // 아니라 모달 다이얼로그로 띄운다.
       if (bind.isIncomingOnly()) {
         _showAgentSettingsDialog(initialPage);
         return;
@@ -91,9 +91,8 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
   _DesktopTabPageState() {
     RemoteCountState.init();
     Get.put<DesktopTabController>(tabController);
-    // ChainRemote: 거래처(--role=agent, conn-type=incoming) 빌드에서는 로그인
-    // 게이트를 끼우지 않는다. 거래처 PC 에는 본사 계정 개념이 없고, 트레이만
-    // 떠 있어야 한다.
+    // 거래처(--role=agent, conn-type=incoming) 빌드에는 로그인 게이트를 안 건다.
+    // 거래처 PC 에는 본사 계정 개념이 없고 트레이만 떠 있으면 된다.
     final Widget homePage = DesktopHomePage(
       key: const ValueKey(kTabLabelHomePage),
     );
@@ -151,9 +150,8 @@ class _DesktopTabPageState extends State<DesktopTabPage> {
             body: DesktopTab(
               controller: tabController,
               tail: Offstage(
-                // ChainRemote: 상단 탭바 톱니 영구 숨김.
-                // HQ=사이드바, Agent=incoming-only 라 어차피 숨김 →
-                // 설정은 새 탭이 아닌 임베드/팝업으로만 진입. 헤더 일관성.
+                // 상단 탭바의 톱니는 늘 숨긴다. HQ 는 사이드바, Agent 는
+                // incoming-only 라 어차피 안 쓰고, 설정은 임베드나 팝업으로만 연다.
                 offstage: true,
                 child: ActionIcon(
                   message: 'Settings',

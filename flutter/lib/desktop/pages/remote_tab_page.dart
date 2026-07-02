@@ -135,8 +135,8 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
       body: DesktopTab(
         controller: tabController,
         onWindowCloseButton: handleWindowCloseButton,
-        // ChainRemote 2026-05-27 v4: toolbar 를 탭바 라인의 tail 슬롯에 박음 — 거래처 화면 위
-        // floating 안 함. tab 의 label "424... @ ..." 와 같은 행에 컨트롤 노출.
+        // 2026-05-27 v4: toolbar 를 탭바 라인의 tail 슬롯에 넣었다. 거래처 화면 위에
+        // 떠 있지 않고, 탭 라벨 "424... @ ..." 와 같은 행에 컨트롤이 붙는다.
         tail: Obx(() {
           final state = tabController.state.value;
           if (state.tabs.isEmpty || state.selected < 0 ||
@@ -165,7 +165,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
                 onEnterOrLeaveImageSetter: (_, __) {},
                 onEnterOrLeaveImageCleaner: (_) {},
                 setRemoteState: (_) {},
-                // ChainRemote: tab-tail 툴바는 첫 접속에도 즉시 표시(initialized 게이트 우회).
+                // tab-tail 툴바는 첫 접속에도 바로 보인다(initialized 게이트 우회).
                 alwaysShow: true,
               ),
               _RelativeMouseModeHint(tabController: tabController),
@@ -422,10 +422,10 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
 
   Future<bool> handleWindowCloseButton() async {
     final connLength = tabController.length;
-    // ChainRemote: 원격 세션 중 창 닫기 = 원격 끊김. 코이노처럼 경고 없이
-    // 끊겨서 거래처에 재안내(앱 실행→ID 불러주기→재접속) 하는 일을 막기 위해,
-    // 활성 세션이 1개라도 있으면 항상 확인 다이얼로그를 띄운다.
-    // (로그인만 한 메인 창은 별도 — 거긴 hide 라 무확인 유지.)
+    // 원격 세션 중에 창을 닫으면 원격이 끊긴다. 경고 없이 끊겨서 거래처에
+    // 다시 안내(앱 실행, ID 불러주기, 재접속)하는 일을 막으려고, 활성 세션이
+    // 하나라도 있으면 항상 확인 다이얼로그를 띄운다.
+    // (로그인만 한 메인 창은 hide 라서 확인 없이 그대로 둔다.)
     if (connLength >= 1) {
       if (!await _chainremoteConfirmCloseDuringSession(connLength)) {
         return false;

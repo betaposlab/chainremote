@@ -270,7 +270,7 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
           blockInput.value = !blockInput.value;
         }));
   }
-  // ChainRemote 2026-05-27: 역할 전환(Switch Sides) — 본사↔거래처 역할 뒤집기, 우리 시나리오에 무용 → 숨김.
+  // 2026-05-27: 역할 전환(Switch Sides)은 본사↔거래처 역할을 뒤집는 기능인데, 우리 시나리오엔 필요 없어 숨긴다.
   // refresh
   if (pi.version.isNotEmpty) {
     v.add(TTextMenu(
@@ -641,7 +641,7 @@ Future<List<TToggleMenu>> toolbarDisplayToggle(
   }
   // disable clipboard
   if (isDefaultConn && ffiModel.keyboard && perms['clipboard'] != false) {
-    // ChainRemote 2026-05-27: 클립보드 사용 안 함 — 권한 탭의 "복사·붙여넣기 공유 허용"과 중복 → toolbar 에서 숨김.
+    // 2026-05-27: 클립보드 사용 안 함 항목은 권한 탭의 "복사·붙여넣기 공유 허용"과 중복이라 toolbar 에서 숨긴다.
     final _ = ffiModel.viewOnly; // ignore: unused_local_variable
   }
   // lock after session end
@@ -693,7 +693,7 @@ Future<List<TToggleMenu>> toolbarDisplayToggle(
         child: Text(translate('Use all my displays for the remote session'))));
   }
 
-  // ChainRemote 2026-05-27: 트루컬러 (4:4:4) — 성능 영향, 우리 환경 무용 → 숨김.
+  // 2026-05-27: 트루컬러(4:4:4)는 성능만 잡아먹고 우리 환경엔 필요 없어 숨긴다.
 
   if (isDefaultConn && isMobile) {
     v.addAll(toolbarKeyboardToggles(ffi));
@@ -842,7 +842,7 @@ List<TToggleMenu> toolbarKeyboardToggles(FFI ffi) {
         child: Text(translate('Relative mouse mode'))));
   }
 
-  // ChainRemote 2026-05-27: 마우스 휠 반전 / 좌우 버튼 교체 — 특이 케이스, 우리 환경 무용 → 숨김.
+  // 2026-05-27: 마우스 휠 반전과 좌우 버튼 교체는 특이 케이스라 우리 환경엔 필요 없어 숨긴다.
   return v;
 }
 

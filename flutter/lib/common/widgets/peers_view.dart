@@ -41,7 +41,7 @@ class LoadEvent {
   static const String lan = 'load_lan_peers';
   static const String addressBook = 'load_address_book_peers';
   static const String group = 'load_group_peers';
-  // ChainRemote: '전체 거래처' 탭 — Rust fetch_customers_blocking 가 push.
+  // '전체 거래처' 탭. Rust fetch_customers_blocking 가 push 한다.
   static const String allCustomers = 'load_all_customers';
 }
 
@@ -54,12 +54,12 @@ class PeersModelName {
   static const String allCustomers = 'all customers peer';
 }
 
-// ChainRemote: 이 기기 자신의 ID 캐시. 자기 자신을 거래처 목록(최근/즐겨찾기/LAN)에서 숨기기 위함.
+// 이 기기 자신의 ID 캐시. 거래처 목록(최근/즐겨찾기/LAN)에서 자기 자신을 숨기는 데 쓴다.
 // 집 윈컴처럼 HQ 빌드(뷰어)이면서 동시에 거래처로도 등록된 머신이, 자기 홈에서 자기 자신을
-// 원격 대상으로 보여주는 무의미한 표시를 방지. ID 는 세션 중 불변 + Rust get_id()=config 동기
-// 읽기라, matchPeers(async) 안에서 1회 await 캐시하면 첫 렌더부터 깜빡임 없이 가려진다.
-// DB 안 건드림 — 즐겨찾기는 chang 계정에 그대로 남고, 가리기는 순전히 기기 로컬 동작이라
-// 맥북에는 영향 0 (맥북은 자기 ID 가 달라 우리집이 그대로 보임).
+// 원격 대상으로 노출하는 무의미한 표시를 막는다. ID 는 세션 중 불변이고 Rust get_id() 가
+// config 동기 읽기라, matchPeers(async) 안에서 한 번 await 캐시하면 첫 렌더부터 깜빡임 없이 가려진다.
+// DB 는 건드리지 않는다. 즐겨찾기는 chang 계정에 그대로 남고, 가리기는 순전히 기기 로컬 동작이라
+// 맥북에는 영향이 없다 (맥북은 자기 ID 가 달라 우리집이 그대로 보인다).
 String _myOwnIdCache = '';
 
 /// for peer search text, global obs value
@@ -78,10 +78,10 @@ RxList<RxString> get obslist => [peerSearchText, peerSort].obs;
 final peerSearchTextController =
     TextEditingController(text: peerSearchText.value);
 
-// ChainRemote: 거래처 그룹화 (별칭 prefix 기반).
-// 운영 컨벤션: 별칭 = "거래처상호-기기명" (예: "ABC식당-메인", "ABC식당-오더1").
-// '-' 앞 부분이 같은 peer 들이 한 그룹으로 묶임. 그룹별 펼침/접힘 상태는 전역 RxMap.
-// 단일 peer (그룹원 1명) 은 그룹 헤더 없이 평면으로 노출.
+// 별칭 prefix 기반 거래처 그룹화.
+// 운영 컨벤션상 별칭은 "거래처상호-기기명" 형식이다 (예: "ABC식당-메인", "ABC식당-오더1").
+// '-' 앞부분이 같은 peer 들이 한 그룹으로 묶인다. 그룹별 펼침/접힘 상태는 전역 RxMap 에 둔다.
+// 그룹원이 하나뿐이면 헤더 없이 평면으로 노출한다.
 final peerGroupExpanded = <String, bool>{}.obs;
 
 String? _groupKeyOf(Peer peer) {
@@ -295,7 +295,7 @@ class _PeersViewState extends State<_PeersView>
   String _cardId(String id) => widget.peers.name + id;
   String _peerId(String cardId) => cardId.replaceAll(widget.peers.name, '');
 
-  // ChainRemote: 거래처 그룹 헤더 (펼침/접힘).
+  // 거래처 그룹 헤더 (펼침/접힘).
   Widget _buildGroupHeader(_PeerGroupHeader item) {
     final expanded = peerGroupExpanded[item.prefix] ?? true;
     return Material(
@@ -407,15 +407,15 @@ class _PeersViewState extends State<_PeersView>
                     },
                   )
                 : peerCardUiType.value == PeerUiType.list
-                    // ChainRemote: list view 에서만 그룹화 적용.
+                    // 그룹화는 list view 에서만 적용한다.
                     ? Obx(() {
-                        // peerGroupExpanded 변경 시 재빌드.
+                        // peerGroupExpanded 가 바뀌면 재빌드한다.
                         peerGroupExpanded.length;
                         final items = buildGroupedPeerItems(peers);
-                        // ChainRemote: 가로 공간 활용 — peer 카드를 반응형 N열로 배치한다.
-                        // 카드 최소폭(kTargetCardWidth) 기준으로 창 너비에 맞춰 열 수를 자동
-                        // 결정(좁으면 1열, 넓히면 그만큼 늘어남, 카드는 최소폭 유지). 그룹 헤더는
-                        // 전체 폭, 헤더 경계에서 짝을 리셋해 그룹이 같은 행에 섞이지 않게 한다.
+                        // 가로 공간을 활용해 peer 카드를 반응형 N열로 배치한다.
+                        // 카드 최소폭(kTargetCardWidth)을 기준으로 창 너비에 맞춰 열 수를
+                        // 자동 결정한다(좁으면 1열, 넓히면 그만큼 늘어나며 카드는 최소폭 유지).
+                        // 그룹 헤더는 전체 폭을 쓰고, 헤더 경계에서 짝을 리셋해 그룹이 같은 행에 섞이지 않게 한다.
                         return LayoutBuilder(builder: (context, constraints) {
                           const double kTargetCardWidth = 320;
                           final double avail = constraints.maxWidth.isFinite

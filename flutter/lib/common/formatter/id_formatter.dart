@@ -40,15 +40,15 @@ String formatID(String id) {
     suffix = id2.substring(id2.length - 2, id2.length);
     id2 = id2.substring(0, id2.length - 2);
   }
-  // ChainRemote 새 형식: 글자 2 + 숫자 8 ("AB12345678") → "AB 1234 5678" (HQ 등록 시 읽기 편하게).
-  //   trimID 가 공백만 제거하므로 접속용 ID 는 그대로 보존. 완성된 ID 만 매칭(타이핑 중 부분입력 제외).
+  // 새 형식: 글자 2 + 숫자 8("AB12345678")을 "AB 1234 5678" 로 끊어 읽기 쉽게 보인다.
+  // trimID 가 공백만 지우므로 접속용 ID 는 그대로다. 완성된 ID 만 매칭한다(타이핑 중 부분입력 제외).
   final ab = RegExp(r'^([A-Za-z]{2})(\d{4})(\d{4})$').firstMatch(id2);
   if (ab != null) {
-    // 앞 2글자는 항상 대문자 — 생성 ID 가 대문자이고 서버 매칭이 대소문자 구분이라,
-    //   사용자가 소문자로 쳐도(gn…) 접속되게 정규화.
+    // 앞 2글자는 늘 대문자로 맞춘다. 생성 ID 가 대문자이고 서버 매칭이 대소문자를
+    // 구분하므로, 소문자로 쳐도(gn…) 접속되도록 정규화한다.
     return '${ab.group(1)!.toUpperCase()} ${ab.group(2)} ${ab.group(3)}$suffix';
   }
-  // 기존 숫자 ID(7~9자리 등) — 3자리씩 그룹화(하위호환).
+  // 기존 숫자 ID(7~9자리 등)는 3자리씩 끊는다(하위호환).
   if (int.tryParse(id2) == null) return id;
   String newID = '';
   if (id2.length <= 3) {
@@ -66,7 +66,7 @@ String formatID(String id) {
 
 String trimID(String id) {
   final trimmed = id.replaceAll(' ', '');
-  // AB 형식(글자2+숫자8)은 접속용으로도 앞 2글자 대문자화 (서버 매칭 대소문자 구분 대비).
+  // AB 형식(글자2+숫자8)은 접속용에서도 앞 2글자를 대문자로(서버 매칭이 대소문자를 가림).
   final ab = RegExp(r'^([A-Za-z]{2})(\d{8})$').firstMatch(trimmed);
   if (ab != null) {
     return '${ab.group(1)!.toUpperCase()}${ab.group(2)}';

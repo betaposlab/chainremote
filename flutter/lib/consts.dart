@@ -7,7 +7,7 @@ import 'package:get/get.dart';
 const int kMaxVirtualDisplayCount = 4;
 const int kAllVirtualDisplay = -1;
 
-// ChainRemote 2026-05-27: 28 → 38 — toolbar 가 tab bar tail 슬롯에 박혀서 라벨+아이콘 fit.
+// 2026-05-27: 28 → 38. toolbar 가 tab bar 꼬리 슬롯에 들어가서 라벨+아이콘이 들어가도록 키움.
 const double kDesktopRemoteTabBarHeight = 38.0;
 const int kInvalidWindowId = -1;
 const int kMainWindowId = 0;
@@ -324,13 +324,13 @@ extension StringExtension on String {
 
 const Size kConnectionManagerWindowSizeClosedChat = Size(300, 490);
 const Size kConnectionManagerWindowSizeOpenChat = Size(700, 490);
-// ── ChainRemote CM(피제어 수락/배너) 창 크기 — 단일 진실원천 (상세 docs/chainremote/CM_WINDOW.md) ──
-// 상태: pending(수락대기)=수락카드 360x200 → active(원격중)=배너 220x34. 정렬은 항상 topCenter.
-// 콜드스타트/reveal 은 항상 카드 크기로 띄움 — 배너로 띄우면 피제어 전체화면 시 resize 가 안 먹어
-// 흰박스 고착. 활성 후 server_page 가 배너로 줄임(그땐 창 전면이라 안정적).
-// ChainRemote: Agent(incoming-only) 빌드에서 CM 창은 "원격지원 중" 작은 배너만.
+// CM(피제어 수락/배너) 창 크기의 단일 진실원천. 상세는 docs/chainremote/CM_WINDOW.md.
+// pending(수락 대기)은 수락 카드 360x200, active(원격 중)는 배너 220x34. 정렬은 늘 topCenter.
+// 콜드스타트·reveal 은 항상 카드 크기로 띄운다. 배너로 띄우면 피제어 전체화면일 때 resize 가
+// 안 먹어 흰 박스로 굳는다. 활성이 되면 server_page 가 배너로 줄인다(그땐 창이 전면이라 안정적).
+// Agent(incoming-only) 빌드의 CM 창은 "원격지원 중" 작은 배너만 쓴다.
 const Size kAgentSupportBannerSize = Size(220, 34);
-// ChainRemote: 클릭수락 대기 시 [수락]/[거부] 카드 크기 (배너보다 큼). server_page 가 상태에 따라 전환.
+// 클릭 수락 대기 시 뜨는 [수락]/[거부] 카드 크기(배너보다 크다). 상태에 따라 server_page 가 전환.
 const Size kAgentAcceptCardSize = Size(360, 200);
 // Tabbar transition duration, now we remove the duration
 const Duration kTabTransitionDuration = Duration.zero;

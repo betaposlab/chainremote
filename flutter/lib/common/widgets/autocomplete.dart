@@ -42,7 +42,7 @@ class AllPeersLoader {
     _isPeersLoading = true;
 
     if (gFFI.recentPeersModel.peers.isEmpty) {
-      // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록.
+      // 최근 세션은 네이티브 최근 접속 기록이다.
       bind.mainLoadRecentPeers();
     }
     if (gFFI.lanPeersModel.peers.isEmpty) {

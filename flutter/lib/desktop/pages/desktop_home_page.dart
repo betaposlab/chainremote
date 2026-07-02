@@ -57,8 +57,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
   final GlobalKey _childKey = GlobalKey();
 
-  // ChainRemote 사이드바 네비 상태 (2026-05-27).
-  // _inSettings=true → 우측 페인이 임베드 DesktopSettingPage. 사이드바도 설정 서브탭 표시.
+  // 사이드바 네비 상태 (2026-05-27).
+  // _inSettings 가 true 면 우측 페인이 임베드 DesktopSettingPage 로 바뀌고, 사이드바에도 설정 서브탭이 뜬다.
   bool _inSettings = false;
   SettingsTabKey _settingsTab = SettingsTabKey.general;
 
@@ -70,10 +70,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       // Server-only build keeps the original layout.
       return _buildBlock(child: buildLeftPane(context));
     }
-    // ChainRemote — sidebar layout: 좌측 네비 사이드바 + 우측 메인 영역.
-    // (2026-05-27 디자인 개편 — Claude Design 시안 톤 반영. 상단 탭바
-    //  중복 회피를 위해 DesktopHomePage 내부에서만 사이드바 적용. 멀티
-    //  윈도우/원격세션 핵심인 DesktopTabPage 의 상단 탭은 그대로.)
+    // 사이드바 레이아웃: 좌측 네비 사이드바 + 우측 메인 영역 (2026-05-27 디자인 개편).
+    // 상단 탭바와 겹치지 않게 사이드바는 DesktopHomePage 안에서만 쓴다. 멀티 윈도우·
+    // 원격 세션의 핵심인 DesktopTabPage 의 상단 탭은 그대로 둔다.
     return _buildBlock(
       child: ChangeNotifierProvider.value(
         value: gFFI.serverModel,
@@ -101,7 +100,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
-  // 설정 서브탭 라벨 — 사이드바 표시용.
+  // 사이드바에 보여줄 설정 서브탭 라벨.
   String _settingsTabLabel(SettingsTabKey k) {
     switch (k) {
       case SettingsTabKey.general:
@@ -144,8 +143,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     }
   }
 
-  // 좌측 네비 사이드바 — 로고(상단) / 홈·설정(중단) / 본인ID·사용자·로그아웃(하단).
-  // 슬랙/Linear 스타일 정돈. 폭 220px.
+  // 좌측 네비 사이드바. 위에 로고, 가운데 홈·설정, 아래 본인 ID·사용자·로그아웃.
+  // Slack/Linear 풍으로 정돈. 폭 220px.
   Widget buildChainRemoteSidebar(BuildContext context) {
     final isPortable =
         (Platform.environment['CHAINREMOTE_PORTABLE_DIR'] ?? '').isNotEmpty;
@@ -156,9 +155,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // (1) 로고 영역 — 사이드바 폭에 맞춰 시각적 무게감 확보(2026-05-27 Chang 피드백).
-          // 워드마크(chainremote 텍스트)가 사이드바 가로 중앙에 오도록 심볼은 좌측으로 빠짐.
-          // 구현: ClipRect 로 안전선 + Transform.translate 로 이미지 좌측 이동.
+          // 로고 영역. 사이드바 폭에 맞춰 무게감을 준다(2026-05-27 Chang 피드백).
+          // 워드마크(chainremote 텍스트)가 사이드바 가로 중앙에 오도록 심볼은 왼쪽으로 뺐다.
+          // ClipRect 로 넘침을 막고 Transform.translate 로 이미지를 왼쪽으로 밀었다.
           Padding(
             padding: const EdgeInsets.only(bottom: 22),
             child: ClipRect(
@@ -176,9 +175,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               ),
             ),
           ),
-          // ChainRemote 빌드 종류 배지 (2026-05-27 Chang 피드백).
-          // HQ/Agent 한눈 구분 — 같은 PC 에 다른 빌드 설치된 경우 직관 확인용.
-          // 포터블(ChainGo)면 ChainGo 배지만 — HQ 배지와 중복 방지 (2026-05-30).
+          // 빌드 종류 배지 (2026-05-27 Chang 피드백).
+          // 같은 PC 에 다른 빌드가 깔려 있어도 HQ/Agent 를 한눈에 구분하려는 것.
+          // 포터블(ChainGo)이면 ChainGo 배지만 띄운다(HQ 배지와 겹치지 않게, 2026-05-30).
           if (!isPortable)
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 14),
@@ -195,9 +194,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 child: _buildChainGoBadge(),
               ),
             ),
-          // (2) 메뉴 영역
-          //   - 평상시: 홈 / 설정
-          //   - 설정 활성화: ← 뒤로(홈) + 설정 서브탭(일반/보안/네트워크/디스플레이/정보)
+          // 메뉴 영역. 평상시엔 홈/설정, 설정에 들어가면 뒤로(홈) +
+          // 설정 서브탭(일반/보안/네트워크/디스플레이/정보)을 보인다.
           if (!_inSettings) ...[
             _sidebarItem(
               context,
@@ -252,13 +250,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                   setState(() {
                     _settingsTab = k;
                   });
-                  // 마운트된 PageController 가 있으면 jump (헤더 없는 임베드 모드).
+                  // PageController 가 마운트돼 있으면 jump 한다(헤더 없는 임베드 모드).
                   DesktopSettingPage.switchEmbeddedPage(k);
                 },
               ),
           ],
           const Spacer(),
-          // (3) 하단 사용자 영역 — 본인 ID 칩 + 사용자명 + 비번변경 + 로그아웃.
+          // 하단 사용자 영역. 본인 ID 칩, 사용자명, 비번 변경, 로그아웃.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Column(
@@ -331,7 +329,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     required VoidCallback onTap,
     bool compact = false,
   }) {
-    // 뉴모 사이드바 항목: 선택 시 솟은(raised) 표면 + 남색, 평소 투명.
+    // 뉴모 사이드바 항목. 선택되면 솟은 표면 + 남색, 아니면 투명.
     final fg = selected ? MyTheme.neuBlueInk : const Color(0xFF56606E);
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
@@ -378,12 +376,12 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
-  // (구) 상단 브랜드 바 — 사이드바 레이아웃 도입(2026-05-27)으로 더 이상 호출되지
-  // 않지만, 안전판으로 코드 보존 (롤백 시 즉시 복귀 가능).
+  // (구) 상단 브랜드 바. 사이드바 레이아웃(2026-05-27)으로 더 이상 안 쓰지만,
+  // 롤백하면 바로 되돌릴 수 있도록 남겨둔다.
   // ignore: unused_element
   Widget buildChainRemoteTopBar(BuildContext context) {
-    // 본사 빌드 — 자기 ID/비번 표시 없음 (피지원자 아님).
-    // 로고 좌측 + 설정 우측만.
+    // 본사 빌드는 자기 ID·비번을 안 보인다(피지원자가 아니므로).
+    // 왼쪽 로고, 오른쪽 설정만.
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
@@ -448,8 +446,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
-  // 빌드 종류 배지 — 본사용(HQ) / 거래처용(Agent) 한눈 구분 (2026-05-27).
-  // 같은 PC 에 다른 빌드가 잔재로 설치될 수 있어 명시 필요.
+  // 빌드 종류 배지. 본사용(HQ)인지 거래처용(Agent)인지 한눈에 구분(2026-05-27).
+  // 같은 PC 에 다른 빌드가 잔재로 남을 수 있어 명시가 필요하다.
   Widget _buildBuildKindBadge() {
     final isAgent = bind.isIncomingOnly();
     final label = isAgent ? '거래처용 (Agent)' : '본사용 (HQ)';
@@ -478,9 +476,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
-  // ChainGo(포터블 SFX) 모드 식별 배지. SFX 래퍼가 inner 실행 시 env
-  // CHAINREMOTE_PORTABLE_DIR 박음 → Dart 가 그 env 보고 띄움. 정식 HQ 빌드
-  // 와 시각적으로 즉시 구별되도록 주황색.
+  // ChainGo(포터블 SFX) 모드 배지. SFX 래퍼가 inner 를 실행할 때 env
+  // CHAINREMOTE_PORTABLE_DIR 를 넣고, Dart 가 그걸 보고 띄운다. 정식 HQ 빌드와
+  // 바로 구별되도록 주황색.
   Widget _buildChainGoBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -501,8 +499,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
-  // 옵션 B+ 로 HQ 도 수신 대상이 될 수 있어 자기 ID 가 필요. 메인에 적당한
-  // 크기로 표시(+복사). 기존 "내 ID 큰 표시 폐기" 원칙은 이 카드에 한해 완화.
+  // 옵션 B+ 에서는 HQ 도 수신 대상이 될 수 있어 자기 ID 가 필요하다. 메인에
+  // 적당한 크기로 보이고 복사도 되게 한다. "내 ID 큰 표시 폐기" 원칙은 이 카드만 예외.
   Widget _buildMyIdChip() {
     return FutureBuilder<String>(
       future: bind.mainGetMyId(),
@@ -703,9 +701,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         ),
       Align(
         alignment: Alignment.center,
-        // ChainRemote 2026-05-28: 이스터 에그 — 거래처 PC(Agent)의 로고 1초 길게 누르면
-        // 설정 페이지 열림. 거래처 사용자는 모르고 본사 직원만 알아서 사용 (자동업데이트
-        // 검증 등 긴급 시 우회 경로). 햄버거 메뉴는 평상시 숨김.
+        // 2026-05-28 숨은 진입점: 거래처 PC(Agent)에서 로고를 1초 길게 누르면 설정이 열린다.
+        // 거래처 사용자는 모르고 본사 직원만 아는 우회 경로(자동업데이트 검증 등 긴급 시).
+        // 햄버거 메뉴는 평소엔 숨겨둔다.
         child: GestureDetector(
           onLongPress: isIncomingOnly
               ? () {
@@ -1125,7 +1123,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           watchIsInputMonitoring = true;
         }, help: 'Help', link: translate("doc_mac_permission"));
       } else if (!isOutgoingOnly &&
-          !bind.isIncomingOnly() && // ChainRemote: 거래처 에이전트(incoming)엔 '부팅 서비스 설치' 배너 숨김. macOS 서비스는 로그인화면 캡처 제약+서비스 TCC 재요구로 불안정 → 거래처가 누르면 원격 불능. 무인은 자동로그인+로그인항목+영구비번으로.
+          !bind.isIncomingOnly() && // 거래처 에이전트(incoming)엔 '부팅 서비스 설치' 배너를 숨긴다. macOS 서비스는 로그인 화면 캡처 제약 + 서비스 TCC 재요구로 불안정해서, 거래처가 누르면 오히려 원격이 안 된다. 무인 운영은 자동 로그인 + 로그인 항목 + 영구비번으로 처리한다.
           !svcStopped.value &&
           bind.mainIsInstalled() &&
           !bind.mainIsInstalledDaemon(prompt: false)) {

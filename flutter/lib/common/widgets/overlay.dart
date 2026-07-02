@@ -606,7 +606,7 @@ class QualityMonitor extends StatelessWidget {
                       _row(
                           "Codec", qualityMonitorModel.data.codecFormat ?? '-'),
                       _row("Chroma", qualityMonitorModel.data.chroma ?? '-'),
-                      // ChainRemote: 연결 경로 표시 (P2P 직결 vs NAS 릴레이)
+                      // 연결 경로 표시 (P2P 직결 vs NAS 릴레이)
                       _row(
                           "경로",
                           qualityMonitorModel.parent.target?.ffiModel.direct ==

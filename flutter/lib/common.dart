@@ -63,8 +63,8 @@ final isWebOnLinux = isWebOnLinux_;
 final isWebOnMacOs = isWebOnMacOS_;
 var isMobile = isAndroid || isIOS;
 var version = ''; // RustDesk 코어 버전 (bind.mainGetVersion)
-// ChainRemote 자체 버전. src/chainremote_version.rs 의 CHAINREMOTE_VERSION +
-// deploy/win-installer/{agent,hq}-installer.iss 의 APP_VERSION 과 항상 동기화.
+// 우리 자체 버전. src/chainremote_version.rs 의 CHAINREMOTE_VERSION,
+// deploy/win-installer/{agent,hq}-installer.iss 의 APP_VERSION 과 늘 맞춰야 한다.
 const chainRemoteVersion = '1.4.43';
 int androidVersion = 0;
 
@@ -272,8 +272,8 @@ class MyTheme {
   static const Color button = brandBlue;            // primary button → blue
   static const Color hoverBorder = Color(0xFF999999);
 
-  // ── ChainRemote 뉴모피즘 팔레트 (2026-06-06 디자인 재스킨) ──
-  // 디자인 원본: design-mockup/main-pretty.html · settings.html · step2-menu.html
+  // 뉴모피즘 팔레트 (2026-06-06 디자인 재스킨).
+  // 디자인 원본: design-mockup/main-pretty.html, settings.html, step2-menu.html
   static const Color neuBg = Color(0xFFEAEEF4); // 메인 배경
   static const Color neuSide = Color(0xFFF5F7FB); // 사이드바 배경
   static const Color neuSurface = Color(0xFFECEFF5); // 솟은 표면(버튼/기어/카드)
@@ -1696,21 +1696,21 @@ Future<bool> matchPeer(
 }
 
 /// Get the image for the current [platform].
-/// ChainRemote 거래처 카드 아바타 — 첫글자 원형(스샷2 톤). 한국 B2B SaaS 룩.
+/// 거래처 카드 아바타. 상호 첫 글자를 원 안에 넣는다. 한국 B2B SaaS 룩.
 ///
-/// 입력: displayName (peer.alias 비어있으면 peer.id 로 fallback). 빈 문자열이면
-/// '?' 표시. 색상은 displayName 의 hash 로 결정 → 같은 거래처는 항상 같은 색.
+/// displayName 을 받는다(peer.alias 가 비면 peer.id 로 fallback). 비어 있으면 '?'.
+/// 색은 displayName 해시로 정해서 같은 거래처는 늘 같은 색이 나온다.
 ///
-/// 함의: peer_card.dart 의 `getPlatformImage(peer.platform, ...)` 자리에 끼움.
-/// OS 윈도우/맥/리눅스 로고 대신 거래처를 시각 인지하기 위함. (Chang 피드백:
-/// "윈도우 로고라 이상함. 가맹점 상호 첫글자 둥근 원 안에.")
-// ChainRemote 뉴모피즘 아바타 (2026-06-06 재스킨).
+/// peer_card.dart 의 `getPlatformImage(peer.platform, ...)` 자리에 대신 끼운다.
+/// OS 로고(윈도우/맥/리눅스) 대신 거래처를 한눈에 알아보게 하려는 것.
+/// (Chang 피드백: "윈도우 로고라 이상함. 가맹점 상호 첫글자 둥근 원 안에.")
+// 뉴모피즘 아바타 (2026-06-06 재스킨).
 // 라벤더 그라데이션 + 강하게 솟은 그림자 + 한글 펜 손글씨(파란 글자).
 // 디자인 원본: design-mockup/main-pretty.html .av
 Widget getChainRemoteAvatar(String displayName, {double size = 50}) {
   final s = displayName.trim();
   final ch = s.isEmpty ? '?' : String.fromCharCode(s.runes.first);
-  final k = size / 27.0; // 디자인 기준 27px 대비 그림자 스케일
+  final k = size / 27.0; // 디자인 기준 27px 대비 그림자 스케일 배율
   return Container(
     width: size,
     height: size,
@@ -3810,8 +3810,8 @@ Widget loadLogo() {
 }
 
 Widget loadIcon(double size) {
-  // v1.2.5: 탭바 / 트레이 작은 마크. ChainRemote 브랜드 마크 사용 (chainremote_mark.png).
-  // assets/icon.svg (RustDesk 기본 로고) 는 fallback 으로 보존.
+  // v1.2.5: 탭바·트레이용 작은 마크는 브랜드 마크(chainremote_mark.png)를 쓴다.
+  // assets/icon.svg (RustDesk 기본 로고)는 fallback 으로 남겨둔다.
   return Image.asset('assets/chainremote_mark.png',
       width: size,
       height: size,

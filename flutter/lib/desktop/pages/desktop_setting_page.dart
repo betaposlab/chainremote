@@ -64,14 +64,14 @@ enum SettingsTabKey {
 
 class DesktopSettingPage extends StatefulWidget {
   final SettingsTabKey initialTabkey;
-  // ChainRemote 임베드 모드 — DesktopHomePage 우측 페인에 인라인 렌더될 때 true.
-  // 브랜드 헤더와 가로 탭 스트립을 숨기고 본문만 노출(사이드바에서 탭 선택).
+  // 임베드 모드. DesktopHomePage 우측 페인에 인라인 렌더될 때 true.
+  // 브랜드 헤더와 가로 탭 스트립을 숨기고 본문만 노출한다(탭 선택은 사이드바가 담당).
   final bool embedded;
-  // ChainRemote: 거래처 운영에 불필요한 탭들(계정/플러그인/프린터) 비활성화.
+  // 거래처 운영에 불필요한 탭(계정/플러그인/프린터)은 뺀다.
   static final List<SettingsTabKey> tabKeys = [
     SettingsTabKey.general,
-    // ChainRemote 옵션 B+ (2026-05-21): outgoing-only HQ 빌드도 "외부 원격 접속
-    // 허용" 토글이 보안 탭에 있어야 하므로 isOutgoingOnly 조건 제거.
+    // 옵션 B+ (2026-05-21): outgoing-only HQ 빌드도 보안 탭에 "외부 원격 접속 허용"
+    // 토글이 있어야 해서 isOutgoingOnly 조건을 뺐다.
     if (!isWeb &&
         !bind.isDisableSettings() &&
         bind.mainGetBuildinOption(key: kOptionHideSecuritySetting) != 'Y')
@@ -98,8 +98,8 @@ class DesktopSettingPage extends StatefulWidget {
         return;
       }
       if (Get.isRegistered<PageController>(tag: _kSettingPageControllerTag)) {
-        // ChainRemote: 임베드 모드(또는 기존 설정 탭) 이미 마운트됨.
-        // onAddSetting 새 탭 생성 호출 제거 — 헤더 일관성 위해 jump 만.
+        // 임베드 모드(또는 기존 설정 탭)가 이미 마운트돼 있다.
+        // 헤더 일관성을 위해 새 탭을 만드는 onAddSetting 대신 jump 만 한다.
         PageController controller =
             Get.find<PageController>(tag: _kSettingPageControllerTag);
         Rx<SettingsTabKey> selected =
@@ -114,8 +114,8 @@ class DesktopSettingPage extends StatefulWidget {
     }
   }
 
-  /// 임베드 모드에서 사이드바 탭 클릭 시 호출 — 상단 탭바에 "설정" 새로 추가하지
-  /// 않고 이미 마운트된 DesktopSettingPage 의 PageController 만 jump.
+  /// 임베드 모드에서 사이드바 탭을 클릭하면 호출된다. 상단 탭바에 "설정"을 새로
+  /// 추가하지 않고, 이미 마운트된 DesktopSettingPage 의 PageController 만 jump 한다.
   static void switchEmbeddedPage(SettingsTabKey page) {
     try {
       final index = tabKeys.indexOf(page);
@@ -296,8 +296,8 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     });
   }
 
-  // ChainRemote: 사이드바 폐기 → 브랜드 헤더 + 가로 칩 탭 + 본문 스타일.
-  // embedded=true 면 헤더/탭 스트립 숨김 — DesktopHomePage 사이드바가 탭 선택 담당.
+  // 사이드바 대신 브랜드 헤더 + 가로 칩 탭 + 본문 레이아웃.
+  // embedded=true 면 헤더와 탭 스트립을 숨긴다(탭 선택은 DesktopHomePage 사이드바가 담당).
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -329,7 +329,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     );
   }
 
-  // ChainRemote 브랜드 헤더 — 그라디언트 + 로고 + 부제
+  // 브랜드 헤더. 그라디언트 + 로고 + 부제.
   Widget _brandHeader(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -377,7 +377,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     );
   }
 
-  // 가로 칩 탭 — 사이드바 대체
+  // 사이드바를 대체하는 가로 칩 탭.
   Widget _topTabStrip(BuildContext context) {
     final tabs = _settingTabs();
     return Container(
@@ -660,7 +660,7 @@ class _GeneralState extends State<_General> {
               kOptionAllowAlwaysSoftwareRender,
             ),
           ),
-        // ChainRemote 2026-05-27: 텍스처 렌더링 제거 — 디버그/실험 옵션, 일반 사용자 무용.
+        // 2026-05-27: 텍스처 렌더링 옵션 제거. 디버그/실험용이라 일반 사용자에겐 쓸모없다.
         if (isWindows)
           Tooltip(
             message: translate('d3d_render_tip'),
@@ -691,7 +691,7 @@ class _GeneralState extends State<_General> {
             'Capture screen using DirectX',
             kOptionDirectxCapture,
           ),
-        // ChainRemote 2026-05-27: UDP 홀 펀칭 / IPv6 P2P 제거 — hbbs 경유 환경에서 무용.
+        // 2026-05-27: UDP 홀 펀칭 / IPv6 P2P 옵션 제거. hbbs 경유 환경에선 쓸모없다.
       ],
     ];
 
@@ -953,7 +953,7 @@ class _Safety extends StatefulWidget {
 class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-  // ChainRemote 2026-05-27: 잠금 해제 버튼 폐기 — 항상 편집 가능(Chang 피드백).
+  // 2026-05-27: 잠금 해제 버튼 폐기. 항상 편집 가능(Chang 피드백).
   bool locked = false;
   final scrollController = ScrollController();
 
@@ -964,13 +964,13 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
         controller: scrollController,
         child: Column(
           children: [
-            // ChainRemote 2026-05-27: 보안 잠금 해제 버튼 제거(Chang 피드백).
-            // 본사 직원만 쓰는 HQ + 거래처는 사용자 UI 없는 서비스라 잠금 무의미.
-            // ChainRemote 2026-05-27: 2FA(클라우드 계정용 무용) + ID 변경(거래처 재등록 위험) 카드 제거.
+            // 2026-05-27: 보안 잠금 해제 버튼 제거(Chang 피드백).
+            // HQ 는 본사 직원만 쓰고 거래처는 사용자 UI 없는 서비스라 잠금이 의미 없다.
+            // 2026-05-27: 2FA(클라우드 계정용이라 무용) + ID 변경(거래처 재등록 위험) 카드 제거.
             Column(children: [
               permissions(context),
-              // M5: 거래처(incoming-only) 빌드에선 '외부 원격 접속 허용' 카드 숨김 (다층방어).
-              // 현재도 이 설정 진입점은 outgoing 빌드만 도달하지만, 진입점 분기 변경 시 노출 차단.
+              // M5: 거래처(incoming-only) 빌드에선 '외부 원격 접속 허용' 카드를 숨긴다(다층 방어).
+              // 지금은 이 설정 진입점에 outgoing 빌드만 도달하지만, 진입점 분기가 바뀌어도 노출을 막는다.
               if (!bind.isIncomingOnly()) _chainremoteAllowIncomingCard(),
               password(context),
               more(context),
@@ -979,10 +979,10 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
         )).marginOnly(bottom: _kListViewBottomMargin);
   }
 
-  /// ChainRemote 옵션 B+ (2026-05-21): HQ 빌드에서 외부 원격 접속 허용 토글.
-  /// ON 시 → `chainremote-allow-incoming=Y` → rendezvous_mediator 가 hbbs 등록 →
-  /// 다른 본사 PC 가 내 PC 를 원격으로 볼 수 있음. 디폴트 OFF (안전 디폴트).
-  /// 영구비번은 HQ 인스톨러가 박아둠 — 사용자 별도 설정 불필요.
+  /// 옵션 B+ (2026-05-21): HQ 빌드의 외부 원격 접속 허용 토글.
+  /// ON 이면 `chainremote-allow-incoming=Y` 가 되고, rendezvous_mediator 가 hbbs 에
+  /// 등록해 다른 본사 PC 가 내 PC 를 원격으로 볼 수 있다. 기본값은 안전하게 OFF.
+  /// 영구비번은 HQ 인스톨러가 박아두므로 사용자가 따로 설정할 필요 없다.
   Widget _chainremoteAllowIncomingCard() {
     return _Card(
       title: '외부 원격 접속 허용',
@@ -1361,9 +1361,9 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                 : null,
           ).marginOnly(left: _kContentHSubMargin - 5);
 
-          // ChainRemote: 거래처(agent = incoming-only) 빌드는 '클릭 수락' 외 옵션(비밀번호/둘 다)을
-          // UI 에서 제거한다 — 영구비번/Both "유령" 원천 차단. config 는 custom-agent.txt 의
-          // override-settings(approve-mode=click)로 강제되어 드롭다운도 자동 비활성(isApproveModeFixed).
+          // 거래처(incoming-only) 빌드에선 '클릭 수락' 말고 비밀번호/둘 다 옵션을 UI 에서
+          // 뺀다. 영구비번·Both "유령"의 원천을 막으려는 것. config 는 custom-agent.txt 의
+          // override-settings(approve-mode=click)로 고정돼 드롭다운도 자동 비활성이다(isApproveModeFixed).
           final incomingOnly = bind.isIncomingOnly();
           final modeKeys = incomingOnly
               ? <String>['click']
@@ -1402,9 +1402,9 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                   ),
                   enabled: tmpEnabled && !locked),
             if (usePassword) numericOneTimePassword,
-            // 영구 비밀번호 옵션 영구 제거 (2026-06-06 Chang 지시 — 무인 영구비번
-            // 0클릭 전면폐기, 무조건 클릭 수락). radios[1]=영구 사용 / Set permanent
-            // password 버튼 / radios[2]=둘 다 모두 삭제. 비번 모드에선 일회용(temp)만.
+            // 영구 비밀번호 옵션 영구 제거 (2026-06-06 Chang 지시. 무인 영구비번 0클릭을
+            // 전면 폐기하고 무조건 클릭 수락). radios[1]=영구 사용, Set permanent password
+            // 버튼, radios[2]=둘 다 모두 삭제. 비번 모드에선 일회용(temp)만 남는다.
           ]);
         })));
   }
@@ -1421,7 +1421,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
       _OptionCheckBox(context, 'keep-awake-during-incoming-sessions-label',
           kOptionKeepAwakeDuringIncomingSessions,
           reverse: false, enabled: enabled),
-      // ChainRemote 2026-05-27: "창 열려있을 때만 연결 허용" + PIN 잠금 해제 제거 — 거래처는 트레이만, 본사는 무의미.
+      // 2026-05-27: "창 열려있을 때만 연결 허용" + PIN 잠금 해제 제거. 거래처는 트레이만 있고 본사엔 의미 없다.
     ]);
   }
 
@@ -1715,7 +1715,7 @@ class _Network extends StatefulWidget {
 class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-  // ChainRemote 2026-05-27: 잠금 해제 버튼 폐기 — 항상 편집 가능.
+  // 2026-05-27: 잠금 해제 버튼 폐기. 항상 편집 가능.
   bool locked = false;
 
   final scrollController = ScrollController();
@@ -1723,7 +1723,7 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    // ChainRemote 2026-05-27: 네트워크 잠금 해제 버튼 제거(Chang 피드백).
+    // 2026-05-27: 네트워크 잠금 해제 버튼 제거(Chang 피드백).
     return ListView(controller: scrollController, children: [
       Column(children: [
         network(context),
@@ -2546,7 +2546,7 @@ class _AboutState extends State<_About> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 8.0),
-              // ChainRemote 브랜드 헤더 — 심볼 + 워드마크 + 부제 (2026-05-27 Chang 피드백).
+              // 브랜드 헤더. 심볼 + 워드마크 + 부제 (2026-05-27 Chang 피드백).
               Container(
                 padding: const EdgeInsets.symmetric(
                     vertical: 20, horizontal: 20),
@@ -2714,7 +2714,7 @@ class _AboutState extends State<_About> {
 //#region components
 
 // ignore: non_constant_identifier_names
-// ChainRemote: 카드 = 좌측 브랜드 블루 강조선 + 옅은 헤더 + 옵션 힌트.
+// 카드. 좌측 브랜드 블루 강조선 + 옅은 헤더 + 옵션 힌트.
 Widget _Card(
     {required String title,
     required List<Widget> children,
@@ -2780,7 +2780,7 @@ Widget _Card(
                     ],
                   ),
                 ),
-                // ChainRemote 운영 힌트 (있을 때만)
+                // 운영 힌트 (있을 때만)
                 if (hint != null)
                   Container(
                     width: double.infinity,
@@ -2817,10 +2817,10 @@ Widget _Card(
 }
 
 // ignore: non_constant_identifier_names
-// ChainRemote 2026-05-27: 컨트롤 위젯 톤 개편 — Claude Design 시안 적용.
-//   - _OptionCheckBox: 체크박스 → 토글 스위치 (label 좌측, switch 우측)
-//   - _Radio:        라디오 → 알약 칩 (활성 = brand 채움, 비활성 = 보더만)
-// 함수 시그니처 동일 — 호출부 30+ 곳 무수정. 시각만 교체.
+// 2026-05-27: 컨트롤 위젯 톤 개편. Claude Design 시안 적용.
+//   _OptionCheckBox: 체크박스를 토글 스위치로 (label 좌측, switch 우측)
+//   _Radio:          라디오를 알약 칩으로 (활성 = brand 채움, 비활성 = 보더만)
+// 함수 시그니처는 그대로라 호출부 30여 곳은 손 안 대고 시각만 바꿨다.
 
 const _kChainBrand = Color(0xFF3182F6);
 const _kChainTextPrimary = Color(0xFF191F28);
@@ -2909,7 +2909,7 @@ Widget _OptionCheckBox(
   });
 }
 
-/// Claude Design 시안 기반 토글 스위치 — 토스 블루 #3182F6, pill 모양.
+/// Claude Design 시안 기반 토글 스위치. 토스 블루 #3182F6, pill 모양.
 class _ChainSwitch extends StatelessWidget {
   final bool value;
   final bool enabled;
@@ -2974,7 +2974,7 @@ Widget _Radio<T>(BuildContext context,
     required String label,
     required Function(T value)? onChanged,
     bool autoNewLine = true}) {
-  // ChainRemote 2026-05-27: 라디오 → 알약 칩(세그먼티드 컨트롤 룩).
+  // 2026-05-27: 라디오를 알약 칩으로(세그먼티드 컨트롤 룩).
   final selected = value == groupValue;
   final canTap = onChanged != null;
   final bgColor = selected

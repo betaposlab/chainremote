@@ -316,7 +316,7 @@ class _ConnectionPageState extends State<ConnectionPage>
                     Flexible(child: _buildRemoteIDTextField(context)),
                   ],
                 ).marginOnly(top: 22),
-                // ChainRemote: 세련된 페이드 그라디언트 분리선 + 영역 라벨
+                // 페이드 그라데이션 구분선 + 영역 라벨.
                 const SizedBox(height: 18),
                 const _FadeSectionDivider(label: '거래처 목록'),
                 const SizedBox(height: 6),
@@ -327,7 +327,7 @@ class _ConnectionPageState extends State<ConnectionPage>
             if (!isOutgoingOnly) OnlineStatusWidget()
           ],
         ),
-        // 우하단 ChainRemote 버전 라벨 — 사용자가 한눈에 현재 버전 확인
+        // 우하단 버전 라벨. 현재 버전을 한눈에 확인.
         Positioned(
           right: 8,
           bottom: 4,
@@ -358,10 +358,10 @@ class _ConnectionPageState extends State<ConnectionPage>
         isFileTransfer: isFileTransfer,
         isViewCamera: isViewCamera,
         isTerminal: isTerminal);
-    // ChainRemote: 미등록 ID 접속 시 안내 — 오타로 무반응 클릭을 반복하는 문제 방지.
-    //   등록 거래처(전체 거래처 = 패널 DB) 목록에 없으면 확인 다이얼로그(취소 / 그래도 접속).
-    //   목록이 아직 로드 안 됐으면(빈 배열) 오판 방지로 바로 접속. 하드 차단 아님 —
-    //   방금 설치한 새 에이전트 ID 를 수동 접속하는 정상 케이스를 막지 않기 위함.
+    // 없는 ID 로 접속하면 조용히 실패해서 "왜 안 눌려?" 하며 계속 클릭하게 된다.
+    // 등록 거래처(전체 거래처 = 패널 DB)에 없으면 한 번 되묻는다(취소 / 그래도 접속).
+    // 목록이 아직 로드 전이면(빈 배열) 오판을 피하려고 그냥 접속한다. 하드 차단은
+    // 아니다. 방금 설치한 새 에이전트 ID 를 수동으로 접속하는 정상 케이스도 있으니까.
     final customers = gFFI.allCustomersPeersModel.peers;
     final known = customers.any((p) => p.id == id);
     if (customers.isNotEmpty && !known) {
@@ -385,7 +385,7 @@ class _ConnectionPageState extends State<ConnectionPage>
   /// UI for the remote ID TextField.
   /// Search for a peer.
   Widget _buildRemoteIDTextField(BuildContext context) {
-    // ChainRemote: 외곽 박스/제목 제거 — 미니멀 단일 행
+    // 외곽 박스와 제목을 없앤 미니멀 단일 행.
     var w = Container(
       width: 320 + 20 * 2,
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 16),
@@ -566,7 +566,7 @@ class _ConnectionPageState extends State<ConnectionPage>
                     );
                   },
                 )),
-                // ChainRemote: 연결 버튼을 ID 입력란 우측으로 이동
+                // 연결 버튼을 ID 입력란 오른쪽으로 옮김.
                 const SizedBox(width: 10),
                 SizedBox(
                   height: 50.0,
@@ -656,8 +656,8 @@ class _ConnectionPageState extends State<ConnectionPage>
                                       '${translate('Terminal')} (beta)',
                                       () => onConnect(isTerminal: true)
                                     ),
-                                    // ChainRemote: ID 입력 → 즐겨찾기 추가. 최근세션 누적에 의존 안 함.
-                                    //   auto-enroll로 등록된 거래처면 즐겨찾기에서 거래처명 자동 매핑.
+                                    // ID 를 쳐서 바로 즐겨찾기에 넣는다. 최근 세션이 쌓이길 기다릴 필요 없다.
+                                    // auto-enroll 로 등록된 거래처면 즐겨찾기에서 거래처명이 자동으로 붙는다.
                                     (
                                       'Add to Favorites',
                                       () {
@@ -717,9 +717,9 @@ class _ConnectionPageState extends State<ConnectionPage>
   }
 }
 
-// ChainRemote: 페이드 그라디언트 분리선 + 가운데 라벨 칩.
-//   - 창 좌우 가장자리에서 28px 여백 유지 (창 크기와 무관)
-//   - 가장자리 쪽: 페이드 / 가운데 칩 쪽: 진한 브랜드 블루
+// 페이드 그라데이션 구분선에 가운데 라벨 칩을 얹은 위젯.
+// 창 크기와 무관하게 좌우 가장자리에서 28px 여백을 둔다.
+// 가장자리로 갈수록 페이드, 가운데 칩 쪽은 진한 브랜드 블루.
 class _FadeSectionDivider extends StatelessWidget {
   final String label;
   const _FadeSectionDivider({Key? key, required this.label}) : super(key: key);

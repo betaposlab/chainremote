@@ -353,8 +353,8 @@ class _RemotePageState extends State<RemotePage>
       );
 
   Widget buildBody(BuildContext context) {
-    // ChainRemote 2026-05-27 v4: toolbar 가 DesktopTab.tail (탭바 라인)로 이전 →
-    // 여기서는 거래처 화면만 렌더. RemoteToolbar widget 은 remote_tab_page.dart 에서 호출.
+    // 2026-05-27 v4: toolbar 를 DesktopTab.tail(탭바 라인)로 옮겨서 여기서는
+    // 거래처 화면만 그린다. RemoteToolbar 는 remote_tab_page.dart 에서 부른다.
     bodyWidget() {
       return Stack(
             children: [

@@ -310,11 +310,11 @@ bool _isCmReadyToShow = false;
 
 showCmWindow({bool isStartup = false}) async {
   if (isStartup) {
-    // ChainRemote CM 콜드스타트(--cm 새 프로세스) — 모델/체크리스트: docs/chainremote/CM_WINDOW.md.
-    // 거래처(incoming)·본사 HQ(옵션B+) 모두 처음부터 '수락 카드' 크기(360x200)+topCenter 로 생성+reveal.
-    // 배너 크기(220x34)로 띄운 뒤 postFrame resize 에 의존하면 피제어 전체화면 시 resize 가 안 먹어
-    // 카드가 잘린 '흰 빈 박스'로 고착되던 버그(2026-06-05 HQ 콜드스타트 보강).
-    // ★정렬은 topCenter 단일화 — reveal·server_page transition 과 일치(예전 HQ topRight 불일치 제거).
+    // CM 콜드스타트(--cm 새 프로세스). 창 동작 모델은 docs/chainremote/CM_WINDOW.md.
+    // 거래처(incoming)든 본사 HQ(옵션B+)든 처음부터 수락 카드 크기(360x200)에 topCenter 로 띄운다.
+    // 배너 크기(220x34)로 먼저 띄우고 postFrame resize 에 기대면, 피제어가 전체화면일 때
+    // resize 가 안 먹어 카드가 잘린 흰 빈 박스로 굳어버렸다(2026-06-05 HQ 콜드스타트 보강).
+    // 정렬은 topCenter 로 통일해 reveal·server_page transition 과 맞췄다(옛 HQ topRight 불일치 제거).
     final Size startSize = kAgentAcceptCardSize;
     final Alignment startAlign = Alignment.topCenter;
     WindowOptions windowOptions =
@@ -334,11 +334,11 @@ showCmWindow({bool isStartup = false}) async {
       await windowManager.setOpacity(1);
       await windowManager.focus();
       await windowManager.minimize(); //needed
-      // ChainRemote: 연결 수신 reveal — incoming(거래처)이면 '수락 카드' 크기(360x200)로.
-      // 배너 크기(220x34)로 reveal 하면 수락 카드 내용이 창 밖으로 잘려 '흰 빈 박스'가
-      // 되던 버그(특히 거래처가 전체화면일 때 postFrame resize 가 안 먹어 고착).
-      // 카드 크기로 reveal 하면 불안정한 배너→카드 resize 의존이 사라짐. 수락 후
-      // 활성 상태에서 server_page 가 배너 크기로 줄임(그땐 창이 전면이라 안정적).
+      // 연결 수신 시 reveal 도 수락 카드 크기(360x200)로 한다.
+      // 배너 크기로 reveal 하면 카드 내용이 창 밖으로 잘려 흰 빈 박스가 됐다(특히
+      // 거래처가 전체화면일 때 postFrame resize 가 안 먹어 그대로 굳음).
+      // 카드 크기로 reveal 하면 불안정한 배너→카드 resize 에 기댈 일이 없다. 수락 후
+      // 활성 상태가 되면 server_page 가 배너 크기로 줄인다(그땐 창이 전면이라 안정적).
       await windowManager.setSizeAlignment(
           kAgentAcceptCardSize, Alignment.topCenter);
       windowOnTop(null);
@@ -347,7 +347,7 @@ showCmWindow({bool isStartup = false}) async {
 }
 
 hideCmWindow({bool isStartup = false}) async {
-  // ChainRemote: 거래처 Agent + 본사 HQ 모두 피제어 CM 은 슬림 배너 크기로 통일.
+  // 거래처 Agent 든 본사 HQ 든 피제어 CM 은 슬림 배너 크기로 통일한다.
   final cmSize = kAgentSupportBannerSize;
   if (isStartup) {
     WindowOptions windowOptions = getHiddenTitleBarWindowOptions(size: cmSize);
@@ -522,8 +522,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
               ? const DesktopTabPage()
               : isWeb
                   ? WebHomePage()
-                  // ChainRemote: 모바일 HQ 도 로그인 게이트로 감싼다 (데스크탑과 동일).
-                  // 거래처(수신 전용) 빌드는 게이트 없이 바로 홈.
+                  // 모바일 HQ 도 데스크톱처럼 로그인 게이트로 감싼다.
+                  // 거래처(수신 전용) 빌드는 게이트 없이 바로 홈으로.
                   : bind.isIncomingOnly()
                       ? HomePage()
                       : ChainRemoteAuthGate(child: HomePage()),

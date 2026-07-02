@@ -28,7 +28,7 @@ final peerCardUiType = PeerUiType.grid.obs;
 
 bool? hideUsernameOnCard;
 
-// ChainRemote: 플랫폼별 브랜드 색 배경 (해시 색상 폐기 — 거래처가 헷갈림).
+// 플랫폼별 브랜드 색 배경. 해시 기반 색상은 거래처 구분에 혼란을 줘서 폐기했다.
 Color _platformBgColor(String platform) {
   switch (platform) {
     case kPeerPlatformWindows:
@@ -66,7 +66,7 @@ class _PeerCard extends StatefulWidget {
 class _PeerCardState extends State<_PeerCard>
     with AutomaticKeepAliveClientMixin {
   var _menuPos = RelativeRect.fill;
-  final RxBool _rowHover = false.obs; // 행 호버 시에만 ⋮ 노출(B안)
+  final RxBool _rowHover = false.obs; // 행 호버 시에만 더보기 버튼 노출 (B안)
   final double _cardRadius = 16;
   final double _tileRadius = 5;
   final double _borderWidth = 2;
@@ -98,7 +98,7 @@ class _PeerCardState extends State<_PeerCard>
         },
         onLongPress: () => peerTabModel.select(peer),
         onSecondaryTapDown: (d) {
-          // 우클릭 → 거래처 메뉴 (⋮ 버튼과 동일).
+          // 우클릭 시 거래처 메뉴 표시. 더보기 버튼과 동일하다.
           _menuPos = RelativeRect.fromLTRB(d.globalPosition.dx,
               d.globalPosition.dy, d.globalPosition.dx, d.globalPosition.dy);
           _showPeerMenu(peer.id);
@@ -160,8 +160,8 @@ class _PeerCardState extends State<_PeerCard>
   }
 
   makeChild(bool isPortrait, Peer peer) {
-    // ChainRemote: 거래처 운영용 — 별칭이 주인공, 부제는 9자리 ID.
-    // 별칭이 비어 있으면 상단이 이미 ID이므로 부제 숨김(중복 방지).
+    // 거래처 운영용 표시: 별칭을 주 제목으로, 9자리 ID를 부제로 둔다.
+    // 별칭이 비면 상단이 이미 ID이므로 부제를 숨겨 중복을 피한다.
     final name = peer.alias.isEmpty ? '' : formatID(peer.id);
     final greyStyle = TextStyle(
         fontSize: 11,
@@ -172,7 +172,7 @@ class _PeerCardState extends State<_PeerCard>
       mainAxisSize: MainAxisSize.max,
       children: [
         Container(
-            // ChainRemote: OS 로고 시절의 컬러풀한 사각 배경 제거 — 원형 아바타만 살림(2026-05-27 Chang 피드백).
+            // OS 로고 시절의 컬러풀한 사각 배경을 걷어내고 원형 아바타만 남겼다 (2026-05-27 Chang 피드백).
             alignment: Alignment.center,
             width: isPortrait ? 50 : 42,
             height: isPortrait ? 50 : null,
@@ -313,7 +313,7 @@ class _PeerCardState extends State<_PeerCard>
       BuildContext context, Peer peer, Rx<BoxDecoration?> deco) {
     hideUsernameOnCard ??=
         bind.mainGetBuildinOption(key: kHideUsernameOnCard) == 'Y';
-    // ChainRemote 그리드 카드 (2026-05-27 톤 개편 — Claude Design 시안2 반영).
+    // 그리드 카드 (2026-05-27 톤 개편, Claude Design 시안2 반영).
     //   ┌────────────────────────┐
     //   │ [아바타] 거래처 이름   │
     //   │         323 533 778    │
@@ -347,7 +347,7 @@ class _PeerCardState extends State<_PeerCard>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 상단: 아바타 + 이름/ID
+                  // 상단: 아바타 + 이름/ID.
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -391,7 +391,7 @@ class _PeerCardState extends State<_PeerCard>
                     ],
                   ),
                   const Spacer(),
-                  // 하단: 온라인 dot + (note 또는 alias subtitle) + 더보기
+                  // 하단: 온라인 점 + (note 또는 alias 부제) + 더보기.
                   Row(
                     children: [
                       getOnline(8, peer.online),
@@ -528,7 +528,7 @@ class _PeerCardState extends State<_PeerCard>
         ),
       ));
 
-  // 뉴모 ⋮ 버튼 — 행 호버 시 노출. 우클릭으로도 동일 메뉴(B안, 2026-06-06).
+  // 뉴모 더보기 버튼. 행 호버 시 노출되며 우클릭으로도 같은 메뉴를 연다 (B안, 2026-06-06).
   Widget _neuMoreButton(BuildContext context) => Tooltip(
         message: '메뉴 · 우클릭으로도',
         waitDuration: const Duration(milliseconds: 600),
@@ -555,7 +555,7 @@ class _PeerCardState extends State<_PeerCard>
         ),
       );
 
-  // 뉴모 상태 pill — 온라인(초록)/오프라인(회색).
+  // 뉴모 상태 pill. 온라인은 초록, 오프라인은 회색.
   Widget _statusPill(bool online) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
@@ -874,11 +874,11 @@ abstract class BasePeerCard extends StatelessWidget {
                   await bind.mainSetPeerAlias(id: id, alias: newName);
                 } else {
                   await bind.mainSetPeerAlias(id: id, alias: newName);
-                  // ChainRemote: 등록거래처면 패널 customer.name 에도 기록 → 최근/즐겨찾기/패널/
-                  //   전 직원 모두 같은 이름으로 수렴(누가 바꾸든 전파). orphan 이면 서버 no-op +
-                  //   로컬 alias 유지. Rust 가 성공 시 캐시 재워밍(백그라운드)으로 전 탭 갱신.
-                  // ★결과를 확인해 정직하게 피드백 — 종전엔 실패(미등록/네트워크)해도 무조건
-                  //   '성공'을 띄워 "패널에 반영된 줄" 착각을 유발했음(2026-07-01 버그수정).
+                  // 등록 거래처면 패널 customer.name 에도 기록해, 최근/즐겨찾기/패널/전 직원이
+                  // 누가 바꾸든 같은 이름으로 수렴한다. orphan 이면 서버는 no-op 이고 로컬 alias 만
+                  // 유지된다. 성공 시 Rust 가 백그라운드로 캐시를 재워밍해 전 탭이 갱신된다.
+                  // 결과를 확인해 정직하게 피드백한다. 종전엔 실패(미등록/네트워크)해도 무조건
+                  // '성공'을 띄워 패널에 반영된 것으로 착각하게 만들었다 (2026-07-01 버그수정).
                   final synced = bind.chainremoteRenameCustomer(
                       payload: jsonEncode({"remoteId": id, "name": newName}));
                   showToast(synced
@@ -918,11 +918,11 @@ abstract class BasePeerCard extends StatelessWidget {
           switch (tab) {
             case PeerTabIndex.recent:
               await bind.mainRemovePeer(id: id);
-              // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록.
+              // 최근 세션은 네이티브 최근 접속 기록을 사용한다.
               bind.mainLoadRecentPeers();
               break;
             case PeerTabIndex.fav:
-              // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+              // user_favorites DB (Phase 2-D).
               bind.chainremoteRemoveFavorite(remoteId: id);
               bind.chainremoteLoadFavorites();
               break;
@@ -936,7 +936,7 @@ abstract class BasePeerCard extends StatelessWidget {
             case PeerTabIndex.group:
               break;
             case PeerTabIndex.customers:
-              // 전체 거래처 탭은 삭제 메뉴를 노출하지 않음(거래처 삭제는 패널 owner 전용).
+              // 전체 거래처 탭은 삭제 메뉴를 노출하지 않는다 (거래처 삭제는 패널 owner 전용).
               break;
           }
           if (tab != PeerTabIndex.ab) {
@@ -997,7 +997,7 @@ abstract class BasePeerCard extends StatelessWidget {
       ),
       proc: () {
         () async {
-          // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+          // user_favorites DB (Phase 2-D).
           bind.chainremoteAddFavorite(remoteId: id);
           showToast(translate('Successful'));
         }();
@@ -1029,7 +1029,7 @@ abstract class BasePeerCard extends StatelessWidget {
       ),
       proc: () {
         () async {
-          // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+          // user_favorites DB (Phase 2-D).
           bind.chainremoteRemoveFavorite(remoteId: id);
           await reloadFunc();
           showToast(translate('Successful'));
@@ -1087,7 +1087,7 @@ class RecentPeerCard extends BasePeerCard {
       menuItems.add(_terminalRunAsAdminAction(context));
     }
 
-    // ChainRemote 본사 앱: user_favorites DB 캐시. (Phase 2-D)
+    // user_favorites DB 캐시 (Phase 2-D).
     final List favs = bind.chainremoteGetFavoriteIds();
 
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {
@@ -1128,7 +1128,7 @@ class RecentPeerCard extends BasePeerCard {
 
   @protected
   @override
-  // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록.
+  // 최근 세션은 네이티브 최근 접속 기록을 사용한다.
   void _update() => bind.mainLoadRecentPeers();
 }
 
@@ -1175,7 +1175,7 @@ class FavoritePeerCard extends BasePeerCard {
       menuItems.add(_unrememberPasswordAction(peer.id));
     }
     menuItems.add(_rmFavAction(peer.id, () async {
-      // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+      // user_favorites DB (Phase 2-D).
       await bind.chainremoteLoadFavorites();
     }));
 
@@ -1190,13 +1190,13 @@ class FavoritePeerCard extends BasePeerCard {
 
   @protected
   @override
-  // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+  // user_favorites DB (Phase 2-D).
   void _update() => bind.chainremoteLoadFavorites();
 }
 
-// ChainRemote: '전체 거래처' 탭 카드 — 테넌트 패널 등록 거래처 전체(pending 포함).
-// 연결(1클릭 원격) + 내 즐겨찾기 추가/제거 + (마스터 한정) 미확정 후보 '거래처로 확정'.
-// 삭제 메뉴 없음(거래처 삭제는 패널 owner 전용). 확정은 서버(requireOwner)가 권한 강제.
+// '전체 거래처' 탭 카드. 테넌트 패널에 등록된 거래처 전체(pending 포함)를 다룬다.
+// 1클릭 원격 연결, 내 즐겨찾기 추가/제거, 그리고 마스터 한정으로 미확정 후보를 '거래처로 확정'.
+// 삭제 메뉴는 없다(거래처 삭제는 패널 owner 전용). 확정 권한은 서버(requireOwner)가 강제한다.
 class AllCustomersPeerCard extends BasePeerCard {
   AllCustomersPeerCard({required Peer peer, EdgeInsets? menuPadding, Key? key})
       : super(
@@ -1219,7 +1219,7 @@ class AllCustomersPeerCard extends BasePeerCard {
       menuItems.add(_terminalRunAsAdminAction(context));
     }
 
-    // ChainRemote 본사 앱: user_favorites DB 캐시. (Phase 2-D)
+    // user_favorites DB 캐시 (Phase 2-D).
     final List favs = bind.chainremoteGetFavoriteIds();
 
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {
@@ -1236,19 +1236,19 @@ class AllCustomersPeerCard extends BasePeerCard {
     }
     menuItems.add(MenuEntryDivider());
 
-    // 거래처명 변경 — 전체 거래처 탭에서도 패널 customer.name 에 기록(누가 바꾸든 3면 전파).
+    // 거래처명 변경. 전체 거래처 탭에서도 패널 customer.name 에 기록해 세 화면에 전파한다.
     if (isMobile || isDesktop || isWebDesktop) {
       menuItems.add(_renameAction(peer.id));
     }
 
-    // 전체 목록에서 자기 거래처를 내 즐겨찾기로 (또는 해제).
+    // 전체 목록에서 내 담당 거래처를 즐겨찾기에 추가하거나 해제한다.
     if (!favs.contains(peer.id)) {
       menuItems.add(_addFavAction(peer.id));
     } else {
       menuItems.add(_rmFavAction(peer.id, () async {}));
     }
 
-    // 미확정(pending) 후보 확정 — 마스터(owner)에게만 버튼 노출. 서버도 owner 강제(이중 게이트).
+    // 미확정(pending) 후보 확정. 버튼은 마스터(owner)에게만 노출하고, 서버도 owner 를 강제한다 (이중 게이트).
     if (peer.enrollStatus == 'pending' && ChainRemoteAuth.isMaster()) {
       menuItems.add(MenuEntryDivider());
       menuItems.add(_confirmCustomerAction(peer.id));
@@ -1310,7 +1310,7 @@ class DiscoveredPeerCard extends BasePeerCard {
       menuItems.add(_terminalRunAsAdminAction(context));
     }
 
-    // ChainRemote 본사 앱: user_favorites DB 캐시. (Phase 2-D)
+    // user_favorites DB 캐시 (Phase 2-D).
     final List favs = bind.chainremoteGetFavoriteIds();
 
     if (isDesktop && peer.platform != kPeerPlatformAndroid) {

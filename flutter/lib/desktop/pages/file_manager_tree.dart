@@ -1,19 +1,19 @@
-// ChainRemote (2026-05-29): 파일전송 창 폴더 트리 패널.
+// 파일전송 창의 폴더 트리 패널 (2026-05-29).
 //
-// 코이노/윈도우 탐색기식 좌측 폴더 트리. 경로가 길어도 트리를 펼쳐 빠르게 이동.
-// RustDesk 원본엔 없던 신규 기능 — 순수 Flutter + 기존 FileController/FileFetcher
-// 인프라(fetchDirectory)만 재사용. native 무관.
+// 코이노·윈도우 탐색기식 좌측 폴더 트리. 경로가 길어도 트리를 펼쳐 빠르게 이동한다.
+// RustDesk 원본엔 없던 기능으로, 순수 Flutter 에 기존 FileController/FileFetcher
+// 인프라(fetchDirectory)만 재사용한다. native 코드는 건드리지 않는다.
 //
-// 트리 루트 = 의미 있는 3개 진입점 (시스템 루트가 아니라):
-//   🏠 홈 (changsmac / zenta) — 기본 펼침 → 하위 폴더 바로 보임
+// 트리 루트는 시스템 루트가 아니라 의미 있는 진입점 3개다:
+//   🏠 홈 (changsmac / zenta) — 기본 펼침이라 하위 폴더가 바로 보인다
 //   🖥️ 바탕화면 (홈\Desktop)
 //   💻 내 컴퓨터 — 펼치면 드라이브(C:/D:) 또는 볼륨 (fetchDirectory "/")
 //
 // 동작:
-//   - 노드 펼치기(▸/▾): 그 폴더 lazy fetch → 하위 폴더/드라이브만.
-//   - 노드 클릭: controller.openDirectory(path) → 우측 목록이 그 폴더로.
-//   - 현재 열린 폴더는 파랑 강조.
-//   - 원격(home)은 연결 후 채워지므로 options 를 ever 로 관찰해 루트 구성.
+//   - 노드 펼치기(▸/▾): 그 폴더를 lazy fetch 해 하위 폴더·드라이브만 채운다.
+//   - 노드 클릭: controller.openDirectory(path) 로 우측 목록을 그 폴더로 이동.
+//   - 현재 열린 폴더는 파랑으로 강조.
+//   - 원격 home 은 연결 후에 채워지므로 options 를 ever 로 관찰해 루트를 구성한다.
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -21,7 +21,7 @@ import 'package:get/get.dart';
 import '../../common.dart';
 import '../../models/file_model.dart';
 
-// 트리 노드 — 홈/바탕화면/내컴퓨터(루트)와 하위 폴더(Entry 변환)를 통일 표현.
+// 트리 노드. 루트(홈·바탕화면·내 컴퓨터)와 하위 폴더(Entry 변환)를 한 형태로 표현한다.
 class _TreeNode {
   final String path; // openDirectory + fetch 경로
   final String label;
@@ -38,7 +38,7 @@ const _kFolderYellow = Color(0xFFFFC107);
 
 class FolderTreePane extends StatefulWidget {
   final FileController controller;
-  // ChainRemote (A안): 로컬=파랑 / 원격=빨강 현재폴더 강조색.
+  // A안. 현재 폴더 강조색 — 로컬은 파랑, 원격은 빨강.
   final Color accentColor;
   const FolderTreePane(
       {Key? key,
@@ -65,8 +65,9 @@ class _FolderTreePaneState extends State<FolderTreePane> {
   @override
   void initState() {
     super.initState();
-    // home 준비 감지: options 는 내부 필드 mutation 이라 Rx 가 변경을 못 잡는다.
-    // directory(.value 재할당으로 제대로 reactive)를 관찰 — 폴더가 열리면 home 도 준비됨.
+    // home 준비 감지. options 는 내부 필드만 mutation 해서 Rx 가 변경을 못 잡는다.
+    // 대신 .value 재할당으로 제대로 reactive 한 directory 를 관찰한다. 폴더가 열리면
+    // home 도 준비돼 있다.
     _tryInitRoots();
     _homeWorker = ever(controller.directory, (_) => _tryInitRoots());
   }
@@ -83,26 +84,26 @@ class _FolderTreePaneState extends State<FolderTreePane> {
     super.dispose();
   }
 
-  // 경로 문자열만으로 윈도우 여부 판정. options.isWindows 플래그는 _initRoots 가
-  // 도는 이른 시점엔 아직 false 일 수 있어(원격 pi.platform 동기화 지연) 신뢰 못 함.
+  // 경로 문자열만으로 윈도우 여부를 판정한다. options.isWindows 플래그는 _initRoots 가
+  // 도는 이른 시점엔 아직 false 일 수 있어(원격 pi.platform 동기화 지연) 믿을 수 없다.
   bool _looksWindows(String path) =>
       path.contains('\\') || RegExp(r'^[A-Za-z]:').hasMatch(path);
 
   void _initRoots() {
     final home = controller.options.value.home;
     final dirPath = controller.directory.value.path;
-    // 윈도우 판정: 플래그 + 현재 경로/홈 형태(드라이브문자·역슬래시) 종합 — 플래그 race 회피.
+    // 윈도우 판정. 플래그에 현재 경로·홈 형태(드라이브 문자·역슬래시)를 더해 종합한다. 플래그 race 회피.
     final isWin = controller.options.value.isWindows ||
         _looksWindows(dirPath) ||
         _looksWindows(home);
 
-    // ★ 원격의 home 은 '마지막 방문 폴더'(remote_dir)라 변동값이다(예: D:\\무한도전).
-    //   절대 트리 뿌리로 쓰면 안 된다 → 항상 C:\\Users 에서 실제 프로필을 찾아 고정.
+    // 원격의 home 은 '마지막 방문 폴더'(remote_dir)라 계속 바뀐다(예: D:\\무한도전).
+    // 트리 뿌리로 쓰면 안 되므로, 항상 C:\\Users 에서 실제 프로필을 찾아 고정한다.
     if (!isLocal) {
       if (isWin) {
         _initWinRoots(profileFromUsers: true, home: '');
       } else {
-        // 원격 유닉스(드묾): 신뢰할 프로필 경로 없음 → 내 컴퓨터만.
+        // 원격 유닉스(드묾). 믿을 프로필 경로가 없으니 내 컴퓨터만 둔다.
         setState(
             () => _roots = [_TreeNode('/', '내 컴퓨터', Icons.computer_sharp)]);
         _expand(_roots!.first);
@@ -110,12 +111,12 @@ class _FolderTreePaneState extends State<FolderTreePane> {
       return;
     }
 
-    // 로컬: home 은 mainGetHomeDir 로 안정적 = 실제 프로필.
+    // 로컬. home 은 mainGetHomeDir 로 얻어 안정적이며 실제 프로필이다.
     if (isWin) {
       _initWinRoots(profileFromUsers: false, home: home);
       return;
     }
-    // 로컬 Mac/유닉스: home 기준 표준 경로 직접 구성.
+    // 로컬 Mac/유닉스. home 기준으로 표준 경로를 직접 구성한다.
     final roots = <_TreeNode>[];
     if (home.isNotEmpty) {
       final segs = home.split('/').where((s) => s.isNotEmpty).toList();
@@ -130,9 +131,9 @@ class _FolderTreePaneState extends State<FolderTreePane> {
     _expand(roots.first);
   }
 
-  // 윈도우 탐색기식 진입점 구성. 먼저 '내 컴퓨터'만 즉시 띄우고, 사용자 프로필을
-  // 확정한 뒤 바탕화면/다운로드/문서의 *실제* 위치(OneDrive KFM 리디렉션 포함)를
-  // 찾아 존재하는 폴더만 앞에 채운다.
+  // 윈도우 탐색기식 진입점 구성. 먼저 '내 컴퓨터'만 즉시 띄운 뒤, 사용자 프로필을
+  // 확정하고 바탕화면·다운로드·문서의 실제 위치(OneDrive KFM 리디렉션 포함)를
+  // 찾아, 존재하는 폴더만 앞에 채운다.
   Future<void> _initWinRoots(
       {required bool profileFromUsers, required String home}) async {
     setState(() => _roots = [_TreeNode('/', '내 컴퓨터', Icons.computer_sharp)]);
@@ -157,13 +158,13 @@ class _FolderTreePaneState extends State<FolderTreePane> {
     roots.addAll(quick);
     roots.add(_TreeNode('/', '내 컴퓨터', Icons.computer_sharp));
     setState(() => _roots = roots);
-    // 홈 노드가 있으면 그걸, 없으면(서비스 원격) 드라이브가 보이도록 내 컴퓨터를 펼침.
+    // 홈 노드가 있으면 그걸, 없으면(서비스 원격) 드라이브가 보이도록 내 컴퓨터를 펼친다.
     _expand(withHomeNode ? roots.first : roots.last);
   }
 
-  // 바탕화면/다운로드/문서의 실제 경로 탐색. OneDrive 백업(KFM)으로 리디렉션된
-  // 경우 C:\\Users\\<user>\\OneDrive\\... 에 실제 파일이 있으므로 OneDrive 를 우선
-  // 뒤지고, 없으면 프로필 직속을 본다. 존재하는 폴더만 노드로 만든다(죽은 링크 방지).
+  // 바탕화면·다운로드·문서의 실제 경로를 찾는다. OneDrive 백업(KFM)으로 리디렉션되면
+  // 실제 파일이 C:\\Users\\<user>\\OneDrive\\... 에 있으므로 OneDrive 를 먼저 뒤지고,
+  // 없으면 프로필 직속을 본다. 존재하는 폴더만 노드로 만든다(죽은 링크 방지).
   Future<List<_TreeNode>> _resolveWinQuickLinks(String profile) async {
     final profDirs = await _listWinSubdirs(profile);
     String? odPath;
@@ -205,7 +206,7 @@ class _FolderTreePaneState extends State<FolderTreePane> {
     return out;
   }
 
-  // 경로의 하위 디렉터리를 {소문자이름: 실제이름} 으로 반환(대소문자 무시 매칭용).
+  // 경로의 하위 디렉터리를 {소문자이름: 실제이름} 으로 반환한다(대소문자 무시 매칭용).
   Future<Map<String, String>> _listWinSubdirs(String path) async {
     final fd = await _fetchRaw(path);
     if (fd == null) return {};
@@ -217,8 +218,8 @@ class _FolderTreePaneState extends State<FolderTreePane> {
     return m;
   }
 
-  // C:\\Users 나열 → 시스템 계정 제외 → 원격 로그인 사용자명 우선 매칭,
-  // 없으면 단일 후보, 그것도 아니면 최근 수정 폴더(=활성 사용자 추정).
+  // C:\\Users 를 나열해 시스템 계정을 걸러낸 뒤, 원격 로그인 사용자명과 먼저 매칭한다.
+  // 없으면 후보가 하나뿐일 때 그걸, 그것도 아니면 최근 수정 폴더를 쓴다(활성 사용자 추정).
   Future<String?> _resolveWinUserProfile() async {
     FileDirectory? fd;
     try {
@@ -254,9 +255,9 @@ class _FolderTreePaneState extends State<FolderTreePane> {
     return 'C:\\Users\\${dirs.first.name}';
   }
 
-  // openDirectory(file_model.dart)와 동일한 윈도우 드라이브 경로 정규화.
-  // 트리가 "/" fetch 로 받은 드라이브 entry 의 path 는 "/C:" 형식인데,
-  // 원격 서버는 "C:\" 만 인식 → 정규화 안 하면 트리 펼침이 빈 결과가 된다.
+  // openDirectory(file_model.dart)와 똑같은 윈도우 드라이브 경로 정규화.
+  // 트리가 "/" fetch 로 받은 드라이브 entry 의 path 는 "/C:" 형식인데
+  // 원격 서버는 "C:\" 만 인식한다. 정규화하지 않으면 트리 펼침이 빈 결과가 된다.
   String _normalizePath(String path) {
     if (_isWindows && path.length > 1 && path.startsWith('/')) {
       path = path.substring(1);
@@ -267,8 +268,8 @@ class _FolderTreePaneState extends State<FolderTreePane> {
 
   // 같은 경로를 목록(openDirectory)과 트리가 동시에 fetch 하면 RustDesk 의
   // registerReadTask 가 "already have same read job" 으로 거부한다(원격은 경로별
-  // 단일 작업만 허용). 행 클릭(목록 이동) 직후 화살표 클릭(트리 펼침) 시 흔히 발생.
-  // → 기존 fetch 가 끝나길 잠깐 기다려 재시도.
+  // 단일 작업만 허용). 행 클릭(목록 이동) 직후 화살표 클릭(트리 펼침) 때 흔히 터진다.
+  // 기존 fetch 가 끝나길 잠깐 기다렸다 재시도한다.
   Future<FileDirectory?> _fetchRaw(String path) async {
     for (int attempt = 0; attempt < 5; attempt++) {
       try {

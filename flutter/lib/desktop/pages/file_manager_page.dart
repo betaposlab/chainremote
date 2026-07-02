@@ -165,8 +165,8 @@ class _FileManagerPageState extends State<FileManagerPage>
       OverlayEntry(builder: (_) {
         return willPopScope(Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          // ChainRemote: 전송 패널 제거 → 로컬/원격 창 최대 확보.
-          // 전송 진행 중일 때만 하단에 얇은 진행바 표시.
+          // 전송 패널을 없애 로컬·원격 창을 최대로 넓혔다.
+          // 전송 중일 때만 하단에 얇은 진행바를 띄운다.
           body: Column(
             children: [
               Expanded(
@@ -202,9 +202,9 @@ class _FileManagerPageState extends State<FileManagerPage>
         onDragExited: (exit) {
           _dropMaskVisible.value = false;
         },
-        // ChainRemote (방식1, 2026-05-29): 앱 내부 드래그앤드롭.
-        // 반대편 패널에서 끌어온 파일을 받아 기존 sendFiles 로 전송.
-        // desktop_drop(OS 파일 드롭)과 중첩 — 둘은 서로 다른 이벤트.
+        // 방식1(2026-05-29). 앱 내부 드래그앤드롭.
+        // 반대편 패널에서 끌어온 파일을 기존 sendFiles 로 전송한다.
+        // desktop_drop(OS 파일 드롭)과 겹치지만 둘은 별개 이벤트다.
         child: DragTarget<SelectedItems>(
           onWillAcceptWithDetails: (details) =>
               details.data.isLocal != isLocalPane &&
@@ -238,8 +238,8 @@ class _FileManagerPageState extends State<FileManagerPage>
     );
   }
 
-  // ChainRemote: 하단 전송 진행바 — 전송 중(inProgress)일 때만 표시.
-  // 전송 패널을 대체. 평소엔 높이 0 → 로컬/원격 창 최대.
+  // 하단 전송 진행바. 전송 중(inProgress)일 때만 나타나고, 평소엔 높이 0이라
+  // 로컬·원격 창이 최대로 넓어진다. 기존 전송 패널을 대체한다.
   Widget _bottomTransferBar() {
     return Obx(() {
       final active = jobController.jobTable
@@ -301,7 +301,7 @@ class _FileManagerPageState extends State<FileManagerPage>
                   fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: 10),
-            // ChainRemote: 전송 중지(취소) — 진행 중인 작업을 모두 취소하고 목록에서 제거.
+            // 전송 중지. 진행 중인 작업을 모두 취소하고 목록에서 지운다.
             Tooltip(
               message: translate('Cancel'),
               child: InkWell(
@@ -501,9 +501,9 @@ class _FileManagerPageState extends State<FileManagerPage>
     model.remoteController.sendFiles(items, otherSideData);
   }
 
-  // ChainRemote (방식1, 2026-05-29): 파일전송 창 내부 드래그앤드롭.
-  // 한 패널에서 끌어온 선택 파일을 반대편 패널로 전송. 보내기/받기 버튼과
-  // 완전히 동일한 sendFiles 규약 (보내는 controller.isLocal == items.isLocal).
+  // 방식1(2026-05-29). 파일전송 창 내부 드래그앤드롭.
+  // 한 패널에서 끌어온 선택 파일을 반대편 패널로 보낸다. 보내기/받기 버튼과
+  // 똑같은 sendFiles 규약을 따른다(보내는 controller.isLocal == items.isLocal).
   void _handleInAppDrop(SelectedItems dropped, bool targetIsLocal) {
     if (dropped.isLocal == targetIsLocal) return; // 같은 패널 → 무시
     if (!SelectedItems.valid(dropped.items)) return;
@@ -580,7 +580,7 @@ class _FileManagerViewState extends State<FileManagerView> {
   @override
   Widget build(BuildContext context) {
     _handleColumnPorportions();
-    // ChainRemote (A안): 로컬=파랑 / 원격=빨강 박스로 영역 구분.
+    // A안. 로컬은 파랑, 원격은 빨강 박스로 영역을 구분한다.
     final accent =
         isLocal ? const Color(0xFF3182F6) : const Color(0xFFE5484D);
     return Container(
@@ -600,7 +600,7 @@ class _FileManagerViewState extends State<FileManagerView> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ChainRemote: 좌측 폴더 트리 (코이노/탐색기식 빠른 폴더 이동).
+                // 좌측 폴더 트리. 코이노·탐색기식 빠른 폴더 이동.
                 FolderTreePane(controller: controller, accentColor: accent),
                 Expanded(
                     child: MouseRegion(
@@ -626,7 +626,7 @@ class _FileManagerViewState extends State<FileManagerView> {
     final windowWidthNow = MediaQuery.of(context).size.width;
     if (_windowWidthPrev == null) {
       _windowWidthPrev = windowWidthNow;
-      // ChainRemote: 이름 칸을 넓게 — 확장자까지 보이게. 수정일/크기는 좁게.
+      // 이름 칸은 확장자까지 보이도록 넓게, 수정일·크기는 좁게 잡는다.
       _fileTransferMinimumWidth = windowWidthNow * 0.04;
       _nameColWidth.value = windowWidthNow * 0.19;
       _modifiedColWidth.value = windowWidthNow * 0.10;
@@ -657,7 +657,7 @@ class _FileManagerViewState extends State<FileManagerView> {
 
   Widget headTools() {
     var uploadButtonTapPosition = RelativeRect.fill;
-    // ChainRemote (A안): 로컬=파랑 / 원격=빨강 헤더 톤.
+    // A안. 로컬은 파랑, 원격은 빨강 헤더 톤.
     final accent = isLocal ? const Color(0xFF3182F6) : const Color(0xFFE5484D);
     final headerBg = isLocal ? const Color(0xFFEAF2FE) : const Color(0xFFFDECEC);
     RxBool isUploadFolder =
@@ -838,7 +838,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                     );
                 }
               }),
-              // ChainRemote: 새로고침 버튼 제거(미사용). 돋보기만 유지.
+              // 미사용 새로고침 버튼은 없앴다. 돋보기만 남긴다.
             ],
           ),
           Row(
@@ -1289,7 +1289,7 @@ class _FileManagerViewState extends State<FileManagerView> {
 
           return Padding(
             padding: EdgeInsets.symmetric(vertical: 1),
-            // ChainRemote (방식1): 파일 row 를 끌 수 있게 — 반대편 패널로 드롭 시 전송.
+            // 방식1. 파일 행을 끌어 반대편 패널에 떨구면 전송된다.
             child: Draggable<SelectedItems>(
               data: _buildDragPayload(entry, selectedItems, isLocal),
               dragAnchorStrategy: pointerDragAnchorStrategy,
@@ -1528,9 +1528,9 @@ class _FileManagerViewState extends State<FileManagerView> {
     return false;
   }
 
-  // ChainRemote (방식1, 2026-05-29): 드래그 시작 payload.
-  // entry 가 현재 선택에 포함돼 있으면 선택 전체, 아니면 그 entry 하나.
-  // 원본 selectedItems 를 건드리지 않도록 새 객체로 복제.
+  // 방식1(2026-05-29). 드래그 시작 payload.
+  // entry 가 현재 선택에 들어 있으면 선택 전체를, 아니면 그 entry 하나만 담는다.
+  // 원본 selectedItems 를 건드리지 않도록 새 객체에 복제한다.
   SelectedItems _buildDragPayload(
       Entry entry, SelectedItems current, bool isLocal) {
     final payload = SelectedItems(isLocal: isLocal);
@@ -1594,8 +1594,8 @@ class _FileManagerViewState extends State<FileManagerView> {
       child: Row(
         children: [
           Obx(
-            // ChainRemote: translate("Name")=="거래처 이름"(거래처 등록용 오역)이라
-            // 파일전송 컬럼은 "이름"으로 직접 표기.
+            // translate("Name") 이 "거래처 이름"으로 번역돼(거래처 등록용) 여기선
+            // 어색하므로, 파일전송 컬럼은 "이름"으로 직접 적는다.
             () => headerItemFunc(_nameColWidth.value, SortBy.name, '이름'),
           ),
           DraggableDivider(
@@ -1889,7 +1889,7 @@ Widget buildWindowsThisPC(BuildContext context, [TextStyle? textStyle]) {
   ]);
 }
 
-// ChainRemote: 윈도우 탐색기풍 컬러 아이콘.
+// 윈도우 탐색기풍 컬러 아이콘.
 IconData _fileIconFor(String name, {required bool isFile}) {
   if (!isFile) return Icons.folder_sharp;
   final ext = name.contains('.')

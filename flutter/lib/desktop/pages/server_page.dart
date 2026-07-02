@@ -48,23 +48,23 @@ class _DesktopServerPageState extends State<DesktopServerPage>
   void initState() {
     windowManager.addListener(this);
     super.initState();
-    // ChainRemote: KSCAT UAC 등 보안데스크톱(secure desktop) 전환 후 CM '원격지원 중' 배너가
-    // topmost 를 잃고 뒤로 가 안 보이는 문제. 거래처가 원격당하는 중인지 항상 알아야 하므로
-    // (투명성 — 거래처 통제권/신뢰의 핵심), 활성 세션 동안 always-on-top 을 주기적으로 재확인한다.
-    // 이미 topmost 면 OS 가 z-order 변화 없이 no-op 이라 평소 사용엔 영향 없음.
+    // KSCAT UAC 같은 보안 데스크톱을 거치고 나면 CM '원격지원 중' 배너가 topmost 를
+    // 잃고 뒤로 밀려 안 보인다. 거래처는 자기가 원격당하는 중인지 늘 알아야 하므로
+    // (투명성은 거래처 통제권·신뢰의 핵심), 활성 세션 동안 always-on-top 을 주기적으로
+    // 다시 건다. 이미 topmost 면 OS 가 z-order 를 안 바꿔 no-op 이라 평소엔 영향 없다.
     _keepBannerOnTopTimer =
         Timer.periodic(const Duration(seconds: 2), (_) async {
       if (!mounted) return;
-      // 수락 대기(authorized=false) 클라이언트도 포함 — 잠금 화면 중 도착한 요청의
-      // 수락카드가 잠금 해제(보안 데스크톱 복귀) 후 숨겨지거나 z-order 에 묻힌 채
-      // 남는 것을 같은 복원 루프로 회복 (배너와 동일 함정, 2026-06-12 삼익 케이스).
+      // 수락 대기(authorized=false) 클라이언트도 포함한다. 잠금 화면 중에 온 요청의
+      // 수락 카드가 잠금 해제(보안 데스크톱 복귀) 후 숨거나 z-order 에 묻힌 채 남는
+      // 걸 같은 복원 루프로 살린다(배너와 똑같은 함정, 2026-06-12 삼익 케이스).
       final hasActive =
           gFFI.serverModel.clients.any((c) => !c.disconnected);
       if (!hasActive) return;
       try {
-        // 보안데스크톱(UAC) 전환 후 배너 창이 topmost 만 잃는 게 아니라 아예 숨겨질(hide/minimize)
-        // 수 있음 → setAlwaysOnTop 만으론 부족(1.4.11 에서 포커스도 안 뺏기고 안 떴음 = 숨겨진 것).
-        // 숨겨졌으면 다시 show, 최소화면 restore 한 뒤 topmost 재확인.
+        // 보안 데스크톱(UAC)을 거치면 배너 창이 topmost 만 잃는 게 아니라 아예 숨거나
+        // 최소화될 수 있다. 그래서 setAlwaysOnTop 만으론 부족하다(1.4.11 에선 포커스도
+        // 안 뺏고 안 떴다 = 숨은 상태). 숨었으면 show, 최소화면 restore 후 topmost 재적용.
         final visible = await windowManager.isVisible();
         final minimized = await windowManager.isMinimized();
         if (!visible || minimized) {
@@ -86,7 +86,7 @@ class _DesktopServerPageState extends State<DesktopServerPage>
     super.dispose();
   }
 
-  // 진단: 배너 복원 이벤트를 고정경로 updater.log 에 남김(재성이에서 원격으로 쉽게 확인).
+  // 배너 복원 이벤트를 고정 경로 updater.log 에 남긴다(원격으로 쉽게 확인하려고).
   void _bannerDiag(String msg) {
     if (!Platform.isWindows) return;
     try {
@@ -99,9 +99,9 @@ class _DesktopServerPageState extends State<DesktopServerPage>
 
   @override
   void onWindowClose() {
-    // ChainRemote 변경: 활성 연결이 하나라도 있으면 X 버튼은 종료가 아니라 트레이로 숨김.
-    // 거래처/직원이 X 잘못 눌러 세션 끊는 사고 방지.
-    // 연결을 진짜로 끊으려면 각 탭의 "연결 해제" 버튼을 사용해야 함.
+    // 활성 연결이 하나라도 있으면 X 버튼은 종료가 아니라 트레이로 숨긴다.
+    // 거래처나 직원이 X 를 잘못 눌러 세션이 끊기는 사고를 막는다.
+    // 진짜로 끊으려면 각 탭의 "연결 해제" 버튼을 써야 한다.
     if (gFFI.serverModel.clients.isNotEmpty) {
       windowManager.hide();
       return;
@@ -223,9 +223,9 @@ class ConnectionManagerState extends State<ConnectionManager>
       }
     }
 
-    // ChainRemote: 피제어 시(거래처 Agent + 본사 HQ 옵션B+ 양방향 모두) 우상단 슬림
-    // 수락카드 → "원격지원 중" 배너 + 종료만 표시. 본사 HQ 도 피제어될 때 피지원자가
-    // 원격 진행을 인지/차단할 수 있어야 하므로 RustDesk 기본 CM(아래)이 아닌 이 배너로 통일.
+    // 피제어될 때(거래처 Agent, 본사 HQ 옵션B+ 양쪽 다) 우상단에 슬림 수락 카드,
+    // 이어서 "원격지원 중" 배너 + 종료만 보인다. HQ 가 피제어될 때도 피지원자가 원격
+    // 진행을 알고 끊을 수 있어야 하므로, RustDesk 기본 CM(아래) 대신 이 배너로 통일한다.
     return _buildAgentSupportBanner(serverModel);
 
     return serverModel.clients.isEmpty
@@ -400,10 +400,9 @@ class ConnectionManagerState extends State<ConnectionManager>
     }
   }
 
-  // ChainRemote — Agent 전용 CM UI (클릭수락 모드).
-  //  - 대기 중(미승인) 연결이 있으면: [수락]/[거부] 카드 (거래처가 직접 수락).
-  //  - 활성 세션이면: "원격지원 중" 인디케이터.
-  // 상태에 따라 CM 창 크기/위치(상단중앙 — 우상단 X 안 가림)를 맞춘다.
+  // Agent 전용 CM UI (클릭 수락 모드).
+  // 대기 중(미승인) 연결이 있으면 [수락]/[거부] 카드를, 활성 세션이면 "원격지원 중"
+  // 인디케이터를 보인다. 상태에 따라 CM 창 크기·위치(상단 중앙, 우상단 X 를 안 가림)를 맞춘다.
   bool? _agentPendingShown;
 
   Widget _buildAgentSupportBanner(ServerModel serverModel) {
@@ -412,14 +411,14 @@ class ConnectionManagerState extends State<ConnectionManager>
     final activeClient = serverModel.clients
         .firstWhereOrNull((c) => c.authorized && !c.disconnected);
     final wantPending = pending != null;
-    // 대기↔활성 전환 시에만 CM 창 크기/위치 조정 (build 부작용 회피 위해 post-frame).
+    // 대기↔활성 전환이 있을 때만 CM 창 크기·위치를 조정한다(build 부작용 회피용 post-frame).
     if (_agentPendingShown != wantPending) {
       _agentPendingShown = wantPending;
       final targetSize = wantPending ? kAgentAcceptCardSize : kAgentSupportBannerSize;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        // grace 자동수락은 수락카드(360x200)를 건너뛰고 바로 활성 → CM 창이 막 떴을 때
-        // setSizeAlignment 가 한 번에 안 먹어 큰 크기로 남는 문제(2026-06-05 재시작 자동재접속
-        // 부수효과). 창이 준비될 때까지 짧게 여러 번 재적용해 배너(220x34)로 확실히 축소.
+        // grace 자동수락은 수락 카드(360x200)를 건너뛰고 바로 활성으로 간다. 그런데 CM
+        // 창이 막 떴을 땐 setSizeAlignment 가 한 번에 안 먹어 큰 크기로 남는다(2026-06-05
+        // 재시작 자동재접속 부수효과). 창이 준비될 때까지 짧게 여러 번 다시 걸어 배너(220x34)로 확실히 줄인다.
         for (var i = 0; i < 4; i++) {
           await Future.delayed(Duration(milliseconds: i == 0 ? 100 : 300));
           try {
@@ -434,7 +433,7 @@ class ConnectionManagerState extends State<ConnectionManager>
     return _buildAgentIndicator(activeClient);
   }
 
-  // 본사 원격 요청 — 거래처가 직접 [수락]/[거부].
+  // 본사 원격 요청. 거래처가 직접 [수락]/[거부]를 누른다.
   Widget _buildAgentAcceptCard(ServerModel serverModel, Client client) {
     final who = client.peerId.isNotEmpty ? client.peerId : client.name;
     return Material(
@@ -499,8 +498,8 @@ class ConnectionManagerState extends State<ConnectionManager>
     );
   }
 
-  // 활성 세션 인디케이터 — 슬림 다크 배너 + 종료 버튼. 드래그로 위치 이동
-  // (windowManager.startDragging). 종료 버튼 = 피지원자가 직접 연결 끊기.
+  // 활성 세션 인디케이터. 슬림 다크 배너 + 종료 버튼. 드래그로 옮길 수 있고
+  // (windowManager.startDragging), 종료 버튼으로 피지원자가 직접 연결을 끊는다.
   Widget _buildAgentIndicator(Client? activeClient) {
     final hasActive = activeClient != null;
     return GestureDetector(
@@ -547,7 +546,7 @@ class ConnectionManagerState extends State<ConnectionManager>
     );
   }
 
-  // 종료 버튼 — 피지원자가 현재 원격 세션을 직접 끊는다. (RustDesk CM 의 cmCloseConnection)
+  // 종료 버튼. 피지원자가 지금 원격 세션을 직접 끊는다(RustDesk CM 의 cmCloseConnection).
   Widget _buildEndButton(Client client) {
     return InkWell(
       onTap: () => bind.cmCloseConnection(connId: client.id),

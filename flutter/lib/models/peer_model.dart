@@ -22,8 +22,8 @@ class Peer {
   String device_group_name;
   String note;
   bool? sameServer;
-  // ChainRemote: 자가등록 상태 'active'|'pending'|''(미상). '전체 거래처' 탭에서
-  // pending 시각 표시(별칭 마커는 Rust)와 마스터 확정 버튼 노출 게이트에 사용.
+  // 자가등록 상태. 'active'|'pending'|''(미상). '전체 거래처' 탭에서 pending 표시(별칭
+  // 마커는 Rust 쪽)와 마스터 확정 버튼을 보일지 정하는 데 쓴다.
   String enrollStatus;
 
   String getId() {

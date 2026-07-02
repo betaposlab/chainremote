@@ -66,8 +66,8 @@ class _PeerTabPageState extends State<PeerTabPage>
       ),
       ({dynamic hint}) => gFFI.groupModel.pull(force: hint == null),
     ),
-    // ChainRemote: '전체 거래처' — 인덱스 5(enum customers 와 정렬). 탭 진입 시 view.build() 가
-    //   chainremoteLoadCustomers 호출 → load_all_customers push → 목록 표시.
+    // '전체 거래처' 탭. 인덱스 5로 enum customers 와 정렬한다. 탭 진입 시 view.build() 가
+    // chainremoteLoadCustomers 를 호출하고, load_all_customers push 로 목록이 표시된다.
     _TabEntry(AllCustomersPeersView(
       menuPadding: _menuPadding(),
     )),
@@ -141,8 +141,8 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget _createSwitchBar(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
-    // ChainRemote 뉴모 세그먼트 컨트롤 (2026-06-06 재스킨):
-    //   들어간(inset) 트랙 + 활성 탭은 솟은(raised) 표면 + 남색 글자.
+    // 뉴모 세그먼트 컨트롤 (2026-06-06 재스킨).
+    // 들어간(inset) 트랙 위에, 활성 탭만 솟은(raised) 표면 + 남색 글자로 표시한다.
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -244,9 +244,9 @@ class _PeerTabPageState extends State<PeerTabPage>
         message: translate('Refresh'),
         child: RefreshWidget(
             onPressed: () {
-              // ChainRemote: 패널에서 거래처명/즐겨찾기를 바꾼 게 즉시 반영되도록 매핑/즐겨찾기를
-              //   on-demand 재요청 (자동 폴링 대신 — 50대리점 idle 트래픽 방지). chainremoteLoadCustomers
-              //   가 매핑 갱신 후 최근세션을 재푸시(chainremote_data.rs)하므로 최근세션 탭 이름도 갱신됨.
+              // 패널에서 바꾼 거래처명/즐겨찾기를 즉시 반영하려고 매핑과 즐겨찾기를 on-demand 로
+              // 재요청한다 (자동 폴링을 쓰지 않아 50대리점 idle 트래픽을 막는다). chainremoteLoadCustomers
+              // 가 매핑 갱신 후 최근세션을 재푸시(chainremote_data.rs)하므로 최근세션 탭 이름도 갱신된다.
               bind.chainremoteLoadCustomers();
               bind.chainremoteLoadFavorites();
               if (gFFI.peerTabModel.currentTab < entries.length) {
@@ -429,11 +429,11 @@ class _PeerTabPageState extends State<PeerTabPage>
                 for (var p in peers) {
                   await bind.mainRemovePeer(id: p.id);
                 }
-                // ChainRemote 본사 앱: 최근 세션 = 네이티브 최근 접속 기록.
+                // 최근 세션은 네이티브 최근 접속 기록을 사용한다.
                 bind.mainLoadRecentPeers();
                 break;
               case 1:
-                // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+                // user_favorites DB (Phase 2-D).
                 for (var p in peers) {
                   bind.chainremoteRemoveFavorite(remoteId: p.id);
                 }
@@ -470,7 +470,7 @@ class _PeerTabPageState extends State<PeerTabPage>
         toolTip: translate('Add to Favorites'),
         onTap: () async {
           final peers = model.selectedPeers;
-          // ChainRemote 본사 앱: user_favorites DB. (Phase 2-D)
+          // user_favorites DB (Phase 2-D).
           for (var p in peers) {
             bind.chainremoteAddFavorite(remoteId: p.id);
           }
@@ -579,8 +579,8 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   List<Widget> _landscapeRightActions(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
-    // ChainRemote: 주소록/장치 비활성화 → 새로고침/태그/다중선택 모두 제거.
-    // 남는 것: 검색 / 보기 / 정렬.
+    // 주소록/장치 탭을 비활성화하면서 새로고침/태그/다중선택도 함께 제거했다.
+    // 남는 것은 검색, 보기, 정렬뿐이다.
     return [
       const PeerSearchBar().marginOnly(right: 13),
       _createPeerViewTypeSwitch(context),
@@ -644,18 +644,18 @@ class _PeerTabPageState extends State<PeerTabPage>
       if (model.currentTab == PeerTabIndex.group.index)
         _createRefresh(
             index: PeerTabIndex.group, loading: gFFI.groupModel.groupLoading),
-      // ChainRemote: 최근/즐겨찾기 탭 새로고침 — 패널 거래처명/즐겨찾기 on-demand 재동기화.
-      //   ChainRemote HQ 는 AB/Group 탭이 비활성이라 위 두 분기는 절대 안 뜸 → 실제 쓰는 두 탭에 마운트.
-      //   onPressed 가 chainremoteLoadCustomers(매핑 갱신+최근세션 재푸시)+LoadFavorites 호출.
+      // 최근/즐겨찾기 탭 새로고침. 패널의 거래처명/즐겨찾기를 on-demand 로 재동기화한다.
+      // HQ 는 AB/Group 탭이 비활성이라 위 두 분기는 뜨지 않으므로, 실제 쓰는 두 탭에 마운트한다.
+      // onPressed 는 chainremoteLoadCustomers(매핑 갱신+최근세션 재푸시)와 LoadFavorites 를 호출한다.
       if (model.currentTab == PeerTabIndex.recent.index)
         _createRefresh(index: PeerTabIndex.recent),
       if (model.currentTab == PeerTabIndex.fav.index)
         _createRefresh(index: PeerTabIndex.fav),
-      // ChainRemote: 전체 거래처 새로고침 — chainremoteLoadCustomers 재요청(onPressed 공통).
+      // 전체 거래처 새로고침. chainremoteLoadCustomers 를 재요청한다 (onPressed 공통).
       if (model.currentTab == PeerTabIndex.customers.index)
         _createRefresh(index: PeerTabIndex.customers),
     ];
-    // ChainRemote: 다중선택/태그토글 제거 — 거래처 운영에 불필요.
+    // 다중선택/태그토글은 거래처 운영에 불필요해 제거했다.
     final List<Widget> dynamicActions = [
       if (model.currentTab != PeerTabIndex.recent.index) PeerSortDropdown(),
     ];
@@ -706,7 +706,7 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
                 drawer = true;
               });
             },
-            // ChainRemote: 아이콘 + "검색" 라벨
+            // 아이콘 + "검색" 라벨.
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.search_rounded,
                   size: 18, color: Theme.of(context).hintColor),
@@ -829,7 +829,7 @@ class _PeerViewDropdownState extends State<PeerViewDropdown> {
                 child: SizedBox(
                   height: 36,
                   child: getRadio<PeerUiType>(
-                      // ChainRemote: 아이콘 + 한글 라벨 (직관적)
+                      // 아이콘 + 한글 라벨.
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -878,7 +878,7 @@ class _PeerViewDropdownState extends State<PeerViewDropdown> {
     return _hoverAction(
         context: context,
         toolTip: translate('Change view'),
-        // ChainRemote: 아이콘 + "보기" 라벨
+        // 아이콘 + "보기" 라벨.
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(
             peerCardUiType.value == PeerUiType.grid
@@ -963,7 +963,7 @@ class _PeerSortDropdownState extends State<PeerSortDropdown> {
     return _hoverAction(
       context: context,
       toolTip: translate('Sort by'),
-      // ChainRemote: 아이콘 + "정렬" 라벨
+      // 아이콘 + "정렬" 라벨.
       child: Row(mainAxisSize: MainAxisSize.min, children: const [
         Icon(Icons.sort_rounded, size: 18),
         SizedBox(width: 4),

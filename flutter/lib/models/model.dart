@@ -120,7 +120,7 @@ class FfiModel with ChangeNotifier {
   late VirtualMouseMode virtualMouseMode;
   Timer? _timer;
   var _reconnects = 1;
-  // ChainRemote: '거래처 PC 재시작' 후 자동 재접속 중인지. offline 재시도 창을 부팅 대기에 맞게 연장.
+  // 거래처 PC 재시작 후 자동 재접속 중인지 여부. offline 재시도 창을 부팅 대기에 맞게 연장한다.
   var _isRestartReconnect = false;
   DateTime? _offlineReconnectStartTime;
   bool _viewOnly = false;
@@ -924,8 +924,8 @@ class FfiModel with ChangeNotifier {
       enterUserLoginAndPasswordDialog(
           sessionId, dialogManager, 'terminal-admin-login-tip', false);
     } else if (type == 'restarting') {
-      // ChainRemote: 재시작 후 자동 재접속(코이노식). hasRetry=true 로 재접속 타이머 시작 +
-      // _isRestartReconnect 로 offline 재시도 창을 부팅 대기(~120s)에 맞게 연장.
+      // 재시작 후 자동 재접속(코이노식). hasRetry=true 로 재접속 타이머를 시작하고,
+      // _isRestartReconnect 로 offline 재시도 창을 부팅 대기(~120s)에 맞게 연장한다.
       _isRestartReconnect = true;
       showMsgBox(sessionId, type, title, text, link, true, dialogManager,
           hasCancel: false);
@@ -1295,7 +1295,7 @@ class FfiModel with ChangeNotifier {
     cachedPeerData.peerInfo.remove('resolutions');
 
     // Recent peer is updated by handle_peer_info(ui_session_interface.rs) --> handle_peer_info(client.rs) --> save_config(client.rs)
-    // ChainRemote 본사 앱: 원격 접속 직후 최근 세션 탭 갱신 (네이티브 최근 접속 기록).
+    // 원격 접속 직후 최근 세션 탭을 갱신한다(네이티브 최근 접속 기록).
     bind.mainLoadRecentPeers();
 
     parent.target?.dialogManager.dismissAll();
@@ -1380,7 +1380,7 @@ class FfiModel with ChangeNotifier {
       if (displays.isNotEmpty) {
         _reconnects = 1;
         _offlineReconnectStartTime = null;
-        _isRestartReconnect = false; // ChainRemote: 재접속 성공 → 재시작 자동재접속 플래그 해제
+        _isRestartReconnect = false; // 재접속 성공. 재시작 자동재접속 플래그 해제.
         waitForFirstImage.value = true;
         isRefreshing = false;
       }
@@ -3633,7 +3633,7 @@ class FFI {
   late final Peers recentPeersModel; // global
   late final Peers favoritePeersModel; // global
   late final Peers lanPeersModel; // global
-  late final Peers allCustomersPeersModel; // global — ChainRemote '전체 거래처' 탭
+  late final Peers allCustomersPeersModel; // global. '전체 거래처' 탭.
 
   // Terminal model registry for multiple terminals
   final Map<int, TerminalModel> _terminalModels = {};

@@ -1,8 +1,6 @@
-// ChainRemote 업데이트 정보 페이지 — NAS latest.json 직접 fetch + 표시.
-//
-// 실제 다운로드/적용은 Windows 서비스(LocalSystem)가 담당 (chainremote_updater.rs).
-// 이 위젯은 사용자에게 "현재 / 최신 / 새 버전 사용 가능" 정보를 보여주고,
-// 자동 적용 일정 (다음 부팅 시) 을 안내하는 용도.
+// 업데이트 정보 페이지. NAS latest.json 을 직접 받아 현재/최신 버전을 보여준다.
+// 실제 다운로드·적용은 Windows 서비스(LocalSystem, chainremote_updater.rs)가 하고,
+// 이 위젯은 상태 표시와 다음 부팅 시 자동 적용 안내만 담당한다.
 
 import 'dart:convert';
 import 'dart:io';
@@ -10,12 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../common.dart';
 
-// ChainRemote "지금 설치" 동작:
-//   비권한 UI 는 winlogon 토큰이 없어 권한설치를 직접 못 한다. 그래서 버튼은
-//   트리거 파일 1개만 만들고, SYSTEM 서비스(chainremote_updater.rs)가 ≤2초 안에
-//   감지 → 다운로드+검증+launch_privileged_process 로 우리 Inno 인스톨러를
-//   사일런트 권한실행 → ChainRemote 자동 재시작. (서비스측 MANUAL_TRIGGER_FLAG
-//   경로와 반드시 일치)
+// "지금 설치" 흐름: 비권한 UI 는 winlogon 토큰이 없어 권한 설치를 직접 못 한다.
+// 그래서 버튼은 트리거 파일만 하나 떨구고, SYSTEM 서비스(chainremote_updater.rs)가
+// 2초 안에 이를 감지해 다운로드·검증한 뒤 Inno 인스톨러를 사일런트 권한 실행하고
+// 앱을 재시작한다. 이 경로는 서비스측 MANUAL_TRIGGER_FLAG 와 반드시 같아야 한다.
 const _kManualTriggerFlag = r'C:\ProgramData\ChainRemote\update_now.flag';
 
 const _kUpdateChannelUrl =
@@ -53,22 +49,21 @@ Future<ChainRemoteRelease?> fetchLatestChainRemoteRelease() async {
     if (resp.statusCode != 200) return null;
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
 
-    // 2026-05-28+ dual-channel schema: { hq: {...}, agent: {...} }.
-    // HQ 빌드 (이 UI 가 동작하는 곳) 는 hq 채널만 본다.
-    // Agent 빌드는 그냥 정적 chainremoteVersion 표시 + 새 push API 만 씀
-    //   → 이 함수 호출 안 함. 안전상 fallback 으로 hq 채널 우선.
+    // 2026-05-28 이후 dual-channel 스키마: { hq: {...}, agent: {...} }.
+    // 이 UI 가 도는 HQ 빌드는 hq 채널만 본다. Agent 빌드는 정적 버전 표시 +
+    // push API 만 쓰므로 이 함수를 아예 호출하지 않는다. 그래도 hq 채널을 먼저 본다.
     if (body['hq'] is Map) {
       return ChainRemoteRelease.fromJson(
           body['hq'] as Map<String, dynamic>);
     }
-    // 옛 flat schema 안전망 (v1.3.4 미만 latest.json 호환).
+    // 옛 flat 스키마 폴백 (v1.3.4 미만 latest.json 호환).
     return ChainRemoteRelease.fromJson(body);
   } catch (_) {
     return null;
   }
 }
 
-/// `a > b` 인지 비교. 패치 부분에 알파/베타 suffix 가 붙어도 숫자 prefix 만 사용.
+/// `a > b` 비교. 패치 자리에 알파/베타 suffix 가 붙어도 앞의 숫자만 쓴다.
 bool isChainRemoteVersionNewer(String a, String b) {
   List<int> parse(String v) => v
       .trim()
@@ -85,8 +80,8 @@ bool isChainRemoteVersionNewer(String a, String b) {
   return false;
 }
 
-/// 정보 페이지에 끼워 넣는 한 줄짜리 "업데이트 확인" UI.
-/// 버튼 + 상태 텍스트 (확인 중 / 최신 / 새 버전 사용 가능 / 실패).
+/// 정보 페이지에 넣는 한 줄짜리 "업데이트 확인" UI.
+/// 버튼과 상태 텍스트(확인 중 / 최신 / 새 버전 사용 가능 / 실패).
 class ChainRemoteUpdateCheckRow extends StatefulWidget {
   const ChainRemoteUpdateCheckRow({super.key});
 
@@ -99,7 +94,7 @@ class _ChainRemoteUpdateCheckRowState extends State<ChainRemoteUpdateCheckRow> {
   bool _checking = false;
   String? _statusText;
   Color _statusColor = Colors.grey;
-  // 새 버전 발견 시 채워짐 → "지금 설치" 버튼 노출
+  // 새 버전이 있으면 채워지고, 그때 "지금 설치" 버튼이 뜬다.
   String? _availableVersion;
   bool _triggering = false;
 
@@ -145,10 +140,9 @@ class _ChainRemoteUpdateCheckRowState extends State<ChainRemoteUpdateCheckRow> {
     });
   }
 
-  /// "지금 설치" — 비권한 UI 는 권한설치 불가하므로 트리거 파일만 만든다.
-  /// SYSTEM 서비스(chainremote_updater)가 ≤2초 안에 감지 → 다운로드+검증+
-  /// launch_privileged_process 로 우리 Inno 인스톨러 사일런트 권한실행 →
-  /// ChainRemote 자동 재시작. 부팅/UAC/15초 폴링 없음.
+  /// "지금 설치". 비권한 UI 는 권한 설치를 못 하므로 트리거 파일만 만든다.
+  /// SYSTEM 서비스가 2초 안에 감지해 다운로드·검증 후 Inno 인스톨러를 사일런트
+  /// 권한 실행하고 앱을 재시작한다. 부팅·UAC·15초 폴링 없음.
   Future<void> _triggerInstallNow() async {
     if (!Platform.isWindows) {
       _setStatus('즉시 설치는 Windows 에서만 지원됩니다.', const Color(0xFFE74C3C));
