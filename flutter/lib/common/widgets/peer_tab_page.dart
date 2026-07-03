@@ -579,10 +579,16 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   List<Widget> _landscapeRightActions(BuildContext context) {
     final model = Provider.of<PeerTabModel>(context);
-    // 주소록/장치 탭을 비활성화하면서 새로고침/태그/다중선택도 함께 제거했다.
-    // 남는 것은 검색, 보기, 정렬뿐이다.
+    // 검색 / 새로고침 / 보기 / 정렬. (AB·장치 탭 비활성이라 태그·다중선택은 뺐다.)
+    // 새로고침은 재로그인 없이 패널 목록을 다시 받아온다 — 신규 등록 거래처가 바로 내려온다.
     return [
       const PeerSearchBar().marginOnly(right: 13),
+      if (model.currentTab == PeerTabIndex.recent.index)
+        _createRefresh(index: PeerTabIndex.recent).marginOnly(right: 4),
+      if (model.currentTab == PeerTabIndex.fav.index)
+        _createRefresh(index: PeerTabIndex.fav).marginOnly(right: 4),
+      if (model.currentTab == PeerTabIndex.customers.index)
+        _createRefresh(index: PeerTabIndex.customers).marginOnly(right: 4),
       _createPeerViewTypeSwitch(context),
       Offstage(
         offstage: model.currentTab == PeerTabIndex.recent.index,
