@@ -1,18 +1,34 @@
-// POST /api/customers/register-heartbeat-token — 폐기 (2026-07-01, 코워크 검토).
+// POST /api/customers/register-heartbeat-token  { remoteId } → { token }
 //
-// 종전엔 무인증이라 remote_id(9자리, 비밀 아님)만 알면 heartbeat 토큰을 발급/회전시켜
-// heartbeat 위조·pending-update 큐 조회가 가능했다. auto-enroll 도입 후로는 온라인
-// 거래처가 전부 enroll-key 인증(/api/customers/enroll)으로 토큰을 받고, enroll-key
-// 없는 옛 빌드는 오프라인 1대뿐 — 실사용 호출자가 0이라 무인증 경로를 통째로 없앴다.
-// (heartbeat 토큰은 패널 가시성/자동업뎃용이라 원격 접속과 무관 — 옛 박스도 원격은 계속
-//  됨. 그 박스가 돌아오면 auto-enroll 인스톨러 재설치로 enroll 경로로 넘어간다.)
+// 에이전트가 첫 실행/heartbeat 401·403 회복 때 호출해 상태 보고용 토큰을 받는다.
+// 키(auto-enroll) 없이 깐 거래처의 유일한 토큰 경로 — 이게 있어야 패널에 online/버전이 뜬다.
+//   200 { token }           거래처 존재 → 토큰 발급/회전
+//   409 { error: "거래처 미등록" }   패널에 아직 등록 안 됨(등록 후 재시도)
+//
+// 무인증(코워크 검토 H2): remote_id 만 알면 토큰을 받는다. 내부 소규모 운영 편익이 커서 일부러 열어둠 —
+//   사업화(키 통일) 때 다시 막을 것. rate-limit 으로 스캔성 남용만 막는다.
 
-export async function POST() {
-  return Response.json(
-    {
-      error:
-        "이 경로는 폐기되었습니다. 최신 에이전트(auto-enroll)를 설치하세요. (/api/customers/enroll 사용)",
-    },
-    { status: 410 },
-  );
+import * as data from "@/lib/data/customers";
+import { clientIp } from "@/lib/request-ip";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
+
+export async function POST(req: Request) {
+  try {
+    const ip = clientIp(req) ?? "unknown";
+    const rl = rateLimit(`hbtoken:${ip}`, 20, 60_000);
+    if (!rl.allowed) return tooManyRequests(rl.retryAfterSec);
+
+    const body = (await req.json().catch(() => ({}))) as { remoteId?: unknown };
+    const remoteId = typeof body.remoteId === "string" ? body.remoteId.trim() : "";
+    if (!remoteId) {
+      return Response.json({ error: "remoteId 필수" }, { status: 400 });
+    }
+    const token = await data.registerHeartbeatToken(remoteId);
+    if (!token) {
+      return Response.json({ error: "거래처 미등록" }, { status: 409 });
+    }
+    return Response.json({ token });
+  } catch (e) {
+    return Response.json({ error: String(e) }, { status: 500 });
+  }
 }

@@ -112,10 +112,21 @@ export async function importPeer(
   return row;
 }
 
-// [H2 폐기, 2026-07-01] registerHeartbeatToken 삭제. remote_id(비밀 아님)만으로 무인증 토큰
-//   발급/회전이 뚫렸던 벡터(코워크 검토 H2). auto-enroll 도입 후 온라인 거래처는 전부 per-tenant
-//   enroll-key 인증(enrollCustomer)으로 토큰을 받아 이 경로는 호출자가 사라졌다 → 함수·라우트 삭제
-//   (register-heartbeat-token 라우트는 410 Gone). 무인증 발급기를 아예 없애 재배선 실수 여지를 제거.
+// heartbeat 토큰 자가발급 — 거래처 있으면 새 토큰 찍어 반환(멱등 회전).
+//   키 없는 에이전트가 상태 보고 토큰을 받는 유일한 경로. auto-enroll(키) 없이 깐 거래처도
+//   이걸로 보고가 살아난다.
+//   ※ 무인증이라 remote_id 만 알면 토큰을 받을 수 있는 약점(코워크 검토 H2)이 있으나, 지금은
+//     내부 소규모 운영이라 "모든 거래처가 상태 보고"의 편익이 더 크다. 사업화(키 통일) 때 다시 막는다.
+//     rate-limit 으로 스캔성 남용만 걸러둔다.
+export async function registerHeartbeatToken(remoteId: string): Promise<string | null> {
+  const plaintext = generateHeartbeatToken();
+  const [row] = await db
+    .update(customers)
+    .set({ heartbeatToken: hashHeartbeatToken(plaintext) })
+    .where(eq(customers.remoteId, remoteId))
+    .returning({ id: customers.id });
+  return row ? plaintext : null;
+}
 
 /**
  * Heartbeat 기록 — 토큰 검증 후 last_heartbeat_at + last_version 갱신.
