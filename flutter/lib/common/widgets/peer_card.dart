@@ -997,9 +997,10 @@ abstract class BasePeerCard extends StatelessWidget {
       ),
       proc: () {
         () async {
-          // user_favorites DB (Phase 2-D).
-          bind.chainremoteAddFavorite(remoteId: id);
-          showToast(translate('Successful'));
+          // user_favorites DB (Phase 2-D). 반환값 확인 필수 — 서버 POST 실패 시에도
+          // 무조건 "성공" 토스트를 띄우면 저장 안 된 즐겨찾기를 사용자가 성공으로 오인한다.
+          final ok = bind.chainremoteAddFavorite(remoteId: id);
+          showToast(translate(ok ? 'Successful' : 'Failed'));
         }();
       },
       padding: menuPadding,
@@ -1029,10 +1030,10 @@ abstract class BasePeerCard extends StatelessWidget {
       ),
       proc: () {
         () async {
-          // user_favorites DB (Phase 2-D).
-          bind.chainremoteRemoveFavorite(remoteId: id);
+          // user_favorites DB (Phase 2-D). 반환값 확인 필수(위 _addFavAction과 동일 이유).
+          final ok = bind.chainremoteRemoveFavorite(remoteId: id);
           await reloadFunc();
-          showToast(translate('Successful'));
+          showToast(translate(ok ? 'Successful' : 'Failed'));
         }();
       },
       padding: menuPadding,

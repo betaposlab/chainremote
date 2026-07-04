@@ -106,9 +106,11 @@ struct CustomersResponse {
     customers: Vec<CustomerRow>,
 }
 
-/// http_request_sync 응답 wrapper — raw body 를 {"body":"<json string>"} 로 감싼다.
+/// http_request_sync 응답 wrapper — raw body 를 {"status_code":..,"body":"<json string>"} 로 감싼다.
 #[derive(Debug, Deserialize)]
 struct HttpWrapper {
+    #[serde(default)]
+    status_code: u16,
     body: String,
 }
 
@@ -209,17 +211,27 @@ fn authed_get(url: String) -> Result<String, String> {
 }
 
 /// 인증된 POST. body 는 JSON string.
+/// post_request_status_sync 로 HTTP 상태코드까지 확인 — 2xx 아니면 서버가 도달 가능해도
+/// (예: 401/400/500) 명확히 Err 로 취급한다. post_request_sync 는 상태코드를 버리고
+/// 무조건 Ok(text) 를 반환해 즐겨찾기 실패가 "성공"으로 오인되는 사고가 있었다.
 fn authed_post(url: String, body: String) -> Result<String, String> {
     let token = chainremote_auth::get_token();
     if token.is_empty() {
         return Err("토큰 없음".to_owned());
     }
-    // post_request_sync 는 헤더를 단순 split — Authorization 한 줄만 박는다.
+    // post_request_status_sync 도 헤더를 단순 split — Authorization 한 줄만 박는다.
     let header = format!("Authorization: Bearer {}", token);
-    crate::post_request_sync(url, body, &header).map_err(|e| e.to_string())
+    match crate::post_request_status_sync(url, body, &header) {
+        // post_request_http 는 raw body 텍스트를 그대로 준다(http_request_sync 의
+        // {"status_code":..,"body":..} wrapper 와 다른 포맷) — unwrap_body 불필요.
+        Ok((status, text)) if (200..300).contains(&status) => Ok(text),
+        Ok((status, text)) => Err(format!("HTTP {}: {:.300}", status, text)),
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 /// 인증된 DELETE — post_request_sync 는 POST 전용이라 http_request_sync 를 쓴다.
+/// wrapper 의 status_code 확인 필수 — 안 그러면 401/404 도 "성공"으로 오인된다(add_favorite 와 동일 사고).
 fn authed_delete(url: String) -> Result<String, String> {
     let token = chainremote_auth::get_token();
     if token.is_empty() {
@@ -228,7 +240,13 @@ fn authed_delete(url: String) -> Result<String, String> {
     let header = format!(r#"{{"Authorization":"Bearer {}"}}"#, token.replace('"', ""));
     let raw = crate::http_request_sync(url, "DELETE".to_owned(), None, header)
         .map_err(|e| e.to_string())?;
-    Ok(unwrap_body(raw))
+    match serde_json::from_str::<HttpWrapper>(&raw) {
+        Ok(w) if (200..300).contains(&w.status_code) => Ok(w.body),
+        Ok(w) => Err(format!("HTTP {}: {:.300}", w.status_code, w.body)),
+        // wrapper 파싱 실패 — status_code 를 모르니 기존처럼 raw 를 성공으로 통과시킨다
+        // (신규 회귀 방지: 최소 변경 원칙, 이 케이스는 원래도 발생 안 하던 경로).
+        Err(_) => Ok(raw),
+    }
 }
 
 fn unwrap_body(raw: String) -> String {

@@ -1517,6 +1517,43 @@ pub async fn post_request_sync(url: String, body: String, header: &str) -> Resul
     post_request(url, body, header).await
 }
 
+/// Status-aware POST for callers that must tell a real success apart from a reachable-but-
+/// rejected business-logic error (ChainRemote panel API — 4xx there means "did not save").
+/// `post_request`/`post_request_sync` above discard the status code by design (matches
+/// upstream RustDesk callers, which only care about response text) — this is additive and
+/// does not change their behavior.
+pub async fn post_request_status(url: String, body: String, header: &str) -> ResultType<(u16, String)> {
+    if should_use_raw_tcp_for_api(&url) {
+        return post_request_via_tcp_proxy(&url, &body, header)
+            .await
+            .map(|text| (200, text));
+    }
+
+    let http_result = post_request_http(&url, &body, header).await;
+    let should_fallback = match &http_result {
+        Err(_) => true,
+        Ok((status, _)) => *status >= 500,
+    };
+
+    if should_fallback && can_fallback_to_raw_tcp(&url) {
+        log::warn!(
+            "HTTP POST to {} failed or 5xx (result: {:?}), trying TCP proxy fallback",
+            tcp_proxy_log_target(&url),
+            http_result.as_ref().map(|(s, _)| *s).map_err(|e| e.to_string()),
+        );
+        if let Ok(resp) = post_request_via_tcp_proxy(&url, &body, header).await {
+            return Ok((200, resp));
+        }
+    }
+
+    http_result
+}
+
+#[tokio::main(flavor = "current_thread")]
+pub async fn post_request_status_sync(url: String, body: String, header: &str) -> ResultType<(u16, String)> {
+    post_request_status(url, body, header).await
+}
+
 #[async_recursion]
 async fn get_http_response_async(
     url: &str,

@@ -4,7 +4,7 @@
 // 2026-05-27 개편으로 remote_id 가 primary 식별자, customer_id 는 customers 에 등록된 경우만 채운다.
 // 덕분에 옵션 B+ HQ workstation 처럼 customers 에 없는 머신도 즐겨찾기할 수 있다.
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customers, userFavorites, users } from "@/lib/schema";
 
@@ -75,9 +75,13 @@ export async function addFavoriteByRemoteId(
     })
     .onConflictDoUpdate({
       target: [userFavorites.userId, userFavorites.remoteId],
+      // Drizzle 이 빈 set 객체를 던지면 "No values to set" 500 에러 — 충돌 여부와 무관하게
+      // 쿼리 빌드 시점에 터진다(meta 없는 즐겨찾기의 절대다수, 즉 로컬에 hostname/alias 캐시가
+      // 없는 최초 즐겨찾기가 전부 실패했었다). meta 없으면 excluded.remote_id 로 자기 자신을
+      // 대입하는 무해한 no-op set 을 넣어 항상 비어있지 않게 한다.
       set: (meta?.hostname || meta?.alias)
         ? { hostname: meta?.hostname ?? null, alias: meta?.alias ?? null }
-        : {},
+        : { remoteId: sql`excluded.remote_id` },
     });
 
   // 즐겨찾기 = 차지(claim): 미배정(등록대기) 거래처를 처음 즐겨찾기한 사람이 담당이 된다.
