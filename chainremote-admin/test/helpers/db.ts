@@ -1,5 +1,6 @@
 // pglite(WASM 인프로세스 Postgres) 기반 테스트 DB 하네스. Docker 불필요.
-// 실 마이그레이션 SQL 18개를 순서대로 적용해 프로덕션과 같은 스키마를 만든다 →
+// db/migrations + chainremote-admin/migrations 의 실 마이그레이션 SQL 을 파일명 순서대로 전부
+// 적용해 프로덕션과 같은 스키마를 만든다(개수 하드코딩 없이 디렉터리 동적 수집) →
 // 유니크 인덱스/제약/partial-unique 등 SQL 레벨 동작까지 진짜로 검증(목킹 아님).
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -20,7 +21,7 @@ export function testDb(): TestDb {
 }
 
 function migrationFiles(): string[] {
-  // db/migrations/001-010 (레포 루트) + chainremote-admin/migrations/011-018
+  // db/migrations/001+ (레포 루트) + chainremote-admin/migrations/011+ — 있는 .sql 전부 수집.
   const dirs = [
     path.resolve(__dirname, "../../../db/migrations"),
     path.resolve(__dirname, "../../migrations"),
@@ -32,7 +33,7 @@ function migrationFiles(): string[] {
       if (f.endsWith(".sql")) files.push(path.join(d, f));
     }
   }
-  // 파일명 앞 3자리 번호(001..018)로 정렬 — 디렉터리 무관 전역 순서.
+  // 파일명 앞 3자리 번호(001, 002, …)로 정렬 — 디렉터리 무관 전역 순서.
   return files.sort((a, b) =>
     path.basename(a).localeCompare(path.basename(b)),
   );

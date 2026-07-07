@@ -214,7 +214,7 @@ describe("좌석 enforcement — 단일 동시세션(코이노식 takeover)", ()
   // 자격증명을 쥔 제3자가 마찰 0 으로 좌석을 조용히 빼앗고 옛 기기를 kick 한다.
   // 게다가 이 조용한 인수는 어떤 감사 로그/알림도 남기지 않는다(테이블 덮어쓰기뿐).
   // → 아래 테스트는 "현재 동작(무프롬프트·무감사)" 을 못박아 회귀 감시한다.
-  it("orphan 인수는 현재 아무런 감사 흔적을 남기지 않는다 (취약점 문서화)", async () => {
+  it("[수정됨] orphan 인수 시 ClaimResult.reclaimedOrphan=true 로 감사/알림 신호를 준다", async () => {
     const db = testDb();
     const uid = await makeUser("betapos", "chang");
     expect((await claimSeat(seat(uid, "VICTIM-LAPTOP"))).claimed).toBe(true);
@@ -223,19 +223,28 @@ describe("좌석 enforcement — 단일 동시세션(코이노식 takeover)", ()
       .set({ lastSeenAt: new Date(Date.now() - 3 * 60 * 1000) })
       .where(eq(activeLoginSessions.userId, uid));
 
-    // 공격자 기기가 조용히 인수 — 라우트에 넘길 어떤 "인수됨" 신호도 없다.
+    // 다른 기기가 orphan(2분↑)을 인수 — 이제 표식이 붙어 라우트가 감사/알림 가능.
     const r = await claimSeat(seat(uid, "ATTACKER-PC"));
     expect(r.claimed).toBe(true);
-    // ClaimResult 에는 "orphan 을 인수했다"는 표식이 없어 라우트가 알림/로그를 남길 수 없다.
-    expect(r.occupiedBy).toBeUndefined();
-    // 테이블은 단일 행으로 그냥 덮여, 피해 기기 정보는 흔적 없이 사라진다.
+    expect(r.reclaimedOrphan).toBe(true); // ★ '다른 기기의 죽은 세션을 인수함' 신호
     expect(await seatRowCount(uid)).toBe(1);
     expect((await getActiveSession(uid))?.deviceId).toBe("ATTACKER-PC");
   });
 
-  // 원하는 안전동작(미구현): orphan 을 조용히 인수하더라도 인수 사실을
-  // ClaimResult 로 알려 라우트가 감사 로그/이메일 알림을 남길 수 있어야 한다.
-  it.todo(
-    "orphan 인수 시 ClaimResult 가 '인수됨(previous device)' 을 알려 감사/알림을 가능케 해야 한다",
-  );
+  it("같은 기기 재claim / 신규 claim 은 orphan 인수가 아니라 reclaimedOrphan 이 안 선다", async () => {
+    const db = testDb();
+    const uid = await makeUser("betapos", "chang");
+    // 신규(사전 세션 없음)
+    const fresh = await claimSeat(seat(uid, "SAME-PC"));
+    expect(fresh.claimed).toBe(true);
+    expect(fresh.reclaimedOrphan).toBeFalsy();
+    // 같은 기기 재claim (orphan 만들어도 같은 기기라 인수 아님)
+    await db
+      .update(activeLoginSessions)
+      .set({ lastSeenAt: new Date(Date.now() - 3 * 60 * 1000) })
+      .where(eq(activeLoginSessions.userId, uid));
+    const same = await claimSeat(seat(uid, "SAME-PC"));
+    expect(same.claimed).toBe(true);
+    expect(same.reclaimedOrphan).toBeFalsy();
+  });
 });

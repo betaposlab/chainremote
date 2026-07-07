@@ -117,7 +117,7 @@ describe("(b) remote_id 전역 partial-unique 위반 — 라우트 409 변환(M8
   //    이 wrapping 은 pg-core 레벨이라 프로덕션 node-postgres 에서도 동일 → 거래처가 다른
   //    거래처와 같은 원격 ID 를 등록하면 데스크톱 앱은 친화적 409 대신 raw 500 을 받는다.
   //  아래 테스트는 그 '현재(깨진) 동작'을 못박는다. 안전한 동작은 it.todo.
-  it("[현재 동작] createCustomer 중복 remote_id 는 raw throw → jsonError 가 409 가 아니라 500 을 낸다", async () => {
+  it("[수정됨] createCustomer 중복 remote_id → jsonError 가 cause 체인을 보고 409 를 낸다", async () => {
     const t1 = await makeTenant("tenant-a");
     const u1 = await makeUser(t1, "a");
     const t2 = await makeTenant("tenant-b");
@@ -148,9 +148,11 @@ describe("(b) remote_id 전역 partial-unique 위반 — 라우트 409 변환(M8
     // 그러나 wrapper 인 e.message 엔 "duplicate/unique" 가 없다 → M8 매칭 실패.
     expect((thrown as Error).message).not.toMatch(/duplicate key|unique/i);
 
-    // ★ 그래서 jsonError 는 409 가 아니라 500 을 낸다(현재 깨진 동작).
+    // ★ 수정 후: jsonError 가 e.cause 체인까지 훑어 409(친화적 메시지)를 낸다.
     const res = jsonError(thrown);
-    expect(res.status).toBe(500); // ← 원래 의도는 409. 아래 it.todo 참조.
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toMatch(/이미 등록된 원격 ID/);
 
     // 중복 삽입은 실제로 안 됐다 — 전역에 그 remote_id 는 1행뿐(무결성 자체는 DB 가 지킴).
     const db = testDb();
@@ -187,11 +189,8 @@ describe("(b) remote_id 전역 partial-unique 위반 — 라우트 409 변환(M8
     ).rejects.toThrow();
   });
 
-  // 원하는 안전 동작: 실 드라이버 에러도 409 로 변환돼야 한다. jsonError 가 e.cause.message 까지
-  //   보거나(또는 pg code '23505' 검사), data-layer 가 typed 결과("duplicate_remote_id")를 돌려줘야.
-  it.todo(
-    "실 드라이버 unique 위반이 500 이 아니라 409(친화적 메시지)로 변환돼야 한다 (e.cause/pg code 23505 검사)",
-  );
+  // (위 '[수정됨]' 테스트가 실 드라이버 wrapper 에러도 409 로 변환됨을 검증 — jsonError 가
+  //  e.cause 체인을 훑도록 고침. 옛 it.todo 는 이제 실제 통과 테스트로 승격됨.)
 });
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -269,7 +268,7 @@ describe("(d) 거래처 삭제 — 관련 레코드 FK on-delete 동작", () => 
   //    결과: 거래처를 삭제하면 그 머신을 즐겨찾기한 '모든 직원의 즐겨찾기 행이 통째로 삭제'된다.
   //    설계 의도(favorites.ts 주석: 삭제 후 orphan '신규 거래처 후보' 로 복귀, SET NULL 로 remote_id
   //    보존)와 정반대의 조용한 데이터 손실. 드리즐 스키마만 읽고 set-null 을 가정하는 코드는 틀린다.
-  it("[현재 동작] 삭제 시 user_favorites 는 CASCADE 로 함께 삭제된다 (스키마 선언 set null 과 불일치)", async () => {
+  it("[수정됨/마이그019] 삭제 시 user_favorites.customer_id 가 SET NULL — 즐겨찾기 행 보존", async () => {
     const db = testDb();
     const tid = await makeTenant("betapos");
     const uid = await makeUser(tid, "chang");
@@ -291,15 +290,12 @@ describe("(d) 거래처 삭제 — 관련 레코드 FK on-delete 동작", () => 
       .select()
       .from(userFavorites)
       .where(and(eq(userFavorites.userId, uid), eq(userFavorites.remoteId, "GN40004000")));
-    // ★ 즐겨찾기 행이 통째로 사라진다(CASCADE) — 스키마가 약속한 SET NULL(행 보존)이 아니다.
-    expect(favs.length).toBe(0);
+    // ★ 마이그019 로 FK=SET NULL: 즐겨찾기 행은 살아남고(remote_id 유지 → orphan 후보 복귀),
+    //   customer_id 만 NULL. 스키마 선언(set null)과 일치. 직원 즐겨찾기 조용한 삭제 없음.
+    expect(favs.length).toBe(1);
+    expect(favs[0].customerId).toBeNull();
+    expect(favs[0].remoteId).toBe("GN40004000");
   });
-
-  // 원하는 안전 동작: 스키마 선언대로 SET NULL — 즐겨찾기 행은 살아남고 customer_id 만 NULL,
-  //   remote_id 유지로 "신규 거래처 후보" 배너에 복귀. 마이그레이션으로 FK 를 SET NULL 로 교체해야.
-  it.todo(
-    "삭제 시 user_favorites.customer_id 가 SET NULL 되어 즐겨찾기 행이 보존돼야 한다(스키마와 일치)",
-  );
 
   it("삭제 시 pending_updates 는 CASCADE 로 함께 지워진다(고아 큐 미방지)", async () => {
     const db = testDb();
@@ -350,40 +346,51 @@ describe("(d) 거래처 삭제 — 관련 레코드 FK on-delete 동작", () => 
 // ───────────────────────────────────────────────────────────────────────────
 // 취약점 문서화 — 현재(취약한) 동작을 통과 테스트로 못박고, 원하는 안전 동작은 it.todo.
 describe("(e) importPeer — 레이스/중복 미방어 (enrollCustomer 와 비대칭)", () => {
-  it("[현재 동작] 이미 등록된 remote_id 로 importPeer 하면 raw 로 throw (수렴 로직 없음)", async () => {
+  it("[수정됨] 같은 tenant 중복 remote_id importPeer 는 raw throw 대신 기존 행으로 수렴", async () => {
     const db = testDb();
     const tid = await makeTenant("betapos");
     const uid = await makeUser(tid, "chang");
-    // 후보를 먼저 정식 등록.
-    await importPeer({ remoteId: "GN70007000", name: "봉스푸드" }, {
+    const first = await importPeer({ remoteId: "GN70007000", name: "봉스푸드" }, {
       tenantId: tid,
       assignedUserId: uid,
     });
-    // ★ 같은 remote_id 로 다시 importPeer — enrollCustomer 는 catch-재조회로 수렴하지만
-    //    importPeer 는 unique 위반을 그대로 던진다(운영자에겐 raw 500 가능). 취약점.
-    await expect(
-      importPeer({ remoteId: "GN70007000", name: "중복후보" }, {
-        tenantId: tid,
-        assignedUserId: uid,
-      }),
-    ).rejects.toThrow();
-    // 중복 레코드는 안 생겼다(DB unique 가 최종 방어선) — 데이터 무결성 자체는 유지.
+    // ★ 같은 remote_id 재importPeer — enrollCustomer 처럼 catch-재조회로 수렴(기존 행 반환).
+    const second = await importPeer({ remoteId: "GN70007000", name: "중복후보" }, {
+      tenantId: tid,
+      assignedUserId: uid,
+    });
+    expect(second.id).toBe(first.id); // 같은 레코드로 수렴, raw throw 없음
     const rows = await db
       .select()
       .from(customers)
       .where(eq(customers.remoteId, "GN70007000"));
-    expect(rows.length).toBe(1);
+    expect(rows.length).toBe(1); // 중복 레코드 없음
   });
 
-  // 원하는 안전 동작: importPeer 도 enrollCustomer 처럼 unique 충돌을 잡아 의미있는 결과
-  //   (기존 거래처 반환 또는 typed 실패)로 수렴해야 한다.
-  it.todo("importPeer 가 remote_id 중복을 raw throw 대신 수렴/typed 결과로 처리해야 한다");
+  it("[수정됨] 타 tenant 소유 remote_id importPeer 는 여전히 throw(격리 유지)", async () => {
+    const other = await makeTenant("other");
+    const uOther = await makeUser(other, "o");
+    await importPeer({ remoteId: "GN80008000", name: "타사거래처" }, {
+      tenantId: other,
+      assignedUserId: uOther,
+    });
+    const mine = await makeTenant("mine");
+    const uMine = await makeUser(mine, "m");
+    // 타 tenant 가 쓰는 remote_id 는 수렴 대상 아님 → throw → jsonError 가 409 로 변환.
+    await expect(
+      importPeer({ remoteId: "GN80008000", name: "가로채기시도" }, {
+        tenantId: mine,
+        assignedUserId: uMine,
+      }),
+    ).rejects.toThrow();
+  });
 });
 
-describe("(f) registerHeartbeatToken — tenant 미격리(무인증, H2)", () => {
-  it("[현재 동작] remote_id 만 알면 tenant 검증 없이 그 거래처 토큰을 회전시킬 수 있다", async () => {
+describe("(f) registerHeartbeatToken — tenant 스코프(H2 봉인)", () => {
+  it("[수정됨] tenantId 로 스코프하면 남의 tenant 거래처 토큰은 회전 못 한다(null)", async () => {
     const db = testDb();
     const victim = await makeTenant("victim");
+    const attacker = await makeTenant("attacker");
     const [cust] = await db
       .insert(customers)
       .values({
@@ -394,25 +401,22 @@ describe("(f) registerHeartbeatToken — tenant 미격리(무인증, H2)", () =>
       })
       .returning({ id: customers.id });
 
-    // ★ 호출자는 tenantId 를 넘기지도 않는다 — 시그니처가 (remoteId) 뿐. 전역 unique 덕에
-    //    1행만 잡지만, "누구의 거래처인가"는 전혀 검증하지 않는다. remote_id 만 알면
-    //    남의 거래처 heartbeat 토큰을 갈아끼워 상태보고를 가로챌 수 있다(코워크 검토 H2).
-    const token = await registerHeartbeatToken("GN80008000");
-    expect(token).toBeTruthy();
-
+    // ★ 라우트는 이제 enroll-key 인증 후 그 tenantId 로 스코프해 호출한다. 공격자 tenant 로
+    //    스코프하면 remote_id 가 그 tenant 소유가 아니라 0행 → null. 남의 토큰 회전 불가.
+    expect(await registerHeartbeatToken("GN80008000", attacker)).toBeNull();
+    // 피해자(소유) tenant 의 토큰 해시는 그대로(안 바뀜).
     const [after] = await db
       .select({ h: customers.heartbeatToken })
       .from(customers)
       .where(eq(customers.id, cust.id))
       .limit(1);
-    // 토큰 해시가 실제로 바뀌었다(회전됨) — tenant 게이트 없이.
-    expect(after.h).not.toBe("old-hash");
+    expect(after.h).toBe("old-hash");
+    // 진짜 소유 tenant 로 스코프하면 발급된다.
+    expect(await registerHeartbeatToken("GN80008000", victim)).toBeTruthy();
   });
 
   it("미등록 remote_id 는 null 반환(있는 것만 회전)", async () => {
-    expect(await registerHeartbeatToken("GN99999999")).toBeNull();
+    const t = await makeTenant("t");
+    expect(await registerHeartbeatToken("GN99999999", t)).toBeNull();
   });
-
-  // 원하는 안전 동작: 사업화(키 통일) 시 tenant/인증 스코프를 요구해야 한다.
-  it.todo("registerHeartbeatToken 이 tenant/인증 스코프를 요구해 cross-tenant 토큰 회전을 막아야 한다");
 });

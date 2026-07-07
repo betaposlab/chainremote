@@ -272,28 +272,22 @@ describe("마이그012 — users.email lower() 전역 unique (C1 계정충돌 �
   });
 });
 
-// ── 무자비 섹션: 방어가 얇은 지점을 현재 동작 그대로 문서화 ──
-describe("경계 — 인증 없는 heartbeat-token 발급 (H2, tenant 스코프 없음)", () => {
-  it("현재 동작: registerHeartbeatToken 은 remote_id 만 알면 tenant 컨텍스트 없이 토큰을 준다", async () => {
-    // registerHeartbeatToken(remoteId) 은 tenantId 인자도, 인증도 없다. remote_id 전역
-    // unique(011) 덕에 딱 1행만 매칭하긴 하지만, 호출자가 그 거래처의 소속 tenant 를
-    // 증명하지 않는다. remote_id(9자리/AB형식)를 아는 사람은 남의 대리점 거래처에 대한
-    // 유효한 heartbeat 토큰을 발급받을 수 있다 = cross-tenant 로 heartbeat 위조 가능.
-    // 영향은 last_seen/version 위조에 한정(원격 접속 불가)이라 low. 코드 주석에 H2 로
-    // 명시된 '알려진 약점'이며 사업화(키 통일) 때 막기로 유보돼 있다.
-    const tB = await makeTenant("t-b");
-    await makeCustomer(tB, "B거래처", "GN99990000");
-    const token = await registerHeartbeatToken("GN99990000"); // 어떤 tenant 도 안 넘김
-    expect(token).not.toBeNull(); // ← 현재(취약) 동작: 무인증 발급 성공
+// ── H2 봉인(2026-07-07): heartbeat-token 발급이 이제 tenant enroll-key 인증을 요구 ──
+describe("경계 — heartbeat-token 발급 tenant 스코프 (H2 봉인)", () => {
+  it("registerHeartbeatToken 에 남의 tenantId 를 넘기면 null — cross-tenant 회전 차단", async () => {
+    // 라우트는 enroll-key 인증 후 그 tenantId 로 스코프해 호출한다. remote_id 를 알아도
+    // 자기 tenant 소속이 아니면 0행 → null. (옛날엔 remote_id 만으로 무인증 발급됐다.)
+    const owner = await makeTenant("t-owner");
+    const attacker = await makeTenant("t-attacker");
+    await makeCustomer(owner, "소유거래처", "GN99990000");
+    expect(await registerHeartbeatToken("GN99990000", attacker)).toBeNull();
+    // 소유 tenant 로 스코프하면 정상 발급.
+    expect(await registerHeartbeatToken("GN99990000", owner)).not.toBeNull();
   });
 
   it("존재하지 않는 remote_id 는 null (없는 거래처엔 토큰 안 준다)", async () => {
-    const token = await registerHeartbeatToken("NO-SUCH-ID");
+    const t = await makeTenant("t-x");
+    const token = await registerHeartbeatToken("NO-SUCH-ID", t);
     expect(token).toBeNull();
   });
-
-  // 원하는(안전한) 동작: 발급을 요청자 tenant/agent 인증에 묶어 cross-tenant 위조를 차단.
-  it.todo(
-    "registerHeartbeatToken 은 요청자 tenant 스코프(또는 agent 인증)를 요구해야 한다 — 사업화 전 H2 봉인",
-  );
 });

@@ -25,6 +25,10 @@ export interface ClaimResult {
   claimed: boolean;
   // occupied(claimed=false) 일 때 현재 점유자 표시 정보.
   occupiedBy?: { deviceLabel: string | null; since: Date };
+  // claimed=true 이면서 "다른 기기의 죽은(orphan, 2분↑ 무heartbeat) 세션"을 조용히 인수한 경우.
+  //   살아있는 세션 takeover 와 달리 프롬프트가 없으므로, 라우트가 이 표식으로 감사/알림을
+  //   남겨 무흔적 hijack 표면을 줄이게 한다(best-effort — UPSERT 직전 사전상태 기준).
+  reclaimedOrphan?: boolean;
 }
 
 /** 현재 점유 행 (없으면 null). */
@@ -46,6 +50,9 @@ export async function getActiveSession(userId: string) {
  * 동시 2기기 경쟁도 user_id PK 로 1건만 이긴다 (스펙 §10).
  */
 export async function claimSeat(p: SeatParams): Promise<ClaimResult> {
+  // 사전 상태(감사용, best-effort). UPSERT 는 원자적이라 이 조회와 미세 race 가 있으나
+  //   enforcement 가 아닌 로깅 목적이라 허용.
+  const prior = await getActiveSession(p.userId);
   const result = await db.execute(sql`
     INSERT INTO active_login_sessions
       (user_id, jti, device_id, device_label, ip, created_at, last_seen_at)
@@ -63,7 +70,12 @@ export async function claimSeat(p: SeatParams): Promise<ClaimResult> {
     RETURNING user_id
   `);
   const claimed = (result as unknown as { rows: unknown[] }).rows.length > 0;
-  if (claimed) return { claimed: true };
+  if (claimed) {
+    // 다른 기기의 죽은 세션을 인수했으면(같은 기기 재claim 은 orphan 아님) 표식.
+    //   claim 이 성공했는데 사전 점유자가 다른 기기였다면 = orphan(2분↑) 이었다는 뜻.
+    const reclaimedOrphan = !!prior && prior.deviceId !== p.deviceId;
+    return { claimed: true, reclaimedOrphan };
+  }
 
   // 점유됨 — 표시용으로 현재 점유자를 조회.
   const occ = await getActiveSession(p.userId);

@@ -223,9 +223,9 @@ describe("H1 구독/테넌트 정지 enforcement", () => {
     });
   });
 
-  // ── 잔여 공백(현재 동작 문서화) — 리소스 라우트는 테넌트 상태 재검사 안 함 ─
-  describe("잔여 공백: 이미 발급된 토큰은 정지 후에도 리소스 라우트에서 살아있다", () => {
-    it("[현재 동작] 활성 중 발급된 토큰은 테넌트 정지 뒤에도 GET /api/customers 200 을 받는다", async () => {
+  // ── H1 잔여공백 봉인(2026-07-07): 리소스 라우트도 requireApiAuth 에서 테넌트 상태 재검사 ─
+  describe("[수정됨] 정지 후 기존 토큰은 리소스 라우트에서도 즉시 차단된다", () => {
+    it("활성 중 발급된 토큰이라도 정지되면 GET /api/customers 가 401 로 거부된다", async () => {
       const db = testDb();
       // 활성 상태에서 로그인해 토큰을 얻는다.
       const tid = await makeTenant("gap-co");
@@ -243,24 +243,31 @@ describe("H1 구독/테넌트 정지 enforcement", () => {
         .where(eq(tenants.id, tid));
       expect(await isTenantActive(tid)).toBe(false); // 정지 확정.
 
-      // ★ 그럼에도 리소스 라우트는 여전히 200 을 준다 — requireApiAuth 가 서명/만료만 보고
-      //    테넌트 상태를 재검사하지 않기 때문. 정지가 즉시 반영되지 않는 공백.
+      // ★ 이제 리소스 라우트도 서버측에서 401 로 거부(requireApiAuth 가 테넌트 상태 재검사).
+      //    heartbeat 와 동일한 401(재로그인 유도, token 라우트가 403 으로 최종 차단)로 일관.
       const req = new Request("http://t/api/customers", {
         method: "GET",
         headers: { authorization: `Bearer ${token}` },
       });
       const res = await customersGET(req);
-      expect(res.status).toBe(200);
-      const j = await res.json();
-      expect(j.customers.map((c: { remoteId: string }) => c.remoteId)).toContain("GAP001");
-      // → 정지 후에도 거래처 목록/원격 메타를 최대 24h(토큰 TTL) 동안 계속 조회 가능.
+      expect(res.status).toBe(401);
     });
 
-    // 원하는 안전한 동작: 서버측이 리소스 라우트에서도 테넌트 상태를 하드 차단해야 한다
-    // (client-cooperative heartbeat 자진종료에 의존하지 말 것). 미구현 → todo.
-    it.todo(
-      "리소스 라우트(requireApiAuth)가 정지 테넌트 토큰을 서버측에서 즉시 401/403 으로 거부해야 한다",
-    );
+    it("super_admin(본사)은 자기잠금 방지로 정지 상태에서도 리소스 접근 유지", async () => {
+      const db = testDb();
+      const tid = await makeTenant("hq-co", { subscriptionStatus: "suspended" });
+      const uid = await makeUser(tid, "hq@x");
+      const { token } = await signApiToken(
+        { uid, email: "hq@x", displayName: "hq", role: "super_admin", tenantId: tid },
+        "33333333-3333-3333-3333-333333333333",
+      );
+      const req = new Request("http://t/api/customers", {
+        method: "GET",
+        headers: { authorization: `Bearer ${token}` },
+      });
+      const res = await customersGET(req);
+      expect(res.status).toBe(200); // super_admin 예외 — 봉인돼도 본사는 관리 가능
+    });
   });
 });
 

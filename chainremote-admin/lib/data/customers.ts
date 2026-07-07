@@ -2,7 +2,7 @@
 // 프레임워크 의존 없음(revalidatePath/redirect 없음) — 후처리는 호출 측 몫.
 // 모든 함수는 tenantId 격리 강제. 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customers, tenants, userFavorites } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
@@ -94,36 +94,58 @@ export async function importPeer(
   const userNote = input.username ? `사용자: ${input.username}` : "";
   const notes = [platformNote, userNote].filter(Boolean).join(" / ") || null;
 
-  const [row] = await db
-    .insert(customers)
-    .values({
-      tenantId: ctx.tenantId,
-      assignedUserId: ctx.assignedUserId,
-      name,
-      contactName: null,
-      phone: null,
-      address: null,
-      remoteId: input.remoteId,
-      accessPassword: null,
-      notes,
-    })
-    .returning();
+  // INSERT 만 try/catch 로 감싼다 — unique 위반 수렴은 여기서만. linkFavorites 는 try 밖으로
+  //   빼서 그 실패가 catch 에 unique 수렴으로 오인·흡수돼 "부분성공을 성공으로 위장"하지 않게 한다.
+  let row: typeof customers.$inferSelect;
+  try {
+    const [inserted] = await db
+      .insert(customers)
+      .values({
+        tenantId: ctx.tenantId,
+        assignedUserId: ctx.assignedUserId,
+        name,
+        contactName: null,
+        phone: null,
+        address: null,
+        remoteId: input.remoteId,
+        accessPassword: null,
+        notes,
+      })
+      .returning();
+    row = inserted;
+  } catch (e) {
+    // remote_id 전역 unique(011) 위반 = 이미 등록된 거래처. enrollCustomer 와 같은 수렴:
+    //   같은 tenant 면 기존 행으로 수렴(중복 레코드 안 만듦, raw 500 방지). 타 tenant 소유거나
+    //   unique 아닌 진짜 에러(재조회에도 행 없음)면 throw → jsonError 가 cause 체인으로 409/500 변환.
+    const [existing] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.remoteId, input.remoteId))
+      .limit(1);
+    if (!existing || existing.tenantId !== ctx.tenantId) throw e;
+    row = existing;
+  }
+  // 신규삽입/기존수렴 어느 경로든 즐겨찾기 링크(멱등). 실패하면 그대로 전파(삼키지 않음).
   await linkFavoritesToCustomer(input.remoteId, row.id, ctx.tenantId);
   return row;
 }
 
 // heartbeat 토큰 자가발급 — 거래처 있으면 새 토큰 찍어 반환(멱등 회전).
-//   키 없는 에이전트가 상태 보고 토큰을 받는 유일한 경로. auto-enroll(키) 없이 깐 거래처도
-//   이걸로 보고가 살아난다.
-//   ※ 무인증이라 remote_id 만 알면 토큰을 받을 수 있는 약점(코워크 검토 H2)이 있으나, 지금은
-//     내부 소규모 운영이라 "모든 거래처가 상태 보고"의 편익이 더 크다. 사업화(키 통일) 때 다시 막는다.
-//     rate-limit 으로 스캔성 남용만 걸러둔다.
-export async function registerHeartbeatToken(remoteId: string): Promise<string | null> {
+//   ★H2 봉인(2026-07-07): 라우트가 tenant enroll-key 인증을 통과한 뒤에만 호출하고, 그
+//   tenantId 로 스코프한다(remote_id + tenant_id 둘 다 일치해야 발급). tenantId 없는 호출은
+//   테넌트 무스코프(옛 동작) — 라우트는 항상 tenantId 를 넘겨 남의 거래처 토큰 발급/회전을 막는다.
+export async function registerHeartbeatToken(
+  remoteId: string,
+  tenantId?: string,
+): Promise<string | null> {
   const plaintext = generateHeartbeatToken();
+  const where = tenantId
+    ? and(eq(customers.remoteId, remoteId), eq(customers.tenantId, tenantId))
+    : eq(customers.remoteId, remoteId);
   const [row] = await db
     .update(customers)
     .set({ heartbeatToken: hashHeartbeatToken(plaintext) })
-    .where(eq(customers.remoteId, remoteId))
+    .where(where)
     .returning({ id: customers.id });
   return row ? plaintext : null;
 }
@@ -149,27 +171,13 @@ export async function recordHeartbeat(
     )
     .returning({ id: customers.id });
   if (!row) return false;
-  // 지문 백필(앵커) — 옛 거래처(machine_uuid NULL)에 한 번 채워두면, 나중에 ID 가 바뀌어도
-  //   enroll 의 machine_uuid 매칭이 걸려 상호가 따라온다. 이미 값 있으면 안 건드린다
-  //   (포맷 변경은 enroll 경로가 처리 + unique 충돌 회피).
-  // ★ machine_uuid 앵커 전면 비활성 (2026-07-07). 지문(get_machine_fingerprint)이 기계마다
-  //   유니크하지 않아(Win7/폴백이 같은 값 공유) 서로 다른 기계가 같은 지문을 갖는다. 그러면
-  //   enroll 앵커 매칭이 남의 거래처 레코드를 가로챈다(행복정육식당↔5.5춘천닭갈비, 준코↔처갓집
-  //   실사고). 지문 저장 자체를 멈춰 오염을 원천 차단한다. 신뢰 가능한 지문이 생기면 재설계.
-  const uuid: string | undefined = undefined;
+  // ★ machine_uuid 앵커 전면 비활성 (2026-07-07). 원래 여기서 지문(machineUuid)을 백필해
+  //   "ID 가 바뀌어도 enroll 매칭으로 상호가 따라오게" 했다. 그러나 지문(get_machine_fingerprint)이
+  //   기계마다 유니크하지 않아(Win7/폴백이 같은 값 공유) 서로 다른 기계가 같은 지문을 갖고, 그러면
+  //   enroll 앵커 매칭이 남의 거래처 레코드를 가로챈다(행복정육식당↔5.5춘천닭갈비, 준코↔처갓집 실사고).
+  //   저장 자체를 멈춰 오염을 원천 차단한다. machineUuid 인자는 계약 유지를 위해 남기되 안 쓴다.
+  //   신뢰 가능한 지문 소스가 생기면 백필/매칭을 함께 재설계할 것(enrollCustomer step2 참조).
   void machineUuid;
-  if (uuid) {
-    await db
-      .update(customers)
-      .set({ machineUuid: uuid })
-      .where(
-        and(
-          eq(customers.id, row.id),
-          sql`(${customers.machineUuid} IS NULL OR ${customers.machineUuid} = '')`,
-        ),
-      )
-      .catch(() => {});
-  }
   return true;
 }
 

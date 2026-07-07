@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { eq } from "drizzle-orm";
 import { testDb } from "./helpers/db";
 import { registerHeartbeatToken, recordHeartbeat } from "@/lib/data/customers";
+import { getOrCreateEnrollKey } from "@/lib/data/tenants";
+import { POST as registerTokenPOST } from "@/app/api/customers/register-heartbeat-token/route";
 import { hashHeartbeatToken } from "@/lib/heartbeat-token";
 import { tenants, customers } from "@/lib/schema";
 
@@ -172,59 +174,101 @@ describe("recordHeartbeat — 토큰 검증", () => {
     const ok = await recordHeartbeat("88888888", tokenForKitchen!, "1.4.49");
     expect(ok).toBe(false);
   });
+
+  // ★ 앵커 비활성 회귀 가드 — recordHeartbeat 의 백필 봉인(customers.ts recordHeartbeat)을
+  //   되돌려 재활성화하면 이 테스트가 red 가 된다. enroll-anchor.test.ts 가 enrollCustomer 쪽을
+  //   지키고, 이 테스트가 recordHeartbeat 쪽을 지켜 대칭 가드를 완성한다(복제 POS 지문 오염 부활 차단).
+  it("machine_uuid 앵커 비활성: recordHeartbeat 에 지문을 넘겨도 machine_uuid 는 null 유지", async () => {
+    const db = testDb();
+    const tid = await makeTenant("betapos");
+    await makeCustomer(tid, "부엌", "77138120");
+    const token = await registerHeartbeatToken("77138120");
+
+    // 프로덕션 heartbeat 라우트는 매 tick 4번째 인자로 지문을 넘긴다. 복제 POS 이미지는 같은
+    //   지문을 공유하므로, 저장하면 서로 다른 기계가 같은 machine_uuid 를 갖고 enroll 앵커가
+    //   남의 레코드를 가로챈다. 따라서 지문을 넘겨도 절대 저장(백필)하면 안 된다.
+    const ok = await recordHeartbeat("77138120", token!, "1.4.49", "SHARED-FP");
+    expect(ok).toBe(true); // heartbeat 자체는 정상 기록
+
+    const [row] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.remoteId, "77138120"));
+    expect(row.machineUuid).toBeNull(); // ← 지문 저장 봉인 확인
+    expect(row.lastVersion).toBe("1.4.49"); // 버전은 갱신됨(heartbeat 정상)
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// (d) ★H2 구멍 — 무인증 토큰 발급/회전 = 토큰 탈취 & 정당 에이전트 축출
-//
-//   registerHeartbeatToken 은 remote_id 만 알면 (아무 인증 없이) 유효 토큰을 새로
-//   찍어준다. route(register-heartbeat-token/route.ts)도 body.remoteId 만 받고 인증
-//   미들웨어가 없다. 즉 공격자가 대상 remote_id 만 알면:
-//     ① 유효 토큰을 받아 그 거래처의 상태/버전을 위조 보고할 수 있고
-//     ② 발급이 곧 "회전"이라 정당 에이전트의 기존 토큰을 무효화(축출/DoS)한다.
-//   아래 두 테스트는 이 취약한 "현재 동작"을 못박아 둔다(회귀 감시). 원하는 안전한
-//   동작은 바로 아래 it.todo 로 남겼다. (반환값 vulnerabilities 에 별도 보고.)
+// (d) ★H2 봉인(2026-07-07) — register-heartbeat-token 라우트가 이제 enroll-key 인증을
+//   요구하고 그 tenant 로 스코프한다. 옛날엔 remote_id 만으로 무인증 발급/회전이 돼
+//   ① 상태 위조 ② 정당 에이전트 축출(DoS)이 가능했다. 이제 tenant enroll-key 없이는 토큰을
+//   못 받는다. (데이터 레이어 registerHeartbeatToken 은 tenantId 옵션으로 스코프 — 라우트가
+//   항상 넘긴다. tenantId 없는 호출은 내부용 하위호환이고 어떤 라우트도 무인증 노출 안 함.)
 // ─────────────────────────────────────────────────────────────────────────────
-describe("★H2 취약점 — 무인증 heartbeat 토큰 발급/회전 (현재 동작 문서화)", () => {
-  it("[취약] 인증 없이 remote_id 만으로 유효 토큰을 받아 위조 보고가 통한다", async () => {
+describe("★H2 봉인 — register-heartbeat-token 라우트 enroll-key 인증 요구", () => {
+  it("enroll-key 없이 remote_id 만으로는 401(무인증 발급 봉인)", async () => {
     const tid = await makeTenant("betapos");
     await makeCustomer(tid, "부엌", "77138120");
-
-    // 공격자: 아무 세션/토큰/tenant 증명 없이 remote_id 만으로 발급 호출
-    const attackerToken = await registerHeartbeatToken("77138120");
-    expect(attackerToken).toBeTruthy();
-
-    // 그 토큰으로 위조 버전을 보고 → 서버가 받아들인다(200 상당)
-    const ok = await recordHeartbeat("77138120", attackerToken!, "9.9.9-fake");
-    expect(ok).toBe(true); // ← 현재는 막지 못한다 (취약)
+    const req = new Request("http://t/api/customers/register-heartbeat-token", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ remoteId: "77138120" }), // 키 없음
+    });
+    const res = await registerTokenPOST(req);
+    expect(res.status).toBe(401); // remote_id 만으론 토큰 못 받음
   });
 
-  it("[취약] 재발급이 곧 회전이라 정당 에이전트의 기존 토큰이 무효화된다(축출)", async () => {
+  it("틀린 enroll-key 는 403(tenant 인증 실패)", async () => {
     const tid = await makeTenant("betapos");
     await makeCustomer(tid, "부엌", "77138120");
-
-    // 정당 에이전트가 먼저 토큰을 받는다
-    const legitToken = await registerHeartbeatToken("77138120");
-    expect(await recordHeartbeat("77138120", legitToken!, "1.4.49")).toBe(true);
-
-    // 공격자가 같은 remote_id 로 재발급 → 토큰 회전
-    const attackerToken = await registerHeartbeatToken("77138120");
-    expect(attackerToken).not.toBe(legitToken);
-
-    // ★ 정당 에이전트의 기존 토큰은 이제 죽었다 (heartbeat 403 → 축출/DoS)
-    expect(await recordHeartbeat("77138120", legitToken!, "1.4.49")).toBe(false);
-    // 공격자 토큰만 살아있다
-    expect(await recordHeartbeat("77138120", attackerToken!, "9.9.9-fake")).toBe(true);
+    const req = new Request("http://t/api/customers/register-heartbeat-token", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "9.9.9.9" },
+      body: JSON.stringify({ remoteId: "77138120", tenantSlug: "betapos", enrollKey: "WRONG" }),
+    });
+    const res = await registerTokenPOST(req);
+    expect(res.status).toBe(403);
   });
 
-  // ── 원하는 안전한 동작(아직 미구현) ──────────────────────────────────────
-  // H2 를 막으려면 데이터 레이어/route 가 인증(tenant enroll-key 또는 세션)을 요구해야
-  // 하고, 발급을 "이미 토큰 있는 거래처는 회전 금지(또는 소유 증명 필요)"로 좁혀야 한다.
-  // 현재 registerHeartbeatToken(remoteId) 시그니처엔 인증 인자가 없어 표현 불가 → todo.
-  it.todo(
-    "토큰 발급은 인증(tenant enroll-key/세션)을 요구해야 한다 — remote_id 만으로 불가",
-  );
-  it.todo(
-    "이미 유효 토큰이 있는 거래처는 무인증 재발급으로 회전되지 않아야 한다(정당 에이전트 축출 방지)",
-  );
+  it("올바른 enroll-key + 그 tenant 거래처면 200 토큰 발급", async () => {
+    const tid = await makeTenant("betapos");
+    await makeCustomer(tid, "부엌", "77138120");
+    const key = await getOrCreateEnrollKey(tid); // tenants.enroll_secret_hash 세팅
+    const req = new Request("http://t/api/customers/register-heartbeat-token", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "8.8.8.8" },
+      body: JSON.stringify({ remoteId: "77138120", tenantSlug: "betapos", enrollKey: key }),
+    });
+    const res = await registerTokenPOST(req);
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as { token: string };
+    expect(j.token).toBeTruthy();
+    // 발급받은 토큰으로 heartbeat 가 실제 통한다.
+    expect(await recordHeartbeat("77138120", j.token, "1.4.49")).toBe(true);
+  });
+
+  it("올바른 tenant 인증이어도 남의 tenant 거래처 remote_id 는 409(스코프 격리)", async () => {
+    const mine = await makeTenant("mine");
+    const other = await makeTenant("other");
+    await makeCustomer(other, "남의거래처", "GN80008000"); // 다른 tenant 소유
+    const key = await getOrCreateEnrollKey(mine);
+    const req = new Request("http://t/api/customers/register-heartbeat-token", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "7.7.7.7" },
+      body: JSON.stringify({ remoteId: "GN80008000", tenantSlug: "mine", enrollKey: key }),
+    });
+    const res = await registerTokenPOST(req);
+    expect(res.status).toBe(409); // 내 tenant 엔 그 거래처 없음 → 남의 토큰 회전 불가
+  });
+
+  it("데이터 레이어 스코프: registerHeartbeatToken(remoteId, 남의tenant) 는 null", async () => {
+    const owner = await makeTenant("owner");
+    const attacker = await makeTenant("attacker");
+    await makeCustomer(owner, "피해거래처", "GN80008000");
+    // 남의 tenantId 로 스코프하면 매칭 0행 → null (cross-tenant 회전 차단)
+    expect(await registerHeartbeatToken("GN80008000", attacker)).toBeNull();
+    // 진짜 소유 tenant 로 스코프하면 발급됨
+    expect(await registerHeartbeatToken("GN80008000", owner)).toBeTruthy();
+  });
 });

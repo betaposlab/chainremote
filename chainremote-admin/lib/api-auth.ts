@@ -5,6 +5,9 @@
 // 발급 POST /api/auth/token, 사용은 모든 /api/* 에 Authorization: Bearer.
 
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { tenants } from "@/lib/schema";
 
 const ALG = "HS256";
 const ISSUER = "chainremote-admin";
@@ -63,16 +66,51 @@ export async function requireApiAuth(req: Request): Promise<ApiTokenClaims> {
   const header = req.headers.get("authorization") ?? "";
   const match = header.match(/^Bearer\s+(.+)$/i);
   if (!match) throw new ApiAuthError(401, "Bearer 토큰 없음");
+  let claims: ApiTokenClaims;
   try {
-    return await verifyApiToken(match[1]);
+    claims = await verifyApiToken(match[1]);
   } catch {
     throw new ApiAuthError(401, "토큰 검증 실패");
   }
+  // H1: 정지/해지 테넌트는 발급된 24h 토큰이 살아있어도 리소스 접근을 서버측에서 차단한다.
+  //   (로그인 3경로 차단만으론 정지 반영이 토큰 만료까지 최대 24h 지연되던 공백 — 코워크 H1.)
+  //   super_admin(본사)만 예외: 자기잠금 방지(betaposlab 운영 계정). 로그인 경로와 동일 정책.
+  //   ★상태코드 401(403 아님): /api/auth/heartbeat 이 정지에 401 을 쓰는 기존 설계와 일관되게 —
+  //     앱은 non-revoked 401 을 "재로그인" 으로 처리하고, 그 재로그인은 token 라우트가 403 으로 막아
+  //     깔끔히 로그아웃된다. 403 을 내면 앱의 heartbeat 401 흐름과 어긋나 세션이 limbo 에 빠진다.
+  if (claims.role !== "super_admin") {
+    const [t] = await db
+      .select({
+        isActive: tenants.isActive,
+        subscriptionStatus: tenants.subscriptionStatus,
+      })
+      .from(tenants)
+      .where(eq(tenants.id, claims.tenantId))
+      .limit(1);
+    if (!t || !t.isActive || t.subscriptionStatus !== "active") {
+      throw new ApiAuthError(401, "구독이 정지된 회사입니다");
+    }
+  }
+  return claims;
 }
 
 // 권한 게이트: owner 만 허용 (거래처 수정/삭제 등 chang 전용 작업).
 export function requireOwner(me: ApiTokenClaims): void {
   if (me.role !== "owner") throw new ApiAuthError(403, "owner 권한 필요");
+}
+
+// 에러 + 그 cause 체인(최대 5단)을 하나의 문자열로. drizzle-orm 0.45 는 DB 에러를
+// DrizzleQueryError 로 감싸 message 를 "Failed query: ..." 로 바꾸고 진짜 제약 위반
+// 문구(duplicate key ... uq_customers_remote_id)는 e.cause 로 내려보낸다. message 만
+// 보면 M8(중복 remote_id → 친절한 409) 변환이 새서 raw 500 이 나갔다(테스트로 실증).
+function errorMessageChain(e: unknown): string {
+  let out = "";
+  let cur: unknown = e;
+  for (let i = 0; i < 5 && cur instanceof Error; i++) {
+    out += " " + cur.message;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return out;
 }
 
 // 라우트에서 에러 응답 통일.
@@ -82,10 +120,10 @@ export function jsonError(e: unknown): Response {
   }
   // remote_id 전역 partial-unique(011) 충돌은 원시 SQL 500 대신 409 로.
   // (다른 거래처와 같은 ID 등록 시도 — 오타/복붙/멀티테넌트 중복.)
+  const chain = errorMessageChain(e);
   if (
-    e instanceof Error &&
-    /duplicate key|unique/i.test(e.message) &&
-    /uq_customers_remote_id|remote_id/i.test(e.message)
+    /duplicate key|unique/i.test(chain) &&
+    /uq_customers_remote_id|remote_id/i.test(chain)
   ) {
     return Response.json(
       { error: "이미 등록된 원격 ID 입니다 (다른 거래처와 중복)." },

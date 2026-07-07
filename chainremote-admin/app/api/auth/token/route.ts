@@ -93,6 +93,15 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
+    // 죽은(orphan, 2분↑ 무heartbeat) 세션을 프롬프트 없이 조용히 인수한 경우 감사 흔적을 남긴다
+    //   (살아있는 세션 takeover 는 별도 라우트/모달로 사용자 확인을 거치지만, orphan 인수는
+    //   마찰0이라 무흔적이 된다 — active-sessions.ts:reclaimedOrphan 계약 이행). 로그인 성공
+    //   자격은 이미 검증됐으므로 공격이 아니라 감사·이상탐지용 신호.
+    if (claim.reclaimedOrphan) {
+      console.warn(
+        `[seat] orphan 세션 인수: userId=${u.id} email=${u.email} newDevice=${deviceId} label=${deviceLabel || "-"} ip=${clientIp(req) ?? "-"}`,
+      );
+    }
 
     const { token, expiresIn } = await signApiToken(
       {
