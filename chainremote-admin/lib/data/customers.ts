@@ -152,7 +152,12 @@ export async function recordHeartbeat(
   // 지문 백필(앵커) — 옛 거래처(machine_uuid NULL)에 한 번 채워두면, 나중에 ID 가 바뀌어도
   //   enroll 의 machine_uuid 매칭이 걸려 상호가 따라온다. 이미 값 있으면 안 건드린다
   //   (포맷 변경은 enroll 경로가 처리 + unique 충돌 회피).
-  const uuid = machineUuid?.trim();
+  // ★ machine_uuid 앵커 전면 비활성 (2026-07-07). 지문(get_machine_fingerprint)이 기계마다
+  //   유니크하지 않아(Win7/폴백이 같은 값 공유) 서로 다른 기계가 같은 지문을 갖는다. 그러면
+  //   enroll 앵커 매칭이 남의 거래처 레코드를 가로챈다(행복정육식당↔5.5춘천닭갈비, 준코↔처갓집
+  //   실사고). 지문 저장 자체를 멈춰 오염을 원천 차단한다. 신뢰 가능한 지문이 생기면 재설계.
+  const uuid: string | undefined = undefined;
+  void machineUuid;
   if (uuid) {
     await db
       .update(customers)
@@ -206,8 +211,11 @@ export async function enrollCustomer(
   ctx: { tenantId: string },
 ): Promise<{ token: string; created: boolean } | "cross_tenant"> {
   const remoteId = input.remoteId.trim();
-  // 지문 못 읽는 기기(get_machine_fingerprint 빈값)는 매칭에서 제외 — 빈값끼리 오매칭 방지.
-  const machineUuid = input.machineUuid?.trim() || undefined;
+  // ★ machine_uuid 앵커 전면 비활성 (2026-07-07, recordHeartbeat 주석 참조). 지문이 기계 간
+  //   충돌해 남의 레코드를 가로채는 사고(행복정육↔5.5춘천닭갈비 등) → 앵커 매칭/백필 모두 끈다.
+  //   아래 step1 백필·step2 매칭·step3 저장이 전부 no-op 이 된다(machineUuid=undefined).
+  void input.machineUuid;
+  const machineUuid: string | undefined = undefined;
   const plaintext = generateHeartbeatToken();
   const tokenHash = hashHeartbeatToken(plaintext);
 
