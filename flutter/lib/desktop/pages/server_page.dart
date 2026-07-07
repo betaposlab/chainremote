@@ -1667,8 +1667,11 @@ class __FileTransferLogPageState extends State<_FileTransferLogPage> {
   }
 }
 
-// 수락 카드 테두리를 은은하게 깜빡여 "눌러주세요" 를 어필한다. 창 자체가 딱 카드 크기(360x200,
-// getHiddenTitleBarWindowOptions)라 바깥 글로우는 창 밖으로 잘리므로 테두리 색·굵기 펄스 위주로 둔다.
+// 수락 카드 테두리를 블링블링하게 맥동시켜 "눌러주세요" 를 어필한다(2026-07-07 Chang 요청).
+// CM 창이 카드와 정확히 같은 크기(360x200)라 바깥으로 번지는 글로우는 창 경계에서 잘린다.
+// 그래서 테두리를 안쪽으로 살짝 들여(inset) 그리고, 글로우(blur)가 '안으로' 번지게 해
+// 창 안에서 네온처럼 숨쉬는 테두리를 만든다. CustomPaint 오버레이라 창 크기·레이아웃을
+// 건드리지 않는다(깜빡임 회귀 위험 0). IgnorePointer 로 수락/거부 버튼 클릭은 그대로 통과.
 class _PulsingAcceptBorder extends StatefulWidget {
   final Widget child;
   const _PulsingAcceptBorder({required this.child});
@@ -1686,7 +1689,7 @@ class _PulsingAcceptBorderState extends State<_PulsingAcceptBorder>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 750),
     )..repeat(reverse: true);
   }
 
@@ -1698,26 +1701,57 @@ class _PulsingAcceptBorderState extends State<_PulsingAcceptBorder>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final t = Curves.easeInOut.transform(_controller.value);
-        final glow = Color.lerp(
-            const Color(0xFF1E5BFF), const Color(0xFF8AB4FF), t)!;
-        // 굵기(width)는 고정 — BoxDecoration.padding 이 border width 를 따라가서
-        // Container 가 매 프레임 child(버튼 포함) 를 다시 레이아웃하게 만든다.
-        // 그림자(boxShadow)도 안 쓴다 — CM 창이 카드와 정확히 같은 크기(360x200)라
-        // 바깥 글로우가 창 경계에서 잘려 은은한 광이 아니라 가장자리 일렁임으로 보인다.
-        // 색상 펄스만으로 "눌러주세요" 어필을 준다.
-        return Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: glow, width: 3),
-            borderRadius: BorderRadius.circular(4),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        widget.child,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                final t = Curves.easeInOut.transform(_controller.value);
+                return CustomPaint(painter: _GlowBorderPainter(t));
+              },
+            ),
           ),
-          child: child,
-        );
-      },
-      child: widget.child,
+        ),
+      ],
     );
   }
+}
+
+// 창 안쪽으로 빛나는 맥동 테두리. blur 로 글로우를 '안으로' 번지게 해 창 경계 잘림을 피한다.
+class _GlowBorderPainter extends CustomPainter {
+  final double t; // 0..1 맥동 위상
+  _GlowBorderPainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const inset = 3.5;
+    final rect = Offset(inset, inset) &
+        Size(size.width - inset * 2, size.height - inset * 2);
+    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(7));
+    // 짙은 브랜드블루 ↔ 밝은 하늘빛 사이를 오간다(대비를 키워 '블링블링' 하게).
+    final color =
+        Color.lerp(const Color(0xFF1E5BFF), const Color(0xFF8FD0FF), t)!;
+    // 글로우(번짐) — 강도/굵기를 맥동. inset 이라 blur 가 안쪽으로 빛난다.
+    canvas.drawRRect(
+        rrect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.5
+          ..color = color.withOpacity(0.45 + 0.45 * t)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2 + 7 * t));
+    // 선명한 심 라인 — 글로우 위에 또렷한 테두리.
+    canvas.drawRRect(
+        rrect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5
+          ..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_GlowBorderPainter old) => old.t != t;
 }
