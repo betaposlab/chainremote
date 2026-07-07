@@ -87,6 +87,8 @@ class _FileManagerPageState extends State<FileManagerPage>
   final _dropMaskVisible = false.obs; // TODO impl drop mask
   final _overlayKeyState = OverlayKeyState();
   final _uniqueKey = UniqueKey();
+  // 방금 활성 상태였던 전송 작업 id 배치 — 전부 끝나면 결과 토스트를 낸다(_bottomTransferBar).
+  final Set<int> _lastTransferBatchIds = {};
 
   late FFI _ffi;
 
@@ -240,12 +242,55 @@ class _FileManagerPageState extends State<FileManagerPage>
 
   // 하단 전송 진행바. 전송 중(inProgress)일 때만 나타나고, 평소엔 높이 0이라
   // 로컬·원격 창이 최대로 넓어진다. 기존 전송 패널을 대체한다.
+  // ★2026-07-08(Chang): 바가 작고 화면 맨 아래라 "전송이 시작됐는지/끝났는지 몰라 재전송"하는
+  //   문제 → ① 정적 아이콘 대신 스피너로 "지금 진행 중"을 명확히, ② 굵은 "전송 중" 라벨 +
+  //   두꺼운 진행바, ③ AnimatedSize 로 등장을 눈에 띄게, ④ 완료/실패 시 showToast 로 확실히
+  //   알림(바가 사라지는 순간엔 이미 화면 밖 관심이 옮겨가 있어 그것만으론 불충분했다).
+  //   전체화면 모달은 검토했으나 대용량 전송 중 다른 파일 탐색을 막는 손해가 더 커 기각.
   Widget _bottomTransferBar() {
     return Obx(() {
       final active = jobController.jobTable
           .where((j) => j.state == JobState.inProgress)
           .toList();
-      if (active.isEmpty) return const SizedBox.shrink();
+
+      if (active.isEmpty) {
+        // 방금 활성 전송이 0 으로 전이했으면 — 그 배치의 결과(성공/실패)를 토스트로 확정 안내.
+        if (_lastTransferBatchIds.isNotEmpty) {
+          final ids = _lastTransferBatchIds.toList();
+          _lastTransferBatchIds.clear();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final finished = jobController.jobTable
+                .where((j) => ids.contains(j.id) && j.type == JobType.transfer)
+                .toList();
+            if (finished.isEmpty) return;
+            final failed =
+                finished.where((j) => j.state == JobState.error).length;
+            final ok = finished.length - failed;
+            final String msg;
+            if (failed == 0) {
+              msg = finished.length == 1
+                  ? '전송 완료: ${finished.first.fileName}'
+                  : '전송 완료 (${finished.length}개)';
+            } else if (ok == 0) {
+              msg = '전송 실패 (${finished.length}개)';
+            } else {
+              msg = '전송 완료 $ok개 · 실패 $failed개';
+            }
+            showToast(msg);
+          });
+        }
+        return const AnimatedSize(
+          duration: Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          child: SizedBox(width: double.infinity, height: 0),
+        );
+      }
+
+      // 지금 진행 중인 작업 id 를 배치로 기록 — 전부 끝나는 순간(위 분기) 결과를 안내한다.
+      for (final j in active) {
+        _lastTransferBatchIds.add(j.id);
+      }
+
       final total = active.fold<int>(0, (s, j) => s + j.totalSize);
       final done = active.fold<int>(0, (s, j) => s + j.finishedSize);
       final pct = total > 0 ? (done / total).clamp(0.0, 1.0) : 0.0;
@@ -254,72 +299,86 @@ class _FileManagerPageState extends State<FileManagerPage>
           ? (active.first.fileName.isNotEmpty
               ? active.first.fileName
               : active.first.jobName)
-          : '${active.length}개 파일 전송 중';
-      return Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          border: Border(
-            top: BorderSide(
-                color: Theme.of(context).dividerColor.withOpacity(0.5)),
+          : '${active.length}개 파일';
+
+      return AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            border: const Border(
+              top: BorderSide(color: Color(0xFF3182F6), width: 3),
+            ),
           ),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.swap_horiz, size: 18, color: Color(0xFF3182F6)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: pct,
-                      minHeight: 4,
-                      backgroundColor: const Color(0xFFEAEDF1),
-                      color: const Color(0xFF3182F6),
-                    ),
-                  ),
-                ],
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2.6, color: Color(0xFF3182F6)),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              '${(pct * 100).toStringAsFixed(0)}%  ·  ${readableFileSize(speed)}/s',
-              style: const TextStyle(
-                  fontSize: 11.5,
-                  color: Color(0xFF8B95A1),
-                  fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(width: 10),
-            // 전송 중지. 진행 중인 작업을 모두 취소하고 목록에서 지운다.
-            Tooltip(
-              message: translate('Cancel'),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(6),
-                onTap: () {
-                  for (final j in active) {
-                    jobController.cancelJob(j.id);
-                  }
-                  jobController.jobTable
-                      .removeWhere((j) => j.state == JobState.inProgress);
-                },
-                child: const Padding(
-                  padding: EdgeInsets.all(5),
-                  child: Icon(Icons.close, size: 18, color: Color(0xFFE5484D)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('전송 중 · $label',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF3182F6))),
+                    const SizedBox(height: 5),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: pct,
+                        minHeight: 6,
+                        backgroundColor: const Color(0xFFEAEDF1),
+                        color: const Color(0xFF3182F6),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Text(
+                '${(pct * 100).toStringAsFixed(0)}%  ·  ${readableFileSize(speed)}/s',
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF3182F6),
+                    fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(width: 10),
+              // 전송 중지. 진행 중인 작업을 모두 취소하고 목록에서 지운다.
+              Tooltip(
+                message: translate('Cancel'),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    for (final j in active) {
+                      jobController.cancelJob(j.id);
+                    }
+                    jobController.jobTable
+                        .removeWhere((j) => j.state == JobState.inProgress);
+                    _lastTransferBatchIds.clear();
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.all(5),
+                    child:
+                        Icon(Icons.close, size: 18, color: Color(0xFFE5484D)),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     });
