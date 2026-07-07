@@ -9,6 +9,7 @@ import { RemoteButton } from "./_remote-button";
 import { CustomerStatus, computeUpdateHealth } from "./_status";
 import { CustomerPushButton, BulkPushButton } from "./_push-buttons";
 import { ConfirmEnrollButton } from "./_enroll-confirm";
+import { CustomerSearch } from "./_search";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
@@ -40,7 +41,7 @@ function SortHeader({
   const active = activeSort === col;
   const nextDir = active && activeDir === "asc" ? "desc" : "asc";
   return (
-    <th className="text-left px-4 py-3 font-medium">
+    <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
       <Link
         href={`/customers?sort=${col}&dir=${nextDir}`}
         className="inline-flex items-center gap-1 hover:text-[#00A0E5]"
@@ -187,8 +188,8 @@ export default async function CustomersPage({
   const pendingEnroll = rows.filter((c) => c.enrollStatus === "pending");
 
   return (
-    <div className="px-8 py-6 max-w-6xl">
-      <header className="mb-6 flex items-end justify-between">
+    <div className="px-8 py-6 max-w-7xl">
+      <header className="mb-6 flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">거래처</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -196,10 +197,11 @@ export default async function CustomersPage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <CustomerSearch />
           <BulkPushButton />
           <Link
             href="/customers/new"
-            className="rounded-lg bg-[#00A0E5] hover:bg-[#0090d0] text-white px-4 py-2 text-sm font-medium"
+            className="rounded-lg bg-[#00A0E5] hover:bg-[#0090d0] text-white px-4 py-2 text-sm font-medium whitespace-nowrap"
           >
             + 거래처 추가
           </Link>
@@ -226,7 +228,7 @@ export default async function CustomersPage({
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
@@ -243,8 +245,23 @@ export default async function CustomersPage({
           <tbody className="divide-y divide-slate-100">
             {rows.map((c) => {
               const active = activeByCustomer.get(c.id) ?? null;
+              const searchHay = [
+                c.name,
+                c.assignedUserName,
+                c.contactName,
+                c.phone,
+                c.remoteId,
+                c.notes,
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
               return (
-                <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                <tr
+                  key={c.id}
+                  data-search={searchHay}
+                  className="hover:bg-slate-50 transition-colors"
+                >
                   <td className="px-4 py-3">
                     <Link
                       href={`/customers/${c.id}/edit`}
@@ -266,8 +283,8 @@ export default async function CustomersPage({
                       <span
                         className={
                           c.assignedUserId === currentUserId
-                            ? "inline-block bg-[#00A0E5]/10 text-[#0070a8] px-2 py-0.5 rounded text-xs font-medium"
-                            : "text-slate-600"
+                            ? "inline-block bg-[#00A0E5]/10 text-[#0070a8] px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap"
+                            : "text-slate-600 whitespace-nowrap"
                         }
                       >
                         {c.assignedUserName}
@@ -276,11 +293,11 @@ export default async function CustomersPage({
                       <span className="text-slate-400 text-xs">미배정</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{c.contactName ?? "-"}</td>
-                  <td className="px-4 py-3 text-slate-600 tabular-nums">{c.phone ?? "-"}</td>
+                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{c.contactName ?? "-"}</td>
+                  <td className="px-4 py-3 text-slate-600 tabular-nums whitespace-nowrap">{c.phone ?? "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">
                     {c.remoteId ? (
-                      <span className="inline-block bg-[#00A0E5]/10 text-[#0070a8] px-2 py-0.5 rounded">
+                      <span className="inline-block bg-[#00A0E5]/10 text-[#0070a8] px-2 py-0.5 rounded whitespace-nowrap">
                         {formatRemoteId(c.remoteId)}
                       </span>
                     ) : (
@@ -337,6 +354,11 @@ export default async function CustomersPage({
                 </tr>
               );
             })}
+            <tr id="cust-search-empty" style={{ display: "none" }}>
+              <td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">
+                검색 결과가 없습니다.
+              </td>
+            </tr>
           </tbody>
         </table>
         {rows.length === 0 && (
