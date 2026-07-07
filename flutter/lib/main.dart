@@ -331,16 +331,24 @@ showCmWindow({bool isStartup = false}) async {
     _isCmReadyToShow = true;
   } else if (_isCmReadyToShow) {
     if (await windowManager.getOpacity() != 1) {
-      await windowManager.setOpacity(1);
-      await windowManager.focus();
-      await windowManager.minimize(); //needed
       // 연결 수신 시 reveal 도 수락 카드 크기(360x200)로 한다.
       // 배너 크기로 reveal 하면 카드 내용이 창 밖으로 잘려 흰 빈 박스가 됐다(특히
       // 거래처가 전체화면일 때 postFrame resize 가 안 먹어 그대로 굳음).
-      // 카드 크기로 reveal 하면 불안정한 배너→카드 resize 에 기댈 일이 없다. 수락 후
-      // 활성 상태가 되면 server_page 가 배너 크기로 줄인다(그땐 창이 전면이라 안정적).
+      //
+      // 기하 작업은 전부 opacity 0(안 보임) 상태에서 끝내고 마지막에 한 번에 드러낸다.
+      // 옛 경로는 setOpacity(1) 직후 minimize()//needed 트릭으로 창을 접었다 폈는데,
+      // ① 그 접힘→복원 자체가 보이는 데다 ② 최소화 중 창 크기 조회가 Windows 에서
+      // 엉터리 값을 돌려줘 server_page postFrame 크기 가드가 새서 setSizeAlignment 가
+      // 반복 재적용됐다 — 카드가 위에서 아래로 여러 번 펼쳐지는 점멸의 원인
+      // (2026-07-07 재성이 컴 실측). 전면화는 windowOnTop(restore+show+focus)과
+      // 2초 topmost 복원 타이머(server_page)로 충분해 minimize 트릭은 제거.
+      if (await windowManager.isMinimized()) {
+        await windowManager.restore(); // opacity 0 이라 화면엔 안 보임
+      }
       await windowManager.setSizeAlignment(
           kAgentAcceptCardSize, Alignment.topCenter);
+      await windowManager.show();
+      await windowManager.setOpacity(1); // 완성된 크기로 한 번에 등장
       windowOnTop(null);
     }
   }

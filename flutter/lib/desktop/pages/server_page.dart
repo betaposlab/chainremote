@@ -419,16 +419,21 @@ class ConnectionManagerState extends State<ConnectionManager>
         // grace 자동수락은 수락 카드(360x200)를 건너뛰고 바로 활성으로 간다. 그런데 CM
         // 창이 막 떴을 땐 setSizeAlignment 가 한 번에 안 먹어 큰 크기로 남는다(2026-06-05
         // 재시작 자동재접속 부수효과). 창이 준비될 때까지 짧게 여러 번 다시 걸어 배너(220x34)로 확실히 줄인다.
-        // 단, 콜드스타트 수락카드처럼 이미 목표 크기인 경우(showCmWindow 가 동기로 이미 맞춰둠)에
-        // 매번 재적용하면 실질 변화가 없어도 네이티브 리사이즈가 일어나 화면이 깜빡인다(2026-07-07
-        // "수락창이 깜빡깜빡하다 고정" 리포트). 현재 크기를 먼저 확인해 다르면만 적용한다.
+        // 단, 이미 목표 크기면 재적용하지 않는다 — 무조건 4회 재적용은 매번 네이티브
+        // 리사이즈를 일으켜 카드가 위에서 아래로 반복해 펼쳐지는 점멸을 만들었다.
+        // 함정 둘(2026-07-07 재성이 컴 실측으로 확인):
+        //  ① 최소화 상태의 getSize() 는 Windows 에서 iconic 창의 엉터리 rect 를 돌려줘
+        //     가드가 새고 재적용→재펼침이 반복된다 → 최소화면 그 틱은 건너뛴다.
+        //  ② 목표 크기 확인 후에도 continue 로 남은 틱을 돌면 일시적 오독 한 번에
+        //     다시 리사이즈할 기회를 3번 더 주는 꼴 → 확인 즉시 break.
         for (var i = 0; i < 4; i++) {
           await Future.delayed(Duration(milliseconds: i == 0 ? 100 : 300));
           try {
+            if (await windowManager.isMinimized()) continue;
             final current = await windowManager.getSize();
             final same = (current.width - targetSize.width).abs() < 2 &&
                 (current.height - targetSize.height).abs() < 2;
-            if (same) continue;
+            if (same) break;
             await windowManager.setSizeAlignment(targetSize, Alignment.topCenter);
           } catch (_) {}
         }
@@ -1687,18 +1692,14 @@ class _PulsingAcceptBorderState extends State<_PulsingAcceptBorder>
         final glow = Color.lerp(
             const Color(0xFF1E5BFF), const Color(0xFF8AB4FF), t)!;
         // 굵기(width)는 고정 — BoxDecoration.padding 이 border width 를 따라가서
-        // Container 가 매 프레임 child(버튼 포함) 를 다시 레이아웃하게 만든다(워크플로
-        // 리뷰로 확인된 실측 버그, 2026-07-07). 색상·그림자만 바꿔 paint 만 다시 하게 한다.
+        // Container 가 매 프레임 child(버튼 포함) 를 다시 레이아웃하게 만든다.
+        // 그림자(boxShadow)도 안 쓴다 — CM 창이 카드와 정확히 같은 크기(360x200)라
+        // 바깥 글로우가 창 경계에서 잘려 은은한 광이 아니라 가장자리 일렁임으로 보인다.
+        // 색상 펄스만으로 "눌러주세요" 어필을 준다.
         return Container(
           decoration: BoxDecoration(
             border: Border.all(color: glow, width: 3),
             borderRadius: BorderRadius.circular(4),
-            boxShadow: [
-              BoxShadow(
-                color: glow.withOpacity(0.35 + t * 0.25),
-                blurRadius: 4 + t * 6,
-              ),
-            ],
           ),
           child: child,
         );
