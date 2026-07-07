@@ -405,36 +405,49 @@ class ConnectionManagerState extends State<ConnectionManager>
   // 인디케이터를 보인다. 상태에 따라 CM 창 크기·위치(상단 중앙, 우상단 X 를 안 가림)를 맞춘다.
   bool? _agentPendingShown;
 
+  // CM 창 크기 조정의 단일 창구(single-writer) 세대 카운터.
+  // 상태 전이가 있을 때마다 증가시키고, 진행 중인 reconcile 루프는 매 틱 이 값을 검사해
+  // 자기 세대가 아니면 즉시 죽는다. 예전엔 세대 개념이 없어, pending 이 빠졌다 새로 들어오면
+  // 배너(220x34) 목표 루프와 카드(360x200) 목표 루프가 동시에 살아 창 크기를 놓고 싸웠다
+  // → 늦게 도는 루프가 마지막 라이터가 되어 카드가 배너 크기로 쪼그라들어 버튼이 잘리거나
+  //   (진희씨컴 1.4.46), 반대로 반복해서 펼쳐지는 점멸(1.4.45)이 났다.
+  // 네이티브 사실(window_manager rustdesk 포크 git 85789bfe 소스 확인): Minimize/Restore 는
+  //   PostMessage(WM_SYSCOMMAND) 라 비동기다. 그래서 reconcile 은 early-break 하지 않고
+  //   settle 창(~1.1s) 동안 목표 크기를 계속 유지해 늦게 도착하는 네이티브 스냅백도 교정한다.
+  int _cmGeomGen = 0;
+
   Widget _buildAgentSupportBanner(ServerModel serverModel) {
     final pending = serverModel.clients
         .firstWhereOrNull((c) => !c.authorized && !c.disconnected);
     final activeClient = serverModel.clients
         .firstWhereOrNull((c) => c.authorized && !c.disconnected);
     final wantPending = pending != null;
-    // 대기↔활성 전환이 있을 때만 CM 창 크기·위치를 조정한다(build 부작용 회피용 post-frame).
+    // 대기↔활성 전환이 있을 때만 CM 창 크기 reconcile 을 새로 킥한다(build 부작용 회피 post-frame).
     if (_agentPendingShown != wantPending) {
       _agentPendingShown = wantPending;
-      final targetSize = wantPending ? kAgentAcceptCardSize : kAgentSupportBannerSize;
+      final int myGen = ++_cmGeomGen; // 이 킥이 이전 진행 루프를 모두 무효화한다
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        // grace 자동수락은 수락 카드(360x200)를 건너뛰고 바로 활성으로 간다. 그런데 CM
-        // 창이 막 떴을 땐 setSizeAlignment 가 한 번에 안 먹어 큰 크기로 남는다(2026-06-05
-        // 재시작 자동재접속 부수효과). 창이 준비될 때까지 짧게 여러 번 다시 걸어 배너(220x34)로 확실히 줄인다.
-        // 단, 이미 목표 크기면 재적용하지 않는다 — 무조건 4회 재적용은 매번 네이티브
-        // 리사이즈를 일으켜 카드가 위에서 아래로 반복해 펼쳐지는 점멸을 만들었다.
-        // 함정 둘(2026-07-07 재성이 컴 실측으로 확인):
-        //  ① 최소화 상태의 getSize() 는 Windows 에서 iconic 창의 엉터리 rect 를 돌려줘
-        //     가드가 새고 재적용→재펼침이 반복된다 → 최소화면 그 틱은 건너뛴다.
-        //  ② 목표 크기 확인 후에도 continue 로 남은 틱을 돌면 일시적 오독 한 번에
-        //     다시 리사이즈할 기회를 3번 더 주는 꼴 → 확인 즉시 break.
-        for (var i = 0; i < 4; i++) {
-          await Future.delayed(Duration(milliseconds: i == 0 ? 100 : 300));
+        // settle 창(~1.1s) 동안 목표 크기로 수렴시키고 유지한다. 매 틱:
+        //  ① 세대가 바뀌었으면(더 최근 전이) 즉시 종료 — 반대 목표 루프와 경합하지 않는다.
+        //  ② 최소화 중이면 그 틱 스킵 — iconic 창의 getSize 는 -32000 쓰레기값이라 가드가 샌다.
+        //  ③ 목표는 매 틱 라이브 상태로 재계산(클로저 캡처 금지) — 전이 중첩에도 항상 정답.
+        //  ④ 이미 목표 크기면 재적용 안 함(불필요한 네이티브 리사이즈=펼쳐짐 방지). break 는 안 한다
+        //     — 늦은 네이티브 스냅백을 남은 틱이 되돌려야 하므로.
+        for (var i = 0; i < 6; i++) {
+          await Future.delayed(Duration(milliseconds: i == 0 ? 80 : 200));
+          if (!mounted || myGen != _cmGeomGen) return;
           try {
             if (await windowManager.isMinimized()) continue;
-            final current = await windowManager.getSize();
-            final same = (current.width - targetSize.width).abs() < 2 &&
-                (current.height - targetSize.height).abs() < 2;
-            if (same) break;
-            await windowManager.setSizeAlignment(targetSize, Alignment.topCenter);
+            final live = gFFI.serverModel.clients
+                .any((c) => !c.authorized && !c.disconnected);
+            final target =
+                live ? kAgentAcceptCardSize : kAgentSupportBannerSize;
+            final cur = await windowManager.getSize();
+            final same = (cur.width - target.width).abs() < 2 &&
+                (cur.height - target.height).abs() < 2;
+            if (!same) {
+              await windowManager.setSizeAlignment(target, Alignment.topCenter);
+            }
           } catch (_) {}
         }
       });
