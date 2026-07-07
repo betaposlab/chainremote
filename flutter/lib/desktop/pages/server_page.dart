@@ -419,9 +419,16 @@ class ConnectionManagerState extends State<ConnectionManager>
         // grace 자동수락은 수락 카드(360x200)를 건너뛰고 바로 활성으로 간다. 그런데 CM
         // 창이 막 떴을 땐 setSizeAlignment 가 한 번에 안 먹어 큰 크기로 남는다(2026-06-05
         // 재시작 자동재접속 부수효과). 창이 준비될 때까지 짧게 여러 번 다시 걸어 배너(220x34)로 확실히 줄인다.
+        // 단, 콜드스타트 수락카드처럼 이미 목표 크기인 경우(showCmWindow 가 동기로 이미 맞춰둠)에
+        // 매번 재적용하면 실질 변화가 없어도 네이티브 리사이즈가 일어나 화면이 깜빡인다(2026-07-07
+        // "수락창이 깜빡깜빡하다 고정" 리포트). 현재 크기를 먼저 확인해 다르면만 적용한다.
         for (var i = 0; i < 4; i++) {
           await Future.delayed(Duration(milliseconds: i == 0 ? 100 : 300));
           try {
+            final current = await windowManager.getSize();
+            final same = (current.width - targetSize.width).abs() < 2 &&
+                (current.height - targetSize.height).abs() < 2;
+            if (same) continue;
             await windowManager.setSizeAlignment(targetSize, Alignment.topCenter);
           } catch (_) {}
         }
@@ -434,9 +441,11 @@ class ConnectionManagerState extends State<ConnectionManager>
   }
 
   // 본사 원격 요청. 거래처가 직접 [수락]/[거부]를 누른다.
+  // 카드 테두리를 은은하게 깜빡여 "눌러주세요" 를 시각적으로 어필한다(2026-07-07 Chang 요청).
   Widget _buildAgentAcceptCard(ServerModel serverModel, Client client) {
     final who = client.peerId.isNotEmpty ? client.peerId : client.name;
-    return Material(
+    return _PulsingAcceptBorder(
+      child: Material(
       color: const Color(0xFFF7F9FC),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
@@ -494,6 +503,7 @@ class ConnectionManagerState extends State<ConnectionManager>
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1635,6 +1645,65 @@ class __FileTransferLogPageState extends State<_FileTransferLogPage> {
                   : statusListView(jobTable);
             },
           )),
+    );
+  }
+}
+
+// 수락 카드 테두리를 은은하게 깜빡여 "눌러주세요" 를 어필한다. 창 자체가 딱 카드 크기(360x200,
+// getHiddenTitleBarWindowOptions)라 바깥 글로우는 창 밖으로 잘리므로 테두리 색·굵기 펄스 위주로 둔다.
+class _PulsingAcceptBorder extends StatefulWidget {
+  final Widget child;
+  const _PulsingAcceptBorder({required this.child});
+
+  @override
+  State<_PulsingAcceptBorder> createState() => _PulsingAcceptBorderState();
+}
+
+class _PulsingAcceptBorderState extends State<_PulsingAcceptBorder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        final glow = Color.lerp(
+            const Color(0xFF1E5BFF), const Color(0xFF8AB4FF), t)!;
+        // 굵기(width)는 고정 — BoxDecoration.padding 이 border width 를 따라가서
+        // Container 가 매 프레임 child(버튼 포함) 를 다시 레이아웃하게 만든다(워크플로
+        // 리뷰로 확인된 실측 버그, 2026-07-07). 색상·그림자만 바꿔 paint 만 다시 하게 한다.
+        return Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: glow, width: 3),
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: [
+              BoxShadow(
+                color: glow.withOpacity(0.35 + t * 0.25),
+                blurRadius: 4 + t * 6,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }
