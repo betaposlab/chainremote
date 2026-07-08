@@ -19,7 +19,7 @@
 #![cfg(target_os = "windows")]
 
 use crate::chainremote_update_common::{is_newer_str, is_valid_sha256_hex, verify_sha256};
-use hbb_common::{bail, log, ResultType};
+use hbb_common::{bail, is_valid_custom_id, log, ResultType};
 use std::{
     io::Write,
     path::PathBuf,
@@ -327,9 +327,14 @@ fn compute_delay(push_id: &str, max_sec: u32) -> u64 {
 }
 
 fn fetch_pending(remote_id: &str, token: &str) -> ResultType<PendingResponse> {
-    // remote_id 는 hbbs 발급 9자리 숫자라 URL 인코딩 불필요. 그래도 0-9 외 문자가 섞이면 거부.
-    if !remote_id.chars().all(|c| c.is_ascii_digit()) {
-        bail!("remote_id contains non-digit chars: {}", remote_id);
+    // remote_id 는 hbbs 발급 숫자 ID 이거나(예: 123456789), 영문자로 시작하는 커스텀 ID
+    // (예: GN50840786, is_valid_custom_id 와 동일 규칙 [a-zA-Z][\w-]{5,15})일 수 있다.
+    // 두 형식 다 URL 쿼리에 안전하게 들어가는 문자셋이라 인코딩은 그대로 불필요.
+    // 2026-07-08: 순수 숫자만 허용하던 옛 가드가 커스텀 ID 거래처의 푸시 폴링을 매 tick
+    //   조용히 bail 시켜 영구 미적용시켰던 버그(온라인인데 대기 버전이 안 풀림) 수정.
+    let is_legacy_numeric_id = !remote_id.is_empty() && remote_id.chars().all(|c| c.is_ascii_digit());
+    if !is_legacy_numeric_id && !is_valid_custom_id(remote_id) {
+        bail!("remote_id has unrecognized/unsafe format: {}", remote_id);
     }
     let url = format!("{}?remoteId={}", PENDING_URL_BASE, remote_id);
     let client = reqwest::blocking::Client::builder()
