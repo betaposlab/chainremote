@@ -7,18 +7,21 @@
 // .exe 도 유효하다.
 //
 // overlay 포맷: [ ...base.exe ][ UTF-8 custom.txt ][ int32 LE length ][ ASCII "CRENROL1" ]
+//
+// 베이스 설치파일 소스 — 2026-07-08 이전엔 "ChainRemote_Agent_Base_vX.Y.Z.exe" 라는
+// 별도 이름으로 릴리즈마다 손으로 재업로드했는데(에이전트 Setup exe 와 sha256 100% 동일,
+// 그냥 복사본이었음), 이 수동 복사가 간헐적으로 깜빡돼(1.4.34→1.4.42→1.4.49, 그 사이
+// 다른 버전은 다 누락) 신규 가맹점이 몇 주씩 옛 버전으로 온보딩되는 사고가 났다. 이제
+// agent-push.json(publish-agent-push-meta.sh 가 매 릴리즈 자동 갱신)의 url 을 그대로
+// 베이스로 쓴다 — 별도 "Base" 파일 자체를 없애 이 채널이 다시는 안 뒤처지게 한다.
 
+import { createHash } from "crypto";
 import { auth } from "@/auth";
 import { getTenant, getOrCreateEnrollKey } from "@/lib/data/tenants";
+import { fetchAgentPushMetaServer } from "@/lib/agent-push-meta";
 
 export const dynamic = "force-dynamic";
 
-// 베이스 설치파일(빈-키, overlay-capable) URL. NAS 웹에 호스팅. 환경변수로 버전 교체 가능.
-const BASE_URL =
-  process.env.AGENT_BASE_URL ??
-  "https://sepani.synology.me/chainremote/ChainRemote_Agent_Base_v1.4.49.exe";
-// 다운로드 파일명 버전 표시용 — 베이스 URL 의 vX.Y.Z 에서 추출(베이스 교체 시 자동 반영).
-const BASE_VERSION = BASE_URL.match(/v(\d+\.\d+\.\d+)/)?.[1] ?? "";
 const MAGIC = "CRENROL1";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -57,10 +60,17 @@ export async function POST(_req: Request, ctx: Ctx) {
     "override-settings": { "approve-mode": "click" },
   });
 
-  // 3) 베이스 설치파일 로드 (서버측 fetch — CORS 무관, 키는 서버에만).
+  // 3) 발행된 최신 버전 조회 (agent-push.json — [최신 가져오기] 버튼과 동일 소스).
+  const metaResult = await fetchAgentPushMetaServer();
+  if (!metaResult.meta) {
+    return jsonError(502, `최신 에이전트 정보 조회 실패: ${metaResult.errors.join("; ")}`);
+  }
+  const { url: baseUrl, sha256: expectedSha256, version: baseVersion } = metaResult.meta;
+
+  // 4) 베이스 설치파일 로드 (서버측 fetch — CORS 무관, 키는 서버에만) + sha256 무결성 검증.
   let baseBuf: Buffer;
   try {
-    const baseResp = await fetch(BASE_URL, { cache: "no-store" });
+    const baseResp = await fetch(baseUrl, { cache: "no-store" });
     if (!baseResp.ok) {
       return jsonError(502, `베이스 설치파일 로드 실패 (HTTP ${baseResp.status})`);
     }
@@ -71,8 +81,15 @@ export async function POST(_req: Request, ctx: Ctx) {
   if (baseBuf.length < 1024) {
     return jsonError(502, "베이스 설치파일이 비정상입니다");
   }
+  const actualSha256 = createHash("sha256").update(baseBuf).digest("hex");
+  if (actualSha256 !== expectedSha256) {
+    return jsonError(
+      502,
+      "베이스 설치파일 무결성 검증 실패 (agent-push.json 의 sha256 과 불일치) — 신규 가맹점에 손상된 파일을 줄 수 없어 중단",
+    );
+  }
 
-  // 4) overlay 덧붙이기: [base][config][int32 LE len][8-byte magic]
+  // 5) overlay 덧붙이기: [base][config][int32 LE len][8-byte magic]
   const cfg = Buffer.from(customTxt, "utf8");
   const len = Buffer.alloc(4);
   len.writeInt32LE(cfg.length, 0);
@@ -85,7 +102,7 @@ export async function POST(_req: Request, ctx: Ctx) {
     t.displayName.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, " ").trim() ||
     t.slug
   ).slice(0, 50);
-  const verSuffix = BASE_VERSION ? `_v${BASE_VERSION}` : "";
+  const verSuffix = baseVersion ? `_v${baseVersion}` : "";
   const utf8Name = encodeURIComponent(`ChainRemote_${safeName}_가맹점설치용${verSuffix}.exe`);
   const asciiFallback = `ChainRemote_Agent_${t.slug}${verSuffix}.exe`;
   return new Response(new Uint8Array(out), {
@@ -96,7 +113,7 @@ export async function POST(_req: Request, ctx: Ctx) {
       "Content-Length": String(out.length),
       "Cache-Control": "no-store",
       // 클라(카드)가 blob 저장 시 파일명에 버전 붙이도록 전달.
-      "X-Agent-Version": BASE_VERSION,
+      "X-Agent-Version": baseVersion,
     },
   });
 }
