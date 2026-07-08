@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# NAS 의 agent-push.json 발행 — 관리 패널 [일괄 푸시] 다이얼로그의 [최신 가져오기]
+# 버튼이 읽는 유일한 소스. 매 Agent 릴리즈마다 반드시 실행할 것.
+#
+# 2026-07-08 신설 배경: 이 파일을 매 릴리즈 손으로 올리던 습관이 6/24(1.4.38) 이후
+#   끊겨서, [최신 가져오기]가 몇 주째 옛 버전만 주는 걸 아무도 몰랐다(패널 버튼은
+#   멀쩡했는데 먹이가 되는 파일만 방치됨). 다시는 안 끊기게 릴리즈 스크립트로 고정.
+#
+# ⚠ latest.json 은 이 스크립트가 절대 안 건드린다 — 그건 HQ 자동업데이트 전용
+#   2채널 포맷(hq/agent)이고, agent 채널은 0.0.0 으로 영구 비활성 고정이다.
+#   과거 deploy/release.sh 는 이 latest.json 을 flat 포맷으로 덮어써 HQ 채널을
+#   파괴하는 지뢰라 여기서 절대 재사용하지 않는다(별도 정리 필요, task_314d6f79).
+#
+# 사용법: ./deploy/nas/publish-agent-push-meta.sh <ChainRemote_Agent_Setup_v*.exe 경로> [릴리즈노트]
+
+set -euo pipefail
+
+SETUP_EXE="${1:-}"
+NOTES="${2:-}"
+
+if [[ -z "$SETUP_EXE" ]]; then
+  echo "Usage: $0 <setup.exe path> [release notes]" >&2
+  exit 1
+fi
+if [[ ! -f "$SETUP_EXE" ]]; then
+  echo "Error: setup.exe not found at $SETUP_EXE" >&2
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+RUST_FILE="$SCRIPT_DIR/src/chainremote_version.rs"
+VERSION=$(grep -oE 'CHAINREMOTE_VERSION: &str = "[^"]+"' "$RUST_FILE" | sed -E 's/.*"([^"]+)".*/\1/')
+
+if [[ -z "$VERSION" ]]; then
+  echo "✗ ERROR — src/chainremote_version.rs 에서 버전을 못 읽음." >&2
+  exit 1
+fi
+
+EXPECTED_NAME="ChainRemote_Agent_Setup_v${VERSION}.exe"
+ACTUAL_NAME="$(basename "$SETUP_EXE")"
+if [[ "$ACTUAL_NAME" != "$EXPECTED_NAME" ]]; then
+  echo "✗ ERROR — 파일명($ACTUAL_NAME)이 src 버전($VERSION)과 안 맞음. src 범프 누락 또는 옛 빌드 재사용 의심." >&2
+  echo "  기대 파일명: $EXPECTED_NAME" >&2
+  exit 1
+fi
+
+NAS_HOST="${NAS_HOST:-chang@192.168.68.103}"
+NAS_WEB_DIR="${NAS_WEB_DIR:-/volume1/web/chainremote}"
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://sepani.synology.me/chainremote}"
+
+SHA256=$(shasum -a 256 "$SETUP_EXE" | awk '{print $1}')
+SIZE=$(stat -f %z "$SETUP_EXE" 2>/dev/null || stat -c %s "$SETUP_EXE")
+RELEASED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+REMOTE_PATH="$NAS_WEB_DIR/$EXPECTED_NAME"
+
+echo "[검증] 버전=$VERSION sha256=$SHA256 size=$SIZE"
+
+# 1. NAS 에 같은 파일명이 이미 있으면 sha 대조만(release.sh 가 보통 먼저 올려둠 — 여기서 재업로드 안 함).
+#    없으면 이 스크립트가 직접 원자적 업로드(.partial + NAS측 sha 재검증 + mv)까지 겸한다.
+EXISTING_SHA=$(ssh "$NAS_HOST" "test -f $REMOTE_PATH && sha256sum $REMOTE_PATH 2>/dev/null | awk '{print \$1}'" 2>/dev/null || echo "")
+if [[ -n "$EXISTING_SHA" ]]; then
+  if [[ "$EXISTING_SHA" != "$SHA256" ]]; then
+    echo "✗ ERROR — NAS 에 같은 파일명이 다른 내용으로 이미 있음 (nas=$EXISTING_SHA local=$SHA256)." >&2
+    exit 1
+  fi
+  echo "[1/3] NAS 에 이미 업로드됨(sha 일치) — 재업로드 skip."
+else
+  echo "[1/3] NAS 업로드 중 (atomic)..."
+  TMP_REMOTE="$REMOTE_PATH.partial"
+  ssh "$NAS_HOST" "cat > $TMP_REMOTE && chmod 644 $TMP_REMOTE" < "$SETUP_EXE"
+  NAS_SHA=$(ssh "$NAS_HOST" "sha256sum $TMP_REMOTE | awk '{print \$1}'")
+  if [[ "$NAS_SHA" != "$SHA256" ]]; then
+    echo "✗ ERROR — 업로드 무결성 실패 (local=$SHA256 nas=$NAS_SHA)." >&2
+    ssh "$NAS_HOST" "rm -f $TMP_REMOTE" 2>/dev/null || true
+    exit 1
+  fi
+  ssh "$NAS_HOST" "mv -f $TMP_REMOTE $REMOTE_PATH"
+  echo "    업로드 완료+검증."
+fi
+
+# 2. agent-push.json 원자적 갱신 (latest.json 은 절대 건드리지 않음).
+echo "[2/3] agent-push.json 갱신 중..."
+META_JSON=$(cat <<EOF
+{
+  "version": "$VERSION",
+  "url": "$PUBLIC_BASE_URL/$EXPECTED_NAME",
+  "sha256": "$SHA256",
+  "size": $SIZE,
+  "released_at": "$RELEASED_AT",
+  "notes": $(printf '%s' "$NOTES" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+}
+EOF
+)
+ssh "$NAS_HOST" "cat > $NAS_WEB_DIR/agent-push.json.tmp && mv -f $NAS_WEB_DIR/agent-push.json.tmp $NAS_WEB_DIR/agent-push.json" <<< "$META_JSON"
+
+# 3. 공개 URL 검증
+echo "[3/3] 공개 URL 검증..."
+sleep 1
+LIVE=$(curl -sS --max-time 10 "$PUBLIC_BASE_URL/agent-push.json")
+LIVE_VERSION=$(printf '%s' "$LIVE" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' 2>/dev/null || echo "")
+if [[ "$LIVE_VERSION" != "$VERSION" ]]; then
+  echo "✗ ERROR — 발행 후 공개 URL 이 기대 버전과 다름 (got=$LIVE_VERSION want=$VERSION)." >&2
+  exit 1
+fi
+
+echo ""
+echo "✓ 발행 완료 — v$VERSION"
+echo "  agent-push.json : $PUBLIC_BASE_URL/agent-push.json"
+echo "  installer       : $PUBLIC_BASE_URL/$EXPECTED_NAME"
+echo "  패널 [최신 가져오기] 버튼이 이제 이 버전을 가져옵니다."
