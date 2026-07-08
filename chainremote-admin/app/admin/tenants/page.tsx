@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { listTenants, tenantUserCounts } from "@/lib/data/tenants";
 import { TenantRowActions } from "./_tenant-row-actions";
-import { RolloutAllButton } from "./_rollout-all-button";
 // 회사명 클릭 → 수정 페이지. 행 우측 [수정] 버튼도 동일.
 
 export const dynamic = "force-dynamic";
@@ -39,7 +38,6 @@ export default async function TenantsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <RolloutAllButton />
           <Link
             href="/admin/tenants/new"
             className="rounded-md bg-[#00A0E5] px-4 py-2 text-sm font-medium text-white hover:bg-[#0086c2]"
