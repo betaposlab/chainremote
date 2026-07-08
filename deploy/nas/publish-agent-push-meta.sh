@@ -35,6 +35,10 @@ if [[ -z "$VERSION" ]]; then
   echo "✗ ERROR — src/chainremote_version.rs 에서 버전을 못 읽음." >&2
   exit 1
 fi
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "✗ ERROR — 버전 형식이 X.Y.Z 가 아님: '$VERSION' (ssh 원격 명령에 그대로 들어가므로 엄격 검증)." >&2
+  exit 1
+fi
 
 EXPECTED_NAME="ChainRemote_Agent_Setup_v${VERSION}.exe"
 ACTUAL_NAME="$(basename "$SETUP_EXE")"
@@ -57,7 +61,19 @@ echo "[검증] 버전=$VERSION sha256=$SHA256 size=$SIZE"
 
 # 1. NAS 에 같은 파일명이 이미 있으면 sha 대조만(release.sh 가 보통 먼저 올려둠 — 여기서 재업로드 안 함).
 #    없으면 이 스크립트가 직접 원자적 업로드(.partial + NAS측 sha 재검증 + mv)까지 겸한다.
-EXISTING_SHA=$(ssh "$NAS_HOST" "test -f $REMOTE_PATH && sha256sum $REMOTE_PATH 2>/dev/null | awk '{print \$1}'" 2>/dev/null || echo "")
+#    ssh 자체가 실패(접속불가 등)한 경우와 "파일이 그냥 없음"을 구분 — 앞은 즉시 중단해야
+#    이후 단계에서 혼란스러운 에러 대신 원인이 바로 드러난다.
+SSH_ERR_LOG=$(mktemp)
+set +e
+EXISTING_SHA=$(ssh "$NAS_HOST" "test -f $REMOTE_PATH && sha256sum $REMOTE_PATH 2>/dev/null | awk '{print \$1}'" 2>"$SSH_ERR_LOG")
+SSH_EXIT=$?
+set -e
+if [[ $SSH_EXIT -ne 0 && $SSH_EXIT -ne 1 ]]; then
+  echo "✗ ERROR — NAS(ssh $NAS_HOST) 접속/명령 실패 (exit=$SSH_EXIT): $(cat "$SSH_ERR_LOG")" >&2
+  rm -f "$SSH_ERR_LOG"
+  exit 1
+fi
+rm -f "$SSH_ERR_LOG"
 if [[ -n "$EXISTING_SHA" ]]; then
   if [[ "$EXISTING_SHA" != "$SHA256" ]]; then
     echo "✗ ERROR — NAS 에 같은 파일명이 다른 내용으로 이미 있음 (nas=$EXISTING_SHA local=$SHA256)." >&2
@@ -80,6 +96,13 @@ fi
 
 # 2. agent-push.json 원자적 갱신 (latest.json 은 절대 건드리지 않음).
 echo "[2/3] agent-push.json 갱신 중..."
+# NOTES_JSON 을 heredoc 밖에서 먼저 계산 — heredoc 안 command substitution 은 실패해도
+#   바깥 cat 이 exit 0 이라 set -e 가 못 잡는다(적대적 재검증으로 확인된 실제 함정).
+#   여기서 실패하면 META_JSON 조립 전에 끊어 깨진 JSON이 NAS 로 나가는 걸 막는다.
+if ! NOTES_JSON=$(printf '%s' "$NOTES" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'); then
+  echo "✗ ERROR — notes JSON 인코딩 실패(python3 확인 필요) — agent-push.json 갱신 중단." >&2
+  exit 1
+fi
 META_JSON=$(cat <<EOF
 {
   "version": "$VERSION",
@@ -87,17 +110,28 @@ META_JSON=$(cat <<EOF
   "sha256": "$SHA256",
   "size": $SIZE,
   "released_at": "$RELEASED_AT",
-  "notes": $(printf '%s' "$NOTES" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+  "notes": $NOTES_JSON
 }
 EOF
 )
+# 조립된 JSON 이 실제로 유효한지 NAS 로 보내기 전에 로컬에서 한 번 더 검증(2중 안전망).
+if ! printf '%s' "$META_JSON" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+  echo "✗ ERROR — 조립된 META_JSON 이 유효한 JSON 이 아님 — 발행 중단(NAS 안 건드림):" >&2
+  echo "$META_JSON" >&2
+  exit 1
+fi
 ssh "$NAS_HOST" "cat > $NAS_WEB_DIR/agent-push.json.tmp && mv -f $NAS_WEB_DIR/agent-push.json.tmp $NAS_WEB_DIR/agent-push.json" <<< "$META_JSON"
 
-# 3. 공개 URL 검증
+# 3. 공개 URL 검증 — 전파지연 대비 짧게 재시도(단발 curl 은 거짓실패 가능성 있었음).
 echo "[3/3] 공개 URL 검증..."
-sleep 1
-LIVE=$(curl -sS --max-time 10 "$PUBLIC_BASE_URL/agent-push.json")
-LIVE_VERSION=$(printf '%s' "$LIVE" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' 2>/dev/null || echo "")
+LIVE_VERSION=""
+for attempt in 1 2 3; do
+  sleep 1
+  LIVE=$(curl -sS --max-time 10 "$PUBLIC_BASE_URL/agent-push.json" || echo "")
+  LIVE_VERSION=$(printf '%s' "$LIVE" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])' 2>/dev/null || echo "")
+  [[ "$LIVE_VERSION" == "$VERSION" ]] && break
+  echo "    (재시도 $attempt/3, 아직 반영 안 됨)"
+done
 if [[ "$LIVE_VERSION" != "$VERSION" ]]; then
   echo "✗ ERROR — 발행 후 공개 URL 이 기대 버전과 다름 (got=$LIVE_VERSION want=$VERSION)." >&2
   exit 1

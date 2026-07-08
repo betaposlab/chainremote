@@ -5,6 +5,12 @@
 // 서버↔서버 fetch 는 CORS 무관이라 여기서 받아 같은 출처로 되돌려준다.
 //
 // 컨테이너에서 도달 가능한 후보 순차 시도 (공인 DDNS hairpin → NAS LAN IP).
+//
+// requireApiAuth: 이 라우트 자체는 공개 정적 파일(agent-push.json)만 그대로 되돌려주므로
+// 정보 노출 위험은 없지만, 프로젝트 전체 /api/* 관례(모든 라우트가 자체 인증)와 일관되게
+// 로그인 세션 없이는 호출 못 하게 막는다 — 로그아웃 상태에서 굳이 열어둘 이유가 없다.
+
+import { requireApiAuth, jsonError } from "@/lib/api-auth";
 
 const META_CANDIDATES = [
   "https://sepani.synology.me/chainremote/agent-push.json",
@@ -22,7 +28,13 @@ function parseMeta(j: Record<string, unknown>): Meta | null {
   return { version, url, sha256, size };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  try {
+    await requireApiAuth(req);
+  } catch (e) {
+    return jsonError(e);
+  }
+
   const errors: string[] = [];
   for (const candidate of META_CANDIDATES) {
     try {
