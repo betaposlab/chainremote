@@ -8,18 +8,20 @@
 // 오버레이 다운로드)도 같은 헬퍼로 최신 버전을 읽는다(2026-07-08 통합, 별도 "Base" 파일
 // 관례 폐기 경위는 그 헬퍼 파일 주석 참조).
 //
-// requireApiAuth: 이 라우트 자체는 공개 정적 파일(agent-push.json)만 그대로 되돌려주므로
-// 정보 노출 위험은 없지만, 프로젝트 전체 /api/* 관례(모든 라우트가 자체 인증)와 일관되게
-// 로그인 세션 없이는 호출 못 하게 막는다 — 로그아웃 상태에서 굳이 열어둘 이유가 없다.
+// 인증: 이 라우트는 패널 브라우저 UI([최신 가져오기] 버튼)가 같은 출처 fetch() 로 호출한다
+// — NextAuth 세션 쿠키는 있어도 Authorization: Bearer 헤더는 안 보낸다(그건 데스크톱 앱
+// 전용, lib/api-auth.ts 참조). ★2026-07-09 사고: 여기 requireApiAuth(Bearer 전용)를 붙였다가
+// 브라우저 호출이 전부 401 → 버튼이 다시 죽었다(패널서 "가져오기 실패"로 발견). 다른 브라우저
+// 라우트(/api/tenants/[id]/agent 등)와 동일하게 auth() 세션 체크로 되돌린다. 로그인만 돼
+// 있으면 role 무관 허용(정보 노출 위험 없는 공개 빌드 메타).
 
-import { requireApiAuth, jsonError } from "@/lib/api-auth";
+import { auth } from "@/auth";
 import { fetchAgentPushMetaServer } from "@/lib/agent-push-meta";
 
-export async function GET(req: Request) {
-  try {
-    await requireApiAuth(req);
-  } catch (e) {
-    return jsonError(e);
+export async function GET() {
+  const session = await auth();
+  if (!session?.user) {
+    return Response.json({ error: "로그인이 필요합니다" }, { status: 403 });
   }
 
   const result = await fetchAgentPushMetaServer();
