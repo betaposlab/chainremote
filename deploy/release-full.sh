@@ -52,14 +52,47 @@ else
   echo "    ✓ 이미 켜져 있음"
 fi
 
+# ── [0.5/5] 로컬↔GitHub 동기화 강제확인 (push 누락 사고 재발방지) ───────────
+# ★2026-07-09 실측 사고: release-build.ps1 은 origin/develop 기준으로 빌드한다.
+#   로컬 commit 만 하고 push 를 깜빡하면 윈컴이 옛 버전을 "정상적으로" 다시 빌드해
+#   상태파일 버전이 로컬과 달라진다 — 경합조건처럼 보이지만 실은 push 누락이었다.
+#   여기서 미리 끊어야 20분 빌드 후에야 아는 낭비를 막는다. push 자체는 절대 자동
+#   실행 안 함(GitHub push는 Chang 명시 지시시에만 — CLAUDE.md 원칙) — 실패로 안내만.
+echo "[0.5/5] 로컬↔GitHub 동기화 확인..."
+git -C "$REPO" fetch origin develop --quiet
+LOCAL_HEAD=$(git -C "$REPO" rev-parse HEAD)
+REMOTE_HEAD=$(git -C "$REPO" rev-parse origin/develop)
+if [[ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]]; then
+  echo "✗ ERROR — 로컬 HEAD($LOCAL_HEAD) != origin/develop($REMOTE_HEAD)." >&2
+  echo "  윈컴은 origin/develop 기준으로 빌드합니다. 'git push origin develop' 먼저 실행하세요." >&2
+  exit 1
+fi
+SUBMODULE_PATH="$REPO/libs/hbb_common"
+if [[ -d "$SUBMODULE_PATH" ]]; then
+  SUB_LOCAL=$(git -C "$SUBMODULE_PATH" rev-parse HEAD)
+  SUB_REMOTE_BRANCH=$(git -C "$SUBMODULE_PATH" rev-parse --abbrev-ref HEAD)
+  git -C "$SUBMODULE_PATH" fetch origin "$SUB_REMOTE_BRANCH" --quiet
+  SUB_REMOTE=$(git -C "$SUBMODULE_PATH" rev-parse "origin/$SUB_REMOTE_BRANCH")
+  if [[ "$SUB_LOCAL" != "$SUB_REMOTE" ]]; then
+    echo "✗ ERROR — 서브모듈(hbb_common) 로컬($SUB_LOCAL) != origin/$SUB_REMOTE_BRANCH($SUB_REMOTE)." >&2
+    echo "  서브모듈 안에서 'git push origin $SUB_REMOTE_BRANCH' 먼저 실행하세요." >&2
+    exit 1
+  fi
+fi
+echo "    ✓ 동기화 확인 (로컬 HEAD = origin/develop, 서브모듈 포함)"
+
 # ── [1/5] 빌드 스크립트 전송 + WMI 분리 실행 (SSH 끊겨도 생존) ──────────────
 echo "[1/5] 릴리즈 빌드 스크립트 전송 + 백그라운드 실행..."
+STATUS_FILE="_release_${KIND}.status"
+# ★경합조건 함정(2026-07-09 실측): WMI Invoke-CimMethod 는 PID 만 즉시 반환하고 프로세스가
+#   실제로 실행되기까진 지연이 있다 — 그 사이 Mac 폴링이 먼저 돌면 직전 실행의 낡은 상태파일
+#   (예: 이전 버전의 ALL-DONE)을 "이번 빌드 완료"로 오인한다. 트리거 전에 Mac 에서 직접 지운다.
+ssh $SSH_OPTS "$WIN_SSH" "del $WIN_REPO\\$STATUS_FILE 2>NUL" || true
 scp $SSH_OPTS "$REPO/deploy/win-build/release-build.ps1" "$WIN_SSH:$WIN_REPO/_release-build.ps1" >/dev/null
 ssh $SSH_OPTS "$WIN_SSH" "powershell -Command \"\$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine='powershell -ExecutionPolicy Bypass -File $WIN_REPO\\_release-build.ps1 -Kind $KIND'}; Write-Output ('PID=' + \$r.ProcessId)\"" | tr -d '\r'
 
 # ── [2/5] 빌드 완료 대기 (상태파일 폴링, 최대 40분) ──────────────────────────
 echo "[2/5] 빌드 진행 대기 (x64 빌드 + ISCC, 보통 10~20분)..."
-STATUS_FILE="_release_${KIND}.status"
 SEEN=""
 DEADLINE=$((SECONDS + 2400))
 ARTIFACT_LINE=""
@@ -87,6 +120,13 @@ fi
 VERSION=$(echo "$ARTIFACT_LINE" | grep -oE 'VERSION=[0-9.]+' | cut -d= -f2)
 WIN_PATH=$(echo "$ARTIFACT_LINE" | grep -oE 'ARTIFACT [^ ]+' | cut -d' ' -f2 | tr -d '\r')
 EXPECT_SHA=$(echo "$ARTIFACT_LINE" | grep -oE 'sha256=[0-9a-f]+' | cut -d= -f2)
+# ★2차 안전망: 상태파일 경합조건이 또 있어도 여기서 잡는다 — 지금 트리거한 로컬 소스의
+#   버전과 상태파일이 보고한 버전이 다르면 낡은 상태파일을 읽은 것이니 즉시 중단.
+LOCAL_VERSION=$(grep -oE 'CHAINREMOTE_VERSION: &str = "[^"]+"' "$REPO/src/chainremote_version.rs" | sed -E 's/.*"([^"]+)".*/\1/')
+if [[ "$VERSION" != "$LOCAL_VERSION" ]]; then
+  echo "✗ ERROR — 상태파일 버전($VERSION) != 로컬 소스 버전($LOCAL_VERSION). 낡은 상태파일을 읽었을 가능성." >&2
+  exit 1
+fi
 # ★함정(2026-07-09 실측): macOS basename 은 '/' 만 구분자로 알아 윈도우 경로(백슬래시)를 못
 #   쪼갠다 — WIN_PATH_FWD(forward-slash 변환) 를 먼저 만들고 그걸로 basename 해야 한다.
 WIN_PATH_FWD="${WIN_PATH//\\//}"
