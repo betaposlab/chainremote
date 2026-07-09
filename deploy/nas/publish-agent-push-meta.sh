@@ -8,8 +8,8 @@
 #
 # ⚠ latest.json 은 이 스크립트가 절대 안 건드린다 — 그건 HQ 자동업데이트 전용
 #   2채널 포맷(hq/agent)이고, agent 채널은 0.0.0 으로 영구 비활성 고정이다.
-#   과거 deploy/release.sh 는 이 latest.json 을 flat 포맷으로 덮어써 HQ 채널을
-#   파괴하는 지뢰라 여기서 절대 재사용하지 않는다(별도 정리 필요, task_314d6f79).
+#   옛 deploy/release.sh 는 이 latest.json 을 flat 포맷으로 덮어써 HQ 채널을 파괴하는
+#   지뢰였다 → 2026-07-09 삭제(build-and-release.sh 도 함께). 이 스크립트가 그 정석 후계다.
 #
 # 사용법: ./deploy/nas/publish-agent-push-meta.sh <ChainRemote_Agent_Setup_v*.exe 경로> [릴리즈노트]
 
@@ -59,8 +59,8 @@ REMOTE_PATH="$NAS_WEB_DIR/$EXPECTED_NAME"
 
 echo "[검증] 버전=$VERSION sha256=$SHA256 size=$SIZE"
 
-# 1. NAS 에 같은 파일명이 이미 있으면 sha 대조만(release.sh 가 보통 먼저 올려둠 — 여기서 재업로드 안 함).
-#    없으면 이 스크립트가 직접 원자적 업로드(.partial + NAS측 sha 재검증 + mv)까지 겸한다.
+# 1. NAS 에 같은 파일명이 이미 있으면 sha 대조만. 없으면 이 스크립트가 직접 원자적 업로드
+#    (.partial + NAS측 sha 재검증 + mv)까지 겸한다.
 #    ssh 자체가 실패(접속불가 등)한 경우와 "파일이 그냥 없음"을 구분 — 앞은 즉시 중단해야
 #    이후 단계에서 혼란스러운 에러 대신 원인이 바로 드러난다.
 SSH_ERR_LOG=$(mktemp)
