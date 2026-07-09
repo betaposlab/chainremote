@@ -207,18 +207,6 @@ describe("recordHeartbeat — 토큰 검증", () => {
 //   항상 넘긴다. tenantId 없는 호출은 내부용 하위호환이고 어떤 라우트도 무인증 노출 안 함.)
 // ─────────────────────────────────────────────────────────────────────────────
 describe("★H2 봉인 — register-heartbeat-token 라우트 enroll-key 인증 요구", () => {
-  it("enroll-key 없이 remote_id 만으로는 401(무인증 발급 봉인)", async () => {
-    const tid = await makeTenant("betapos");
-    await makeCustomer(tid, "부엌", "77138120");
-    const req = new Request("http://t/api/customers/register-heartbeat-token", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ remoteId: "77138120" }), // 키 없음
-    });
-    const res = await registerTokenPOST(req);
-    expect(res.status).toBe(401); // remote_id 만으론 토큰 못 받음
-  });
-
   it("틀린 enroll-key 는 403(tenant 인증 실패)", async () => {
     const tid = await makeTenant("betapos");
     await makeCustomer(tid, "부엌", "77138120");
@@ -270,5 +258,66 @@ describe("★H2 봉인 — register-heartbeat-token 라우트 enroll-key 인증 
     expect(await registerHeartbeatToken("GN80008000", attacker)).toBeNull();
     // 진짜 소유 tenant 로 스코프하면 발급됨
     expect(await registerHeartbeatToken("GN80008000", owner)).toBeTruthy();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// (e) ★H2 완화(2026-07-09) — enroll-key 없어도 "패널에 등록됐지만 토큰 없는" 거래처는
+//   첫 토큰을 발급한다(빈 키 exe 로 설치돼 auto-enroll 못 한 거래처를 거래처 접촉 없이 복구).
+//   단 heartbeat_token IS NULL 조건으로 "이미 토큰 있는 정당 거래처의 키 없는 회전(=축출)"은
+//   여전히 차단 → H2 위협의 핵심은 유지된다. 이 describe 가 그 경계(첫발급 허용/회전 차단)를 못박는다.
+// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+//   에이전트 register_token(chainremote_heartbeat.rs)은 { remoteId } 만 보낸다(키/slug 없음).
+//   그래서 완화 경로는 remote_id 만으로 판정한다. remote_id 글로벌 unique(마이그 011)로 tenant 특정.
+// ─────────────────────────────────────────────────────────────────────────────
+describe("★H2 완화 — remoteId 만으로 첫 발급(등록+토큰없음)만, 회전은 여전히 차단", () => {
+  it("remoteId 만 + 등록됨 + 토큰없음 → 200 첫 발급, heartbeat 통함 (카페리치 실제 흐름)", async () => {
+    const tid = await makeTenant("betapos");
+    await makeCustomer(tid, "카페리치", "FC74858210"); // 관리자 수동등록, 토큰 없음
+    const req = new Request("http://t/api/customers/register-heartbeat-token", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "5.5.5.5" },
+      body: JSON.stringify({ remoteId: "FC74858210" }), // ★register_token 과 동일 — remoteId 만
+    });
+    const res = await registerTokenPOST(req);
+    expect(res.status).toBe(200);
+    const j = (await res.json()) as { token: string };
+    expect(j.token).toBeTruthy();
+    // 첫 발급 토큰으로 heartbeat 실제 통함 → 카페리치가 스스로 살아나는 경로 검증
+    expect(await recordHeartbeat("FC74858210", j.token, "1.4.51")).toBe(true);
+  });
+
+  it("★축출 차단: 이미 토큰 보유 거래처는 remoteId 만으로 회전 불가 → 409, 기존 토큰 불변", async () => {
+    const tid = await makeTenant("betapos");
+    await makeCustomer(tid, "부엌", "77138120");
+    const legit = await registerHeartbeatToken("77138120"); // 정당 에이전트가 이미 토큰 보유
+    const before = await readToken("77138120");
+    const req = new Request("http://t/api/customers/register-heartbeat-token", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "6.6.6.6" },
+      body: JSON.stringify({ remoteId: "77138120" }), // remoteId 만으로 회전 시도
+    });
+    const res = await registerTokenPOST(req);
+    expect(res.status).toBe(409); // 토큰 이미 있음 → 첫발급 경로가 거부
+    // ★정당 에이전트 토큰이 1비트도 안 바뀜 = 축출 불가(H2 위협 유지)
+    expect(await readToken("77138120")).toBe(before);
+    expect(await recordHeartbeat("77138120", legit!, "1.4.51")).toBe(true);
+  });
+
+  it("remoteId 만 + 미등록 → 409, 유령 거래처 안 생김", async () => {
+    const db = testDb();
+    const tid = await makeTenant("betapos");
+    await makeCustomer(tid, "부엌", "77138120");
+    const before = await db.select().from(customers);
+    const req = new Request("http://t/api/customers/register-heartbeat-token", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "4.4.4.4" },
+      body: JSON.stringify({ remoteId: "99999999" }), // 미등록
+    });
+    const res = await registerTokenPOST(req);
+    expect(res.status).toBe(409);
+    const after = await db.select().from(customers);
+    expect(after.length).toBe(before.length); // 유령 거래처 생성 없음
   });
 });

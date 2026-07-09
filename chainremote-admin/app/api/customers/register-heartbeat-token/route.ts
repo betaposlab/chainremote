@@ -38,17 +38,29 @@ export async function POST(req: Request) {
     if (!remoteId) {
       return Response.json({ error: "remoteId 필수" }, { status: 400 });
     }
-    // ★H2: tenant enroll-key 인증 필수 (enroll 라우트와 동일). 무인증 발급 봉인.
-    if (!tenantSlug || !enrollKey) {
-      return Response.json({ error: "tenant 인증 정보 필수" }, { status: 401 });
+
+    let token: string | null = null;
+    if (enrollKey && tenantSlug) {
+      // ★H2 강한 인증: enroll-key 로 tenant 인증 → 토큰 회전 허용(재등록/분실 자가복구).
+      const tenantId = await data.resolveTenantByEnroll(tenantSlug, enrollKey);
+      if (!tenantId) {
+        return Response.json({ error: "tenant 인증 실패" }, { status: 403 });
+      }
+      token = await data.registerHeartbeatToken(remoteId, tenantId);
+    } else {
+      // ★완화(2026-07-09): 에이전트의 register_token 은 { remoteId } 만 보낸다(키/slug 없음,
+      //   chainremote_heartbeat.rs). 그래서 remote_id 만으로 '첫 토큰'을 발급한다 — 빈 키 exe 로
+      //   설치돼 auto-enroll 못 한 거래처(카페리치)를 거래처 접촉 없이 복구하는 경로.
+      //   registerHeartbeatTokenFirstIssue 의 heartbeat_token IS NULL 조건이 이미 토큰을 가진
+      //   정당 거래처의 회전(=축출)을 막아 H2 위협은 유지된다(회전은 여전히 enroll-key 필요).
+      token = await data.registerHeartbeatTokenFirstIssue(remoteId);
     }
-    const tenantId = await data.resolveTenantByEnroll(tenantSlug, enrollKey);
-    if (!tenantId) {
-      return Response.json({ error: "tenant 인증 실패" }, { status: 403 });
-    }
-    const token = await data.registerHeartbeatToken(remoteId, tenantId);
     if (!token) {
-      return Response.json({ error: "거래처 미등록" }, { status: 409 });
+      // 미등록이거나, 이미 토큰 보유(키 없는 회전 시도)라 발급 거부.
+      return Response.json(
+        { error: "거래처 미등록 또는 이미 토큰 보유(회전은 enroll-key 필요)" },
+        { status: 409 },
+      );
     }
     return Response.json({ token });
   } catch (e) {

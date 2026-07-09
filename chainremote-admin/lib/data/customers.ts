@@ -2,7 +2,7 @@
 // 프레임워크 의존 없음(revalidatePath/redirect 없음) — 후처리는 호출 측 몫.
 // 모든 함수는 tenantId 격리 강제. 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customers, tenants, userFavorites } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
@@ -203,6 +203,36 @@ export async function resolveTenantByEnroll(
     )
     .limit(1);
   return row?.id ?? null;
+}
+
+/**
+ * ★키 없는 '첫 토큰 발급' (2026-07-09) — 패널에 관리자가 수동 등록했지만 아직 토큰이 없는
+ * 거래처(빈 키 exe 로 설치돼 auto-enroll 못 한 카페리치 등)를 거래처 접촉 없이 살리는 경로.
+ *
+ * remote_id 만으로 발급한다 — 에이전트의 register_token(chainremote_heartbeat.rs)이 tenantSlug/
+ * enrollKey 없이 { remoteId } 만 POST 하기 때문. remote_id 는 tenant 간 unique(마이그 011)라
+ * remote_id 하나로 거래처(=tenant)가 유일하게 특정되므로 tenantId 인자가 필요 없고 오발급도 없다.
+ *
+ * 안전장치 = `heartbeat_token IS NULL` 조건. 이미 토큰을 가진 정당 거래처는 이 경로로 절대
+ * 회전(=탈취)되지 않아 H2 위협(임의 remote_id 로 토큰 회전 → 정당 에이전트 축출)을 유지한다.
+ * 즉 이 완화는 "관리자가 패널에 등록 + 토큰 미보유" 인 최초 1회만 열린다(회전은 여전히 enroll-key).
+ */
+export async function registerHeartbeatTokenFirstIssue(
+  remoteId: string,
+): Promise<string | null> {
+  if (!remoteId) return null;
+  const plaintext = generateHeartbeatToken();
+  const [row] = await db
+    .update(customers)
+    .set({ heartbeatToken: hashHeartbeatToken(plaintext) })
+    .where(
+      and(
+        eq(customers.remoteId, remoteId),
+        isNull(customers.heartbeatToken), // ★첫 발급만 — 이미 토큰 있으면 매칭 0 → null 반환
+      ),
+    )
+    .returning({ id: customers.id });
+  return row ? plaintext : null;
 }
 
 /**
