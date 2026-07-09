@@ -194,7 +194,10 @@ class _ConnectionPageState extends State<ConnectionPage> {
                             selection: textEditingValue.selection,
                           );
                         }
-                        String textToFind = textEditingValue.text.toLowerCase();
+                        // 검색어는 항상 공백 제거본으로 — AB 형식(GN 5084 0786)은 표시용 공백이
+                        // 들어가 int.tryParse 가 실패하므로, 공백 포함 텍스트로 매칭하면 공백 없는
+                        // peer.id(GN50840786)와 절대 안 맞아 자동완성 후보가 사라졌다.
+                        String textToFind = textWithoutSpaces.toLowerCase();
 
                         _autocompleteOpts = _allPeersLoader.peers
                             .where((peer) =>

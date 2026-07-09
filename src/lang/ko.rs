@@ -186,7 +186,7 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Relayed and encrypted connection", "릴레이 및 암호화된 연결"),
         ("Direct and unencrypted connection", "직접 및 암호화되지 않은 연결"),
         ("Relayed and unencrypted connection", "릴레이 및 암호화되지 않은 연결"),
-        ("Enter Remote ID", "거래처 9자리 ID 입력"),
+        ("Enter Remote ID", "거래처 ID 입력"),
         ("Enter your password", "비밀번호 입력"),
         ("Logging in...", "접속 중..."),
         ("Enable RDP session sharing", "RDP 세션 공유 허용"),

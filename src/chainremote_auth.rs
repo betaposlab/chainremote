@@ -137,7 +137,7 @@ pub fn logout() {
 fn device_info() -> (String, String) {
     // iOS/Android 는 machine_uid 가 없어 get_uuid 가 빈값일 수 있다(데스크탑은 안 빔).
     // deviceId 가 비면 좌석 토큰 API 가 "deviceId 필요"로 거부하므로, 안정적 per-install
-    // 식별자(9자리 ID)로 대체.
+    // 식별자(remote_id)로 대체.
     let mut uuid = hbb_common::get_uuid();
     if uuid.is_empty() {
         uuid = hbb_common::config::Config::get_id().into_bytes();

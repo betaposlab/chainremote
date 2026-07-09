@@ -1,6 +1,6 @@
 // 본사 앱 데이터 fetcher — 진실 원천은 관리 패널 DB.
 // 거래처 목록(GET /api/customers), 즐겨찾기(GET/POST/DELETE /api/me/favorites),
-// 그리고 remote_id(9자리) ↔ customer UUID 매핑 캐시.
+// 그리고 remote_id ↔ customer UUID 매핑 캐시.
 //
 // 인증은 chainremote_auth::get_token() 의 Bearer JWT.
 // http_request_sync 가 raw 를 {"body":"<json>"} 로 감싸 돌려주므로 HttpWrapper 로 한 번
@@ -352,7 +352,7 @@ fn add_favorite_blocking(remote_id: String) -> bool {
     let url = format!("{}/api/me/favorites", chainremote_auth::api_base());
     // 이 기기가 아는 원격 hostname(PeerConfig.info.hostname) + 로컬 별칭(우클릭 이름변경 →
     // options["alias"], orphan_peer_json 과 같은 출처)을 함께 보내 → 패널 "신규 거래처 후보"가
-    // 9자리 ID 뿐 아니라 이름으로 식별되고 "추가" 시 상호가 프리필된다.
+    // remote_id 뿐 아니라 이름으로 식별되고 "추가" 시 상호가 프리필된다.
     // (둘 다 빈 값이어도 서버가 alias→hostname→placeholder 로 폴백. FFI/브리지는 안 건드림.)
     let pc = hbb_common::config::PeerConfig::load(&remote_id);
     let hostname = pc.info.hostname.clone();

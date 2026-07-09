@@ -2862,7 +2862,7 @@ pub fn chainremote_load_favorites() {
 }
 
 /// 즐겨찾기 토글. peer_card 의 별표/메뉴 클릭 핸들러에서 부른다.
-/// remote_id 는 RustDesk peer.id (9자리). 2026-05-27 개편으로 서버가 remote_id 기준으로 처리.
+/// remote_id 는 RustDesk peer.id (숫자 또는 AB 형식 커스텀 ID). 2026-05-27 개편으로 서버가 remote_id 기준으로 처리.
 /// 동기 blocking(~300ms) — 토스트 메시지를 정확히 띄우려면 UI thread 가 결과를 기다려야 한다.
 pub fn chainremote_add_favorite(remote_id: String) -> SyncReturn<bool> {
     SyncReturn(crate::chainremote_data::add_favorite_blocking_pub(remote_id))
