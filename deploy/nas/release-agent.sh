@@ -10,14 +10,17 @@
 #                                         전체에 즉시 영향(대량조작)이라 사람 게이트로 남김.
 #                                         이 스크립트는 안내만 한다(자동 실행 안 함).
 #   3. 자동 롤링                        → 2번의 일괄푸시가 곧 이것(pending_updates 5분 폴링).
-#   4. 스텝 자료실(betaposlab.com/staff)→ ↓아래 [4]가 업로드 + 옛 버전 정리.
+#   4. 스텝 자료실(betaposlab.com/staff)→ 이 exe(raw 베이스, 빈 키)를 여기 직접 올리면 안 됨
+#                                         (카페리치 사고) — publish-staff-overlay.sh 가 betaposlab
+#                                         tenant 전용 키포함 오버레이를 패널 API 로 재생성해 올린다.
 #
-# 즉: 이 스크립트 = [1·3 소스 갱신] + [4 자료실] 자동, [2]는 안내. 실행 후 Chang 이 패널서
-#     일괄푸시 클릭 한 번으로 4단계 완성.
+# 즉: 이 스크립트 = [1·3 소스 갱신] + [4 자료실, 오버레이 자동재생성] 전부 자동, [2]만 사람 클릭.
+#     실행 후 Chang 이 패널서 일괄푸시 클릭 한 번으로 4단계 완성.
 #
 # 사용: ./deploy/nas/release-agent.sh <ChainRemote_Agent_Setup_vX.Y.Z.exe> ["릴리즈노트"]
 #   스텝 자료실 로그인 비번 = 환경변수 STAFF_PW, 또는 deploy/nas/.staff-pw 파일(gitignore).
-#   둘 다 없으면 [4]단계는 스킵하고 "수동 업로드 필요" 안내만 한다.
+#   패널(오버레이 재생성) 로그인 비번 = 환경변수 PANEL_PW, 또는 deploy/nas/.panel-pw 파일.
+#   둘 중 하나라도 없으면 해당 단계만 스킵하고 수동 안내를 출력한다(파이프라인은 안 막음).
 
 set -euo pipefail
 
@@ -62,11 +65,10 @@ except Exception as e:
 PY
 )"
 if [[ "$OVERLAY_CHECK" != "OK_KEY" ]]; then
-  echo "  ✗✗ 자료실 업로드 거부 — 이 exe 는 직접설치용 '완제품'이 아님 (검사=$OVERLAY_CHECK)."
-  echo "      빈 키/베이스 exe 로 신규 설치하면 auto-enroll 이 안 돼 패널에 안 뜬다(카페리치 사고)."
-  echo "      자료실엔 패널 [에이전트 다운로드] 로 받은 '키 포함' exe 만 올릴 것."
-  echo "      (NAS 웹 + agent-push.json 은 위 [1·3]에서 이미 완료 — 자동푸시/오버레이재료는 정상.)"
-  STAFF_PW=""   # 아래 로그인/업로드 블록을 건너뛰게 강제
+  echo "  이 exe 는 raw 베이스(빈 키, 검사=$OVERLAY_CHECK) — 자료실엔 직접 안 올림(카페리치 가드)."
+  echo "  대신 betaposlab 자체 tenant 오버레이(키 포함)를 패널 다운로드 API 로 재생성해 올린다."
+  bash "$SCRIPT_DIR/publish-staff-overlay.sh"
+  STAFF_PW=""   # 아래(레거시 raw-exe 업로드 블록)는 항상 건너뜀 — 위에서 이미 처리했거나 스킵됨
 fi
 
 STAFF_PW="${STAFF_PW:-}"
@@ -128,4 +130,4 @@ echo "  [2] 관리패널 → 거래처 → [⬆ 전체 일괄 푸시] → [최�
 echo "      → 이 클릭이 곧 [3] 자동 롤링(각 거래처 5분 폴링 사일런트 설치)."
 echo "      ※ 살아있는 거래처 전체에 즉시 영향이라 이 마지막 클릭만 사람이 직접 확인."
 echo ""
-echo "✅ 자동 완료: [1] 대리점 다운로드 소스 + [4] 스텝 자료실. 남은 건 위 [2] 클릭뿐."
+echo "✅ 자동 완료: [1] 대리점 다운로드 소스 + [4] 스텝 자료실(오버레이 재생성). 남은 건 위 [2] 클릭뿐."

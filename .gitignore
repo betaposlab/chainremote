@@ -113,5 +113,6 @@ __MACOSX/
 /docs/chainremote/
 /코워크 검토.md
 
-# 스텝 자료실 로그인 비번 (로컬 전용, 절대 커밋 금지)
+# 스텝 자료실 / 관리패널 로그인 비번 (로컬 전용, 절대 커밋 금지)
 deploy/nas/.staff-pw
+deploy/nas/.panel-pw
