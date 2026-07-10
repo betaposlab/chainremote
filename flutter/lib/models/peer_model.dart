@@ -25,6 +25,8 @@ class Peer {
   // 자가등록 상태. 'active'|'pending'|''(미상). '전체 거래처' 탭에서 pending 표시(별칭
   // 마커는 Rust 쪽)와 마스터 확정 버튼을 보일지 정하는 데 쓴다.
   String enrollStatus;
+  // 프로세스 arch. 'x86'(32비트)|'x64'|''(미보고). '전체 거래처' 카드에 32비트 배지 표시용.
+  String arch;
 
   String getId() {
     if (alias != '') {
@@ -49,7 +51,8 @@ class Peer {
         device_group_name = json['device_group_name'] ?? '',
         note = json['note'] is String ? json['note'] : '',
         sameServer = json['same_server'],
-        enrollStatus = json['enrollStatus'] ?? '';
+        enrollStatus = json['enrollStatus'] ?? '',
+        arch = json['arch'] ?? '';
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -69,6 +72,7 @@ class Peer {
       'note': note,
       'same_server': sameServer,
       'enrollStatus': enrollStatus,
+      'arch': arch,
     };
   }
 
@@ -115,6 +119,7 @@ class Peer {
     required this.note,
     this.sameServer,
     this.enrollStatus = '',
+    this.arch = '',
   });
 
   Peer.loading()
@@ -149,7 +154,8 @@ class Peer {
         device_group_name == other.device_group_name &&
         loginName == other.loginName &&
         note == other.note &&
-        enrollStatus == other.enrollStatus;
+        enrollStatus == other.enrollStatus &&
+        arch == other.arch;
   }
 
   Peer.copy(Peer other)
@@ -169,7 +175,8 @@ class Peer {
             device_group_name: other.device_group_name,
             note: other.note,
             sameServer: other.sameServer,
-            enrollStatus: other.enrollStatus);
+            enrollStatus: other.enrollStatus,
+            arch: other.arch);
 }
 
 enum UpdateEvent { online, load }

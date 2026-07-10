@@ -410,6 +410,28 @@ class _PeerCardState extends State<_PeerCard>
                           ),
                         ),
                       ),
+                      // 32비트(x86) 거래처만 눈에 띄게 표시(호박색, 패널 배지와 동일 톤).
+                      //   64비트는 기본이라 생략해 카드를 깔끔히 — Chang 은 32비트 예외만 보면 됨.
+                      //   arch 미보고(옛 에이전트)·즐겨찾기/최근 탭(arch 빈값)은 배지 없음.
+                      if (peer.arch == 'x86') ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            '32비트',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFB45309),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
                       checkBoxOrActionMoreLandscape(peer, isTile: false),
                     ],
                   ),
