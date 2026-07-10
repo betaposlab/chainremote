@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  deleteTenant,
   issueTenantEnrollKey,
   resetTenantOwnerPassword,
   setSubscriptionStatus,
@@ -114,6 +115,31 @@ export function TenantRowActions({
     });
   }
 
+  // 회사 완전 삭제 — 파괴적(소속 사용자·거래처 전부). 이름 타이핑으로 오삭제 방지.
+  function doDelete() {
+    const typed = prompt(
+      `⚠️ '${displayName}' 회사를 완전히 삭제합니다.\n` +
+        `소속 사용자·거래처·즐겨찾기·지원기록이 모두 함께 삭제되며 되돌릴 수 없습니다.\n\n` +
+        `삭제하려면 회사 이름을 정확히 입력하세요:`,
+    );
+    if (typed === null) return; // 취소
+    if (typed.trim() !== displayName) {
+      alert("이름이 일치하지 않아 취소했습니다.");
+      return;
+    }
+    startTransition(async () => {
+      const r = await deleteTenant(tenantId);
+      if (!r.ok) {
+        alert(r.error ?? "삭제 실패");
+        return;
+      }
+      alert(
+        `'${displayName}' 삭제 완료 (거래처 ${r.deletedCustomers ?? 0}개 포함).`,
+      );
+      router.refresh();
+    });
+  }
+
   return (
     <>
       <button
@@ -171,6 +197,15 @@ export function TenantRowActions({
             해지
           </button>
         )}
+        <button
+          type="button"
+          onClick={doDelete}
+          disabled={pending || downloading}
+          title="이 회사와 소속 사용자·거래처를 완전 삭제 (되돌리기 불가)"
+          className="rounded border border-rose-300 bg-white px-2 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+        >
+          회사 삭제
+        </button>
 
       {resetResult && (
         <ResetResultDialog

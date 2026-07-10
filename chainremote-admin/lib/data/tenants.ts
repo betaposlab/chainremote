@@ -5,7 +5,7 @@
 
 import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { tenants, users } from "@/lib/schema";
+import { tenants, users, customers } from "@/lib/schema";
 import { assertEmailAvailable } from "./users";
 import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 import { encryptSecret, decryptSecret } from "@/lib/secret-crypto";
@@ -85,6 +85,23 @@ export async function listTenants() {
 export async function getTenant(id: string) {
   const rows = await db.select().from(tenants).where(eq(tenants.id, id)).limit(1);
   return rows[0] ?? null;
+}
+
+/**
+ * 회사(tenant) 완전 삭제. 소속 사용자·거래처·즐겨찾기·세션·pending_updates 는 스키마의
+ * tenant_id FK(onDelete: cascade)로 DB 가 자동 정리한다(schema.ts 89/110/178/196/223).
+ * 되돌릴 수 없다 — 호출 전 권한/자기회사 가드는 action 레이어(deleteTenant)가 책임진다.
+ * 삭제된 거래처 수를 반환해 UI 가 "N개 거래처와 함께 삭제됨" 을 보여줄 수 있게 한다.
+ */
+export async function deleteTenantCascade(
+  id: string,
+): Promise<{ deletedCustomers: number }> {
+  const [{ value: deletedCustomers }] = await db
+    .select({ value: count() })
+    .from(customers)
+    .where(eq(customers.tenantId, id));
+  await db.delete(tenants).where(eq(tenants.id, id));
+  return { deletedCustomers };
 }
 
 export async function updateTenant(id: string, patch: Partial<TenantFields>) {

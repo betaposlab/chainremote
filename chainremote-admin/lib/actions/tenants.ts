@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import {
   createTenantWithOwner,
+  deleteTenantCascade,
   findFirstOwnerOfTenant,
   getTenant,
   reissueEnrollKey,
@@ -152,6 +153,25 @@ export async function patchTenant(id: string, patch: Partial<TenantFields>) {
   await requireSuperAdmin();
   await updateTenant(id, patch);
   revalidatePath("/admin/tenants");
+}
+
+// 회사(대리점) 완전 삭제 — super_admin 전용, 소속 사용자·거래처 전부 cascade 삭제(되돌리기 불가).
+//   ★결과를 {ok/error}로 반환한다(throw 아님): Next.js 프로덕션은 throw 된 에러 메시지를 가려
+//   digest 만 노출하므로, 클라이언트가 친절히 보여주려면 값으로 돌려줘야 한다.
+//   ★자기 회사(운영사 betaposlab) 삭제 금지: 지우면 Chang 이 로그인 불가 + 본업 데이터 증발.
+export async function deleteTenant(
+  id: string,
+): Promise<{ ok: boolean; error?: string; deletedCustomers?: number }> {
+  const me = await requireSuperAdmin();
+  if (id === me.tenantId) {
+    return { ok: false, error: "본인 소속 회사(운영사)는 삭제할 수 없습니다." };
+  }
+  const t = await getTenant(id);
+  if (!t) return { ok: false, error: "이미 삭제된 회사입니다." };
+  const { deletedCustomers } = await deleteTenantCascade(id);
+  revalidatePath("/admin/tenants");
+  revalidatePath("/users");
+  return { ok: true, deletedCustomers };
 }
 
 // 회사 정보 수정 — formData 형태 (수정 폼에서 호출).
