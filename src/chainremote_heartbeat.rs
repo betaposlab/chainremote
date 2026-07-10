@@ -219,6 +219,10 @@ fn send_heartbeat(remote_id: &str, token: &str, version: &str) -> ResultType<Bea
     let body = serde_json::json!({
         "remoteId": remote_id,
         "version": version,
+        // 프로세스 arch — 이 기기가 32비트 페이로드(i686)로 도는지 x64 로 도는지. 32비트는
+        //   target_arch="x86" 으로 컴파일되므로 실행 바이너리 자신이 확실히 안다(추론 불필요).
+        //   패널이 거래처를 arch 로 구분·진단(32비트 페이로드 버전 고착 같은 이슈 즉시 파악).
+        "arch": if cfg!(target_arch = "x86") { "x86" } else { "x64" },
         // 기기지문 — 패널이 옛 거래처에 backfill + 향후 ID 변경 시 재링크에 쓴다.
         "machineUuid": hbb_common::get_machine_fingerprint(),
     })

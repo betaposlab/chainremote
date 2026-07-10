@@ -86,6 +86,7 @@ export default async function CustomersPage({
       assignedUserName: users.displayName,
       lastHeartbeatAt: customers.lastHeartbeatAt,
       lastVersion: customers.lastVersion,
+      arch: customers.arch,
       isInternal: customers.isInternal,
       pinOrder: customers.pinOrder,
       enrollStatus: customers.enrollStatus,
@@ -252,6 +253,8 @@ export default async function CustomersPage({
                 c.phone,
                 c.remoteId,
                 c.notes,
+                // arch 검색: "32비트"/"64비트"/"x86"/"x64" 로 fleet 을 갈라 볼 수 있게.
+                c.arch === "x86" ? "32비트 x86" : c.arch === "x64" ? "64비트 x64" : "",
               ]
                 .filter(Boolean)
                 .join(" ")
@@ -297,9 +300,23 @@ export default async function CustomersPage({
                   <td className="px-4 py-3 text-slate-600 tabular-nums whitespace-nowrap">{c.phone ?? "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">
                     {c.remoteId ? (
-                      <span className="inline-block bg-[#00A0E5]/10 text-[#0070a8] px-2 py-0.5 rounded whitespace-nowrap">
-                        {formatRemoteId(c.remoteId)}
-                      </span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="inline-block bg-[#00A0E5]/10 text-[#0070a8] px-2 py-0.5 rounded whitespace-nowrap">
+                          {formatRemoteId(c.remoteId)}
+                        </span>
+                        {/* arch 배지(마이그 020) — 32비트는 눈에 띄게(호박색), 64비트는 담백(회색).
+                            미보고(구버전 에이전트/옛 거래처)는 배지 없음. 32비트 페이로드 이슈 영향범위를 한눈에. */}
+                        {c.arch === "x86" && !c.isInternal && (
+                          <span className="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap">
+                            32비트
+                          </span>
+                        )}
+                        {c.arch === "x64" && !c.isInternal && (
+                          <span className="inline-block bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap">
+                            64비트
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-slate-400">미등록</span>
                     )}

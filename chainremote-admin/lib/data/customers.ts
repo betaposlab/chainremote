@@ -159,10 +159,14 @@ export async function recordHeartbeat(
   token: string,
   version: string,
   machineUuid?: string,
+  arch?: string,
 ): Promise<boolean> {
+  // arch(마이그 020): 보내온 경우에만 갱신. 순수 표시·진단 telemetry — WHERE/매칭에는
+  //   절대 안 쓴다(신원 키 아님). 값이 없으면 기존 arch 를 건드리지 않는다.
+  const archSet = arch === "x86" || arch === "x64" ? { arch } : {};
   const [row] = await db
     .update(customers)
-    .set({ lastHeartbeatAt: new Date(), lastVersion: version })
+    .set({ lastHeartbeatAt: new Date(), lastVersion: version, ...archSet })
     .where(
       and(
         eq(customers.remoteId, remoteId),

@@ -80,9 +80,16 @@ fi
 
 if [ "$DRYRUN" = "1" ]; then echo ""; echo "DRYRUN 종료 — 실제 배포는 DRYRUN 없이 재실행."; exit 0; fi
 
-echo "[3/6] 마이그018 (machine_uuid 컬럼, 멱등) 프로덕션 DB 적용..."
-$SSH "$DOCKER exec -i chainremote-postgres psql -U chainremote -d chainremote" \
-  < "$SRC/migrations/018_customers_machine_uuid.sql"
+echo "[3/6] DB 마이그레이션 전체 적용 (migrations/*.sql, 정렬순, 전부 멱등)..."
+# ★2026-07-10: 종전엔 018 하나만 하드코딩해서, 새 마이그를 추가할 때마다 이 스크립트도 같이
+#   고쳐야 했다 — 깜빡하면 프로덕션에 컬럼 없이 배포돼 빌드/런타임이 깨진다(같은 '깜빡' 사고
+#   클래스). 우리 마이그는 전부 멱등(ADD COLUMN IF NOT EXISTS / CREATE INDEX IF NOT EXISTS /
+#   DROP+ADD CONSTRAINT)이라 정렬 순서대로 매번 전부 재적용한다 = 새 .sql 파일만 넣으면 자동
+#   반영, 스크립트 수정 불필요. ★규칙: 앞으로 모든 마이그는 재실행 안전(멱등)해야 한다.
+for m in $(ls -1 "$SRC"/migrations/*.sql | sort); do
+  echo "    적용: $(basename "$m")"
+  $SSH "$DOCKER exec -i chainremote-postgres psql -U chainremote -d chainremote -v ON_ERROR_STOP=1" < "$m" >/dev/null
+done
 echo "    OK"
 
 echo "[4/6] 패널 이미지 rebuild (구 컨테이너는 성공 전까지 계속 가동 = 무중단)..."
@@ -95,8 +102,8 @@ echo "    OK"
 
 set +e
 echo "[6/6] 검증..."
-echo -n "  machine_uuid 컬럼: "
-$SSH "$DOCKER exec -i chainremote-postgres psql -U chainremote -d chainremote -tAc \"SELECT count(*) FROM information_schema.columns WHERE table_name='customers' AND column_name='machine_uuid';\"" 2>/dev/null
+echo -n "  customers 컬럼(machine_uuid/arch 존재수, 2 여야 정상): "
+$SSH "$DOCKER exec -i chainremote-postgres psql -U chainremote -d chainremote -tAc \"SELECT count(*) FROM information_schema.columns WHERE table_name='customers' AND column_name IN ('machine_uuid','arch');\"" 2>/dev/null
 echo -n "  agent-push.json 라이브 버전: "
 curl -sk --max-time 10 https://sepani.synology.me/chainremote/agent-push.json 2>/dev/null \
   | python3 -c 'import json,sys; print(json.load(sys.stdin).get("version","?"))' 2>/dev/null || echo "?"

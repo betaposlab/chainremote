@@ -132,6 +132,10 @@ export const customers = pgTable(
     // ID 가 충돌/랜카드교체로 바뀌어도 지문으로 같은 거래처를 알아봐 remote_id 만 갱신한다.
     // nullable: 옛 거래처 + 지문 못 읽는 기기는 NULL 로 두어 매칭에서 빼 오매칭 방지.
     machineUuid: text("machine_uuid"),
+    // 프로세스 arch(마이그 020) — "x86"(32비트 페이로드) / "x64". heartbeat 가 lazy 채운다.
+    //   ★순수 표시·진단용 telemetry — 매칭/신원 키가 절대 아니다(machine_uuid 와 다른 점).
+    //   32비트 POS 를 즉시 식별해 32비트 페이로드 이슈의 영향범위를 바로 안다. nullable(옛/미보고).
+    arch: text("arch"),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),
