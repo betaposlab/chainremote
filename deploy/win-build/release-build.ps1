@@ -38,23 +38,25 @@ $installerFile = $null
 if ($Kind -eq 'agent') {
   $payloadDir = "$repo\deploy\win-installer\agent32-payload"
   $payloadExe = "$payloadDir\ChainRemote.exe"
-  if (-not (Test-Path $payloadExe)) {
-    Mark "FAIL agent32-payload 없음 — build-agent32.ps1 을 먼저 1회 실행 필요(재빌드 금지 관례, 매번 자동재빌드 안 함)"
-    exit 1
+  # ★★ 32비트 페이로드 버전 자동정합 (2026-07-10 복수점/신교령/카페리치 사고 근본대책).
+  #   윈7 32비트 POS 는 거래처의 큰 몫이고, 통합 인스톨러가 OS 감지로 그들에겐 이 32비트
+  #   페이로드를 깐다. 그런데 32비트는 x64 자동빌드에 안 딸려오는 별도 Rust 1.75 빌드라,
+  #   버전 올릴 때 재빌드를 "사람이 기억"해야 했고 → 깜빡하면 32비트 전부가 옛 버전 고착 +
+  #   패널 '입뎃 미확인'. 그 기억 의존을 없앤다: 페이로드 바이너리에 이번 릴리즈 버전 문자열이
+  #   실제로 박혀있는지 검사해서, 없거나(옛 고정본) 페이로드 자체가 없으면 파이프라인이
+  #   build-agent32.ps1 을 스스로 돌려 v$ver 로 재빌드한다. 즉 이 원커맨드가 x64·x86 을
+  #   항상 같은 버전으로 맞춰 내보낸다 = 32비트 빠뜨림이 구조적으로 불가능.
+  $payloadOk = (Test-Path $payloadExe) -and ([System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($payloadExe)) -match [regex]::Escape("$ver"))
+  if ($payloadOk) {
+    Mark "AGENT32-PAYLOAD-OK (v$ver 정합, 기존본 재사용, mtime=$((Get-Item $payloadExe).LastWriteTime))"
+  } else {
+    Mark "AGENT32-REBUILD-START (페이로드가 v$ver 아님/없음 — build-agent32.ps1 자동 재빌드, ~5~10분)"
+    & powershell -ExecutionPolicy Bypass -File "$repo\deploy\win-build\build-agent32.ps1" *> "$repo\_release_${Kind}_agent32.log"
+    if ($LASTEXITCODE -ne 0) { Mark "FAIL agent32 자동재빌드 (build-agent32.ps1 exit=$LASTEXITCODE) — _release_${Kind}_agent32.log 확인"; exit 1 }
+    $payloadOk = (Test-Path $payloadExe) -and ([System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($payloadExe)) -match [regex]::Escape("$ver"))
+    if (-not $payloadOk) { Mark "FAIL agent32 재빌드했는데도 페이로드에 v$ver 없음 — _release_${Kind}_agent32.log 확인"; exit 1 }
+    Mark "AGENT32-REBUILD-OK (v$ver 재빌드 완료, mtime=$((Get-Item $payloadExe).LastWriteTime))"
   }
-  # ★32비트 페이로드 버전 정합 가드(2026-07-10 복수점/신교령/카페리치 사고): 페이로드는
-  #   "재빌드 금지·고정 재사용"이라 버전 올릴 때 재빌드를 깜빡하면, 32비트 기기가 옛 버전
-  #   에이전트를 받아 heartbeat 가 옛 버전으로 올라온다 → 32비트 POS 전부 패널 "입뎃 미확인"
-  #   오경보(1.4.52 인데 페이로드가 1.4.51 이라 32비트는 영영 1.4.51). 사람 주의력이 아니라
-  #   코드로 막는다: 이번 릴리즈 버전 문자열이 페이로드 바이너리에 실제로 박혀있는지 검사,
-  #   없으면(=옛 고정본) 조용히 넘어가지 말고 즉시 중단하고 재빌드를 안내한다.
-  $pbytes = [System.IO.File]::ReadAllBytes($payloadExe)
-  $ptext  = [System.Text.Encoding]::ASCII.GetString($pbytes)
-  if ($ptext -notmatch [regex]::Escape("$ver")) {
-    Mark "FAIL agent32-payload 버전 불일치 — 페이로드에 v$ver 문자열 없음(옛 고정본). 32비트 기기가 옛 버전에 고착돼 '입뎃 미확인'이 난다. build-agent32.ps1 로 32비트 페이로드를 v$ver 로 재빌드한 뒤 다시 실행하세요."
-    exit 1
-  }
-  Mark "AGENT32-PAYLOAD-OK (v$ver 정합 확인, mtime=$((Get-Item $payloadExe).LastWriteTime))"
   $installerFile = "ChainRemote_Agent_Setup_v$ver.exe"
   Set-Location "$repo\deploy\win-installer"
   & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" agent-installer.iss *> "$repo\_release_${Kind}_iscc.log"
