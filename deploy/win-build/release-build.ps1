@@ -37,11 +37,24 @@ Mark 'X64-OK'
 $installerFile = $null
 if ($Kind -eq 'agent') {
   $payloadDir = "$repo\deploy\win-installer\agent32-payload"
-  if (-not (Test-Path "$payloadDir\ChainRemote.exe")) {
+  $payloadExe = "$payloadDir\ChainRemote.exe"
+  if (-not (Test-Path $payloadExe)) {
     Mark "FAIL agent32-payload 없음 — build-agent32.ps1 을 먼저 1회 실행 필요(재빌드 금지 관례, 매번 자동재빌드 안 함)"
     exit 1
   }
-  Mark "AGENT32-PAYLOAD-OK (기존 고정본 재사용, mtime=$((Get-Item "$payloadDir\ChainRemote.exe").LastWriteTime))"
+  # ★32비트 페이로드 버전 정합 가드(2026-07-10 복수점/신교령/카페리치 사고): 페이로드는
+  #   "재빌드 금지·고정 재사용"이라 버전 올릴 때 재빌드를 깜빡하면, 32비트 기기가 옛 버전
+  #   에이전트를 받아 heartbeat 가 옛 버전으로 올라온다 → 32비트 POS 전부 패널 "입뎃 미확인"
+  #   오경보(1.4.52 인데 페이로드가 1.4.51 이라 32비트는 영영 1.4.51). 사람 주의력이 아니라
+  #   코드로 막는다: 이번 릴리즈 버전 문자열이 페이로드 바이너리에 실제로 박혀있는지 검사,
+  #   없으면(=옛 고정본) 조용히 넘어가지 말고 즉시 중단하고 재빌드를 안내한다.
+  $pbytes = [System.IO.File]::ReadAllBytes($payloadExe)
+  $ptext  = [System.Text.Encoding]::ASCII.GetString($pbytes)
+  if ($ptext -notmatch [regex]::Escape("$ver")) {
+    Mark "FAIL agent32-payload 버전 불일치 — 페이로드에 v$ver 문자열 없음(옛 고정본). 32비트 기기가 옛 버전에 고착돼 '입뎃 미확인'이 난다. build-agent32.ps1 로 32비트 페이로드를 v$ver 로 재빌드한 뒤 다시 실행하세요."
+    exit 1
+  }
+  Mark "AGENT32-PAYLOAD-OK (v$ver 정합 확인, mtime=$((Get-Item $payloadExe).LastWriteTime))"
   $installerFile = "ChainRemote_Agent_Setup_v$ver.exe"
   Set-Location "$repo\deploy\win-installer"
   & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" agent-installer.iss *> "$repo\_release_${Kind}_iscc.log"

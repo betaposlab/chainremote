@@ -252,6 +252,19 @@ begin
   else if RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{8B6F7E2A-1D4C-4A3F-9E5B-3F2C1D7E8B4A}_is1', 'DisplayVersion', v) then Result := v;
 end;
 
+// 재설치·업그레이드(이미 ChainRemote 가 깔린 기기)에선 '거래처 상호' 페이지를 숨긴다.
+//   이미 enroll 된 거래처를 재설치하며 무의식적으로 상호를 입력하면 그 이름이 레지스트리에
+//   덮여 재enroll 때 거래처명이 오염될 수 있다(등록 거래처 rename 은 패널에서만 — Chang 정책).
+//   신규 설치(빈 기기)에서만 상호를 받는다. 판정은 다운그레이드 가드와 같은 신뢰 신호
+//   (CRInstalledVer = 언인스톨 레지스트리, 설치 전 상태라 신규=빈값/재설치=옛버전)를 쓴다.
+//   자동업뎃(/VERYSILENT)은 애초에 마법사가 안 떠서 무관.
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := False;
+  if Assigned(EnrollPage) and (PageID = EnrollPage.ID) and (CRInstalledVer() <> '') then
+    Result := True;
+end;
+
 function InitializeSetup(): Boolean;
 var
   Installed: String;
