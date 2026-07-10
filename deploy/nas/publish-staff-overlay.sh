@@ -105,7 +105,11 @@ if ! grep -q '"status":"success"' "$RESP"; then
   echo "  ✗ 업로드 실패 — 옛 버전은 그대로 둠(안전)." >&2
   exit 1
 fi
-if curl -s -b "$SC" https://betaposlab.com/staff/ | grep -qF "$FILENAME"; then
+# ★pipefail 함정: `curl | grep -qF` 는 grep -q 가 매치 즉시 파이프를 닫아 curl 이 SIGPIPE(141)로
+#   죽고, set -o pipefail 이 그걸 파이프라인 실패로 봐서 매치했는데도 else 로 빠진다(거짓 "목록
+#   미확인"). 목록을 파일로 받아 파이프 없이 grep 해 회피한다.
+curl -s -b "$SC" https://betaposlab.com/staff/ -o "$RESP"
+if grep -qF "$FILENAME" "$RESP"; then
   echo "  ✓ 업로드 확인: $FILENAME"
   if [[ -n "$OLD_AGENTS" ]]; then
     while IFS= read -r old; do

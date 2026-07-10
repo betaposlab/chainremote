@@ -74,14 +74,25 @@ if [[ $SSH_EXIT -ne 0 && $SSH_EXIT -ne 1 ]]; then
   exit 1
 fi
 rm -f "$SSH_ERR_LOG"
+# 같은 버전을 고쳐 재발행(예: 깨진 32비트 페이로드 교체)할 땐 파일명이 같은데 내용(sha)이
+#   다르다. 기본은 오염/실수 방지로 거부하되, 의도된 교체면 FORCE_REPUBLISH=1 로 덮어쓴다.
+NEED_UPLOAD=0
 if [[ -n "$EXISTING_SHA" ]]; then
-  if [[ "$EXISTING_SHA" != "$SHA256" ]]; then
+  if [[ "$EXISTING_SHA" == "$SHA256" ]]; then
+    echo "[1/3] NAS 에 이미 업로드됨(sha 일치) — 재업로드 skip."
+  elif [[ "${FORCE_REPUBLISH:-0}" == "1" ]]; then
+    echo "[1/3] ⚠ 같은 파일명·다른 내용 — FORCE_REPUBLISH=1, 의도된 교체로 덮어쓴다 (nas=$EXISTING_SHA → local=$SHA256)."
+    NEED_UPLOAD=1
+  else
     echo "✗ ERROR — NAS 에 같은 파일명이 다른 내용으로 이미 있음 (nas=$EXISTING_SHA local=$SHA256)." >&2
+    echo "   의도된 동일버전 교체면 FORCE_REPUBLISH=1 로 재실행." >&2
     exit 1
   fi
-  echo "[1/3] NAS 에 이미 업로드됨(sha 일치) — 재업로드 skip."
 else
   echo "[1/3] NAS 업로드 중 (atomic)..."
+  NEED_UPLOAD=1
+fi
+if [[ "$NEED_UPLOAD" == "1" ]]; then
   TMP_REMOTE="$REMOTE_PATH.partial"
   ssh "$NAS_HOST" "cat > $TMP_REMOTE && chmod 644 $TMP_REMOTE" < "$SETUP_EXE"
   NAS_SHA=$(ssh "$NAS_HOST" "sha256sum $TMP_REMOTE | awk '{print \$1}'")
