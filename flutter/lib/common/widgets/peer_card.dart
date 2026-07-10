@@ -262,6 +262,27 @@ class _PeerCardState extends State<_PeerCard>
                     : Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // 32비트(x86) 거래처만 표시(호박, 패널/그리드카드와 동일 톤). 온라인 pill
+                          //   왼쪽에. 64비트/미보고/즐겨찾기·최근 탭은 배지 없음. 타일·리스트 뷰용.
+                          if (peer.arch == 'x86') ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                '32비트',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFB45309),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           _statusPill(peer.online),
                           const SizedBox(width: 8),
                           checkBoxOrActionMoreLandscape(peer, isTile: true),
