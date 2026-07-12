@@ -52,12 +52,6 @@ String? crOsBadgeText(Peer peer) {
 
 bool crOsBadgeIsWin7(Peer peer) => peer.os.contains('Windows 7');
 
-// HQ 컴팩트 카드는 예외(Win7 또는 32비트)만 배지로 강조 — 일반 Win10/11 64비트는 깔끔히 생략.
-bool crOsBadgeNotable(Peer peer) =>
-    crOsBadgeIsWin7(peer) ||
-    peer.osBits == 'x86' ||
-    (peer.osBits.isEmpty && peer.arch == 'x86');
-
 enum PeerUiType { grid, tile, list }
 
 final peerCardUiType = PeerUiType.grid.obs;
@@ -300,8 +294,7 @@ class _PeerCardState extends State<_PeerCard>
                         children: [
                           // OS 배지(마이그021, 타일·리스트 뷰) — 예외(Win7/32비트)만. "Win7 · 64비트".
                           //   Win7=호박, 그 외=회색. 온라인 pill 왼쪽. 일반 Win10/11 64비트는 생략.
-                          if (crOsBadgeNotable(peer) &&
-                              crOsBadgeText(peer) != null) ...[
+                          if (crOsBadgeText(peer) != null) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 5, vertical: 1),
@@ -474,8 +467,7 @@ class _PeerCardState extends State<_PeerCard>
                       ),
                       // OS 배지(마이그021) — 예외(Win7/32비트)만 표시. Win7=호박, 그 외=회색.
                       //   "Win7 · 64비트"처럼 OS+비트수. 일반 Win10/11 64비트·미보고는 생략.
-                      if (crOsBadgeNotable(peer) &&
-                          crOsBadgeText(peer) != null) ...[
+                      if (crOsBadgeText(peer) != null) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 5, vertical: 1),
