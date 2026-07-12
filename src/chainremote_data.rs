@@ -32,9 +32,13 @@ struct CustomerRow {
     // 담당 직원. null/빈값 = 미배정("등록대기") — 아직 아무도 안 잡은 신규 거래처.
     #[serde(rename = "assignedUserId")]
     assigned_user_id: Option<String>,
-    // 프로세스 arch("x86"=32비트 / "x64", 마이그020). 전체 거래처 카드의 32비트 배지에 쓴다.
-    //   패널이 heartbeat 로 lazy 채우므로 옛 에이전트/미보고는 None.
+    // 프로세스 arch("x86"=32비트 / "x64", 마이그020). 내부 진단용(어느 페이로드/버전 트랙).
     arch: Option<String>,
+    // OS 표시(마이그021) — os="Windows 7/10/11", osBits="x64"/"x86"(네이티브 OS 비트수).
+    //   전체 거래처 카드에 "Win7 · 64비트" 배지로 쓴다(arch=페이로드와 달라 OS 기준이 정확).
+    os: Option<String>,
+    #[serde(rename = "osBits")]
+    os_bits: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,8 +162,10 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
         "same_server": serde_json::Value::Null,
         // Flutter Peer.enrollStatus 로 흘러가 마스터 확정 버튼 게이트(pending 만 노출)에 쓰임.
         "enrollStatus": c.enroll_status.clone().unwrap_or_default(),
-        // Flutter Peer.arch 로 흘러가 32비트 배지에 쓰임(x86 일 때만 카드에 표시).
+        // Flutter Peer.arch(내부 진단) + os/osBits(표시) — 카드에 "Win7 · 64비트" 배지로.
         "arch": c.arch.clone().unwrap_or_default(),
+        "os": c.os.clone().unwrap_or_default(),
+        "osBits": c.os_bits.clone().unwrap_or_default(),
     }))
 }
 

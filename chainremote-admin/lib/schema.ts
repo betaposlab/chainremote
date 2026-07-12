@@ -134,8 +134,13 @@ export const customers = pgTable(
     machineUuid: text("machine_uuid"),
     // 프로세스 arch(마이그 020) — "x86"(32비트 페이로드) / "x64". heartbeat 가 lazy 채운다.
     //   ★순수 표시·진단용 telemetry — 매칭/신원 키가 절대 아니다(machine_uuid 와 다른 점).
-    //   32비트 POS 를 즉시 식별해 32비트 페이로드 이슈의 영향범위를 바로 안다. nullable(옛/미보고).
+    //   내부 진단용(어느 페이로드/버전 트랙인지). 표시는 os/osBits 를 쓴다. nullable(옛/미보고).
     arch: text("arch"),
+    // OS 표시(마이그 021) — os="Windows 7/10/11", osBits="x64"/"x86"(네이티브 OS 비트수).
+    //   arch(페이로드)와 다르다: 64비트 Win7 은 arch="x86"이나 os="Windows 7"·osBits="x64".
+    //   "Win7 · 64비트"로 정확히 보여줘 arch 만 볼 때의 착각 방지. 표시·진단용, 매칭 키 아님.
+    os: text("os"),
+    osBits: text("os_bits"),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),

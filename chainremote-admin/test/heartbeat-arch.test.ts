@@ -32,6 +32,18 @@ async function readArch(remoteId: string): Promise<string | null> {
   return row?.arch ?? null;
 }
 
+async function readOs(
+  remoteId: string,
+): Promise<{ os: string | null; osBits: string | null }> {
+  const db = testDb();
+  const [row] = await db
+    .select({ os: customers.os, osBits: customers.osBits })
+    .from(customers)
+    .where(eq(customers.remoteId, remoteId))
+    .limit(1);
+  return { os: row?.os ?? null, osBits: row?.osBits ?? null };
+}
+
 describe("heartbeat arch (마이그 020)", () => {
   it("유효한 arch(x86/x64)를 저장한다", async () => {
     const { token } = await seed("arch-a", "봉스푸드", "GN11110001");
@@ -70,5 +82,31 @@ describe("heartbeat arch (마이그 020)", () => {
     // 잘못된 토큰 → recordHeartbeat 는 false, arch 도 반영 안 됨.
     expect(await recordHeartbeat("GN44440004", "wrong-token", "1.4.53", undefined, "x86")).toBe(false);
     expect(await readArch("GN44440004")).toBeNull();
+  });
+});
+
+describe("heartbeat os/osBits (마이그 021)", () => {
+  it("os + osBits 를 저장한다", async () => {
+    const { token } = await seed("os-a", "정상윈10", "GN55550005");
+    expect(
+      await recordHeartbeat("GN55550005", token, "1.4.54", undefined, "x64", "Windows 10", "x64"),
+    ).toBe(true);
+    expect(await readOs("GN55550005")).toEqual({ os: "Windows 10", osBits: "x64" });
+  });
+
+  it("★64비트 Win7: arch(페이로드)=x86 이라도 osBits=x64 로 OS 비트수는 정확히 저장", async () => {
+    const { token } = await seed("os-b", "월광식자재", "GN66660006");
+    // 64비트 Win7 은 32비트 페이로드를 돌린다 → arch=x86, 그러나 OS 는 Win7 64비트.
+    await recordHeartbeat("GN66660006", token, "1.4.54", undefined, "x86", "Windows 7", "x64");
+    expect(await readArch("GN66660006")).toBe("x86"); // 페이로드
+    expect(await readOs("GN66660006")).toEqual({ os: "Windows 7", osBits: "x64" }); // OS
+  });
+
+  it("os 미보고(구버전 에이전트)는 기존 os 를 안 건드린다", async () => {
+    const { token } = await seed("os-c", "옛에이전트", "GN77770007");
+    await recordHeartbeat("GN77770007", token, "1.4.54", undefined, "x64", "Windows 11", "x64");
+    // 다음 heartbeat 가 os 를 안 보냄 → Win11 유지.
+    await recordHeartbeat("GN77770007", token, "1.4.54", undefined, "x64", undefined, undefined);
+    expect(await readOs("GN77770007")).toEqual({ os: "Windows 11", osBits: "x64" });
   });
 });

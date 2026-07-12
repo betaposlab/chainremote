@@ -23,6 +23,8 @@ export async function POST(req: Request) {
       version?: unknown;
       machineUuid?: unknown;
       arch?: unknown;
+      os?: unknown;
+      osBits?: unknown;
     };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";
@@ -31,8 +33,10 @@ export async function POST(req: Request) {
     // 기기지문 — 옛 거래처 backfill 용(앵커). 빈값이면 무시.
     const machineUuid =
       typeof body.machineUuid === "string" ? body.machineUuid.trim() : "";
-    // 프로세스 arch(마이그 020) — recordHeartbeat 가 "x86"/"x64" 만 인정. 미보고(구버전)면 무시.
+    // 프로세스 arch(020) + OS 표시(021) — recordHeartbeat 가 유효값만 반영, 미보고(구버전)면 무시.
     const arch = typeof body.arch === "string" ? body.arch.trim() : "";
+    const os = typeof body.os === "string" ? body.os.trim() : "";
+    const osBits = typeof body.osBits === "string" ? body.osBits.trim() : "";
     if (!remoteId || !version) {
       return Response.json(
         { error: "remoteId + version 필수" },
@@ -45,6 +49,8 @@ export async function POST(req: Request) {
       version,
       machineUuid || undefined,
       arch || undefined,
+      os || undefined,
+      osBits || undefined,
     );
     if (!ok) {
       return Response.json(

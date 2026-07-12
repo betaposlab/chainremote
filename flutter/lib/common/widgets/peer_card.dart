@@ -22,6 +22,42 @@ import 'dart:math' as math;
 typedef PopupMenuEntryBuilder = Future<List<mod_menu.PopupMenuEntry<String>>>
     Function(BuildContext);
 
+// ── OS 배지 (마이그021) — "Win7 · 64비트" 식. os(버전)+osBits(네이티브 비트수) 우선, 없으면
+//   arch(페이로드) 폴백. 64비트 Win7 이 32비트 페이로드를 돌려도 os 로 정확히 "Win7 · 64비트".
+String? crOsBadgeText(Peer peer) {
+  final bits = (peer.osBits == 'x64' || peer.arch == 'x64')
+      ? '64비트'
+      : (peer.osBits == 'x86' || peer.arch == 'x86')
+          ? '32비트'
+          : '';
+  final os = peer.os;
+  String osShort = '';
+  if (os.contains('Windows 11')) {
+    osShort = 'Win11';
+  } else if (os.contains('Windows 10')) {
+    osShort = 'Win10';
+  } else if (os.contains('Windows 8.1')) {
+    osShort = 'Win8.1';
+  } else if (os.contains('Windows 8')) {
+    osShort = 'Win8';
+  } else if (os.contains('Windows 7')) {
+    osShort = 'Win7';
+  } else if (os.isNotEmpty) {
+    osShort = os.replaceFirst('Windows ', 'Win');
+  }
+  final text =
+      osShort.isNotEmpty ? (bits.isNotEmpty ? '$osShort · $bits' : osShort) : bits;
+  return text.isEmpty ? null : text;
+}
+
+bool crOsBadgeIsWin7(Peer peer) => peer.os.contains('Windows 7');
+
+// HQ 컴팩트 카드는 예외(Win7 또는 32비트)만 배지로 강조 — 일반 Win10/11 64비트는 깔끔히 생략.
+bool crOsBadgeNotable(Peer peer) =>
+    crOsBadgeIsWin7(peer) ||
+    peer.osBits == 'x86' ||
+    (peer.osBits.isEmpty && peer.arch == 'x86');
+
 enum PeerUiType { grid, tile, list }
 
 final peerCardUiType = PeerUiType.grid.obs;
@@ -262,22 +298,27 @@ class _PeerCardState extends State<_PeerCard>
                     : Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 32비트(x86) 거래처만 표시(호박, 패널/그리드카드와 동일 톤). 온라인 pill
-                          //   왼쪽에. 64비트/미보고/즐겨찾기·최근 탭은 배지 없음. 타일·리스트 뷰용.
-                          if (peer.arch == 'x86') ...[
+                          // OS 배지(마이그021, 타일·리스트 뷰) — 예외(Win7/32비트)만. "Win7 · 64비트".
+                          //   Win7=호박, 그 외=회색. 온라인 pill 왼쪽. 일반 Win10/11 64비트는 생략.
+                          if (crOsBadgeNotable(peer) &&
+                              crOsBadgeText(peer) != null) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 5, vertical: 1),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
+                                color: crOsBadgeIsWin7(peer)
+                                    ? const Color(0xFFFEF3C7)
+                                    : const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text(
-                                '32비트',
+                              child: Text(
+                                crOsBadgeText(peer)!,
                                 style: TextStyle(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFFB45309),
+                                  color: crOsBadgeIsWin7(peer)
+                                      ? const Color(0xFFB45309)
+                                      : const Color(0xFF64748B),
                                 ),
                               ),
                             ),
@@ -431,23 +472,27 @@ class _PeerCardState extends State<_PeerCard>
                           ),
                         ),
                       ),
-                      // 32비트(x86) 거래처만 눈에 띄게 표시(호박색, 패널 배지와 동일 톤).
-                      //   64비트는 기본이라 생략해 카드를 깔끔히 — Chang 은 32비트 예외만 보면 됨.
-                      //   arch 미보고(옛 에이전트)·즐겨찾기/최근 탭(arch 빈값)은 배지 없음.
-                      if (peer.arch == 'x86') ...[
+                      // OS 배지(마이그021) — 예외(Win7/32비트)만 표시. Win7=호박, 그 외=회색.
+                      //   "Win7 · 64비트"처럼 OS+비트수. 일반 Win10/11 64비트·미보고는 생략.
+                      if (crOsBadgeNotable(peer) &&
+                          crOsBadgeText(peer) != null) ...[
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
+                            color: crOsBadgeIsWin7(peer)
+                                ? const Color(0xFFFEF3C7)
+                                : const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
-                            '32비트',
+                          child: Text(
+                            crOsBadgeText(peer)!,
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFFB45309),
+                              color: crOsBadgeIsWin7(peer)
+                                  ? const Color(0xFFB45309)
+                                  : const Color(0xFF64748B),
                             ),
                           ),
                         ),

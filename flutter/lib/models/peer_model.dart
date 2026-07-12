@@ -25,8 +25,12 @@ class Peer {
   // 자가등록 상태. 'active'|'pending'|''(미상). '전체 거래처' 탭에서 pending 표시(별칭
   // 마커는 Rust 쪽)와 마스터 확정 버튼을 보일지 정하는 데 쓴다.
   String enrollStatus;
-  // 프로세스 arch. 'x86'(32비트)|'x64'|''(미보고). '전체 거래처' 카드에 32비트 배지 표시용.
+  // 프로세스 arch. 'x86'|'x64'|''. 내부 진단용(어느 페이로드).
   String arch;
+  // OS 표시. os='Windows 7/10/11', osBits='x64'/'x86'(네이티브 OS 비트수). '전체 거래처'
+  //   카드에 "Win7 · 64비트" 배지로. arch(페이로드)와 달라 OS 기준이 정확(64비트 Win7 구분).
+  String os;
+  String osBits;
 
   String getId() {
     if (alias != '') {
@@ -52,7 +56,9 @@ class Peer {
         note = json['note'] is String ? json['note'] : '',
         sameServer = json['same_server'],
         enrollStatus = json['enrollStatus'] ?? '',
-        arch = json['arch'] ?? '';
+        arch = json['arch'] ?? '',
+        os = json['os'] ?? '',
+        osBits = json['osBits'] ?? '';
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -73,6 +79,8 @@ class Peer {
       'same_server': sameServer,
       'enrollStatus': enrollStatus,
       'arch': arch,
+      'os': os,
+      'osBits': osBits,
     };
   }
 
@@ -120,6 +128,8 @@ class Peer {
     this.sameServer,
     this.enrollStatus = '',
     this.arch = '',
+    this.os = '',
+    this.osBits = '',
   });
 
   Peer.loading()
@@ -155,7 +165,9 @@ class Peer {
         loginName == other.loginName &&
         note == other.note &&
         enrollStatus == other.enrollStatus &&
-        arch == other.arch;
+        arch == other.arch &&
+        os == other.os &&
+        osBits == other.osBits;
   }
 
   Peer.copy(Peer other)
@@ -176,7 +188,9 @@ class Peer {
             note: other.note,
             sameServer: other.sameServer,
             enrollStatus: other.enrollStatus,
-            arch: other.arch);
+            arch: other.arch,
+            os: other.os,
+            osBits: other.osBits);
 }
 
 enum UpdateEvent { online, load }

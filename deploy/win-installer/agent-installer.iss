@@ -4,10 +4,12 @@
 ;
 ; 통합 동작 (2026-06-10, Chang 결정):
 ;   Inno 셋업 본체(stub)는 원래 32비트라 Win7 SP1 32비트부터 Win11 x64 까지 어디서든 실행된다.
-;   두 페이로드를 모두 담고, 설치 시 OS 아키텍처에 맞는 쪽만 풀어서 설치한다:
-;     - 64비트 OS (Is64BitInstallMode)  → Flutter x64 빌드 (기존 거래처 빌드 그대로)
-;     - 32비트 OS                        → Sciter i686 빌드 (ChainRemote.exe + sciter.dll + custom.txt)
-;   덕분에 패널/업데이트 채널이 arch 를 구분할 필요가 사라진다 (한 파일을 아무 거래처에나 푸시 OK).
+;   두 페이로드를 모두 담고, 설치 시 "윈도우 버전" 기준으로 한쪽만 풀어서 설치한다(UseX64Payload):
+;     - 64비트 AND Win8(6.2)+           → Flutter x64 빌드 (Rust 1.81, Win10+ API 사용)
+;     - Win7(6.1 이하) 또는 32비트 OS   → Sciter i686 빌드 (Rust 1.75, Win7 호환. 64비트 Win7 은 WOW64 로 실행)
+;   ★비트수만 보면 안 된다 (2026-07-11 월광식자재 사고): 64비트 Win7 에 x64 빌드를 깔면 GetHostNameW
+;     (Win8+ API) 를 못 찾아 실행 실패한다. Win7 은 64비트여도 반드시 i686(Win7 호환) 페이로드.
+;   덕분에 패널/업데이트 채널은 여전히 arch 를 구분할 필요가 없다 (한 파일을 아무 거래처에나 푸시 OK).
 ;
 ; Phase 1 분기: 거래처 빌드 = conn-type=incoming (..\custom-agent.txt → custom.txt, click-only override 포함).
 ; 본사 빌드는 hq-installer.iss (x64 전용) 로 따로 있다.
@@ -23,7 +25,7 @@
 ;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일했다 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.53"
+#define APP_VERSION    "1.4.54"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; x64: 윈컴 Flutter 빌드 출력 (build-all.ps1)
@@ -73,13 +75,13 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 ; ── 아키텍처별 페이로드 (둘 다 패키지에 담기고, 설치 시 한쪽만 풀림) ──
-Source: "{#BUILD_DIR_X64}\*"; DestDir: "{tmp}\chainremote_payload"; Check: Is64BitInstallMode; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
+Source: "{#BUILD_DIR_X64}\*"; DestDir: "{tmp}\chainremote_payload"; Check: UseX64Payload; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
 ; x64 페이로드에도 custom.txt 동봉 — x86(build-agent32.ps1:108)과 대칭. install_me 의 XCOPY(/E,
 ;   windows.rs:1351)가 payload 폴더 전체를 "설치된 exe 옆"으로 복사하므로, 레지스트리 InstallLocation 이
 ;   옛 설치 잔재로 어긋나도(삼성공판장 사례) custom.txt 가 항상 서비스 exe 옆에 있어 is_incoming_only 가 보장된다.
 ;   (그동안 x64 는 1.5 의 하드코딩 {commonpf} 복사에만 의존해, 경로가 갈라지면 조용히 미적용되던 구조적 결함을 없앰. 2026-06-20)
-Source: "..\custom-agent.txt"; DestDir: "{tmp}\chainremote_payload"; DestName: "custom.txt"; Check: Is64BitInstallMode; Flags: deleteafterinstall ignoreversion
-Source: "{#BUILD_DIR_X86}\*"; DestDir: "{tmp}\chainremote_payload"; Check: not Is64BitInstallMode; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
+Source: "..\custom-agent.txt"; DestDir: "{tmp}\chainremote_payload"; DestName: "custom.txt"; Check: UseX64Payload; Flags: deleteafterinstall ignoreversion
+Source: "{#BUILD_DIR_X86}\*"; DestDir: "{tmp}\chainremote_payload"; Check: UseX86Payload; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
 
 ; 우리 toml — [Run] 단계에서 두 경로(user + LocalService)에 동시 배치
 ;   - RustDesk2-agent.toml   : Config2 (서버 + 옵션) — agent 전용 (approve-mode=click,
@@ -185,6 +187,29 @@ Filename: "schtasks.exe"; Parameters: "/Delete /TN ChainRemoteServiceWatchdog /F
 [Code]
 var
   EnrollPage: TInputQueryWizardPage;  // auto-enroll 거래처 상호 입력 페이지
+
+// ── 페이로드 선택: 비트수 아니라 "윈도우 버전" 기준 (2026-07-11 월광식자재 사고) ──────────
+// x64 페이로드는 Rust 1.81 빌드라 Win10+ API(GetHostNameW 등)를 써서 Win7 에선 실행 불가
+//   ("GetHostNameW 를 WS2_32.dll 에서 찾을 수 없음"). 32비트 페이로드만 Rust 1.75 = Win7 호환.
+//   그래서 x64 페이로드는 "64비트 AND Win8(6.2)+" 에서만 쓰고, Win7(6.1 이하)은 64비트여도
+//   32비트(Win7 호환) 페이로드를 쓴다 — 32비트 exe 는 64비트 Win7 에서 WOW64 로 정상 실행.
+function IsWin8OrLater(): Boolean;
+var
+  V: TWindowsVersion;
+begin
+  GetWindowsVersionEx(V);
+  Result := (V.Major > 6) or ((V.Major = 6) and (V.Minor >= 2));
+end;
+
+function UseX64Payload(): Boolean;
+begin
+  Result := Is64BitInstallMode() and IsWin8OrLater();
+end;
+
+function UseX86Payload(): Boolean;
+begin
+  Result := not UseX64Payload();
+end;
 
 // ── 다운그레이드 가드 (2026-06-06) ────────────────────────────────
 // 설치된 버전이 이 인스톨러보다 높으면 설치 거부. 의도적 롤백은 /FORCE=1 로만.

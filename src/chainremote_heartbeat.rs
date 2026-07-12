@@ -178,6 +178,59 @@ fn read_customer_name() -> String {
     hbb_common::config::get_enroll_customer_name()
 }
 
+/// 패널·HQ 표시용 OS 정보 — (버전 라벨, 네이티브 OS 비트수). "Win7 · 64비트" 처럼 보여준다.
+/// ★프로세스 arch 아니라 OS 자체를 본다: 64비트 Win7 이 32비트 페이로드를 돌려도 여기선
+///   "Windows 7" + "x64" 로 잡혀, arch 배지만 볼 때 생기던 착각(64비트=Win10 추정)을 없앤다.
+/// 버전은 레지스트리로 읽는다(매니페스트 거짓말 무관). Win11 은 ProductName 이 여전히
+///   "Windows 10" 이라 CurrentBuildNumber>=22000 으로 승격. 실패하면 빈 문자열(heartbeat 안 깨짐).
+fn read_os_info() -> (String, String) {
+    // 네이티브 OS 비트수: 64비트 프로세스면 당연 x64. 32비트 프로세스는 WOW64(64비트 OS)일 때
+    //   PROCESSOR_ARCHITEW6432 가 세팅되므로 그걸로 진짜 OS 비트수를 가른다.
+    let os_bits = if cfg!(target_arch = "x86_64") {
+        "x64"
+    } else if std::env::var("PROCESSOR_ARCHITEW6432").is_ok() {
+        "x64"
+    } else {
+        "x86"
+    }
+    .to_string();
+
+    let label = (|| -> Option<String> {
+        use winreg::enums::HKEY_LOCAL_MACHINE;
+        use winreg::RegKey;
+        let cur = RegKey::predef(HKEY_LOCAL_MACHINE)
+            .open_subkey("SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion")
+            .ok()?;
+        let product: String = cur.get_value("ProductName").unwrap_or_default();
+        let build: u32 = cur
+            .get_value::<String, _>("CurrentBuildNumber")
+            .ok()
+            .and_then(|s| s.trim().parse().ok())
+            .unwrap_or(0);
+        if build >= 22000 {
+            Some("Windows 11".to_string())
+        } else if product.contains("Windows 7") {
+            Some("Windows 7".to_string())
+        } else if product.contains("Windows 8.1") {
+            Some("Windows 8.1".to_string())
+        } else if product.contains("Windows 8") {
+            Some("Windows 8".to_string())
+        } else if product.contains("Windows 10") {
+            Some("Windows 10".to_string())
+        } else {
+            let t = product.trim();
+            if t.is_empty() {
+                None
+            } else {
+                Some(t.to_string())
+            }
+        }
+    })()
+    .unwrap_or_default();
+
+    (label, os_bits)
+}
+
 /// 자가등록 — POST /api/customers/enroll. 신규는 pending 후보+토큰, 같은 tenant 기존이면 토큰 회전.
 /// name = custom.txt customer-name(상호), hostname = 자기 hostname(상호 없을 때 서버 placeholder).
 fn enroll(remote_id: &str, tenant_slug: &str, enroll_key: &str) -> ResultType<String> {
@@ -216,13 +269,18 @@ fn enroll(remote_id: &str, tenant_slug: &str, enroll_key: &str) -> ResultType<St
 }
 
 fn send_heartbeat(remote_id: &str, token: &str, version: &str) -> ResultType<BeatOutcome> {
+    let (os, os_bits) = read_os_info();
     let body = serde_json::json!({
         "remoteId": remote_id,
         "version": version,
         // 프로세스 arch — 이 기기가 32비트 페이로드(i686)로 도는지 x64 로 도는지. 32비트는
         //   target_arch="x86" 으로 컴파일되므로 실행 바이너리 자신이 확실히 안다(추론 불필요).
-        //   패널이 거래처를 arch 로 구분·진단(32비트 페이로드 버전 고착 같은 이슈 즉시 파악).
+        //   ★내부 진단용(어느 페이로드/버전 트랙인지). 표시는 os/osBits 를 쓴다(OS 기준이 정확).
         "arch": if cfg!(target_arch = "x86") { "x86" } else { "x64" },
+        // OS 표시 정보 — os="Windows 7/10/11", osBits="x64"/"x86"(네이티브 OS 비트수).
+        //   패널·HQ 가 "Win7 · 64비트" 로 보여줘, arch(페이로드)만 볼 때의 착각을 없앤다.
+        "os": os,
+        "osBits": os_bits,
         // 기기지문 — 패널이 옛 거래처에 backfill + 향후 ID 변경 시 재링크에 쓴다.
         "machineUuid": hbb_common::get_machine_fingerprint(),
     })

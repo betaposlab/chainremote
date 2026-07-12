@@ -87,6 +87,8 @@ export default async function CustomersPage({
       lastHeartbeatAt: customers.lastHeartbeatAt,
       lastVersion: customers.lastVersion,
       arch: customers.arch,
+      os: customers.os,
+      osBits: customers.osBits,
       isInternal: customers.isInternal,
       pinOrder: customers.pinOrder,
       enrollStatus: customers.enrollStatus,
@@ -246,6 +248,33 @@ export default async function CustomersPage({
           <tbody className="divide-y divide-slate-100">
             {rows.map((c) => {
               const active = activeByCustomer.get(c.id) ?? null;
+              // OS 배지(마이그 021): os 있으면 "Win7 · 64비트", 없으면 arch 폴백(구버전 에이전트).
+              //   비트수는 OS 네이티브(osBits) 우선, 없으면 페이로드 arch. Win7 은 호박색으로 강조.
+              const osBits =
+                c.osBits === "x64" || c.arch === "x64"
+                  ? "64비트"
+                  : c.osBits === "x86" || c.arch === "x86"
+                    ? "32비트"
+                    : "";
+              const osShort = c.os
+                ? c.os.includes("Windows 11")
+                  ? "Win11"
+                  : c.os.includes("Windows 10")
+                    ? "Win10"
+                    : c.os.includes("Windows 8.1")
+                      ? "Win8.1"
+                      : c.os.includes("Windows 8")
+                        ? "Win8"
+                        : c.os.includes("Windows 7")
+                          ? "Win7"
+                          : c.os.replace("Windows ", "Win")
+                : "";
+              const osBadgeText = osShort
+                ? osBits
+                  ? `${osShort} · ${osBits}`
+                  : osShort
+                : osBits;
+              const osIsWin7 = c.os?.includes("Windows 7") ?? false;
               const searchHay = [
                 c.name,
                 c.assignedUserName,
@@ -253,8 +282,10 @@ export default async function CustomersPage({
                 c.phone,
                 c.remoteId,
                 c.notes,
-                // arch 검색: "32비트"/"64비트"/"x86"/"x64" 로 fleet 을 갈라 볼 수 있게.
-                c.arch === "x86" ? "32비트 x86" : c.arch === "x64" ? "64비트 x64" : "",
+                // OS/arch 검색: "Win7"/"32비트"/"x86" 등으로 fleet 을 갈라 볼 수 있게.
+                osBadgeText,
+                c.os ?? "",
+                c.arch === "x86" ? "x86" : c.arch === "x64" ? "x64" : "",
               ]
                 .filter(Boolean)
                 .join(" ")
@@ -304,16 +335,17 @@ export default async function CustomersPage({
                         <span className="inline-block bg-[#00A0E5]/10 text-[#0070a8] px-2 py-0.5 rounded whitespace-nowrap">
                           {formatRemoteId(c.remoteId)}
                         </span>
-                        {/* arch 배지(마이그 020) — 32비트는 눈에 띄게(호박색), 64비트는 담백(회색).
-                            미보고(구버전 에이전트/옛 거래처)는 배지 없음. 32비트 페이로드 이슈 영향범위를 한눈에. */}
-                        {c.arch === "x86" && !c.isInternal && (
-                          <span className="inline-block bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap">
-                            32비트
-                          </span>
-                        )}
-                        {c.arch === "x64" && !c.isInternal && (
-                          <span className="inline-block bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap">
-                            64비트
+                        {/* OS 배지(마이그 021) — "Win7 · 64비트" 식으로 OS+네이티브 비트수. Win7 은
+                            호박색 강조. os 미보고(구버전)면 arch 로 32/64비트만 폴백. 내부기기 제외. */}
+                        {!c.isInternal && osBadgeText && (
+                          <span
+                            className={`inline-block px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap ${
+                              osIsWin7
+                                ? "bg-amber-100 text-amber-700 font-medium"
+                                : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {osBadgeText}
                           </span>
                         )}
                       </div>
