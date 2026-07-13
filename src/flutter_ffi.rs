@@ -2880,6 +2880,33 @@ pub fn chainremote_confirm_customer(remote_id: String) -> SyncReturn<bool> {
     ))
 }
 
+// 지원세션(A/S 이력) 기록 — Phase 2. ★SyncReturn 안 씀(네트워크 POST) → Dart 에선 Future =
+//   워커스레드 실행이라 UI/원격 창을 안 막는다. 실패해도 원격은 무관(호출측 try/catch·논블로킹).
+/// 원격 시작 시 호출 → sessionId(스킵/실패면 빈 문자열). 서버가 미등록/내부기기 판별.
+pub fn chainremote_session_start(remote_id: String) -> String {
+    crate::chainremote_data::session_start_blocking_pub(remote_id)
+}
+/// 원격 종료 시 호출 — 필드 전부 선택적(빈 문자열이면 서버가 무시). duration 은 서버 자동.
+pub fn chainremote_session_end(
+    session_id: String,
+    categories: String,
+    description: String,
+    contact_name: String,
+    resolution: String,
+) -> bool {
+    crate::chainremote_data::session_end_blocking_pub(
+        session_id,
+        categories,
+        description,
+        contact_name,
+        resolution,
+    )
+}
+/// 짧은 오접속(<15초) 폐기.
+pub fn chainremote_session_discard(session_id: String) -> bool {
+    crate::chainremote_data::session_discard_blocking_pub(session_id)
+}
+
 /// 거래처명 변경 → 패널 customer.name 에 기록(최근/즐겨찾기/패널 세 화면 일관). payload=JSON {remoteId,name}.
 /// add_favorite 와 같은 1-arg(JSON) 브리지 형태. 등록 거래처면 true(반영), orphan 이면 false.
 pub fn chainremote_rename_customer(payload: String) -> SyncReturn<bool> {

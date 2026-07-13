@@ -5160,6 +5160,21 @@ fn wire_chainremote_add_favorite_impl(
         },
     )
 }
+fn wire_chainremote_remove_favorite_impl(
+    remote_id: impl Wire2Api<String> + UnwindSafe,
+) -> support::WireSyncReturn {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+        WrapInfo {
+            debug_name: "chainremote_remove_favorite",
+            port: None,
+            mode: FfiCallMode::Sync,
+        },
+        move || {
+            let api_remote_id = remote_id.wire2api();
+            Ok(chainremote_remove_favorite(api_remote_id))
+        },
+    )
+}
 fn wire_chainremote_confirm_customer_impl(
     remote_id: impl Wire2Api<String> + UnwindSafe,
 ) -> support::WireSyncReturn {
@@ -5175,6 +5190,70 @@ fn wire_chainremote_confirm_customer_impl(
         },
     )
 }
+fn wire_chainremote_session_start_impl(
+    port_: MessagePort,
+    remote_id: impl Wire2Api<String> + UnwindSafe,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, String>(
+        WrapInfo {
+            debug_name: "chainremote_session_start",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_remote_id = remote_id.wire2api();
+            move |task_callback| Ok(chainremote_session_start(api_remote_id))
+        },
+    )
+}
+fn wire_chainremote_session_end_impl(
+    port_: MessagePort,
+    session_id: impl Wire2Api<String> + UnwindSafe,
+    categories: impl Wire2Api<String> + UnwindSafe,
+    description: impl Wire2Api<String> + UnwindSafe,
+    contact_name: impl Wire2Api<String> + UnwindSafe,
+    resolution: impl Wire2Api<String> + UnwindSafe,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, bool>(
+        WrapInfo {
+            debug_name: "chainremote_session_end",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_session_id = session_id.wire2api();
+            let api_categories = categories.wire2api();
+            let api_description = description.wire2api();
+            let api_contact_name = contact_name.wire2api();
+            let api_resolution = resolution.wire2api();
+            move |task_callback| {
+                Ok(chainremote_session_end(
+                    api_session_id,
+                    api_categories,
+                    api_description,
+                    api_contact_name,
+                    api_resolution,
+                ))
+            }
+        },
+    )
+}
+fn wire_chainremote_session_discard_impl(
+    port_: MessagePort,
+    session_id: impl Wire2Api<String> + UnwindSafe,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, bool>(
+        WrapInfo {
+            debug_name: "chainremote_session_discard",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_session_id = session_id.wire2api();
+            move |task_callback| Ok(chainremote_session_discard(api_session_id))
+        },
+    )
+}
 fn wire_chainremote_rename_customer_impl(
     payload: impl Wire2Api<String> + UnwindSafe,
 ) -> support::WireSyncReturn {
@@ -5187,21 +5266,6 @@ fn wire_chainremote_rename_customer_impl(
         move || {
             let api_payload = payload.wire2api();
             Ok(chainremote_rename_customer(api_payload))
-        },
-    )
-}
-fn wire_chainremote_remove_favorite_impl(
-    remote_id: impl Wire2Api<String> + UnwindSafe,
-) -> support::WireSyncReturn {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
-        WrapInfo {
-            debug_name: "chainremote_remove_favorite",
-            port: None,
-            mode: FfiCallMode::Sync,
-        },
-        move || {
-            let api_remote_id = remote_id.wire2api();
-            Ok(chainremote_remove_favorite(api_remote_id))
         },
     )
 }

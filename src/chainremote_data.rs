@@ -498,6 +498,104 @@ pub fn confirm_customer_blocking_pub(remote_id: String) -> bool {
     confirm_customer_blocking(remote_id)
 }
 
+// ── 지원세션(A/S 이력) 기록 — HQ 원격 시작/종료에서 호출(Phase 2). 서버가 거래처 대조 ─────────
+//   ★모두 실패해도 원격 자체엔 무해(호출측이 try/catch·논블로킹). 인증은 authed_post 재사용.
+
+/// 원격 시작 시 세션 생성 — POST /api/sessions {remoteId}. 서버가 미등록/내부기기(is_internal)면
+///   sessionId=null 로 스킵. 반환 = sessionId(스킵/실패/없음이면 빈 문자열 → 호출측이 기록 안 함).
+fn session_start_blocking(remote_id: String) -> String {
+    let url = format!("{}/api/sessions", chainremote_auth::api_base());
+    let body = serde_json::json!({ "remoteId": remote_id }).to_string();
+    match authed_post(url, body) {
+        Ok(text) => serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .and_then(|v| {
+                v.get("sessionId")
+                    .and_then(|s| s.as_str().map(|x| x.to_owned()))
+            })
+            .unwrap_or_default(),
+        Err(e) => {
+            log::warn!("ChainRemote session_start 실패(원격은 무관): {}", e);
+            String::new()
+        }
+    }
+}
+
+/// 원격 종료 시 기록 — POST /api/sessions/{id}/end. 필드 전부 선택적(빈값이면 안 보냄 = 기존 보존).
+///   duration 은 서버 생성컬럼이 자동. session_id 비면 no-op.
+fn session_end_blocking(
+    session_id: String,
+    categories: String,
+    description: String,
+    contact_name: String,
+    resolution: String,
+) -> bool {
+    if session_id.trim().is_empty() {
+        return false;
+    }
+    let url = format!(
+        "{}/api/sessions/{}/end",
+        chainremote_auth::api_base(),
+        session_id
+    );
+    let mut obj = serde_json::Map::new();
+    if !categories.trim().is_empty() {
+        obj.insert("categories".into(), categories.into());
+    }
+    if !description.trim().is_empty() {
+        obj.insert("description".into(), description.into());
+    }
+    if !contact_name.trim().is_empty() {
+        obj.insert("contactName".into(), contact_name.into());
+    }
+    if !resolution.trim().is_empty() {
+        obj.insert("resolution".into(), resolution.into());
+    }
+    let body = serde_json::Value::Object(obj).to_string();
+    match authed_post(url, body) {
+        Ok(_) => true,
+        Err(e) => {
+            log::warn!("ChainRemote session_end 실패: {}", e);
+            false
+        }
+    }
+}
+
+/// 짧은 오접속(<15초) 폐기 — POST /api/sessions/{id}/discard. 이력 노이즈 방지.
+fn session_discard_blocking(session_id: String) -> bool {
+    if session_id.trim().is_empty() {
+        return false;
+    }
+    let url = format!(
+        "{}/api/sessions/{}/discard",
+        chainremote_auth::api_base(),
+        session_id
+    );
+    match authed_post(url, "{}".to_owned()) {
+        Ok(_) => true,
+        Err(e) => {
+            log::warn!("ChainRemote session_discard 실패: {}", e);
+            false
+        }
+    }
+}
+
+pub fn session_start_blocking_pub(remote_id: String) -> String {
+    session_start_blocking(remote_id)
+}
+pub fn session_end_blocking_pub(
+    session_id: String,
+    categories: String,
+    description: String,
+    contact_name: String,
+    resolution: String,
+) -> bool {
+    session_end_blocking(session_id, categories, description, contact_name, resolution)
+}
+pub fn session_discard_blocking_pub(session_id: String) -> bool {
+    session_discard_blocking(session_id)
+}
+
 /// HQ 어느 직원이든 거래처명 변경 → 패널 customer.name(진실 원천)에 기록 → 최근/즐겨찾기/패널/
 /// 전 직원이 일관. payload 는 JSON {"remoteId","name"}(1-arg add_favorite 브리지 패턴 재사용).
 /// 등록 거래처면 true.

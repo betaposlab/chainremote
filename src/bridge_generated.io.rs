@@ -2287,6 +2287,13 @@ pub extern "C" fn wire_chainremote_add_favorite(
 }
 
 #[no_mangle]
+pub extern "C" fn wire_chainremote_remove_favorite(
+    remote_id: *mut wire_uint_8_list,
+) -> support::WireSyncReturn {
+    wire_chainremote_remove_favorite_impl(remote_id)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_chainremote_confirm_customer(
     remote_id: *mut wire_uint_8_list,
 ) -> support::WireSyncReturn {
@@ -2294,18 +2301,39 @@ pub extern "C" fn wire_chainremote_confirm_customer(
 }
 
 #[no_mangle]
+pub extern "C" fn wire_chainremote_session_start(port_: i64, remote_id: *mut wire_uint_8_list) {
+    wire_chainremote_session_start_impl(port_, remote_id)
+}
+
+#[no_mangle]
+pub extern "C" fn wire_chainremote_session_end(
+    port_: i64,
+    session_id: *mut wire_uint_8_list,
+    categories: *mut wire_uint_8_list,
+    description: *mut wire_uint_8_list,
+    contact_name: *mut wire_uint_8_list,
+    resolution: *mut wire_uint_8_list,
+) {
+    wire_chainremote_session_end_impl(
+        port_,
+        session_id,
+        categories,
+        description,
+        contact_name,
+        resolution,
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn wire_chainremote_session_discard(port_: i64, session_id: *mut wire_uint_8_list) {
+    wire_chainremote_session_discard_impl(port_, session_id)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_chainremote_rename_customer(
     payload: *mut wire_uint_8_list,
 ) -> support::WireSyncReturn {
     wire_chainremote_rename_customer_impl(payload)
-}
-
-
-#[no_mangle]
-pub extern "C" fn wire_chainremote_remove_favorite(
-    remote_id: *mut wire_uint_8_list,
-) -> support::WireSyncReturn {
-    wire_chainremote_remove_favorite_impl(remote_id)
 }
 
 #[no_mangle]
