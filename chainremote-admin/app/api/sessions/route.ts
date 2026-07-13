@@ -1,5 +1,9 @@
-// POST /api/sessions { customerId }  → 내가 거래처 원격 시작 (presence)
-// GET  /api/sessions/active           → 현재 활성 세션 전체 (presence 표시용)
+// POST /api/sessions { remoteId }  → HQ 가 원격 접속 시작 시 호출(세션 기록 + presence).
+//   remoteId(9자리/AB peer ID)로 거래처를 찾는다 — HQ 는 customerId(UUID)가 아니라 이걸 가짐.
+//   ★내부기기(is_internal: 내 맥북·재성이컴 등)는 기록 안 함 → {skipped:"internal"} (고객목록 대조).
+//   미등록 peer(고객목록에 없음)도 기록 안 함 → {skipped:"unknown"}.
+// GET  /api/sessions/active  → 현재 활성 세션 전체 (별도 라우트).
+//   (customerId 로 시작하던 옛 계약은 미사용이라 remoteId 로 교체 — 2026-07-14.)
 
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -10,26 +14,35 @@ import * as sessions from "@/lib/data/sessions";
 export async function POST(req: Request) {
   try {
     const me = await requireApiAuth(req);
-    const body = (await req.json().catch(() => ({}))) as { customerId?: unknown };
-    const customerId = typeof body.customerId === "string" ? body.customerId : "";
-    if (!customerId) throw new ApiAuthError(400, "customerId 필수");
+    const body = (await req.json().catch(() => ({}))) as { remoteId?: unknown };
+    const remoteId = typeof body.remoteId === "string" ? body.remoteId.trim() : "";
+    if (!remoteId) throw new ApiAuthError(400, "remoteId 필수");
 
     const customer = (
       await db
-        .select({ remoteId: customers.remoteId })
+        .select({ id: customers.id, isInternal: customers.isInternal })
         .from(customers)
-        .where(and(eq(customers.id, customerId), eq(customers.tenantId, me.tenantId)))
+        .where(
+          and(
+            eq(customers.remoteId, remoteId),
+            eq(customers.tenantId, me.tenantId),
+          ),
+        )
         .limit(1)
     )[0];
-    if (!customer) throw new ApiAuthError(404, "거래처 없음");
+
+    // 미등록 peer / 내부기기는 이력에 안 남긴다(노이즈 방지). 에러 아니라 정상 skip 응답.
+    if (!customer) return Response.json({ sessionId: null, skipped: "unknown" });
+    if (customer.isInternal)
+      return Response.json({ sessionId: null, skipped: "internal" });
 
     const row = await sessions.startSession({
       tenantId: me.tenantId,
       operatorId: me.uid,
-      customerId,
-      remoteId: customer.remoteId,
+      customerId: customer.id,
+      remoteId,
     });
-    return Response.json({ session: row }, { status: 201 });
+    return Response.json({ sessionId: row.id }, { status: 201 });
   } catch (e) {
     return jsonError(e);
   }

@@ -9,6 +9,8 @@ import {
   listRecentSessions,
 } from "@/lib/data/sessions";
 import { tenants, users, customers, supportSessions } from "@/lib/schema";
+import { signApiToken } from "@/lib/api-auth";
+import { POST as startSessionRoute } from "@/app/api/sessions/route";
 
 // HQ 지원세션 기록 — 종료 시 duration 자동계산 + 선택필드(응대자·종류·내용·처리결과) 저장,
 //   전부 선택적(안 적으면 빈 채로), per-거래처/전체 조회. Phase 1 백엔드 계약을 못박는다.
@@ -116,5 +118,60 @@ describe("HQ 지원세션 기록 (Phase 1)", () => {
     });
     await discardSession(sess.id, s.tenantId);
     expect(await row(sess.id)).toBeUndefined();
+  });
+});
+
+describe("POST /api/sessions — remoteId 시작 + 내부기기/미등록 스킵", () => {
+  async function bearer(s: { tenantId: string; operatorId: string }) {
+    const { token } = await signApiToken(
+      {
+        uid: s.operatorId,
+        email: "op1",
+        displayName: "재성",
+        role: "operator",
+        tenantId: s.tenantId,
+      },
+      "22222222-2222-2222-2222-222222222222",
+    );
+    return token;
+  }
+  async function post(token: string, remoteId: string) {
+    const req = new Request("http://t/api/sessions", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ remoteId }),
+    });
+    const res = await startSessionRoute(req);
+    return { status: res.status, json: await res.json() };
+  }
+
+  it("정상 거래처 → 세션 생성(sessionId 반환)", async () => {
+    const s = await seed();
+    const r = await post(await bearer(s), "323608526");
+    expect(r.status).toBe(201);
+    expect(typeof r.json.sessionId).toBe("string");
+  });
+
+  it("★내부기기(is_internal) → 기록 안 함(skipped:internal)", async () => {
+    const s = await seed();
+    const db = testDb();
+    await db
+      .insert(customers)
+      .values({
+        tenantId: s.tenantId,
+        name: "내 맥북",
+        remoteId: "445497547",
+        isInternal: true,
+      });
+    const r = await post(await bearer(s), "445497547");
+    expect(r.json.sessionId).toBeNull();
+    expect(r.json.skipped).toBe("internal");
+  });
+
+  it("미등록 peer → 기록 안 함(skipped:unknown)", async () => {
+    const s = await seed();
+    const r = await post(await bearer(s), "999999999");
+    expect(r.json.sessionId).toBeNull();
+    expect(r.json.skipped).toBe("unknown");
   });
 });
