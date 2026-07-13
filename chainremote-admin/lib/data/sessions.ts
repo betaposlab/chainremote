@@ -1,6 +1,6 @@
 // 지원 세션 데이터 레이어 — 본사 앱(내 최근 세션) + 패널(전체 이력) 공유.
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customers, supportSessions, users } from "@/lib/schema";
 
@@ -93,16 +93,79 @@ export async function startSession(input: {
 }
 
 /** 세션 종료 — 본사 앱이 원격 창 닫을 때 호출 */
+export type EndSessionFields = {
+  categories?: string; // A/S 종류 멀티(콤마 조인, 예 "printer,payment")
+  description?: string; // A/S 내용
+  contactName?: string; // 거래처측 응대자
+  resolution?: "resolved" | "pending" | "escalated" | "in_progress"; // 처리결과
+};
+
+/**
+ * 세션 종료 — endedAt + duration(DB 에서 started_at 기준 계산) 세팅.
+ * fields 는 전부 선택적(HQ 모달에서 안 적거나 스킵하면 빈 채로) — 값이 온 것만 반영, 나머지 보존.
+ */
 export async function endSession(
   sessionId: string,
   tenantId: string,
+  fields?: EndSessionFields,
 ): Promise<void> {
-  const now = new Date();
-  // endedAt 만 세팅하고 duration 은 응용층에서 계산 (started_at 을 다시 SELECT 하지 않게).
   await db
     .update(supportSessions)
-    .set({ endedAt: now })
+    .set({
+      // duration_sec 은 DB 생성컬럼(001_init: GENERATED ALWAYS AS ended_at-started_at) — 직접
+      //   세팅 금지. ended_at 만 넣으면 DB 가 자동 계산한다.
+      endedAt: sql`now()`,
+      ...(fields?.categories?.trim() ? { categories: fields.categories.trim() } : {}),
+      ...(fields?.description?.trim() ? { description: fields.description.trim() } : {}),
+      ...(fields?.contactName?.trim() ? { contactName: fields.contactName.trim() } : {}),
+      ...(fields?.resolution ? { resolution: fields.resolution } : {}),
+    })
     .where(
       and(eq(supportSessions.id, sessionId), eq(supportSessions.tenantId, tenantId)),
     );
+}
+
+/** 아주 짧은 오접속(모달도 안 뜬 <N초)이나 취소된 세션 삭제 — 노이즈 이력 방지. */
+export async function discardSession(sessionId: string, tenantId: string): Promise<void> {
+  await db
+    .delete(supportSessions)
+    .where(
+      and(eq(supportSessions.id, sessionId), eq(supportSessions.tenantId, tenantId)),
+    );
+}
+
+/** 거래처별 지원 이력 — HQ 거래처 카드 "지원이력" + 상세. 최신순. */
+export async function listCustomerSessions(
+  customerId: string,
+  tenantId: string,
+  limit = 100,
+) {
+  return db
+    .select({ session: supportSessions, operatorName: users.displayName })
+    .from(supportSessions)
+    .leftJoin(users, eq(users.id, supportSessions.operatorId))
+    .where(
+      and(
+        eq(supportSessions.customerId, customerId),
+        eq(supportSessions.tenantId, tenantId),
+      ),
+    )
+    .orderBy(desc(supportSessions.startedAt))
+    .limit(limit);
+}
+
+/** 전체 지원기록 타임라인 — HQ "지원 기록" 뷰(전 직원, 전 거래처). 최신순. */
+export async function listRecentSessions(tenantId: string, limit = 100) {
+  return db
+    .select({
+      session: supportSessions,
+      customer: customers,
+      operatorName: users.displayName,
+    })
+    .from(supportSessions)
+    .leftJoin(customers, eq(customers.id, supportSessions.customerId))
+    .leftJoin(users, eq(users.id, supportSessions.operatorId))
+    .where(eq(supportSessions.tenantId, tenantId))
+    .orderBy(desc(supportSessions.startedAt))
+    .limit(limit);
 }

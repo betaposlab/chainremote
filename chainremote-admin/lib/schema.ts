@@ -209,9 +209,20 @@ export const supportSessions = pgTable(
     issueType: issueType("issue_type"),
     resolution: resolutionStatus("resolution"),
     description: text("description"),
+    // HQ 기록 확장(마이그022) — 전부 선택적(빈칸/미기록 허용).
+    //   contactName: 거래처측 응대자(분쟁 근거). categories: A/S 종류 멀티(콤마 조인, 예 "printer,payment").
+    contactName: text("contact_name"),
+    categories: text("categories"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => ({ startedIdx: index("idx_sessions_tenant_started").on(t.tenantId, t.startedAt) }),
+  (t) => ({
+    startedIdx: index("idx_sessions_tenant_started").on(t.tenantId, t.startedAt),
+    customerStartedIdx: index("idx_support_sessions_customer_started").on(
+      t.tenantId,
+      t.customerId,
+      t.startedAt,
+    ),
+  }),
 );
 
 // 거래처 PC 푸시 업데이트 큐 (마이그 009, 2026-05-29).
