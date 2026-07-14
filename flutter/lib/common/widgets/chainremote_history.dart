@@ -149,7 +149,9 @@ Widget _labelTextRow(String label, String text) => _labelRow(
     Text(text,
         style: const TextStyle(fontSize: 12, color: Color(0xFF374151))));
 
-Widget _sessionTile(CrSession s, {required bool showCustomer}) {
+Widget _sessionTile(BuildContext context, CrSession s,
+    {required bool showCustomer}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
   final chips = <Widget>[];
   for (final k in s.categories) {
     final label = kCrCategories[k];
@@ -157,7 +159,7 @@ Widget _sessionTile(CrSession s, {required bool showCustomer}) {
     chips.add(Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFF00A0E5).withOpacity(0.10),
+        color: const Color(0xFF00A0E5).withOpacity(0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(label,
@@ -181,20 +183,49 @@ Widget _sessionTile(CrSession s, {required bool showCustomer}) {
     resLabel = null; // 끝났지만 처리결과 미지정(시간만 저장) → 배지 없음
   }
 
+  // 거래처 이니셜 원형 아바타 (전체 뷰 헤더용) — 홈 거래처 카드와 같은 무드.
+  final headText = showCustomer && s.customerName.isNotEmpty
+      ? s.customerName
+      : _fmtDateTime(s.startedAt);
+  final initial = headText.isEmpty ? '?' : headText.characters.first;
+
   return Container(
-    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+    margin: const EdgeInsets.only(bottom: 8),
+    padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+    decoration: BoxDecoration(
+      color: isDark ? const Color(0xFF262D38) : const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(
+          color: isDark ? const Color(0x22FFFFFF) : const Color(0xFFE5E7EB)),
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 헤더: 거래처명(전체 뷰) 또는 일시 + 처리결과 배지.
+        // 헤더: 아바타 + 거래처명(전체 뷰) 또는 일시 + 처리결과 배지.
         Row(
           children: [
+            if (showCustomer) ...[
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00A0E5).withOpacity(0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(initial,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0284C7))),
+              ),
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: Text(
-                showCustomer && s.customerName.isNotEmpty
-                    ? s.customerName
-                    : _fmtDateTime(s.startedAt),
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                headText,
+                style:
+                    const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -214,6 +245,7 @@ Widget _sessionTile(CrSession s, {required bool showCustomer}) {
               ),
           ],
         ),
+        const SizedBox(height: 3),
         if (showCustomer && s.customerName.isNotEmpty)
           _labelTextRow('일시', _fmtDateTime(s.startedAt)),
         if (_fmtDuration(s.durationSec).isNotEmpty)
@@ -228,48 +260,202 @@ Widget _sessionTile(CrSession s, {required bool showCustomer}) {
   );
 }
 
+// 기간 필터 (일수. 0=전체, -1=오늘).
+const List<(int, String)> _kCrPeriods = [
+  (0, '전체'),
+  (-1, '오늘'),
+  (7, '7일'),
+  (30, '30일'),
+];
+
+List<CrSession> _applyFilter(List<CrSession> list, String query, int period) {
+  var out = list;
+  if (period == -1) {
+    final now = DateTime.now();
+    out = out.where((s) {
+      final d = s.startedAt?.toLocal();
+      return d != null &&
+          d.year == now.year &&
+          d.month == now.month &&
+          d.day == now.day;
+    }).toList();
+  } else if (period > 0) {
+    final cutoff = DateTime.now().subtract(Duration(days: period));
+    out = out
+        .where((s) => s.startedAt != null && s.startedAt!.isAfter(cutoff))
+        .toList();
+  }
+  final q = query.trim().toLowerCase();
+  if (q.isNotEmpty) {
+    out = out.where((s) {
+      final cats = s.categories.map((k) => kCrCategories[k] ?? '').join(' ');
+      // 날짜 문자열도 검색 대상 — "07.14" 같은 날짜 검색이 자연스럽게 된다.
+      final hay =
+          '${s.customerName} ${s.remoteId} ${s.description} ${s.contactName} '
+          '${s.operatorName} $cats ${_fmtDateTime(s.startedAt)}';
+      return hay.toLowerCase().contains(q);
+    }).toList();
+  }
+  return out;
+}
+
 /// 지원기록 다이얼로그. remoteId 주면 그 거래처만, 없으면 전체 타임라인.
+/// 검색(거래처/내용/응대자/담당/종류/날짜) + 기간 칩 필터.
 Future<void> showCrHistoryDialog(
   BuildContext context, {
   String? remoteId,
   String? title,
 }) async {
   final perCustomer = remoteId != null && remoteId.isNotEmpty;
-  final future = fetchCrSessions(remoteId: remoteId);
+  final future = fetchCrSessions(remoteId: remoteId, limit: 300);
   final heading = title ?? (perCustomer ? '지원 이력' : '전체 지원 기록');
 
+  var query = '';
+  var period = 0;
+  final searchCtrl = TextEditingController();
+
   await gFFI.dialogManager.show<void>((setState, close, context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subtle = isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280);
+
+    Widget periodChip(int days, String label) {
+      final on = period == days;
+      return InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => setState(() => period = days),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: on
+                ? const Color(0xFF00A0E5)
+                : (isDark ? const Color(0xFF2B3340) : const Color(0xFFF1F5F9)),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                  color: on ? Colors.white : subtle)),
+        ),
+      );
+    }
+
     return CustomAlertDialog(
       title: Row(children: [
         const Icon(Icons.history, color: Color(0xFF00A0E5), size: 22),
         const SizedBox(width: 8),
-        Expanded(
-            child: Text(heading, overflow: TextOverflow.ellipsis)),
+        Expanded(child: Text(heading, overflow: TextOverflow.ellipsis)),
       ]),
       content: SizedBox(
-        width: 560,
-        height: 460,
-        child: FutureBuilder<List<CrSession>>(
-          future: future,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final list = snap.data ?? const <CrSession>[];
-            if (list.isEmpty) {
-              return const Center(
-                child: Text('지원 기록이 없습니다.',
-                    style: TextStyle(color: Color(0xFF9CA3AF))),
-              );
-            }
-            return ListView.separated(
-              itemCount: list.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: Color(0x11000000)),
-              itemBuilder: (_, i) =>
-                  _sessionTile(list[i], showCustomer: !perCustomer),
-            );
-          },
+        width: 620,
+        height: 540,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 검색 + 기간 필터.
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 34,
+                    child: TextField(
+                      controller: searchCtrl,
+                      onChanged: (v) => setState(() => query = v),
+                      style: const TextStyle(fontSize: 13),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        prefixIcon:
+                            Icon(Icons.search, size: 17, color: subtle),
+                        prefixIconConstraints: const BoxConstraints(
+                            minWidth: 32, minHeight: 32),
+                        hintText: perCustomer
+                            ? '내용, 응대자, 날짜 검색'
+                            : '거래처명, 내용, 응대자, 날짜 검색',
+                        hintStyle: TextStyle(fontSize: 12.5, color: subtle),
+                        suffixIcon: query.isEmpty
+                            ? null
+                            : InkWell(
+                                onTap: () => setState(() {
+                                  query = '';
+                                  searchCtrl.clear();
+                                }),
+                                child: Icon(Icons.close,
+                                    size: 15, color: subtle),
+                              ),
+                        suffixIconConstraints: const BoxConstraints(
+                            minWidth: 30, minHeight: 30),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                ..._kCrPeriods.map((p) => Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: periodChip(p.$1, p.$2),
+                    )),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: FutureBuilder<List<CrSession>>(
+                future: future,
+                builder: (context, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final all = snap.data ?? const <CrSession>[];
+                  final list = _applyFilter(all, query, period);
+                  if (list.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                              all.isEmpty
+                                  ? Icons.inbox_outlined
+                                  : Icons.search_off,
+                              size: 42,
+                              color: subtle.withOpacity(0.55)),
+                          const SizedBox(height: 10),
+                          Text(
+                              all.isEmpty
+                                  ? '지원 기록이 없습니다.'
+                                  : '검색 결과가 없습니다.',
+                              style: TextStyle(color: subtle)),
+                        ],
+                      ),
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6, left: 2),
+                        child: Text(
+                          list.length == all.length
+                              ? '총 ${all.length}건'
+                              : '${list.length}건 / 총 ${all.length}건',
+                          style: TextStyle(fontSize: 11.5, color: subtle),
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: list.length,
+                          itemBuilder: (context, i) => _sessionTile(
+                              context, list[i],
+                              showCustomer: !perCustomer),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
       actions: [dialogButton('닫기', onPressed: close)],
