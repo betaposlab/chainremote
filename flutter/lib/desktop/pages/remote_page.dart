@@ -11,6 +11,7 @@ import 'package:flutter_hbb/models/state_model.dart';
 import '../../consts.dart';
 import '../../common/widgets/overlay.dart';
 import '../../common/widgets/remote_input.dart';
+import '../../common/widgets/chainremote_session_record.dart';
 import '../../common.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/toolbar.dart';
@@ -104,51 +105,6 @@ class _RemotePageState extends State<RemotePage>
 
   SessionID get sessionId => _ffi.sessionId;
 
-  // ── ChainRemote 지원세션 기록(Phase 2) — 원격 시작/종료를 패널에 기록. ★전부 방어적:
-  //   실패/throw 해도 원격·창닫기엔 무영향(try/catch·논블로킹). 서버가 미등록/내부기기면
-  //   sessionId 빈값으로 스킵 → 기록 안 함. <15초 오접속은 discard.
-  String _crSessionId = '';
-  Future<String>? _crStartFuture;
-  int _crStartMs = 0;
-  bool _crRecorded = false;
-
-  void _crStartRecord() {
-    try {
-      _crStartMs = DateTime.now().millisecondsSinceEpoch;
-      _crStartFuture = bind.chainremoteSessionStart(remoteId: widget.id);
-      _crStartFuture!.then((sid) => _crSessionId = sid).catchError((_) => '');
-    } catch (_) {}
-  }
-
-  // 종료 기록 — 캐치올(dispose)에서 호출. 모달(2b) 은 사용자 닫기 경로에서 먼저 기록하고
-  //   _crRecorded 를 세워 여기서 중복 방지한다. 여기선 시간만(내용 없이) 기록/폐기.
-  Future<void> _crEndRecord() async {
-    if (_crRecorded) return;
-    _crRecorded = true;
-    try {
-      var sid = _crSessionId;
-      if (sid.isEmpty && _crStartFuture != null) {
-        // 아주 짧은 세션: start POST 가 아직이면 잠깐 기다려 sessionId 확보(레이스).
-        sid = await _crStartFuture!
-            .timeout(const Duration(seconds: 3), onTimeout: () => '');
-      }
-      if (sid.isEmpty) return; // 스킵(내부기기/미등록)·시작실패 → 기록 없음
-      final elapsedSec =
-          (DateTime.now().millisecondsSinceEpoch - _crStartMs) ~/ 1000;
-      if (elapsedSec < 15) {
-        await bind.chainremoteSessionDiscard(sessionId: sid);
-      } else {
-        await bind.chainremoteSessionEnd(
-          sessionId: sid,
-          categories: '',
-          description: '',
-          contactName: '',
-          resolution: '',
-        );
-      }
-    } catch (_) {}
-  }
-
   _RemotePageState(String id) {
     _initStates(id);
   }
@@ -224,8 +180,9 @@ class _RemotePageState extends State<RemotePage>
     _ffi.inputModel.onRelativeMouseModeDisabled =
         _cancelPointerLockCenterDebounceTimer;
 
-    // ChainRemote: 원격 시작 기록(논블로킹). 거절/실패/내부기기는 서버·<15초 discard 가 걸러냄.
-    _crStartRecord();
+    // ChainRemote: 원격 시작 기록(논블로킹, 전역 레지스트리). 거절/실패/내부기기는 서버·
+    //   <15초 discard 가 걸러냄. 종료 모달은 remote_tab_page 닫기 경로에서 이 레지스트리를 쓴다.
+    crSessionStart(widget.id);
   }
 
   /// Cancel the pointer lock center debounce timer
@@ -356,10 +313,10 @@ class _RemotePageState extends State<RemotePage>
   Future<void> dispose() async {
     final closeSession = closeSessionOnDispose.remove(widget.id) ?? true;
 
-    // ChainRemote: 세션 종료 기록(캐치올). 창이동(closeSession=false)은 세션 유지라 제외.
-    //   논블로킹 fire-and-forget — dispose 진행을 안 막고, 실패해도 무해.
+    // ChainRemote: 세션 종료 기록 캐치올(모달이 이미 기록했으면 skip). 창이동(closeSession=false)은
+    //   세션 유지라 제외. 논블로킹 fire-and-forget — dispose 진행 안 막고 실패해도 무해.
     if (closeSession) {
-      _crEndRecord();
+      crSessionEndAuto(widget.id);
     }
 
     // https://github.com/flutter/flutter/issues/64935

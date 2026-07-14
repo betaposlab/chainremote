@@ -21,6 +21,7 @@ import 'package:get/get.dart';
 import 'package:bot_toast/bot_toast.dart';
 
 import '../../common/widgets/dialog.dart';
+import '../../common/widgets/chainremote_session_record.dart';
 import '../../models/platform_model.dart';
 
 class _MenuTheme {
@@ -81,10 +82,8 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
         selectedIcon: selectedIcon,
         unselectedIcon: unselectedIcon,
         onTabCloseButton: () async {
-          if (await desktopTryShowTabAuditDialogCloseCancelled(
-            id: peerId!,
-            tabController: tabController,
-          )) {
+          // ChainRemote A/S 종료 모달. false=취소, null(대상아님)/true(기록됨)=진행.
+          if (await showCrEndModalAndRecord(peerId!) == false) {
             return;
           }
           tabController.closeBy(peerId!);
@@ -426,16 +425,20 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
     // 다시 안내(앱 실행, ID 불러주기, 재접속)하는 일을 막으려고, 활성 세션이
     // 하나라도 있으면 항상 확인 다이얼로그를 띄운다.
     // (로그인만 한 메인 창은 hide 라서 확인 없이 그대로 둔다.)
-    if (connLength >= 1) {
-      if (!await _chainremoteConfirmCloseDuringSession(connLength)) {
+    if (connLength == 1) {
+      // ChainRemote A/S 종료 모달(닫기 확인 겸함). null=대상아님(내부기기/짧은세션)→기존 확인창,
+      //   false=사용자 취소, true=기록됨→진행. upstream audit 은 우리 서버 없어 no-op 라 생략.
+      final peerId = tabController.state.value.tabs[0].key;
+      final asResult = await showCrEndModalAndRecord(peerId);
+      if (asResult == false) {
         return false;
       }
-    }
-    if (connLength == 1) {
-      if (await desktopTryShowTabAuditDialogCloseCancelled(
-        id: tabController.state.value.tabs[0].key,
-        tabController: tabController,
-      )) {
+      if (asResult == null &&
+          !await _chainremoteConfirmCloseDuringSession(connLength)) {
+        return false;
+      }
+    } else if (connLength > 1) {
+      if (!await _chainremoteConfirmCloseDuringSession(connLength)) {
         return false;
       }
     }
@@ -518,10 +521,8 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
         selectedIcon: selectedIcon,
         unselectedIcon: unselectedIcon,
         onTabCloseButton: () async {
-          if (await desktopTryShowTabAuditDialogCloseCancelled(
-            id: id,
-            tabController: tabController,
-          )) {
+          // ChainRemote A/S 종료 모달. false=취소, null(대상아님)/true(기록됨)=진행.
+          if (await showCrEndModalAndRecord(id) == false) {
             return;
           }
           tabController.closeBy(id);
