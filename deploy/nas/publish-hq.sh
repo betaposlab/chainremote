@@ -86,6 +86,23 @@ fi
 ssh "$NAS_HOST" "cat > $NAS_WEB_DIR/latest.json.tmp && mv -f $NAS_WEB_DIR/latest.json.tmp $NAS_WEB_DIR/latest.json" <<< "$NEW_JSON"
 echo "    OK (hq=$VERSION, agent 보존)"
 
+# 2.5. push.json 발행 — 5분 즉시 채널. latest.json(24h 폴링)만 갱신하면 절전·원격세션 보류가
+#   잦은 기기는 며칠씩 옛 버전에 머문다(2026-07-15 집 윈컴 1.4.55 잔류 실사고). timestamp 가
+#   바뀌면 각 HQ 가 깨어있고 세션 없는 첫 5분 틱에 latest.json 을 재확인해 즉시 적용한다.
+#   이 단계를 빼먹는 실수를 코드로 봉인 — 릴리즈마다 자동으로 종이 울린다.
+echo "[2.5/4] push.json 발행 (5분 즉시 채널)..."
+PUSH_JSON=$(VER="$VERSION" NT="$NOTES" python3 - <<'PY'
+import json, os, datetime
+print(json.dumps({
+    "version": os.environ["VER"],
+    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    "notes": os.environ.get("NT", ""),
+}, ensure_ascii=False))
+PY
+)
+ssh "$NAS_HOST" "cat > $NAS_WEB_DIR/push.json.tmp && mv -f $NAS_WEB_DIR/push.json.tmp $NAS_WEB_DIR/push.json" <<< "$PUSH_JSON"
+echo "    OK (push timestamp 갱신 — 각 HQ 5분 내 반응)"
+
 # 3. 공개 URL 검증 (hq 버전 반영 + agent 채널 생존).
 echo "[3/4] 공개 latest.json 검증..."
 for attempt in 1 2 3; do
