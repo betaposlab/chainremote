@@ -2331,6 +2331,8 @@ class _CloseMenu extends StatelessWidget {
       onPressed: () async {
         // 툴바 빨간 X 도 경고 없이 끊기지 않도록 확인받는다.
         // 창 X 와는 별개 경로라 둘 다 막아야 코이노식 무경고 끊김을 방지할 수 있다.
+        // A/S 기록 모달은 여기서 띄우지 않는다 — 확인 즉시 끊어 거래처 배너를 바로
+        // 없애고, 기록은 종료 후 메인 창 모달로 받는다(chainremote_session_record.dart).
         if (!await _chainremoteConfirmEndSession()) {
           return;
         }

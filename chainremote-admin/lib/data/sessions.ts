@@ -114,7 +114,9 @@ export async function endSession(
     .set({
       // duration_sec 은 DB 생성컬럼(001_init: GENERATED ALWAYS AS ended_at-started_at) — 직접
       //   세팅 금지. ended_at 만 넣으면 DB 가 자동 계산한다.
-      endedAt: sql`now()`,
+      // 첫 종료 시각을 보존(COALESCE) — HQ 는 끊자마자 시간을 기록하고, A/S 내용은 메인 창
+      //   모달에서 나중에 보강한다. 보강 저장이 ended_at 을 밀면 원격 시간이 부풀므로 금지.
+      endedAt: sql`COALESCE(${supportSessions.endedAt}, now())`,
       ...(fields?.categories?.trim() ? { categories: fields.categories.trim() } : {}),
       ...(fields?.description?.trim() ? { description: fields.description.trim() } : {}),
       ...(fields?.contactName?.trim() ? { contactName: fields.contactName.trim() } : {}),

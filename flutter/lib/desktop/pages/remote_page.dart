@@ -181,7 +181,7 @@ class _RemotePageState extends State<RemotePage>
         _cancelPointerLockCenterDebounceTimer;
 
     // ChainRemote: 원격 시작 기록(논블로킹, 전역 레지스트리). 거절/실패/내부기기는 서버·
-    //   <15초 discard 가 걸러냄. 종료 모달은 remote_tab_page 닫기 경로에서 이 레지스트리를 쓴다.
+    //   <15초 discard 가 걸러냄. 종료는 dispose 캐치올 → 메인 창 A/S 보강 모달로 이어진다.
     crSessionStart(widget.id);
   }
 

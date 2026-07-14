@@ -89,6 +89,29 @@ describe("HQ 지원세션 기록 (Phase 1)", () => {
     expect(r.contactName).toBeNull();
   });
 
+  it("보강 저장(두 번째 end)은 첫 종료시각을 보존한다 — 원격시간 안 부풂", async () => {
+    const s = await seed();
+    const sess = await startSession({
+      tenantId: s.tenantId,
+      operatorId: s.operatorId,
+      customerId: s.customerId,
+      remoteId: "323608526",
+    });
+    // HQ 흐름: 끊자마자 시간만 기록 → 메인 창 모달에서 나중에 내용 보강.
+    await endSession(sess.id, s.tenantId);
+    const first = await row(sess.id);
+    await new Promise((r) => setTimeout(r, 20)); // now() 가 실제로 달라지게
+    await endSession(sess.id, s.tenantId, {
+      categories: "printer",
+      description: "보강",
+      resolution: "resolved",
+    });
+    const second = await row(sess.id);
+    expect(second.endedAt!.getTime()).toBe(first.endedAt!.getTime());
+    expect(second.categories).toBe("printer");
+    expect(second.description).toBe("보강");
+  });
+
   it("per-거래처 + 전체 타임라인 조회", async () => {
     const s = await seed();
     const sess = await startSession({

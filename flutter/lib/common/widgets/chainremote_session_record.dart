@@ -1,14 +1,24 @@
 // ChainRemote 지원세션(A/S 이력) 기록 — 원격 시작/종료를 패널에 기록(Phase 2).
 //
-// 전역 레지스트리(peerId 키) — remote_page(시작 initState / 종료 캐치올 dispose)와
-// remote_tab_page(종료 모달)가 공유한다. closeSessionOnDispose 전역 Map 과 같은 패턴.
+// 전역 레지스트리(peerId 키) — remote_page(시작 initState / 종료 캐치올 dispose)가 쓴다.
+// closeSessionOnDispose 전역 Map 과 같은 패턴.
+//
+// ★기록 순서(2026-07-14 재설계): 원격을 먼저 끊고, 그 다음 메인 창에서 기록한다.
+//   종전엔 종료 모달이 닫기 확인을 겸해 원격 창에서 떴는데, 폼을 적는 동안 거래처
+//   배너가 "원격지원 중"으로 남아 고객이 혼란(Chang 실검증 피드백). 이제 어느 경로로
+//   끊기든(창X/탭X/툴바X/거래처측 종료/네트워크 단절) dispose 캐치올이 시간 기록을
+//   먼저 끝내고, 메인 창에 A/S 내용 보강 모달을 요청한다. 서버 endSession 은 ended_at
+//   을 COALESCE 로 보존하므로 나중에 저장해도 원격 시간이 부풀지 않는다.
 //
 // ★대원칙: 전부 방어적. 어떤 실패/throw 도 원격·창닫기엔 무영향(try/catch·논블로킹).
 //   서버가 미등록/내부기기면 sessionId 빈값 → 자동 스킵(기록 안 함). <15초 오접속은 discard.
 
 import 'package:flutter/material.dart';
 import '../../common.dart';
+import '../../consts.dart';
 import '../../models/platform_model.dart';
+import '../../utils/multi_window_manager.dart';
+import '../formatter/id_formatter.dart';
 
 // A/S 종류 12종 (key → 한글 라벨). 저장은 key 콤마조인(예 "printer,payment"). 삽입순 유지.
 const Map<String, String> kCrCategories = {
@@ -76,7 +86,8 @@ Future<String> _resolveSid(_CrRec rec) async {
   return rec.sessionId;
 }
 
-/// 종료 캐치올(remote_page dispose) — 모달이 먼저 기록했으면 skip. <15초 discard, 아니면 시간만 end.
+/// 종료 캐치올(remote_page dispose) — 어느 경로로 끊기든 여기로 수렴한다.
+///   <15초 discard, 아니면 시간 기록(end) 후 메인 창에 A/S 보강 모달을 요청.
 ///   논블로킹으로 불러도 됨(내부 await 는 자체 완결). 어떤 실패도 무해.
 Future<void> crSessionEndAuto(String peerId) async {
   final rec = _crRecs[peerId];
@@ -89,9 +100,12 @@ Future<void> crSessionEndAuto(String peerId) async {
   try {
     final sid = await _resolveSid(rec);
     if (sid.isNotEmpty) {
-      if (_elapsedSec(rec) < kCrMinRecordSec) {
+      final secs = _elapsedSec(rec);
+      if (secs < kCrMinRecordSec) {
         await bind.chainremoteSessionDiscard(sessionId: sid);
       } else {
+        // 시간 기록을 먼저 확정(원격은 이미 끊긴 뒤) — 서버가 ended_at 을 보존하므로
+        // 아래 모달에서 늦게 저장해도 원격 시간은 이 시점 그대로다.
         await bind.chainremoteSessionEnd(
           sessionId: sid,
           categories: '',
@@ -99,62 +113,41 @@ Future<void> crSessionEndAuto(String peerId) async {
           contactName: '',
           resolution: '',
         );
+        await rustDeskWinManager
+            .call(WindowType.Main, kWindowEventChainRemoteRecord, {
+          'sessionId': sid,
+          'peerId': peerId,
+          'minutes': (secs / 60).ceil(),
+        });
       }
     }
   } catch (_) {}
   _crRecs.remove(peerId);
 }
 
-/// 종료 A/S 모달 — 사용자 닫기 경로(창X/탭X)에서 호출. 창이 아직 살아있을 때.
-/// 반환:
-///   null  = A/S 대상 아님(내부기기/미등록/짧은세션) → 호출측이 기존 확인창으로 폴백.
-///   true  = 사용자가 닫기 진행 선택(저장/빠른저장/기록안함 — 기록 처리 완료).
-///   false = 사용자가 취소(닫지 말 것).
-/// ★모달 자체가 "닫기 확인 + A/S 기록"을 겸한다(연결 끊김 경고 포함). 예외는 전부 삼켜
-///   호출측(닫기)이 안 막히게 한다.
-Future<bool?> showCrEndModalAndRecord(String peerId) async {
-  final rec = _crRecs[peerId];
-  if (rec == null || rec.recorded) return null;
-  String sid;
+/// A/S 내용 보강 모달 — 메인 창에서 호출(desktop_home_page 핸들러). 원격은 이미 종료된
+/// 상태라 느긋하게 적어도 거래처엔 무영향. [저장]=내용 반영, [닫기]=시간만 유지,
+/// [기록 안 함]=이력에서 삭제. 예외는 전부 삼킨다.
+Future<void> showCrAnnotateModal({
+  required String sessionId,
+  required String peerId,
+  required int minutes,
+}) async {
+  String name = '';
   try {
-    sid = await _resolveSid(rec);
-  } catch (_) {
-    return null;
-  }
-  if (sid.isEmpty) return null; // 스킵 세션 → 폴백
-  if (_elapsedSec(rec) < kCrMinRecordSec) return null; // 짧은 세션 → 폴백(auto discard)
+    name = bind.mainGetPeerOptionSync(id: peerId, key: 'alias');
+  } catch (_) {}
+  final title = name.isEmpty ? formatID(peerId) : name;
 
   final selected = <String>{};
   final descCtrl = TextEditingController();
   final contactCtrl = TextEditingController();
   var resolution = 'resolved';
-  final mins = (_elapsedSec(rec) / 60).ceil();
-
-  bool proceed = false; // 닫기 진행 여부
-
-  Future<void> record({required bool withFields, required bool discard}) async {
-    rec.recorded = true;
-    _crRecs.remove(peerId);
-    proceed = true;
-    try {
-      if (discard) {
-        await bind.chainremoteSessionDiscard(sessionId: sid);
-      } else {
-        await bind.chainremoteSessionEnd(
-          sessionId: sid,
-          categories: withFields ? selected.join(',') : '',
-          description: withFields ? descCtrl.text.trim() : '',
-          contactName: withFields ? contactCtrl.text.trim() : '',
-          resolution: withFields ? resolution : '',
-        );
-      }
-    } catch (_) {}
-  }
 
   try {
     await gFFI.dialogManager.show<void>((setState, close, context) {
-      Widget chip(String key, String label, Set<String> set, {bool single = false}) {
-        final on = single ? resolution == key : set.contains(key);
+      Widget chip(String key, String label, {bool single = false}) {
+        final on = single ? resolution == key : selected.contains(key);
         return FilterChip(
           label: Text(label, style: const TextStyle(fontSize: 12)),
           selected: on,
@@ -163,9 +156,9 @@ Future<bool?> showCrEndModalAndRecord(String peerId) async {
               resolution = key;
             } else {
               if (v) {
-                set.add(key);
+                selected.add(key);
               } else {
-                set.remove(key);
+                selected.remove(key);
               }
             }
           }),
@@ -177,7 +170,9 @@ Future<bool?> showCrEndModalAndRecord(String peerId) async {
           const Icon(Icons.assignment_turned_in_outlined,
               color: Color(0xFF00A0E5), size: 24),
           const SizedBox(width: 8),
-          const Expanded(child: Text('지원 기록')),
+          Expanded(
+              child:
+                  Text('지원 기록 — $title', overflow: TextOverflow.ellipsis)),
         ]),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
@@ -186,7 +181,7 @@ Future<bool?> showCrEndModalAndRecord(String peerId) async {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('원격 시간 약 $mins분 · 원격을 종료합니다 (거래처 연결이 끊깁니다).',
+                Text('원격 시간 약 $minutes분 · 원격은 이미 종료되었습니다.',
                     style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
                 const SizedBox(height: 12),
                 const Text('A/S 종류 (선택)',
@@ -196,7 +191,7 @@ Future<bool?> showCrEndModalAndRecord(String peerId) async {
                   spacing: 6,
                   runSpacing: 4,
                   children: kCrCategories.entries
-                      .map((e) => chip(e.key, e.value, selected))
+                      .map((e) => chip(e.key, e.value))
                       .toList(),
                 ),
                 const SizedBox(height: 14),
@@ -220,7 +215,7 @@ Future<bool?> showCrEndModalAndRecord(String peerId) async {
                 Wrap(
                   spacing: 6,
                   children: kCrResolutions.entries
-                      .map((e) => chip(e.key, e.value, selected, single: true))
+                      .map((e) => chip(e.key, e.value, single: true))
                       .toList(),
                 ),
                 const SizedBox(height: 14),
@@ -240,30 +235,31 @@ Future<bool?> showCrEndModalAndRecord(String peerId) async {
           ),
         ),
         actions: [
-          dialogButton('취소', onPressed: () => close(null), isOutline: true),
           dialogButton('기록 안 함',
               onPressed: () async {
-                await record(withFields: false, discard: true);
+                try {
+                  await bind.chainremoteSessionDiscard(sessionId: sessionId);
+                } catch (_) {}
                 close(null);
               },
               isOutline: true),
-          dialogButton('시간만 저장',
-              onPressed: () async {
-                await record(withFields: false, discard: false);
-                close(null);
-              },
-              isOutline: true),
+          dialogButton('닫기 (시간만 저장)',
+              onPressed: () => close(null), isOutline: true),
           dialogButton('저장', onPressed: () async {
-            await record(withFields: true, discard: false);
+            try {
+              await bind.chainremoteSessionEnd(
+                sessionId: sessionId,
+                categories: selected.join(','),
+                description: descCtrl.text.trim(),
+                contactName: contactCtrl.text.trim(),
+                resolution: resolution,
+              );
+            } catch (_) {}
             close(null);
           }),
         ],
         onCancel: () => close(null),
       );
     });
-  } catch (_) {
-    // 모달 실패해도 닫기는 진행 — 기록은 dispose 캐치올(crSessionEndAuto)이 시간만 남긴다.
-    return true;
-  }
-  return proceed ? true : false;
+  } catch (_) {}
 }

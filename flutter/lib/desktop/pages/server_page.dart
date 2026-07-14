@@ -1732,9 +1732,10 @@ class _GlowBorderPainter extends CustomPainter {
     final rect = Offset(inset, inset) &
         Size(size.width - inset * 2, size.height - inset * 2);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(7));
-    // 짙은 브랜드블루 ↔ 밝은 하늘빛 사이를 오간다(대비를 키워 '블링블링' 하게).
+    // 짙은 빨강 ↔ 밝은 빨강 사이를 오간다 — 경고색이라 시선을 확실히 끈다
+    // (2026-07-14 Chang: 파랑은 시각 효과가 약해 빨강으로 교체).
     final color =
-        Color.lerp(const Color(0xFF1E5BFF), const Color(0xFF8FD0FF), t)!;
+        Color.lerp(const Color(0xFFC62828), const Color(0xFFFF6E6E), t)!;
     // 글로우(번짐) — 강도/굵기를 맥동. inset 이라 blur 가 안쪽으로 빛난다.
     canvas.drawRRect(
         rrect,

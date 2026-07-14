@@ -11,6 +11,7 @@ import 'package:flutter_hbb/common/widgets/custom_password.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_session_record.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
 import 'package:flutter_hbb/desktop/widgets/update_progress.dart';
@@ -1474,6 +1475,19 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         if (windowId != null) {
           return jsonEncode(
               await rustDeskWinManager.getOtherRemoteWindowCoords(windowId));
+        }
+      } else if (call.method == kWindowEventChainRemoteRecord) {
+        // 원격 종료 직후(연결은 이미 끊김) A/S 지원기록 보강 모달. 메인 창을 앞으로
+        // 가져와 바로 적을 수 있게 한다. 실패해도 무해(기록은 시간만으로 이미 저장됨).
+        try {
+          windowOnTop(null);
+          showCrAnnotateModal(
+            sessionId: call.arguments['sessionId'],
+            peerId: call.arguments['peerId'],
+            minutes: call.arguments['minutes'],
+          );
+        } catch (e) {
+          debugPrint("chainremote record modal failed: $e");
         }
       }
     });

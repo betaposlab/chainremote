@@ -126,6 +126,29 @@ Color _resolutionColor(String key) {
   }
 }
 
+// "라벨: 값" 한 줄 — 항목이 뭔지 제목을 달아 나열식 혼동을 없앤다(2026-07-14 Chang 피드백).
+Widget _labelRow(String label, Widget value) {
+  return Padding(
+    padding: const EdgeInsets.only(top: 5),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 62,
+          child: Text(label,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
+        ),
+        Expanded(child: value),
+      ],
+    ),
+  );
+}
+
+Widget _labelTextRow(String label, String text) => _labelRow(
+    label,
+    Text(text,
+        style: const TextStyle(fontSize: 12, color: Color(0xFF374151))));
+
 Widget _sessionTile(CrSession s, {required bool showCustomer}) {
   final chips = <Widget>[];
   for (final k in s.categories) {
@@ -142,17 +165,28 @@ Widget _sessionTile(CrSession s, {required bool showCustomer}) {
     ));
   }
 
-  final meta = <String>[];
-  if (s.contactName.isNotEmpty) meta.add('응대 ${s.contactName}');
-  if (s.operatorName.isNotEmpty) meta.add('담당 ${s.operatorName}');
-
-  final resLabel = kCrResolutions[s.resolution];
+  // 상태 배지: 실제로 안 끝난 세션(ended_at 없음)만 "진행중". 끝난 세션은 명시적 처리결과
+  //   (해결/미해결/재방문)만 표시하고, 시간만 저장(생성 기본값 in_progress)은 배지 없음.
+  final ended = s.endedAt != null;
+  String? resLabel;
+  String resKey = s.resolution;
+  if (!ended) {
+    resLabel = '진행중';
+    resKey = 'in_progress';
+  } else if (s.resolution == 'resolved' ||
+      s.resolution == 'pending' ||
+      s.resolution == 'escalated') {
+    resLabel = kCrResolutions[s.resolution];
+  } else {
+    resLabel = null; // 끝났지만 처리결과 미지정(시간만 저장) → 배지 없음
+  }
 
   return Container(
     padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 헤더: 거래처명(전체 뷰) 또는 일시 + 처리결과 배지.
         Row(
           children: [
             Expanded(
@@ -169,41 +203,26 @@ Widget _sessionTile(CrSession s, {required bool showCustomer}) {
                 margin: const EdgeInsets.only(left: 6),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: _resolutionColor(s.resolution).withOpacity(0.12),
+                  color: _resolutionColor(resKey).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(resLabel,
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: _resolutionColor(s.resolution))),
+                        color: _resolutionColor(resKey))),
               ),
           ],
         ),
-        const SizedBox(height: 3),
-        Text(
-          [
-            if (showCustomer && s.customerName.isNotEmpty)
-              _fmtDateTime(s.startedAt),
-            if (_fmtDuration(s.durationSec).isNotEmpty)
-              _fmtDuration(s.durationSec),
-          ].join(' · '),
-          style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
-        ),
-        if (chips.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Wrap(spacing: 4, runSpacing: 4, children: chips),
-        ],
-        if (s.description.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Text(s.description,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF374151))),
-        ],
-        if (meta.isNotEmpty) ...[
-          const SizedBox(height: 5),
-          Text(meta.join('  ·  '),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
-        ],
+        if (showCustomer && s.customerName.isNotEmpty)
+          _labelTextRow('일시', _fmtDateTime(s.startedAt)),
+        if (_fmtDuration(s.durationSec).isNotEmpty)
+          _labelTextRow('원격 시간', _fmtDuration(s.durationSec)),
+        if (chips.isNotEmpty)
+          _labelRow('A/S 종류', Wrap(spacing: 4, runSpacing: 4, children: chips)),
+        if (s.description.isNotEmpty) _labelTextRow('내용', s.description),
+        if (s.contactName.isNotEmpty) _labelTextRow('응대자', s.contactName),
+        if (s.operatorName.isNotEmpty) _labelTextRow('담당', s.operatorName),
       ],
     ),
   );

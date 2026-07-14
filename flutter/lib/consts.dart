@@ -61,6 +61,8 @@ const String kWindowEventHide = "hide";
 const String kWindowEventShow = "show";
 const String kWindowConnect = "connect";
 const String kWindowBumpMouse = "bump_mouse";
+// 원격 종료 후 메인 창에 A/S 지원기록 모달을 요청한다 (chainremote_session_record.dart).
+const String kWindowEventChainRemoteRecord = "chainremote_record_session";
 
 const String kWindowEventNewRemoteDesktop = "new_remote_desktop";
 const String kWindowEventNewFileTransfer = "new_file_transfer";
