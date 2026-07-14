@@ -306,3 +306,22 @@ export const activeLoginSessions = pgTable(
     lastSeenIdx: index("idx_active_login_sessions_last_seen").on(t.lastSeenAt),
   }),
 );
+
+// 거래처 알림 — enroll "상호 = 교체 키" 매트릭스(2026-07-14)의 사람 결정 큐 + 자동 액션 감사 로그.
+//   미해결(resolved_at IS NULL)만 배지로 노출. 매칭/신원 키 아님.
+export const customerAlerts = pgTable(
+  "customer_alerts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id").references(() => customers.id, { onDelete: "cascade" }),
+    // reinstalled_new_name | same_name_new_device | device_replaced | device_moved
+    type: text("type").notNull(),
+    detail: text("detail"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => ({
+    tenantOpenIdx: index("idx_customer_alerts_tenant_open").on(t.tenantId, t.createdAt),
+  }),
+);

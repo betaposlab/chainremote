@@ -4,7 +4,7 @@
 
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { customers, tenants, userFavorites } from "@/lib/schema";
+import { customerAlerts, customers, tenants, userFavorites } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
 import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 
@@ -249,94 +249,211 @@ export async function registerHeartbeatTokenFirstIssue(
   return row ? plaintext : null;
 }
 
+/** 상호 정규화 키 — 매칭 전용(표시 아님). NFKC + 소문자 + 공백 전부 제거.
+ *  "태조산 메인" == "태조산메인". 글자가 다르면(오타/지점명) 일부러 안 붙는다 —
+ *  잘못 붙는 사고(엉뚱한 매장에 기기 연결)가 안 붙는 것보다 훨씬 위험하다. */
+export function normalizeCustomerNameKey(name: string): string {
+  return name.normalize("NFKC").toLowerCase().replace(/\s+/g, "");
+}
+
+// 기기 생존 판정 — heartbeat 10분 주기 + 여유. 패널 오프라인 경고(15분)와 같은 임계값.
+const DEVICE_ALIVE_MS = 15 * 60_000;
+function deviceAlive(lastHeartbeatAt: Date | null): boolean {
+  return (
+    !!lastHeartbeatAt &&
+    Date.now() - new Date(lastHeartbeatAt).getTime() < DEVICE_ALIVE_MS
+  );
+}
+
 /**
- * 거래처 agent 자가등록. 인증된 tenant 안에서 remote_id 를 기준으로 분기한다:
- *  - 신규: 거래처 생성 + heartbeat 토큰 발급 (2026-06-29 부터 바로 active, 아래 3) 참고).
- *  - 같은 tenant 기존: 토큰만 회전(재등록/토큰분실 자가복구). enroll_status 는 안 건드려
- *      이미 확정된 거래처를 pending 으로 되돌리지 않는다.
- *  - 다른 tenant 기존: "cross_tenant" 거부. remote_id 글로벌 unique(마이그 011) 위에서
- *      cross-tenant 탈취를 막는다.
- * 동시 enroll 레이스는 unique 위반 catch 후 재조회→회전으로 수렴.
+ * 자가등록(auto-enroll) — "상호 = 교체 키" 판정 매트릭스 (2026-07-14 재설계).
+ *
+ * 설치 시 항상 상호를 입력하는 단일 룰을 전제로, 서버가 기기ID·상호 조합으로 판정한다:
+ *   ID 일치 + 상호 일치(정규화)  → 재설치/포맷 — 토큰만 회전 (아무 일 없음)
+ *   ID 일치 + 다른 매장 상호     → 기기 이동 — 그 매장으로 기기를 옮김 (이력·이름 보존)
+ *   ID 신규 + 기존 매장 상호     → 기기 교체 — 그 거래처에 새 기기 연결 (즐겨찾기 이전)
+ *   애매(오타/대상 기기 생존/동명 다수) → 조용히 안 바꾸고 customer_alerts 로 마스터에게
+ *
+ * 자동 이동/교체는 대상 거래처의 기존 기기가 죽어있을 때만(안전핀 — 동명 매장·멀티포스 보호).
+ * machine_uuid 앵커는 클론이미지 지문충돌 사고(2026-07-07)로 전면 비활성 유지.
  */
 export async function enrollCustomer(
   input: { remoteId: string; name?: string; hostname?: string; machineUuid?: string },
   ctx: { tenantId: string },
 ): Promise<{ token: string; created: boolean } | "cross_tenant"> {
   const remoteId = input.remoteId.trim();
-  // ★ machine_uuid 앵커 전면 비활성 (2026-07-07, recordHeartbeat 주석 참조). 지문이 기계 간
-  //   충돌해 남의 레코드를 가로채는 사고(행복정육↔5.5춘천닭갈비 등) → 앵커 매칭/백필 모두 끈다.
-  //   아래 step1 백필·step2 매칭·step3 저장이 전부 no-op 이 된다(machineUuid=undefined).
-  void input.machineUuid;
-  const machineUuid: string | undefined = undefined;
+  void input.machineUuid; // 앵커 비활성 (enroll-anchor.test 경보 대상)
   const plaintext = generateHeartbeatToken();
   const tokenHash = hashHeartbeatToken(plaintext);
+  const explicitName = input.name?.trim() ?? "";
+  const nameKey = explicitName ? normalizeCustomerNameKey(explicitName) : "";
 
-  // 1) remote_id(전역 unique)로 기존 행 확인. ID 가 안 바뀐 경우(재enroll, 또는 같은 랜카드라
-  //    MAC 재계산 결과 ID 동일)가 여기 걸린다. 토큰 회전은 필수, 지문 갱신은 best-effort.
-  const [existing] = await db
-    .select({ id: customers.id, tenantId: customers.tenantId })
+  // 1) remote_id(전역 unique)로 기존 행 확인 — 같은 기기의 재enroll.
+  const [byId] = await db
+    .select({
+      id: customers.id,
+      tenantId: customers.tenantId,
+      name: customers.name,
+    })
     .from(customers)
     .where(eq(customers.remoteId, remoteId))
     .limit(1);
-  if (existing) {
-    if (existing.tenantId !== ctx.tenantId) return "cross_tenant";
+  if (byId && byId.tenantId !== ctx.tenantId) return "cross_tenant";
+
+  // 상호 매칭 후보 — 자기 tenant 안에서만, 자기 자신(byId) 제외. 정규화 키 일치가 정확히
+  // 1건일 때만 자동 액션 후보(동명 다수 = 애매 → 사람에게).
+  let byName: {
+    id: string;
+    name: string;
+    remoteId: string | null;
+    lastHeartbeatAt: Date | null;
+  } | null = null;
+  let byNameCount = 0;
+  if (nameKey) {
+    const rows = await db
+      .select({
+        id: customers.id,
+        name: customers.name,
+        remoteId: customers.remoteId,
+        lastHeartbeatAt: customers.lastHeartbeatAt,
+      })
+      .from(customers)
+      .where(eq(customers.tenantId, ctx.tenantId));
+    const matches = rows.filter(
+      (r) =>
+        (!byId || r.id !== byId.id) &&
+        r.name &&
+        normalizeCustomerNameKey(r.name) === nameKey,
+    );
+    byNameCount = matches.length;
+    if (matches.length === 1) byName = matches[0];
+  }
+
+  if (byId) {
+    const sameName =
+      !nameKey || (byId.name && normalizeCustomerNameKey(byId.name) === nameKey);
+    if (sameName) {
+      // 재설치/포맷/무명(옛 빌드) — 토큰만 회전. 매번 상호를 넣어도 무해한 이유.
+      await db
+        .update(customers)
+        .set({ heartbeatToken: tokenHash })
+        .where(eq(customers.id, byId.id));
+      return { token: plaintext, created: false };
+    }
+
+    if (byName && !deviceAlive(byName.lastHeartbeatAt)) {
+      // 기기 이동 — 이 기기가 다른(기기 죽은) 매장 상호로 설치됨. 옛 매장 행은 기기만 떼고
+      // 보존(이력 유지), 즐겨찾기는 기기를 따라가되 소속 거래처를 갱신.
+      const target = byName;
+      await db.transaction(async (tx) => {
+        await tx
+          .update(customers)
+          .set({ remoteId: null, heartbeatToken: null })
+          .where(eq(customers.id, byId.id));
+        await tx
+          .update(customers)
+          .set({ remoteId, heartbeatToken: tokenHash, updatedAt: new Date() })
+          .where(eq(customers.id, target.id));
+        await tx
+          .update(userFavorites)
+          .set({ customerId: target.id })
+          .where(
+            and(
+              eq(userFavorites.remoteId, remoteId),
+              eq(userFavorites.tenantId, ctx.tenantId),
+            ),
+          );
+        await tx.insert(customerAlerts).values({
+          tenantId: ctx.tenantId,
+          customerId: target.id,
+          type: "device_moved",
+          detail: JSON.stringify({
+            remoteId,
+            from: byId.name,
+            to: target.name,
+          }),
+          resolvedAt: new Date(), // 자동 성립 — 감사 로그
+        });
+      });
+      return { token: plaintext, created: false };
+    }
+
+    // 애매 — 상호가 아무 데도 안 맞거나(오타/신규 매장명), 대상 기기가 살아있거나, 동명 다수.
+    // 조용히 아무것도 안 바꾸고(기기·이름 유지, 토큰만 회전) 마스터 결정 큐에 올린다.
     await db
       .update(customers)
       .set({ heartbeatToken: tokenHash })
-      .where(eq(customers.id, existing.id));
-    if (machineUuid) {
-      // 지문 백필/갱신(포맷 등으로 MachineGuid 바뀐 경우). 토큰 쿼리와 분리해 드문 unique 충돌이 나도 토큰은 보장.
-      await db
-        .update(customers)
-        .set({ machineUuid })
-        .where(eq(customers.id, existing.id))
-        .catch(() => {});
+      .where(eq(customers.id, byId.id));
+    const [dup] = await db
+      .select({ id: customerAlerts.id })
+      .from(customerAlerts)
+      .where(
+        and(
+          eq(customerAlerts.tenantId, ctx.tenantId),
+          eq(customerAlerts.customerId, byId.id),
+          eq(customerAlerts.type, "reinstalled_new_name"),
+          isNull(customerAlerts.resolvedAt),
+        ),
+      )
+      .limit(1);
+    if (!dup) {
+      // 재enroll 이 반복돼도 미해결 알림은 1건만 (스팸 방지).
+      await db.insert(customerAlerts).values({
+        tenantId: ctx.tenantId,
+        customerId: byId.id,
+        type: "reinstalled_new_name",
+        detail: JSON.stringify({
+          remoteId,
+          currentName: byId.name,
+          newName: explicitName,
+          reason: byNameCount > 1 ? "동명 다수" : byName ? "대상 기기 사용 중" : "일치 상호 없음",
+        }),
+      });
     }
     return { token: plaintext, created: false };
   }
 
-  // 2) 기기지문 앵커 — remote_id 는 안 맞지만 machine_uuid 가 같으면 ID 가 바뀐 것이다
-  //    (UUID_MISMATCH→update_id, 또는 랜카드 교체). 그 거래처의 remote_id 만 새 값으로 바꿔
-  //    상호·담당·즐겨찾기를 유지한다(Chang 핵심요구). user_favorites.remote_id 도 같이 갱신해
-  //    HQ 가 죽은 옛 ID 를 가리키지 않게 한다.
-  if (machineUuid) {
-    const [byMachine] = await db
-      .select({ id: customers.id, remoteId: customers.remoteId })
-      .from(customers)
-      .where(and(eq(customers.machineUuid, machineUuid), eq(customers.tenantId, ctx.tenantId)))
-      .limit(1);
-    if (byMachine) {
-      const oldRemoteId = byMachine.remoteId;
-      try {
-        await db
+  // 2) 미지의 기기 ID + 기존 매장 상호(기기 없음/죽음) = 기기 교체.
+  if (byName && !deviceAlive(byName.lastHeartbeatAt)) {
+    const target = byName;
+    const oldRemoteId = target.remoteId;
+    try {
+      await db.transaction(async (tx) => {
+        await tx
           .update(customers)
           .set({ remoteId, heartbeatToken: tokenHash, updatedAt: new Date() })
-          .where(eq(customers.id, byMachine.id));
+          .where(eq(customers.id, target.id));
         if (oldRemoteId && oldRemoteId !== remoteId) {
-          await db
+          // 즐겨찾기가 죽은 옛 기기 ID 를 가리키지 않게 새 기기로 이전.
+          await tx
             .update(userFavorites)
             .set({ remoteId })
-            .where(and(eq(userFavorites.remoteId, oldRemoteId), eq(userFavorites.tenantId, ctx.tenantId)));
+            .where(
+              and(
+                eq(userFavorites.remoteId, oldRemoteId),
+                eq(userFavorites.tenantId, ctx.tenantId),
+              ),
+            );
         }
-        return { token: plaintext, created: false };
-      } catch {
-        // 새 remote_id 를 이미 다른 거래처가 점유(드문 이중충돌) → remote_id 변경은 포기하고 토큰만 회전.
-        //   에이전트가 다음 UUID_MISMATCH 에서 또 다른 ID 로 재시도해 수렴한다.
-        await db
-          .update(customers)
-          .set({ heartbeatToken: tokenHash })
-          .where(eq(customers.id, byMachine.id));
-        return { token: plaintext, created: false };
-      }
+        await tx.insert(customerAlerts).values({
+          tenantId: ctx.tenantId,
+          customerId: target.id,
+          type: "device_replaced",
+          detail: JSON.stringify({ from: oldRemoteId, to: remoteId, name: target.name }),
+          resolvedAt: new Date(), // 자동 성립 — 감사 로그
+        });
+      });
+      return { token: plaintext, created: false };
+    } catch {
+      // remote_id unique 레이스(동시 enroll) 등 — 아래 신규 생성/수습 경로로 계속.
     }
   }
 
   // 3) 신규 — 바로 정식 거래처(active)로 등록. 2026-06-29 Chang 결정: 설치 시 상호 입력은 등록
   //   의사이고 설치파일이 per-tenant enroll-key 라 아무나 못 넣으므로 "후보→확인" 이중작업은 불필요.
-  //   과금은 패널 밖에서 따로 관리, 잘못/테스트 설치는 삭제로 처리한다.
-  //   (옛 'pending 후보 + 확인' 흐름 폐기. 상호 없으면 importPeer 와 같은 placeholder 규칙.)
+  //   (상호 없으면 importPeer 와 같은 placeholder 규칙.)
   const name =
-    input.name?.trim() ||
+    explicitName ||
     (input.hostname?.trim()
       ? `신규 거래처 (${input.hostname.trim()})`
       : `신규 거래처 (ID: ${remoteId})`);
@@ -349,10 +466,19 @@ export async function enrollCustomer(
         remoteId,
         enrollStatus: "active",
         heartbeatToken: tokenHash,
-        ...(machineUuid ? { machineUuid } : {}),
       })
       .returning({ id: customers.id });
     await linkFavoritesToCustomer(remoteId, row.id, ctx.tenantId);
+    if (byNameCount > 0) {
+      // 동일 상호 거래처가 이미 있는데(기기 생존/다수) 새 기기로 또 등록됨 — 동명 매장이거나
+      // 멀티포스(메인+오더). 자동 병합은 위험하니 배지로만 알린다.
+      await db.insert(customerAlerts).values({
+        tenantId: ctx.tenantId,
+        customerId: row.id,
+        type: "same_name_new_device",
+        detail: JSON.stringify({ remoteId, name: explicitName }),
+      });
+    }
     return { token: plaintext, created: true };
   } catch (e) {
     // 동시 enroll 레이스 — 방금 다른 요청이 같은 remote_id 를 먼저 넣음(uq_customers_remote_id 위반).

@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { customers, pendingUpdates, supportSessions, tenants, users } from "@/lib/schema";
 import { eq, desc, asc, and, isNull, isNotNull, or } from "drizzle-orm";
 import { listOrphanFavorites } from "@/lib/data/favorites";
+import { listOpenAlerts, parseAlertDetail } from "@/lib/data/alerts";
+import { AlertBanner } from "./_alert-banner";
 import { formatRemoteId } from "@/lib/id-formatter";
 import { DiscoveredPeerBanner } from "./_discovered";
 import { RemoteButton } from "./_remote-button";
@@ -72,6 +74,8 @@ export default async function CustomersPage({
     await db.select().from(tenants).where(eq(tenants.id, session.user.tenantId)).limit(1)
   )[0];
   if (!tenant) redirect("/login");
+  // 미해결 설치 이벤트(기기 이동/동일상호 등) — 마스터 결정 큐.
+  const openAlerts = await listOpenAlerts(tenant.id);
   // 담당 직원의 displayName 을 같이 끌어오기 위한 LEFT JOIN.
   const rows = await db
     .select({
@@ -220,6 +224,16 @@ export default async function CustomersPage({
           확인(✓)하면 정식 거래처로 등록됩니다 (업데이트는 확인 안 해도 자동 적용됩니다).
         </div>
       )}
+
+      <AlertBanner
+        items={openAlerts.map(({ alert, customerName }) => ({
+          id: alert.id,
+          type: alert.type,
+          customerName,
+          detail: parseAlertDetail(alert.detail),
+        }))}
+        isOwner={session.user.role === "owner" || session.user.role === "super_admin"}
+      />
 
       {updateProblems.length > 0 && (
         <div className="mb-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800">

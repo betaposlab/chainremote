@@ -183,6 +183,11 @@ Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
 [UninstallRun]
 ; 제거 시 watchdog SYSTEM 예약작업도 정리 (고아 작업 방지)
 Filename: "schtasks.exe"; Parameters: "/Delete /TN ChainRemoteServiceWatchdog /F"; Flags: runhidden; RunOnceId: "DelWatchdogTask"
+; 상호 레지스트리 청소 (2026-07-14) — 기기를 다른 거래처로 재사용할 때 옛 상호("태조산 메인")가
+;   남아 재enroll 시 옛 이름으로 부활하는 오염원 제거. 32/64비트 view 둘 다(설치모드 불일치 대비).
+;   /reg: 스위치는 Win7+ reg.exe 지원. 값이 없어도 조용히 실패(runhidden)라 무해.
+Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\ChainRemote /v CustomerName /f /reg:64"; Flags: runhidden; RunOnceId: "DelCustomerName64"
+Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\ChainRemote /v CustomerName /f /reg:32"; Flags: runhidden; RunOnceId: "DelCustomerName32"
 
 [Code]
 var
@@ -247,7 +252,8 @@ begin
   EnrollPage := CreateInputQueryPage(wpLicense,
     '거래처 상호',
     '이 PC가 설치될 매장(거래처)의 상호를 입력하세요.',
-    '관리 패널에 이 이름으로 자동 등록됩니다 (나중에 패널에서 수정 가능).' + #13#10 +
+    '신규·재설치 관계없이 항상 입력하세요. 같은 매장이면 같은 상호를 그대로 넣으면 됩니다.' + #13#10 +
+    '(재설치는 아무 변화 없고, 포스 교체·기기 이동은 서버가 상호로 알아서 정리합니다.)' + #13#10 +
     '비워두면 임시 이름으로 등록되고 패널에서 지정할 수 있습니다.');
   EnrollPage.Add('상호 (매장명):', False);
 end;
@@ -277,18 +283,12 @@ begin
   else if RegQueryStringValue(HKLM, 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{8B6F7E2A-1D4C-4A3F-9E5B-3F2C1D7E8B4A}_is1', 'DisplayVersion', v) then Result := v;
 end;
 
-// 재설치·업그레이드(이미 ChainRemote 가 깔린 기기)에선 '거래처 상호' 페이지를 숨긴다.
-//   이미 enroll 된 거래처를 재설치하며 무의식적으로 상호를 입력하면 그 이름이 레지스트리에
-//   덮여 재enroll 때 거래처명이 오염될 수 있다(등록 거래처 rename 은 패널에서만 — Chang 정책).
-//   신규 설치(빈 기기)에서만 상호를 받는다. 판정은 다운그레이드 가드와 같은 신뢰 신호
-//   (CRInstalledVer = 언인스톨 레지스트리, 설치 전 상태라 신규=빈값/재설치=옛버전)를 쓴다.
+// '거래처 상호' 페이지는 항상 띄운다 (2026-07-14 "상호 = 교체 키" 재설계).
+//   종전엔 재설치에서 숨겼는데(이름 오염 우려) "어느 땐 넣고 어느 땐 패스" 조건 분기가
+//   현장 혼란만 낳았다. 이제 단일 룰 = 언제나 그 매장 상호 입력. 서버 enroll 매트릭스가
+//   같은 상호(정규화 일치)면 무변화, 다른 매장 상호면 기기 이동/교체로 판정하고, 애매하면
+//   패널 알림으로 마스터에게 넘기므로 재설치 때 상호를 넣어도 오염되지 않는다.
 //   자동업뎃(/VERYSILENT)은 애초에 마법사가 안 떠서 무관.
-function ShouldSkipPage(PageID: Integer): Boolean;
-begin
-  Result := False;
-  if Assigned(EnrollPage) and (PageID = EnrollPage.ID) and (CRInstalledVer() <> '') then
-    Result := True;
-end;
 
 function InitializeSetup(): Boolean;
 var
