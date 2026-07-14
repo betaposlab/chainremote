@@ -367,7 +367,6 @@ export default async function CustomersPage({
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     {c.remoteId ? (
                       <RemoteButton
-                        customerId={c.id}
                         customerName={c.name}
                         remoteId={c.remoteId}
                         lastHeartbeatAt={c.lastHeartbeatAt}

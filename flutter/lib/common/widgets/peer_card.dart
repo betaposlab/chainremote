@@ -4,6 +4,7 @@ import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
@@ -937,6 +938,23 @@ abstract class BasePeerCard extends StatelessWidget {
   }
 
   @protected
+  // 이 거래처의 A/S 지원 이력 보기 (읽기 전용, 패널 기록 조회). 실패해도 무해.
+  @protected
+  MenuEntryBase<String> _supportHistoryAction(BuildContext context, String id) {
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) => Text(
+        '지원 이력',
+        style: style,
+      ),
+      proc: () {
+        final name = peer.alias.isEmpty ? formatID(peer.id) : peer.alias;
+        showCrHistoryDialog(context, remoteId: id, title: '$name 지원 이력');
+      },
+      padding: menuPadding,
+      dismissOnClicked: true,
+    );
+  }
+
   MenuEntryBase<String> _renameAction(String id) {
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Text(
@@ -1202,6 +1220,8 @@ class RecentPeerCard extends BasePeerCard {
       menuItems.add(_addToAb(peer));
     }
 
+    menuItems.add(_supportHistoryAction(context, peer.id));
+
     menuItems.add(MenuEntryDivider());
     menuItems.add(_removeAction(peer.id));
     return menuItems;
@@ -1263,6 +1283,8 @@ class FavoritePeerCard extends BasePeerCard {
     if (gFFI.userModel.userName.isNotEmpty) {
       menuItems.add(_addToAb(peer));
     }
+
+    menuItems.add(_supportHistoryAction(context, peer.id));
 
     menuItems.add(MenuEntryDivider());
     menuItems.add(_removeAction(peer.id));
@@ -1328,6 +1350,8 @@ class AllCustomersPeerCard extends BasePeerCard {
     } else {
       menuItems.add(_rmFavAction(peer.id, () async {}));
     }
+
+    menuItems.add(_supportHistoryAction(context, peer.id));
 
     // 미확정(pending) 후보 확정. 버튼은 마스터(owner)에게만 노출하고, 서버도 owner 를 강제한다 (이중 게이트).
     if (peer.enrollStatus == 'pending' && ChainRemoteAuth.isMaster()) {

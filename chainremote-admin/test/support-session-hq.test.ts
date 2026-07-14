@@ -106,6 +106,12 @@ describe("HQ 지원세션 기록 (Phase 1)", () => {
     const timeline = await listRecentSessions(s.tenantId);
     expect(timeline.length).toBe(1);
     expect(timeline[0].customer?.name).toBe("도덕봉가든");
+
+    // remoteId 필터 = 그 거래처만 (HQ 거래처 카드 지원이력 — HQ 는 remoteId 만 가짐)
+    const byRemote = await listRecentSessions(s.tenantId, 100, "323608526");
+    expect(byRemote.length).toBe(1);
+    const emptyRemote = await listRecentSessions(s.tenantId, 100, "999999999");
+    expect(emptyRemote.length).toBe(0);
   });
 
   it("짧은 오접속은 discard 로 삭제", async () => {

@@ -155,7 +155,14 @@ export async function listCustomerSessions(
 }
 
 /** 전체 지원기록 타임라인 — HQ "지원 기록" 뷰(전 직원, 전 거래처). 최신순. */
-export async function listRecentSessions(tenantId: string, limit = 100) {
+export async function listRecentSessions(
+  tenantId: string,
+  limit = 100,
+  remoteId?: string,
+) {
+  const conds = [eq(supportSessions.tenantId, tenantId)];
+  // remoteId 주면 그 거래처만 (HQ 거래처 카드 "지원이력"). 없으면 전체 타임라인.
+  if (remoteId) conds.push(eq(customers.remoteId, remoteId));
   return db
     .select({
       session: supportSessions,
@@ -165,7 +172,7 @@ export async function listRecentSessions(tenantId: string, limit = 100) {
     .from(supportSessions)
     .leftJoin(customers, eq(customers.id, supportSessions.customerId))
     .leftJoin(users, eq(users.id, supportSessions.operatorId))
-    .where(eq(supportSessions.tenantId, tenantId))
+    .where(and(...conds))
     .orderBy(desc(supportSessions.startedAt))
     .limit(limit);
 }

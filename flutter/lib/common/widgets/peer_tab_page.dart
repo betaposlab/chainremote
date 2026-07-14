@@ -6,6 +6,7 @@ import 'package:flutter_hbb/common/widgets/address_book.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/my_group.dart';
 import 'package:flutter_hbb/common/widgets/peers_view.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
 import 'package:flutter_hbb/common/widgets/peer_card.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
@@ -267,6 +268,17 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   Widget _createPeerViewTypeSwitch(BuildContext context) {
     return PeerViewDropdown();
+  }
+
+  // 전체 지원기록(A/S 이력) 타임라인 열기 — 전 직원·전 거래처, 최신순. 읽기 전용이라 무해.
+  Widget _createSupportHistory(BuildContext context) {
+    final textColor = Theme.of(context).textTheme.titleLarge?.color;
+    return _hoverAction(
+      context: context,
+      toolTip: '지원 기록',
+      onTap: () => showCrHistoryDialog(context),
+      child: Icon(Icons.history, size: 18, color: textColor),
+    );
   }
 
   Widget _createMultiSelection() {
@@ -589,6 +601,7 @@ class _PeerTabPageState extends State<PeerTabPage>
         _createRefresh(index: PeerTabIndex.fav).marginOnly(right: 4),
       if (model.currentTab == PeerTabIndex.customers.index)
         _createRefresh(index: PeerTabIndex.customers).marginOnly(right: 4),
+      _createSupportHistory(context).marginOnly(right: 4),
       _createPeerViewTypeSwitch(context),
       Offstage(
         offstage: model.currentTab == PeerTabIndex.recent.index,

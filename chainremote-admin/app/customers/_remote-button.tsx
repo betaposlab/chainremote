@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { startSession, endSession, discardSession } from "@/lib/actions/sessions";
+import { endSession, discardSession } from "@/lib/actions/sessions";
 import {
   ISSUE_TYPE_LABELS,
   RESOLUTION_LABELS,
@@ -11,7 +11,6 @@ import {
 } from "@/lib/session-labels";
 
 type Props = {
-  customerId: string;
   customerName: string;
   remoteId: string;
   lastHeartbeatAt: Date | null;
@@ -34,7 +33,6 @@ function offlineWarning(lastHeartbeatAt: Date | null): string | null {
 }
 
 export function RemoteButton({
-  customerId,
   customerName,
   remoteId,
   lastHeartbeatAt,
@@ -42,22 +40,17 @@ export function RemoteButton({
   activeStartedAt,
 }: Props) {
   const router = useRouter();
-  const [pending, start] = useTransition();
 
-  // 서버(DB)의 활성 세션 위에 방금 클라에서 시작한 세션을 겹쳐 본다.
-  // 서버→클라→서버 왕복 사이의 race 를 피하려고 둘을 합쳐서 판단.
-  const [localSessionId, setLocalSessionId] = useState<string | null>(null);
-  const [localStartedAt, setLocalStartedAt] = useState<Date | null>(null);
-  const effectiveSessionId = activeSessionId ?? localSessionId;
-  const effectiveStartedAt = activeStartedAt ?? localStartedAt;
-  const isActive = !!effectiveSessionId;
+  // 기록은 이제 HQ 가 원격 연결 시 자동으로 남긴다(단일 기록자 = HQ). 패널 버튼은 세션을
+  // 만들지 않고 앱만 띄운다("띄우기만"). 활성 세션(HQ 가 만든 것)이 있으면 여기서 조회하고,
+  // 필요하면 종료 모달로 수동 종료(폴백)만 한다.
+  const isActive = !!activeSessionId;
 
-  // 모달은 활성 세션이 있을 때만 의미 있음. 로드 시 활성 세션 있으면 바로 연다.
+  // 로드 시 활성 세션(HQ 가 만든 것)이 있으면 종료 모달을 바로 연다.
   const [modalOpen, setModalOpen] = useState(!!activeSessionId);
 
   const onConnect = () => {
-    // heartbeat 가 stale/미보고면 원격이 안 될 확률이 높으니 연결 전에 경고한다. 꺼진 PC 에
-    // 헛 세션+모달이 뜨던 문제 방지. 그래도 시도 여부는 사용자 몫.
+    // heartbeat 가 stale/미보고면 원격이 안 될 확률이 높으니 연결 전에 경고한다.
     const offlineLabel = offlineWarning(lastHeartbeatAt);
     if (
       offlineLabel &&
@@ -67,25 +60,17 @@ export function RemoteButton({
           `원격이 안 될 수 있어요. 그래도 연결을 시도할까요?`,
       )
     ) {
-      return; // 취소 = 세션도 모달도 없음
+      return;
     }
-    start(async () => {
-      const sid = await startSession(customerId);
-      window.location.href = `rustdesk://${remoteId}`;
-      setLocalSessionId(sid);
-      setLocalStartedAt(new Date());
-      setModalOpen(true);
-      router.refresh();
-    });
+    // 기록은 HQ 가 남긴다 — 패널은 rustdesk 딥링크로 앱만 띄운다.
+    window.location.href = `rustdesk://${remoteId}`;
   };
 
   // "나중에" — 모달만 닫고 세션은 계속 진행.
   const onCancel = () => setModalOpen(false);
 
-  // 저장/폐기 후 — 활성 세션 비우고 모달 닫고 서버 데이터 재조회.
+  // 저장/폐기 후 — 모달 닫고 서버 데이터 재조회.
   const onComplete = () => {
-    setLocalSessionId(null);
-    setLocalStartedAt(null);
     setModalOpen(false);
     router.refresh();
   };
@@ -104,19 +89,18 @@ export function RemoteButton({
         <button
           type="button"
           onClick={onConnect}
-          disabled={pending}
-          className="inline-flex items-center gap-1 rounded-md bg-[#00A0E5] hover:bg-[#0090d0] disabled:opacity-50 text-white px-3 py-1.5 text-xs font-medium"
+          className="inline-flex items-center gap-1 rounded-md bg-[#00A0E5] hover:bg-[#0090d0] text-white px-3 py-1.5 text-xs font-medium"
         >
-          {pending ? "연결 중..." : "🖥️ 원격접속"}
+          🖥️ 원격접속
         </button>
       )}
 
-      {modalOpen && effectiveSessionId && (
+      {modalOpen && activeSessionId && (
         <EndSessionModal
-          sessionId={effectiveSessionId}
+          sessionId={activeSessionId}
           customerName={customerName}
           remoteId={remoteId}
-          startedAt={effectiveStartedAt}
+          startedAt={activeStartedAt}
           onCancel={onCancel}
           onComplete={onComplete}
         />
