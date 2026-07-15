@@ -17,6 +17,7 @@ export function parseCleanupResult(json: string | null): {
   deleted?: number;
   skipped?: number;
   at?: string;
+  auto?: boolean;
 } {
   try {
     return json ? JSON.parse(json) : {};
@@ -45,12 +46,13 @@ export function DiskChip({
 
   if (totalBytes == null || freeBytes == null || totalBytes <= 0) return null;
 
-  // 위험/주의 판정 — 포스 SSD 는 60~128GB 라 %보다 절대 GB 병행 (이중 기준).
-  const ratio = freeBytes / totalBytes;
+  // 위험/주의 판정 — 절대 GB 만 쓴다(2026-07-16 Chang 현장 데이터: 32/64GB C·D 분할
+  // 포스가 많아 % 기준은 건강한 소용량 기기를 상시 경고로 만든다). 5GB 밑이면 에이전트가
+  // 하루 1회 Temp 자동 정리도 돈다(휴지통은 수동 버튼만).
   const level =
-    freeBytes < 5 * 1024 ** 3 || ratio < 0.08
+    freeBytes < 5 * 1024 ** 3
       ? "red"
-      : freeBytes < 10 * 1024 ** 3 || ratio < 0.2
+      : freeBytes < 8 * 1024 ** 3
         ? "amber"
         : "ok";
 
@@ -72,7 +74,7 @@ export function DiskChip({
           `C: 여유 ${gb(freeBytes)}GB / 전체 ${gb(totalBytes)}GB`,
           tempBytes != null ? `Temp ${gb(tempBytes)}GB` : null,
           result.freedBytes != null
-            ? `마지막 정리 ${gb(result.freedBytes)}GB 확보 (${result.at?.slice(5, 10) ?? ""})`
+            ? `${result.auto ? "자동" : "마지막"} 정리 ${gb(result.freedBytes)}GB 확보 (${result.at?.slice(5, 10) ?? ""})`
             : null,
         ]
           .filter(Boolean)

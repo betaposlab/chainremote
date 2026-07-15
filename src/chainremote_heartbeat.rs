@@ -36,6 +36,16 @@ const CLEANUP_DONE_KEY: &str = "chainremote-cleanup-done";
 /// 마지막 정리 결과(JSON) — 보고가 서버에 못 닿았을 때 다음 tick 에 재전송(자가치유).
 const CLEANUP_RESULT_KEY: &str = "chainremote-cleanup-result";
 
+/// 자동 Temp 정리 — C: 여유가 이 밑이면(32/64GB 소용량 포스의 실질 위험선, 2026-07-16
+/// Chang 확정) 명령 없이도 스스로 정리한다. ★자동은 Temp 만 — 휴지통은 매장 직원이
+/// "지웠다 살릴" 파일이 있을 수 있어 수동 [정리] 버튼에서만 비운다.
+const AUTO_CLEAN_THRESHOLD: u64 = 5 * 1024 * 1024 * 1024;
+/// 자동 정리 최소 간격 — Temp 를 비워도 5GB 를 못 넘기는 기기(원인이 딴 데)에서
+/// 매 tick 헛돌지 않게 하루 1회로 절제.
+const AUTO_CLEAN_MIN_INTERVAL_SECS: u64 = 24 * 3600;
+/// 마지막 자동 정리 시각(epoch 초).
+const AUTOCLEAN_AT_KEY: &str = "chainremote-autoclean-at";
+
 /// 서비스 진입점(windows.rs::run_service)에서 호출. Agent 도 옵션 B+ HQ 도 아니면 즉시 return.
 /// 2026-05-29 게이트 확장으로 is_incoming_only(Agent)에 더해 is_option_b_plus 도 통과시킨다
 /// (Chang/재성이 PC 처럼 HQ 이면서 거래처 풀에도 등록되는 경우 — custom.txt "option-b-plus":"Y").
@@ -105,6 +115,7 @@ fn tick() -> ResultType<()> {
             if let Some(req) = cleanup {
                 handle_cleanup_request(&remote_id, &token, &req);
             }
+            maybe_auto_cleanup(&remote_id, &token);
             Ok(())
         }
         BeatOutcome::AuthRejected => {
@@ -123,6 +134,7 @@ fn tick() -> ResultType<()> {
                     if let Some(req) = cleanup {
                         handle_cleanup_request(&remote_id, &fresh, &req);
                     }
+                    maybe_auto_cleanup(&remote_id, &fresh);
                     Ok(())
                 }
                 BeatOutcome::AuthRejected => {
@@ -361,7 +373,8 @@ fn handle_cleanup_request(remote_id: &str, token: &str, requested_at: &str) {
         "[chainremote_heartbeat] disk cleanup requested (at={}) → run",
         requested_at
     );
-    let (freed, deleted, skipped) = run_disk_cleanup();
+    // 수동(사람이 버튼) = 휴지통까지 비움. 자동과 달리 명시적 의사표시가 있어서다.
+    let (freed, deleted, skipped) = run_disk_cleanup(true);
     let result = serde_json::json!({
         "freedBytes": freed,
         "deleted": deleted,
@@ -384,6 +397,52 @@ fn handle_cleanup_request(remote_id: &str, token: &str, requested_at: &str) {
         // 다음 tick 의 dedupe 경로가 저장된 결과를 재전송한다.
         log::warn!("[chainremote_heartbeat] cleanup result report failed: {}", e);
     }
+}
+
+/// 자동 Temp 정리 — 여유가 임계(5GB) 밑이면 명령 없이 스스로 비운다(하루 1회).
+/// ★휴지통은 안 건드림(수동 버튼 전용). 결과는 auto 플래그를 달아 즉시 보고 —
+/// 패널 칩 툴팁에 "자동 정리 N GB 확보"로 뜬다.
+fn maybe_auto_cleanup(remote_id: &str, token: &str) {
+    let Some((_total, free)) = read_disk_info() else {
+        return;
+    };
+    if free >= AUTO_CLEAN_THRESHOLD {
+        return;
+    }
+    let now = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_secs(),
+        Err(_) => return,
+    };
+    let last: u64 = hbb_common::config::LocalConfig::get_option(AUTOCLEAN_AT_KEY)
+        .parse()
+        .unwrap_or(0);
+    if now.saturating_sub(last) < AUTO_CLEAN_MIN_INTERVAL_SECS {
+        return;
+    }
+    // 실행 전에 시각부터 박는다 — 정리 중 크래시해도 24시간 내 재돌입(폭주) 방지.
+    hbb_common::config::LocalConfig::set_option(AUTOCLEAN_AT_KEY.to_string(), now.to_string());
+    log::info!(
+        "[chainremote_heartbeat] auto cleanup: free={}B < {}B → run (temp only)",
+        free,
+        AUTO_CLEAN_THRESHOLD
+    );
+    let (freed, deleted, skipped) = run_disk_cleanup(false);
+    let result = serde_json::json!({
+        "freedBytes": freed,
+        "deleted": deleted,
+        "skipped": skipped,
+        "at": chrono::Utc::now().to_rfc3339(),
+        "auto": true,
+    })
+    .to_string();
+    hbb_common::config::LocalConfig::set_option(CLEANUP_RESULT_KEY.to_string(), result.clone());
+    log::info!(
+        "[chainremote_heartbeat] auto cleanup done: freed={}B deleted={} skipped={}",
+        freed,
+        deleted,
+        skipped
+    );
+    let _ = send_heartbeat(remote_id, token, crate::CHAINREMOTE_VERSION, Some(&result));
 }
 
 /// C드라이브 전체/여유 용량 (bytes). 실패하면 None — heartbeat 는 그대로 나간다.
@@ -484,12 +543,13 @@ fn measured_temp_bytes(_disk_free: u64) -> Option<u64> {
     None
 }
 
-/// Temp(전 프로필 + 윈도우) + 휴지통 정리. API 삭제라 휴지통을 안 거치는 영구 삭제이며
-/// (탐색기 Shift+Delete 와 동일), 최근 1시간 내 수정 파일은 돌고 있는 앱 보호로 남기고,
-/// 잠긴(사용 중) 파일은 자동 스킵 — 탐색기의 '다시 시도/건너뛰기' 창이 애초에 없다.
-/// 반환 = (확보 bytes, 삭제 개수, 스킵 개수). 휴지통 내용물 크기도 확보량에 합산한다.
+/// Temp(전 프로필 + 윈도우) 정리 + (include_recycle_bin 이면) 휴지통 비우기.
+/// API 삭제라 휴지통을 안 거치는 영구 삭제이며(탐색기 Shift+Delete 와 동일), 최근 1시간
+/// 내 수정 파일은 돌고 있는 앱 보호로 남기고, 잠긴(사용 중) 파일은 자동 스킵 —
+/// 탐색기의 '다시 시도/건너뛰기' 창이 애초에 없다. 반환 = (확보 bytes, 삭제, 스킵).
+/// 휴지통은 수동 [정리] 버튼에서만 true — 자동 정리는 Temp 만 건드린다.
 #[cfg(windows)]
-fn run_disk_cleanup() -> (u64, u64, u64) {
+fn run_disk_cleanup(include_recycle_bin: bool) -> (u64, u64, u64) {
     let mut freed = 0u64;
     let mut deleted = 0u64;
     let mut skipped = 0u64;
@@ -497,17 +557,19 @@ fn run_disk_cleanup() -> (u64, u64, u64) {
     for d in temp_dirs() {
         clean_dir(&d, cutoff, 0, &mut freed, &mut deleted, &mut skipped);
     }
-    // 휴지통 — 비우기 전에 크기를 물어 확보량에 더한다('삭제→휴지통 적체' 잔재 회수).
-    unsafe {
-        use winapi::um::shellapi::{SHEmptyRecycleBinW, SHQueryRecycleBinW, SHQUERYRBINFO};
-        let mut info: SHQUERYRBINFO = std::mem::zeroed();
-        info.cbSize = std::mem::size_of::<SHQUERYRBINFO>() as u32;
-        if SHQueryRecycleBinW(std::ptr::null(), &mut info) == 0 {
-            freed += info.i64Size as u64;
-            deleted += info.i64NumItems as u64;
+    if include_recycle_bin {
+        // 휴지통 — 비우기 전에 크기를 물어 확보량에 더한다('삭제→휴지통 적체' 잔재 회수).
+        unsafe {
+            use winapi::um::shellapi::{SHEmptyRecycleBinW, SHQueryRecycleBinW, SHQUERYRBINFO};
+            let mut info: SHQUERYRBINFO = std::mem::zeroed();
+            info.cbSize = std::mem::size_of::<SHQUERYRBINFO>() as u32;
+            if SHQueryRecycleBinW(std::ptr::null(), &mut info) == 0 {
+                freed += info.i64Size as u64;
+                deleted += info.i64NumItems as u64;
+            }
+            // SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND
+            SHEmptyRecycleBinW(std::ptr::null_mut(), std::ptr::null(), 0x1 | 0x2 | 0x4);
         }
-        // SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND
-        SHEmptyRecycleBinW(std::ptr::null_mut(), std::ptr::null(), 0x1 | 0x2 | 0x4);
     }
     (freed, deleted, skipped)
 }
@@ -559,6 +621,6 @@ fn clean_dir(
     }
 }
 #[cfg(not(windows))]
-fn run_disk_cleanup() -> (u64, u64, u64) {
+fn run_disk_cleanup(_include_recycle_bin: bool) -> (u64, u64, u64) {
     (0, 0, 0)
 }

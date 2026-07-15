@@ -18,16 +18,15 @@ class CrDiskState {
 }
 
 /// 여유공간 경고 판정 — 위험/주의만 반환, 정상·미보고는 null(배지 생략).
-/// 포스 SSD 는 60~128GB 라 %보다 절대 GB 병행(패널 _disk-chip 과 동일 이중 기준).
+/// 절대 GB 기준만(패널 _disk-chip 동일) — 32/64GB C·D 분할 포스가 많아 % 는 헛경고.
 CrDiskState? crDiskWarn(Peer peer) {
   final total = int.tryParse(peer.diskTotal) ?? 0;
   final free = int.tryParse(peer.diskFree) ?? -1;
   if (total <= 0 || free < 0) return null;
   const gb = 1024 * 1024 * 1024;
   final freeGb = free / gb;
-  final ratio = free / total;
-  final red = freeGb < 5 || ratio < 0.08;
-  final amber = freeGb < 10 || ratio < 0.2;
+  final red = freeGb < 5;
+  final amber = freeGb < 8;
   if (!red && !amber) return null;
   final temp = int.tryParse(peer.tempBytes);
   return CrDiskState(freeGb, red, temp == null ? null : temp / gb);
