@@ -25,6 +25,10 @@ export async function POST(req: Request) {
       arch?: unknown;
       os?: unknown;
       osBits?: unknown;
+      diskTotal?: unknown;
+      diskFree?: unknown;
+      tempBytes?: unknown;
+      cleanupResult?: unknown;
     };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";
@@ -43,6 +47,10 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+    // 디스크 관제(024) — 숫자만 통과, 이상값은 recordHeartbeat 가 한 번 더 거른다.
+    const asNum = (v: unknown) => (typeof v === "number" ? v : undefined);
+    const cleanupResult =
+      typeof body.cleanupResult === "string" ? body.cleanupResult : undefined;
     const ok = await data.recordHeartbeat(
       remoteId,
       token,
@@ -51,6 +59,12 @@ export async function POST(req: Request) {
       arch || undefined,
       os || undefined,
       osBits || undefined,
+      {
+        diskTotal: asNum(body.diskTotal),
+        diskFree: asNum(body.diskFree),
+        tempBytes: asNum(body.tempBytes),
+        cleanupResult,
+      },
     );
     if (!ok) {
       return Response.json(
@@ -58,7 +72,10 @@ export async function POST(req: Request) {
         { status: 403 },
       );
     }
-    return Response.json({ ok: true });
+    // 정리 명령이 큐돼 있으면 응답에 실어보낸다 — 에이전트는 "마지막 실행 시각"과 다를 때만
+    // 실행하므로 요청이 처리될 때까지 매 heartbeat 에 같은 값이 내려가도 무해(멱등).
+    const cleanup = await data.getCleanupRequest(remoteId);
+    return Response.json(cleanup ? { ok: true, cleanup } : { ok: true });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });
   }

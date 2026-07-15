@@ -154,6 +154,15 @@ export async function registerHeartbeatToken(
  * Heartbeat 기록 — 토큰 검증 후 last_heartbeat_at + last_version 갱신.
  * remote_id + token 동시 일치하는 customer 없으면 false → route 가 403.
  */
+export interface HeartbeatExtras {
+  // 디스크 관제(024) — 바이트 단위. 유효 양수일 때만 반영.
+  diskTotal?: number;
+  diskFree?: number;
+  tempBytes?: number;
+  // 에이전트의 정리 완료 보고(JSON 문자열) — 저장하고 정리 요청 큐를 비운다.
+  cleanupResult?: string;
+}
+
 export async function recordHeartbeat(
   remoteId: string,
   token: string,
@@ -162,12 +171,32 @@ export async function recordHeartbeat(
   arch?: string,
   os?: string,
   osBits?: string,
+  extras?: HeartbeatExtras,
 ): Promise<boolean> {
-  // arch(020)/os·osBits(021): 보내온 경우에만 갱신. 순수 표시·진단 telemetry — WHERE/매칭에는
-  //   절대 안 쓴다(신원 키 아님). 값이 없으면 기존 값을 건드리지 않는다.
+  // arch(020)/os·osBits(021)/디스크(024): 보내온 경우에만 갱신. 순수 표시·진단 telemetry —
+  //   WHERE/매칭에는 절대 안 쓴다(신원 키 아님). 값이 없으면 기존 값을 건드리지 않는다.
   const archSet = arch === "x86" || arch === "x64" ? { arch } : {};
   const osSet = os && os.trim() ? { os: os.trim() } : {};
   const osBitsSet = osBits === "x86" || osBits === "x64" ? { osBits } : {};
+  const num = (v: unknown) =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined;
+  const diskTotal = num(extras?.diskTotal);
+  const diskFree = num(extras?.diskFree);
+  const diskSet =
+    diskTotal !== undefined && diskFree !== undefined
+      ? {
+          diskTotalBytes: diskTotal,
+          diskFreeBytes: diskFree,
+          diskReportedAt: new Date(),
+          ...(num(extras?.tempBytes) !== undefined
+            ? { tempBytes: num(extras?.tempBytes) }
+            : {}),
+        }
+      : {};
+  // 정리 완료 보고 — 결과 저장 + 요청 큐 클리어 (재실행 방지).
+  const cleanupSet = extras?.cleanupResult?.trim()
+    ? { cleanupResult: extras.cleanupResult.trim(), cleanupRequestedAt: null }
+    : {};
   const [row] = await db
     .update(customers)
     .set({
@@ -176,6 +205,8 @@ export async function recordHeartbeat(
       ...archSet,
       ...osSet,
       ...osBitsSet,
+      ...diskSet,
+      ...cleanupSet,
     })
     .where(
       and(
@@ -193,6 +224,32 @@ export async function recordHeartbeat(
   //   신뢰 가능한 지문 소스가 생기면 백필/매칭을 함께 재설계할 것(enrollCustomer step2 참조).
   void machineUuid;
   return true;
+}
+
+/** heartbeat 응답에 실을 정리 요청 시각 — 없으면 null. (요청이 살아있는 동안 매 heartbeat
+ *  마다 같은 값이 내려가고, 에이전트는 "마지막으로 실행한 요청 시각"과 달라야만 실행한다.) */
+export async function getCleanupRequest(remoteId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ at: customers.cleanupRequestedAt })
+    .from(customers)
+    .where(eq(customers.remoteId, remoteId))
+    .limit(1);
+  return row?.at ? row.at.toISOString() : null;
+}
+
+/** [디스크 정리] 버튼 — 정리 명령 큐잉. 에이전트가 다음 heartbeat(≤10분)에 받아 실행한다. */
+export async function requestCleanup(
+  remoteId: string,
+  ctx: { tenantId: string },
+): Promise<boolean> {
+  const [row] = await db
+    .update(customers)
+    .set({ cleanupRequestedAt: new Date() })
+    .where(
+      and(eq(customers.remoteId, remoteId), eq(customers.tenantId, ctx.tenantId)),
+    )
+    .returning({ id: customers.id });
+  return !!row;
 }
 
 /**

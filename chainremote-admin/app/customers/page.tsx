@@ -12,6 +12,7 @@ import { CustomerStatus, computeUpdateHealth } from "./_status";
 import { CustomerPushButton, BulkPushButton } from "./_push-buttons";
 import { ConfirmEnrollButton } from "./_enroll-confirm";
 import { CustomerSearch } from "./_search";
+import { DiskChip } from "./_disk-chip";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
@@ -96,6 +97,11 @@ export default async function CustomersPage({
       isInternal: customers.isInternal,
       pinOrder: customers.pinOrder,
       enrollStatus: customers.enrollStatus,
+      diskTotalBytes: customers.diskTotalBytes,
+      diskFreeBytes: customers.diskFreeBytes,
+      tempBytes: customers.tempBytes,
+      cleanupRequestedAt: customers.cleanupRequestedAt,
+      cleanupResult: customers.cleanupResult,
     })
     .from(customers)
     .leftJoin(users, eq(users.id, customers.assignedUserId))
@@ -362,6 +368,19 @@ export default async function CustomersPage({
                             {osBadgeText}
                           </span>
                         )}
+                        {/* 디스크 관제(마이그 024) — 여유공간 경고 + 원격 정리 버튼. */}
+                        <DiskChip
+                          remoteId={c.remoteId}
+                          totalBytes={c.diskTotalBytes}
+                          freeBytes={c.diskFreeBytes}
+                          tempBytes={c.tempBytes}
+                          cleanupRequestedAt={
+                            c.cleanupRequestedAt
+                              ? c.cleanupRequestedAt.toISOString()
+                              : null
+                          }
+                          cleanupResult={c.cleanupResult}
+                        />
                       </div>
                     ) : (
                       <span className="text-slate-400">미등록</span>

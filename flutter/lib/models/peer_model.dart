@@ -31,6 +31,10 @@ class Peer {
   //   카드에 "Win7 · 64비트" 배지로. arch(페이로드)와 달라 OS 기준이 정확(64비트 Win7 구분).
   String os;
   String osBits;
+  // 디스크 관제(마이그024) — bytes 문자열('' = 미보고). 카드 배지는 위험/주의만 표시.
+  String diskTotal;
+  String diskFree;
+  String tempBytes;
 
   String getId() {
     if (alias != '') {
@@ -58,7 +62,10 @@ class Peer {
         enrollStatus = json['enrollStatus'] ?? '',
         arch = json['arch'] ?? '',
         os = json['os'] ?? '',
-        osBits = json['osBits'] ?? '';
+        osBits = json['osBits'] ?? '',
+        diskTotal = json['diskTotal'] ?? '',
+        diskFree = json['diskFree'] ?? '',
+        tempBytes = json['tempBytes'] ?? '';
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -81,6 +88,9 @@ class Peer {
       'arch': arch,
       'os': os,
       'osBits': osBits,
+      'diskTotal': diskTotal,
+      'diskFree': diskFree,
+      'tempBytes': tempBytes,
     };
   }
 
@@ -130,6 +140,9 @@ class Peer {
     this.arch = '',
     this.os = '',
     this.osBits = '',
+    this.diskTotal = '',
+    this.diskFree = '',
+    this.tempBytes = '',
   });
 
   Peer.loading()
@@ -167,7 +180,10 @@ class Peer {
         enrollStatus == other.enrollStatus &&
         arch == other.arch &&
         os == other.os &&
-        osBits == other.osBits;
+        osBits == other.osBits &&
+        diskTotal == other.diskTotal &&
+        diskFree == other.diskFree &&
+        tempBytes == other.tempBytes;
   }
 
   Peer.copy(Peer other)
@@ -190,7 +206,10 @@ class Peer {
             enrollStatus: other.enrollStatus,
             arch: other.arch,
             os: other.os,
-            osBits: other.osBits);
+            osBits: other.osBits,
+            diskTotal: other.diskTotal,
+            diskFree: other.diskFree,
+            tempBytes: other.tempBytes);
 }
 
 enum UpdateEvent { online, load }

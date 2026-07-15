@@ -39,6 +39,13 @@ struct CustomerRow {
     os: Option<String>,
     #[serde(rename = "osBits")]
     os_bits: Option<String>,
+    // 디스크 관제(마이그024) — bytes. 카드 여유공간 경고 배지용.
+    #[serde(rename = "diskTotalBytes")]
+    disk_total_bytes: Option<i64>,
+    #[serde(rename = "diskFreeBytes")]
+    disk_free_bytes: Option<i64>,
+    #[serde(rename = "tempBytes")]
+    temp_bytes: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -166,6 +173,11 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
         "arch": c.arch.clone().unwrap_or_default(),
         "os": c.os.clone().unwrap_or_default(),
         "osBits": c.os_bits.clone().unwrap_or_default(),
+        // 디스크 관제(마이그024) — bytes 문자열(빈값=미보고). Peer.diskFree 등으로 흘러가
+        // 카드 "여유 N GB" 경고 배지 + [디스크 정리] 메뉴 게이트에 쓰인다.
+        "diskTotal": c.disk_total_bytes.map(|v| v.to_string()).unwrap_or_default(),
+        "diskFree": c.disk_free_bytes.map(|v| v.to_string()).unwrap_or_default(),
+        "tempBytes": c.temp_bytes.map(|v| v.to_string()).unwrap_or_default(),
     }))
 }
 

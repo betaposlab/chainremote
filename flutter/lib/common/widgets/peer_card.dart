@@ -4,6 +4,7 @@ import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_disk.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -22,6 +23,27 @@ import 'dart:math' as math;
 
 typedef PopupMenuEntryBuilder = Future<List<mod_menu.PopupMenuEntry<String>>>
     Function(BuildContext);
+
+// ── 디스크 배지 (마이그024) — 여유공간 위험(빨강)/주의(호박)만 표시, 정상·미보고 생략.
+Widget? crDiskBadge(Peer peer) {
+  final w = crDiskWarn(peer);
+  if (w == null) return null;
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+    decoration: BoxDecoration(
+      color: w.red ? const Color(0xFFFFE4E6) : const Color(0xFFFEF3C7),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Text(
+      '여유 ${w.freeGb.toStringAsFixed(1)}GB',
+      style: TextStyle(
+        fontSize: 9,
+        fontWeight: FontWeight.w600,
+        color: w.red ? const Color(0xFFBE123C) : const Color(0xFFB45309),
+      ),
+    ),
+  );
+}
 
 // ── OS 배지 (마이그021) — "Win7 · 64비트" 식. os(버전)+osBits(네이티브 비트수) 우선, 없으면
 //   arch(페이로드) 폴백. 64비트 Win7 이 32비트 페이로드를 돌려도 os 로 정확히 "Win7 · 64비트".
@@ -318,6 +340,11 @@ class _PeerCardState extends State<_PeerCard>
                             ),
                             const SizedBox(width: 8),
                           ],
+                          // 디스크 배지(마이그024) — 여유공간 위험/주의만.
+                          if (crDiskBadge(peer) != null) ...[
+                            crDiskBadge(peer)!,
+                            const SizedBox(width: 8),
+                          ],
                           _statusPill(peer.online),
                           const SizedBox(width: 8),
                           checkBoxOrActionMoreLandscape(peer, isTile: true),
@@ -489,6 +516,11 @@ class _PeerCardState extends State<_PeerCard>
                             ),
                           ),
                         ),
+                        const SizedBox(width: 6),
+                      ],
+                      // 디스크 배지(마이그024) — 여유공간 위험/주의만.
+                      if (crDiskBadge(peer) != null) ...[
+                        crDiskBadge(peer)!,
                         const SizedBox(width: 6),
                       ],
                       checkBoxOrActionMoreLandscape(peer, isTile: false),
@@ -955,6 +987,51 @@ abstract class BasePeerCard extends StatelessWidget {
     );
   }
 
+  // 원격 접속 없는 [디스크 정리] — Temp(전 프로필+윈도우)+휴지통 영구삭제 명령 큐잉.
+  // 여유공간 경고(위험/주의)가 뜬 거래처에만 노출. 에이전트가 ≤10분 내 실행 후 결과 보고.
+  @protected
+  MenuEntryBase<String> _diskCleanupAction(BuildContext context, String id) {
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) => Text(
+        '디스크 정리',
+        style: style,
+      ),
+      proc: () {
+        final w = crDiskWarn(peer);
+        final name = peer.alias.isEmpty ? formatID(peer.id) : peer.alias;
+        gFFI.dialogManager.show<void>((setState, close, context) {
+          return CustomAlertDialog(
+            title: Row(children: const [
+              Icon(Icons.cleaning_services_outlined,
+                  color: Color(0xFF00A0E5), size: 24),
+              SizedBox(width: 8),
+              Expanded(child: Text('디스크 정리')),
+            ]),
+            content: Text(
+              '$name 의 Temp 폴더(전 사용자+윈도우)와 휴지통을 정리합니다.\n'
+              '${w != null ? "현재 여유 ${w.freeGb.toStringAsFixed(1)}GB${w.tempGb != null ? " · Temp 약 ${w.tempGb!.toStringAsFixed(1)}GB" : ""}\n" : ""}'
+              '원격 접속 없이 몇 분 내 자동 실행되고, 사용 중인 파일은 건너뜁니다.',
+              style: const TextStyle(fontSize: 13),
+            ),
+            actions: [
+              dialogButton('취소', onPressed: () => close(null), isOutline: true),
+              dialogButton('정리 실행', onPressed: () async {
+                close(null);
+                final ok = await crRequestDiskCleanup(id);
+                showToast(ok
+                    ? '정리 명령을 보냈습니다 — 몇 분 내 실행 후 결과가 패널에 표시됩니다.'
+                    : '명령 전송 실패 — 네트워크/로그인을 확인하세요.');
+              }),
+            ],
+            onCancel: () => close(null),
+          );
+        });
+      },
+      padding: menuPadding,
+      dismissOnClicked: true,
+    );
+  }
+
   MenuEntryBase<String> _renameAction(String id) {
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Text(
@@ -1221,6 +1298,9 @@ class RecentPeerCard extends BasePeerCard {
     }
 
     menuItems.add(_supportHistoryAction(context, peer.id));
+    if (crDiskWarn(peer) != null) {
+      menuItems.add(_diskCleanupAction(context, peer.id));
+    }
 
     menuItems.add(MenuEntryDivider());
     menuItems.add(_removeAction(peer.id));
@@ -1285,6 +1365,9 @@ class FavoritePeerCard extends BasePeerCard {
     }
 
     menuItems.add(_supportHistoryAction(context, peer.id));
+    if (crDiskWarn(peer) != null) {
+      menuItems.add(_diskCleanupAction(context, peer.id));
+    }
 
     menuItems.add(MenuEntryDivider());
     menuItems.add(_removeAction(peer.id));
@@ -1352,6 +1435,9 @@ class AllCustomersPeerCard extends BasePeerCard {
     }
 
     menuItems.add(_supportHistoryAction(context, peer.id));
+    if (crDiskWarn(peer) != null) {
+      menuItems.add(_diskCleanupAction(context, peer.id));
+    }
 
     // 미확정(pending) 후보 확정. 버튼은 마스터(owner)에게만 노출하고, 서버도 owner 를 강제한다 (이중 게이트).
     if (peer.enrollStatus == 'pending' && ChainRemoteAuth.isMaster()) {

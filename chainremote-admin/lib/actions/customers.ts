@@ -106,3 +106,13 @@ export async function dismissCandidate(remoteId: string) {
   await favData.dismissOrphanCandidate(session.tenantId, remoteId);
   revalidatePath("/customers");
 }
+
+// [디스크 정리] — Temp+휴지통 원격 정리 명령 큐잉. 원격 지원에 준하는 행위라 viewer 만 제외.
+// 에이전트가 다음 heartbeat(≤10분)에 받아 실행하고 결과를 보고한다.
+export async function requestCleanupAction(remoteId: string): Promise<boolean> {
+  const session = await requireSession();
+  if (session.role === "viewer") throw new Error("권한 없음");
+  const ok = await data.requestCleanup(remoteId, { tenantId: session.tenantId });
+  revalidatePath("/customers");
+  return ok;
+}

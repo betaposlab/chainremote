@@ -30,6 +30,12 @@ const HTTP_TIMEOUT: Duration = Duration::from_secs(30);
 /// LocalConfig 토큰 저장 키. 한 번 발급받으면 재부팅 넘어서도 유지.
 const TOKEN_KEY: &str = "chainremote-heartbeat-token";
 
+/// 디스크 정리 명령 dedupe — 마지막으로 실행한 요청 시각(서버 cleanup_requested_at).
+/// 같은 요청이 매 heartbeat 응답에 실려와도 한 번만 실행한다.
+const CLEANUP_DONE_KEY: &str = "chainremote-cleanup-done";
+/// 마지막 정리 결과(JSON) — 보고가 서버에 못 닿았을 때 다음 tick 에 재전송(자가치유).
+const CLEANUP_RESULT_KEY: &str = "chainremote-cleanup-result";
+
 /// 서비스 진입점(windows.rs::run_service)에서 호출. Agent 도 옵션 B+ HQ 도 아니면 즉시 return.
 /// 2026-05-29 게이트 확장으로 is_incoming_only(Agent)에 더해 is_option_b_plus 도 통과시킨다
 /// (Chang/재성이 PC 처럼 HQ 이면서 거래처 풀에도 등록되는 경우 — custom.txt "option-b-plus":"Y").
@@ -63,7 +69,8 @@ fn run_loop() {
 
 /// heartbeat HTTP 결과 분류. 401/403 만 따로 잡아 재등록 회복 경로로 보낸다.
 enum BeatOutcome {
-    Ok,
+    /// 성공. 서버가 [디스크 정리]를 큐해뒀으면 요청 시각(ISO)이 실려온다(마이그 024).
+    Ok(Option<String>),
     /// 401(토큰 헤더 없음) 또는 403(token/remoteId 불일치) — 토큰 분실/회전 의심.
     AuthRejected,
 }
@@ -88,13 +95,16 @@ fn tick() -> ResultType<()> {
     // 2) heartbeat 전송. 401/403(토큰 미스매치)이면 즉시 re-register + 1회 재시도.
     //    v1.3.7 자가회복의 핵심 — 매 릴리즈 수동 설치를 강요하던 "업데이트 지옥" 탈출.
     //    (인스톨 후 로컬 토큰 분실이든 서버 토큰 회전이든 알아서 회복한다.)
-    match send_heartbeat(&remote_id, &token, crate::CHAINREMOTE_VERSION)? {
-        BeatOutcome::Ok => {
+    match send_heartbeat(&remote_id, &token, crate::CHAINREMOTE_VERSION, None)? {
+        BeatOutcome::Ok(cleanup) => {
             log::info!(
                 "[chainremote_heartbeat] beat ok (remote_id={}, version={})",
                 remote_id,
                 crate::CHAINREMOTE_VERSION
             );
+            if let Some(req) = cleanup {
+                handle_cleanup_request(&remote_id, &token, &req);
+            }
             Ok(())
         }
         BeatOutcome::AuthRejected => {
@@ -104,12 +114,15 @@ fn tick() -> ResultType<()> {
             hbb_common::config::LocalConfig::set_option(TOKEN_KEY.to_string(), String::new());
             let fresh = acquire_token(&remote_id)?;
             hbb_common::config::LocalConfig::set_option(TOKEN_KEY.to_string(), fresh.clone());
-            match send_heartbeat(&remote_id, &fresh, crate::CHAINREMOTE_VERSION)? {
-                BeatOutcome::Ok => {
+            match send_heartbeat(&remote_id, &fresh, crate::CHAINREMOTE_VERSION, None)? {
+                BeatOutcome::Ok(cleanup) => {
                     log::info!(
                         "[chainremote_heartbeat] beat ok after recovery (remote_id={})",
                         remote_id
                     );
+                    if let Some(req) = cleanup {
+                        handle_cleanup_request(&remote_id, &fresh, &req);
+                    }
                     Ok(())
                 }
                 BeatOutcome::AuthRejected => {
@@ -268,9 +281,14 @@ fn enroll(remote_id: &str, tenant_slug: &str, enroll_key: &str) -> ResultType<St
     Ok(r.token)
 }
 
-fn send_heartbeat(remote_id: &str, token: &str, version: &str) -> ResultType<BeatOutcome> {
+fn send_heartbeat(
+    remote_id: &str,
+    token: &str,
+    version: &str,
+    cleanup_result: Option<&str>,
+) -> ResultType<BeatOutcome> {
     let (os, os_bits) = read_os_info();
-    let body = serde_json::json!({
+    let mut body = serde_json::json!({
         "remoteId": remote_id,
         "version": version,
         // 프로세스 arch — 이 기기가 32비트 페이로드(i686)로 도는지 x64 로 도는지. 32비트는
@@ -283,8 +301,20 @@ fn send_heartbeat(remote_id: &str, token: &str, version: &str) -> ResultType<Bea
         "osBits": os_bits,
         // 기기지문 — 패널이 옛 거래처에 backfill + 향후 ID 변경 시 재링크에 쓴다.
         "machineUuid": hbb_common::get_machine_fingerprint(),
-    })
-    .to_string();
+    });
+    // 디스크 관제(패널 마이그 024) — C드라이브 용량 + (여유 부족 시) Temp 실측.
+    //   조회 실패해도 heartbeat 는 그대로 나간다. 표시·경고용 telemetry.
+    if let Some((total, free)) = read_disk_info() {
+        body["diskTotal"] = total.into();
+        body["diskFree"] = free.into();
+        if let Some(t) = measured_temp_bytes(free) {
+            body["tempBytes"] = t.into();
+        }
+    }
+    // [디스크 정리] 완료 보고 — 서버가 결과 저장 + 요청 큐를 비운다.
+    if let Some(r) = cleanup_result {
+        body["cleanupResult"] = r.into();
+    }
     let client = reqwest::blocking::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .build()?;
@@ -292,14 +322,243 @@ fn send_heartbeat(remote_id: &str, token: &str, version: &str) -> ResultType<Bea
         .post(HEARTBEAT_URL)
         .header("Content-Type", "application/json")
         .header("X-ChainRemote-Token", token)
-        .body(body)
+        .body(body.to_string())
         .send()?;
     let status = resp.status();
     if status.is_success() {
-        return Ok(BeatOutcome::Ok);
+        // 응답에 [디스크 정리] 요청이 실려올 수 있다: {"ok":true,"cleanup":"<ISO>"}.
+        #[derive(serde::Deserialize, Default)]
+        struct Resp {
+            #[serde(default)]
+            cleanup: String,
+        }
+        let cleanup = resp
+            .json::<Resp>()
+            .ok()
+            .and_then(|r| (!r.cleanup.is_empty()).then_some(r.cleanup));
+        return Ok(BeatOutcome::Ok(cleanup));
     }
     if status.as_u16() == 401 || status.as_u16() == 403 {
         return Ok(BeatOutcome::AuthRejected);
     }
     bail!("heartbeat HTTP {}", status);
+}
+
+/// 서버 [디스크 정리] 명령 처리 — 같은 요청(시각)은 한 번만 실행하고(dedupe), 결과를
+/// 즉시 heartbeat 로 보고해 패널이 바로 갱신되게 한다. 보고가 유실되면 서버 큐가 남아
+/// 다음 tick 에 같은 요청이 또 내려오는데, 그땐 실행 없이 저장해둔 결과만 재전송한다.
+fn handle_cleanup_request(remote_id: &str, token: &str, requested_at: &str) {
+    let done = hbb_common::config::LocalConfig::get_option(CLEANUP_DONE_KEY);
+    if done == requested_at {
+        // 이미 처리한 요청 — 결과 보고가 서버에 못 닿은 경우만 여기 온다. 재전송으로 해소.
+        let last = hbb_common::config::LocalConfig::get_option(CLEANUP_RESULT_KEY);
+        if !last.is_empty() {
+            let _ = send_heartbeat(remote_id, token, crate::CHAINREMOTE_VERSION, Some(&last));
+        }
+        return;
+    }
+    log::info!(
+        "[chainremote_heartbeat] disk cleanup requested (at={}) → run",
+        requested_at
+    );
+    let (freed, deleted, skipped) = run_disk_cleanup();
+    let result = serde_json::json!({
+        "freedBytes": freed,
+        "deleted": deleted,
+        "skipped": skipped,
+        "at": chrono::Utc::now().to_rfc3339(),
+    })
+    .to_string();
+    hbb_common::config::LocalConfig::set_option(
+        CLEANUP_DONE_KEY.to_string(),
+        requested_at.to_string(),
+    );
+    hbb_common::config::LocalConfig::set_option(CLEANUP_RESULT_KEY.to_string(), result.clone());
+    log::info!(
+        "[chainremote_heartbeat] cleanup done: freed={}B deleted={} skipped={}",
+        freed,
+        deleted,
+        skipped
+    );
+    if let Err(e) = send_heartbeat(remote_id, token, crate::CHAINREMOTE_VERSION, Some(&result)) {
+        // 다음 tick 의 dedupe 경로가 저장된 결과를 재전송한다.
+        log::warn!("[chainremote_heartbeat] cleanup result report failed: {}", e);
+    }
+}
+
+/// C드라이브 전체/여유 용량 (bytes). 실패하면 None — heartbeat 는 그대로 나간다.
+#[cfg(windows)]
+fn read_disk_info() -> Option<(u64, u64)> {
+    use std::os::windows::ffi::OsStrExt;
+    let root: Vec<u16> = std::ffi::OsStr::new("C:\\")
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let mut caller_free: u64 = 0;
+    let mut total: u64 = 0;
+    let mut free: u64 = 0;
+    let ok = unsafe {
+        winapi::um::fileapi::GetDiskFreeSpaceExW(
+            root.as_ptr(),
+            &mut caller_free as *mut u64 as _,
+            &mut total as *mut u64 as _,
+            &mut free as *mut u64 as _,
+        )
+    };
+    if ok != 0 && total > 0 {
+        Some((total, free))
+    } else {
+        None
+    }
+}
+#[cfg(not(windows))]
+fn read_disk_info() -> Option<(u64, u64)> {
+    None
+}
+
+/// 정리 대상 Temp 폴더들 — 모든 사용자 프로필의 Local\Temp + C:\Windows\Temp.
+/// 서비스(LocalSystem)라 전 프로필 접근 가능.
+#[cfg(windows)]
+fn temp_dirs() -> Vec<std::path::PathBuf> {
+    let mut v = Vec::new();
+    if let Ok(rd) = std::fs::read_dir("C:\\Users") {
+        for e in rd.flatten() {
+            let p = e.path().join("AppData\\Local\\Temp");
+            if p.is_dir() {
+                v.push(p);
+            }
+        }
+    }
+    let win_temp = std::path::PathBuf::from("C:\\Windows\\Temp");
+    if win_temp.is_dir() {
+        v.push(win_temp);
+    }
+    v
+}
+
+#[cfg(windows)]
+fn dir_size(dir: &std::path::Path, depth: u32) -> u64 {
+    if depth > 16 {
+        return 0;
+    }
+    let mut sum = 0u64;
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for e in rd.flatten() {
+            if let Ok(md) = e.metadata() {
+                if md.is_dir() {
+                    sum += dir_size(&e.path(), depth + 1);
+                } else {
+                    sum += md.len();
+                }
+            }
+        }
+    }
+    sum
+}
+
+/// Temp 실측(원인 표시용) — 여유가 20GB 미만일 때만, 6시간에 한 번(수만 파일 순회 절제).
+/// 측정값은 캐시해 사이사이 heartbeat 에도 실어보낸다.
+#[cfg(windows)]
+fn measured_temp_bytes(disk_free: u64) -> Option<u64> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static LAST_AT: AtomicU64 = AtomicU64::new(0);
+    static LAST_VAL: AtomicU64 = AtomicU64::new(u64::MAX);
+    const LOW_BYTES: u64 = 20 * 1024 * 1024 * 1024;
+    const REMEASURE_SECS: u64 = 6 * 3600;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+    let last = LAST_AT.load(Ordering::Relaxed);
+    if disk_free < LOW_BYTES && (last == 0 || now.saturating_sub(last) >= REMEASURE_SECS) {
+        let total: u64 = temp_dirs().iter().map(|d| dir_size(d, 0)).sum();
+        LAST_AT.store(now, Ordering::Relaxed);
+        LAST_VAL.store(total, Ordering::Relaxed);
+        return Some(total);
+    }
+    let v = LAST_VAL.load(Ordering::Relaxed);
+    (v != u64::MAX).then_some(v)
+}
+#[cfg(not(windows))]
+fn measured_temp_bytes(_disk_free: u64) -> Option<u64> {
+    None
+}
+
+/// Temp(전 프로필 + 윈도우) + 휴지통 정리. API 삭제라 휴지통을 안 거치는 영구 삭제이며
+/// (탐색기 Shift+Delete 와 동일), 최근 1시간 내 수정 파일은 돌고 있는 앱 보호로 남기고,
+/// 잠긴(사용 중) 파일은 자동 스킵 — 탐색기의 '다시 시도/건너뛰기' 창이 애초에 없다.
+/// 반환 = (확보 bytes, 삭제 개수, 스킵 개수). 휴지통 내용물 크기도 확보량에 합산한다.
+#[cfg(windows)]
+fn run_disk_cleanup() -> (u64, u64, u64) {
+    let mut freed = 0u64;
+    let mut deleted = 0u64;
+    let mut skipped = 0u64;
+    let cutoff = std::time::SystemTime::now() - Duration::from_secs(3600);
+    for d in temp_dirs() {
+        clean_dir(&d, cutoff, 0, &mut freed, &mut deleted, &mut skipped);
+    }
+    // 휴지통 — 비우기 전에 크기를 물어 확보량에 더한다('삭제→휴지통 적체' 잔재 회수).
+    unsafe {
+        use winapi::um::shellapi::{SHEmptyRecycleBinW, SHQueryRecycleBinW, SHQUERYRBINFO};
+        let mut info: SHQUERYRBINFO = std::mem::zeroed();
+        info.cbSize = std::mem::size_of::<SHQUERYRBINFO>() as u32;
+        if SHQueryRecycleBinW(std::ptr::null(), &mut info) == 0 {
+            freed += info.i64Size as u64;
+            deleted += info.i64NumItems as u64;
+        }
+        // SHERB_NOCONFIRMATION | SHERB_NOPROGRESSUI | SHERB_NOSOUND
+        SHEmptyRecycleBinW(std::ptr::null_mut(), std::ptr::null(), 0x1 | 0x2 | 0x4);
+    }
+    (freed, deleted, skipped)
+}
+
+#[cfg(windows)]
+fn clean_dir(
+    dir: &std::path::Path,
+    cutoff: std::time::SystemTime,
+    depth: u32,
+    freed: &mut u64,
+    deleted: &mut u64,
+    skipped: &mut u64,
+) {
+    if depth > 16 {
+        return;
+    }
+    let rd = match std::fs::read_dir(dir) {
+        Ok(rd) => rd,
+        Err(_) => return,
+    };
+    for e in rd.flatten() {
+        let p = e.path();
+        let md = match e.metadata() {
+            Ok(md) => md,
+            Err(_) => {
+                *skipped += 1;
+                continue;
+            }
+        };
+        if md.is_dir() {
+            clean_dir(&p, cutoff, depth + 1, freed, deleted, skipped);
+            // 비었을 때만 성공 — 실패(내용 잔존) 무해.
+            let _ = std::fs::remove_dir(&p);
+        } else {
+            // 최근 1시간 내 수정 파일은 돌고 있는 앱의 작업 파일일 수 있어 남긴다.
+            if md.modified().map(|m| m >= cutoff).unwrap_or(true) {
+                *skipped += 1;
+                continue;
+            }
+            let len = md.len();
+            match std::fs::remove_file(&p) {
+                Ok(_) => {
+                    *freed += len;
+                    *deleted += 1;
+                }
+                Err(_) => *skipped += 1, // 사용 중(잠김) — 탐색기 '건너뛰기'와 동일
+            }
+        }
+    }
+}
+#[cfg(not(windows))]
+fn run_disk_cleanup() -> (u64, u64, u64) {
+    (0, 0, 0)
 }

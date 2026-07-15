@@ -8,6 +8,7 @@ import {
   index,
   uniqueIndex,
   integer,
+  bigint,
   bigserial,
   jsonb,
   primaryKey,
@@ -141,6 +142,16 @@ export const customers = pgTable(
     //   "Win7 · 64비트"로 정확히 보여줘 arch 만 볼 때의 착각 방지. 표시·진단용, 매칭 키 아님.
     os: text("os"),
     osBits: text("os_bits"),
+    // 디스크 관제(마이그 024) — heartbeat 가 C드라이브 용량 보고. 표시·경고용 telemetry.
+    //   tempBytes 는 여유 부족일 때만 에이전트가 측정해 보내는 선택 필드(원인 표시용).
+    diskTotalBytes: bigint("disk_total_bytes", { mode: "number" }),
+    diskFreeBytes: bigint("disk_free_bytes", { mode: "number" }),
+    tempBytes: bigint("temp_bytes", { mode: "number" }),
+    diskReportedAt: timestamp("disk_reported_at", { withTimezone: true }),
+    // 원격 Temp 정리 명령 큐 — 버튼이 now() 를 찍고, 에이전트가 heartbeat 응답에서 받아
+    //   실행 후 결과(JSON)를 보고하면 requested 가 비워진다. 자동업뎃 푸시와 같은 결.
+    cleanupRequestedAt: timestamp("cleanup_requested_at", { withTimezone: true }),
+    cleanupResult: text("cleanup_result"),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),
