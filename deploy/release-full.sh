@@ -151,6 +151,11 @@ if [[ "$KIND" == "agent" ]]; then
   NAS_HOST=chang@100.93.42.91 bash "$REPO/deploy/nas/release-agent.sh" "$DEST" "$NOTES"
 else
   NAS_HOST=chang@100.93.42.91 bash "$REPO/deploy/nas/publish-hq.sh" "$DEST" "$NOTES"
+  # ChainGo(포터블 HQ) 동반 갱신 — 자동업뎃 경로가 없는 무설치 exe 라 여기 안 묶으면
+  # 영원히 옛 버전 고착(1.4.38 5개월 사고, 2026-07-16). 실패해도 HQ 발행 자체는 유효라 경고만.
+  if ! bash "$REPO/deploy/nas/release-chaingo.sh"; then
+    echo "⚠ ChainGo 동반 빌드 실패 — HQ 발행은 완료. deploy/nas/release-chaingo.sh 단독 재실행 필요." >&2
+  fi
 fi
 
 # ── [5/5] 마지막 안내 — 절대 놓치면 안 되는 사람 몫 ──────────────────────────
