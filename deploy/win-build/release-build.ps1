@@ -46,16 +46,26 @@ if ($Kind -eq 'agent') {
   #   실제로 박혀있는지 검사해서, 없거나(옛 고정본) 페이로드 자체가 없으면 파이프라인이
   #   build-agent32.ps1 을 스스로 돌려 v$ver 로 재빌드한다. 즉 이 원커맨드가 x64·x86 을
   #   항상 같은 버전으로 맞춰 내보낸다 = 32비트 빠뜨림이 구조적으로 불가능.
-  $payloadOk = (Test-Path $payloadExe) -and ([System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($payloadExe)) -match [regex]::Escape("$ver"))
-  if ($payloadOk) {
-    Mark "AGENT32-PAYLOAD-OK (v$ver 정합, 기존본 재사용, mtime=$((Get-Item $payloadExe).LastWriteTime))"
+  # ★버전만 비교하면 부족하다 (2026-07-16 실사고 2탄): 같은 버전 번호 안에서 코드가 더
+  #   바뀌는 경우(테스트 반복 후 정식 발행)엔 "v$ver 정합"이 참이라 재빌드를 건너뛰어,
+  #   32비트만 옛 코드로 발행된다(자동 디스크정리 누락 사고). 그래서 커밋 해시까지 이중
+  #   대조한다: 재빌드 성공 시 BUILD_COMMIT.txt 에 HEAD 를 기록하고, 다음 릴리즈에서
+  #   버전 일치 + 커밋 일치일 때만 재사용. 커밋이 다르면 무조건 재빌드 = 코드 변화가
+  #   32비트에 반영 안 되는 경우가 구조적으로 불가능.
+  $commitFile = "$payloadDir\BUILD_COMMIT.txt"
+  $headCommit = (& git -C $repo rev-parse HEAD).Trim()
+  $verOk = (Test-Path $payloadExe) -and ([System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($payloadExe)) -match [regex]::Escape("$ver"))
+  $commitOk = (Test-Path $commitFile) -and ((Get-Content $commitFile -ErrorAction SilentlyContinue | Select-Object -First 1).Trim() -eq $headCommit)
+  if ($verOk -and $commitOk) {
+    Mark "AGENT32-PAYLOAD-OK (v$ver + commit match, reuse, mtime=$((Get-Item $payloadExe).LastWriteTime))"
   } else {
-    Mark "AGENT32-REBUILD-START (페이로드가 v$ver 아님/없음 — build-agent32.ps1 자동 재빌드, ~5~10분)"
+    Mark "AGENT32-REBUILD-START (verOk=$verOk commitOk=$commitOk head=$($headCommit.Substring(0,9)) - build-agent32.ps1, ~5-10min)"
     & powershell -ExecutionPolicy Bypass -File "$repo\deploy\win-build\build-agent32.ps1" *> "$repo\_release_${Kind}_agent32.log"
-    if ($LASTEXITCODE -ne 0) { Mark "FAIL agent32 자동재빌드 (build-agent32.ps1 exit=$LASTEXITCODE) — _release_${Kind}_agent32.log 확인"; exit 1 }
-    $payloadOk = (Test-Path $payloadExe) -and ([System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($payloadExe)) -match [regex]::Escape("$ver"))
-    if (-not $payloadOk) { Mark "FAIL agent32 재빌드했는데도 페이로드에 v$ver 없음 — _release_${Kind}_agent32.log 확인"; exit 1 }
-    Mark "AGENT32-REBUILD-OK (v$ver 재빌드 완료, mtime=$((Get-Item $payloadExe).LastWriteTime))"
+    if ($LASTEXITCODE -ne 0) { Mark "FAIL agent32 rebuild (build-agent32.ps1 exit=$LASTEXITCODE) - see _release_${Kind}_agent32.log"; exit 1 }
+    $verOk = (Test-Path $payloadExe) -and ([System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($payloadExe)) -match [regex]::Escape("$ver"))
+    if (-not $verOk) { Mark "FAIL agent32 rebuilt but payload lacks v$ver - see _release_${Kind}_agent32.log"; exit 1 }
+    Set-Content -Path $commitFile -Value $headCommit -Encoding ASCII
+    Mark "AGENT32-REBUILD-OK (v$ver commit=$($headCommit.Substring(0,9)), mtime=$((Get-Item $payloadExe).LastWriteTime))"
   }
   $installerFile = "ChainRemote_Agent_Setup_v$ver.exe"
   Set-Location "$repo\deploy\win-installer"

@@ -25,7 +25,7 @@
 ;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일했다 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.61"
+#define APP_VERSION    "1.4.62"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; x64: 윈컴 Flutter 빌드 출력 (build-all.ps1)
@@ -81,7 +81,7 @@ Source: "{#BUILD_DIR_X64}\*"; DestDir: "{tmp}\chainremote_payload"; Check: UseX6
 ;   옛 설치 잔재로 어긋나도(삼성공판장 사례) custom.txt 가 항상 서비스 exe 옆에 있어 is_incoming_only 가 보장된다.
 ;   (그동안 x64 는 1.5 의 하드코딩 {commonpf} 복사에만 의존해, 경로가 갈라지면 조용히 미적용되던 구조적 결함을 없앰. 2026-06-20)
 Source: "..\custom-agent.txt"; DestDir: "{tmp}\chainremote_payload"; DestName: "custom.txt"; Check: UseX64Payload; Flags: deleteafterinstall ignoreversion
-Source: "{#BUILD_DIR_X86}\*"; DestDir: "{tmp}\chainremote_payload"; Check: UseX86Payload; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
+Source: "{#BUILD_DIR_X86}\*"; DestDir: "{tmp}\chainremote_payload"; Excludes: "BUILD_COMMIT.txt"; Check: UseX86Payload; Flags: deleteafterinstall ignoreversion recursesubdirs createallsubdirs
 
 ; 우리 toml — [Run] 단계에서 두 경로(user + LocalService)에 동시 배치
 ;   - RustDesk2-agent.toml   : Config2 (서버 + 옵션) — agent 전용 (approve-mode=click,
