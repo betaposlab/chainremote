@@ -46,7 +46,9 @@ Widget? crDiskBadge(Peer peer) {
       borderRadius: BorderRadius.circular(4),
     ),
     child: Text(
-      '여유 ${info.freeGb.toStringAsFixed(1)}GB',
+      // 주의/위험이면 Temp(원인 후보)도 병기 — 패널 칩과 동일 정보량.
+      '여유 ${info.freeGb.toStringAsFixed(1)}GB'
+      '${info.level > 0 && info.tempGb != null ? " · Temp ${info.tempGb!.toStringAsFixed(1)}GB" : ""}',
       style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: fg),
     ),
   );
@@ -1004,36 +1006,7 @@ abstract class BasePeerCard extends StatelessWidget {
         style: style,
       ),
       proc: () {
-        final info = crDiskInfo(peer);
-        final tempB = int.tryParse(peer.tempBytes);
-        final name = peer.alias.isEmpty ? formatID(peer.id) : peer.alias;
-        gFFI.dialogManager.show<void>((setState, close, context) {
-          return CustomAlertDialog(
-            title: Row(children: const [
-              Icon(Icons.cleaning_services_outlined,
-                  color: Color(0xFF00A0E5), size: 24),
-              SizedBox(width: 8),
-              Expanded(child: Text('디스크 정리')),
-            ]),
-            content: Text(
-              '$name 의 Temp 폴더(전 사용자+윈도우)와 휴지통을 정리합니다.\n'
-              '${info != null ? "현재 여유 ${info.freeGb.toStringAsFixed(1)}GB${tempB != null ? " · Temp 약 ${(tempB / 1073741824).toStringAsFixed(1)}GB" : ""}\n" : ""}'
-              '원격 접속 없이 몇 분 내 자동 실행되고, 사용 중인 파일은 건너뜁니다.',
-              style: const TextStyle(fontSize: 13),
-            ),
-            actions: [
-              dialogButton('취소', onPressed: () => close(null), isOutline: true),
-              dialogButton('정리 실행', onPressed: () async {
-                close(null);
-                final ok = await crRequestDiskCleanup(id);
-                showToast(ok
-                    ? '정리 명령을 보냈습니다 — 몇 분 내 실행 후 결과가 패널에 표시됩니다.'
-                    : '명령 전송 실패 — 네트워크/로그인을 확인하세요.');
-              }),
-            ],
-            onCancel: () => close(null),
-          );
-        });
+        showCrDiskCleanupDialog(peer);
       },
       padding: menuPadding,
       dismissOnClicked: true,

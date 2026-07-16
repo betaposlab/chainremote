@@ -184,34 +184,53 @@ class _PeerTabPageState extends State<PeerTabPage>
                     .replaceFirst('🆕 ', '')
                     .trim();
                 final label = name.isEmpty ? p.id : name;
-                return InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () {
-                    // 전체 거래처 탭으로 옮기고 검색을 그 이름으로 — 카드가 바로 뜬다.
-                    gFFI.peerTabModel.setCurrentTab(PeerTabIndex.customers.index);
-                    peerSearchTextController.text = label;
-                    peerSearchText.value = label;
-                  },
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: w.red ? const Color(0xFFFFE4E6) : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: w.red
-                              ? const Color(0xFFFECDD3)
-                              : const Color(0xFFFDE68A)),
-                    ),
-                    child: Text(
-                      '$label ${w.freeGb.toStringAsFixed(1)}GB',
-                      style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: w.red
-                              ? const Color(0xFFBE123C)
-                              : const Color(0xFFB45309)),
-                    ),
+                final fg = w.red ? const Color(0xFFBE123C) : const Color(0xFFB45309);
+                return Container(
+                  padding: const EdgeInsets.only(left: 8, right: 4),
+                  decoration: BoxDecoration(
+                    color: w.red ? const Color(0xFFFFE4E6) : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: w.red
+                            ? const Color(0xFFFECDD3)
+                            : const Color(0xFFFDE68A)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          // 카드로 점프: 전체 거래처 탭 + 검색 필터. ★검색창을 강제로 펼쳐
+                          // 필터가 눈에 보이고 X 로 지울 수 있게 한다(숨은 필터 함정 방지).
+                          gFFI.peerTabModel
+                              .setCurrentTab(PeerTabIndex.customers.index);
+                          peerSearchBarOpen.value = true;
+                          peerSearchTextController.text = label;
+                          peerSearchText.value = label;
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Text(
+                            '$label ${w.freeGb.toStringAsFixed(1)}GB'
+                            '${w.tempGb != null ? " · Temp ${w.tempGb!.toStringAsFixed(1)}GB" : ""}',
+                            style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: fg),
+                          ),
+                        ),
+                      ),
+                      // 🧹 원격 정리 — 패널 [정리] 버튼과 동일 동작(HQ 가 주 화면이라 여기에도).
+                      InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => showCrDiskCleanupDialog(p),
+                        child: Padding(
+                          padding: const EdgeInsets.all(3),
+                          child: Icon(Icons.cleaning_services_rounded,
+                              size: 13, color: fg),
+                        ),
+                      ),
+                    ],
                   ),
                 );
               }),
@@ -792,20 +811,17 @@ class PeerSearchBar extends StatefulWidget {
 }
 
 class _PeerSearchBarState extends State<PeerSearchBar> {
-  var drawer = false;
-
   @override
   Widget build(BuildContext context) {
-    return drawer
+    // 펼침 상태는 전역(peerSearchBarOpen) — 디스크 스트립 점프가 필터를 걸며 강제로 펼친다.
+    return Obx(() => peerSearchBarOpen.value
         ? _buildSearchBar()
         : _hoverAction(
             context: context,
             toolTip: translate('Search'),
             padding: const EdgeInsets.only(right: 2),
             onTap: () {
-              setState(() {
-                drawer = true;
-              });
+              peerSearchBarOpen.value = true;
             },
             // 아이콘 + "검색" 라벨.
             child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -815,7 +831,7 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
               Text('검색',
                   style: TextStyle(
                       fontSize: 12, color: Theme.of(context).hintColor)),
-            ]));
+            ])));
   }
 
   Widget _buildSearchBar() {
@@ -877,11 +893,9 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.only(right: 2),
                       onPressed: () {
-                        setState(() {
-                          peerSearchTextController.clear();
-                          peerSearchText.value = "";
-                          drawer = false;
-                        });
+                        peerSearchTextController.clear();
+                        peerSearchText.value = "";
+                        peerSearchBarOpen.value = false;
                       },
                       icon: Tooltip(
                           message: translate('Close'),

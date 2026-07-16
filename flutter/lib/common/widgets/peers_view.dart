@@ -64,6 +64,10 @@ String _myOwnIdCache = '';
 
 /// for peer search text, global obs value
 final peerSearchText = "".obs;
+// 검색창 펼침 상태 — 전역인 이유: 디스크 주의 스트립의 칩 점프가 검색 필터를 걸 때
+// 접힌 검색창 뒤에 필터가 숨으면 "탭이 안 된다"로 보이는 함정(2026-07-16 실사용)이 생겨서,
+// 프로그램적으로 펼쳐 필터를 눈에 보이게 해야 한다.
+final peerSearchBarOpen = false.obs;
 
 /// for peer sort, global obs value
 RxString? _peerSort;
