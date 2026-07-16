@@ -87,7 +87,7 @@ export function DiskChip({
       {level !== "ok" &&
         (waiting ? (
           <span className="text-[10px] text-slate-400 whitespace-nowrap">
-            정리 대기 중…
+            정리 중…
           </span>
         ) : (
           <button

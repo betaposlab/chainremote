@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:bot_toast/bot_toast.dart';
@@ -78,8 +79,30 @@ class _PeerTabPageState extends State<PeerTabPage>
 
   final isOptVisiableFixed = isOptionFixed(kOptionPeerTabVisible);
 
+  // 디스크 관제 자동 갱신(2026-07-16 Chang) — 정리 결과·여유공간이 수시로 바뀌는데 수동
+  // 새로고침을 요구하면 관제가 아니다. 60초 주기로 거래처/즐겨찾기를 재조회한다(새로고침
+  // 버튼과 같은 호출 — 거래처명·디스크·배지·스트립이 함께 갱신). 옛 "자동 폴링 거부"
+  // 결정은 이 요청으로 뒤집힘 — 분당 1회 소형 JSON 이라 50대리점 트래픽도 무시 수준.
+  Timer? _crAutoRefreshTimer;
+
   _PeerTabPageState() {
     _loadLocalOptions();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _crAutoRefreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+      if (!mounted) return;
+      bind.chainremoteLoadCustomers();
+      bind.chainremoteLoadFavorites();
+    });
+  }
+
+  @override
+  void dispose() {
+    _crAutoRefreshTimer?.cancel();
+    super.dispose();
   }
 
   void _loadLocalOptions() {

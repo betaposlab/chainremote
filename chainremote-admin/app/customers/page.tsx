@@ -13,6 +13,7 @@ import { CustomerPushButton, BulkPushButton } from "./_push-buttons";
 import { ConfirmEnrollButton } from "./_enroll-confirm";
 import { CustomerSearch } from "./_search";
 import { DiskChip } from "./_disk-chip";
+import { AutoRefresh } from "./_auto-refresh";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
@@ -202,6 +203,7 @@ export default async function CustomersPage({
 
   return (
     <div className="px-8 py-6 max-w-7xl">
+      <AutoRefresh />
       <header className="mb-6 flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">거래처</h1>
