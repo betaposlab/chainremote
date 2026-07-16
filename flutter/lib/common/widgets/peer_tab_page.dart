@@ -6,6 +6,7 @@ import 'package:flutter_hbb/common/widgets/address_book.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/my_group.dart';
 import 'package:flutter_hbb/common/widgets/peers_view.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_disk.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
 import 'package:flutter_hbb/common/widgets/peer_card.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -135,8 +136,89 @@ class _PeerTabPageState extends State<PeerTabPage>
                 )),
               ),
             ).paddingOnly(right: stateGlobal.isPortrait.isTrue ? 0 : 12)),
+        _crDiskAlertStrip(),
         _createPeersView(),
       ],
+    );
+  }
+
+  // 디스크 주의 거래처 스트립 — 목록을 스크롤하지 않아도 위험 기기가 한눈에 보인다
+  // (2026-07-16 Chang: 거래처 늘면 빨간불 찾으러 한참 스크롤하게 됨). 칩 클릭 =
+  // 전체 거래처 탭 전환 + 검색 필터로 그 카드로 점프. 전체 거래처 모델 기준이라
+  // 어느 탭에 있든 전 거래처의 경고를 다 보여준다.
+  Widget _crDiskAlertStrip() {
+    return ListenableBuilder(
+      listenable: gFFI.allCustomersPeersModel,
+      builder: (context, _) {
+        final warns = gFFI.allCustomersPeersModel.peers
+            .map((p) => (p, crDiskWarn(p)))
+            .where((t) => t.$2 != null)
+            .toList()
+          ..sort((a, b) => a.$2!.freeGb.compareTo(b.$2!.freeGb));
+        if (warns.isEmpty) return const SizedBox.shrink();
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(right: 12, bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFFDE68A)),
+          ),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('💾 디스크 주의 ${warns.length}곳',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF92400E))),
+              ...warns.map((t) {
+                final p = t.$1;
+                final w = t.$2!;
+                // Rust 가 별칭 앞에 붙이는 상태 마커(⏳/🆕)는 검색 필터에 안 맞으니 벗긴다.
+                final name = p.alias
+                    .replaceFirst('⏳ ', '')
+                    .replaceFirst('🆕 ', '')
+                    .trim();
+                final label = name.isEmpty ? p.id : name;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    // 전체 거래처 탭으로 옮기고 검색을 그 이름으로 — 카드가 바로 뜬다.
+                    gFFI.peerTabModel.setCurrentTab(PeerTabIndex.customers.index);
+                    peerSearchTextController.text = label;
+                    peerSearchText.value = label;
+                  },
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: w.red ? const Color(0xFFFFE4E6) : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                          color: w.red
+                              ? const Color(0xFFFECDD3)
+                              : const Color(0xFFFDE68A)),
+                    ),
+                    child: Text(
+                      '$label ${w.freeGb.toStringAsFixed(1)}GB',
+                      style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: w.red
+                              ? const Color(0xFFBE123C)
+                              : const Color(0xFFB45309)),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 

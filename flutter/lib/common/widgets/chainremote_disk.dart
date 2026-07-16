@@ -17,6 +17,28 @@ class CrDiskState {
   const CrDiskState(this.freeGb, this.red, this.tempGb);
 }
 
+/// 카드 상시 표시용 — 보고만 있으면 반환. level: 2=위험(<5GB) 1=주의(<8GB) 0=정상.
+/// HQ 카드는 정상도 회색으로 항상 표시한다(2026-07-16 Chang — 패널과 동일 정보량).
+class CrDiskInfo {
+  final double freeGb;
+  final int level;
+  const CrDiskInfo(this.freeGb, this.level);
+}
+
+CrDiskInfo? crDiskInfo(Peer peer) {
+  final total = int.tryParse(peer.diskTotal) ?? 0;
+  final free = int.tryParse(peer.diskFree) ?? -1;
+  if (total <= 0 || free < 0) return null;
+  const gb = 1024 * 1024 * 1024;
+  final freeGb = free / gb;
+  final level = freeGb < 5
+      ? 2
+      : freeGb < 8
+          ? 1
+          : 0;
+  return CrDiskInfo(freeGb, level);
+}
+
 /// 여유공간 경고 판정 — 위험/주의만 반환, 정상·미보고는 null(배지 생략).
 /// 절대 GB 기준만(패널 _disk-chip 동일) — 32/64GB C·D 분할 포스가 많아 % 는 헛경고.
 CrDiskState? crDiskWarn(Peer peer) {

@@ -24,23 +24,30 @@ import 'dart:math' as math;
 typedef PopupMenuEntryBuilder = Future<List<mod_menu.PopupMenuEntry<String>>>
     Function(BuildContext);
 
-// ── 디스크 배지 (마이그024) — 여유공간 위험(빨강)/주의(호박)만 표시, 정상·미보고 생략.
+// ── 디스크 배지 (마이그024) — 보고만 있으면 항상 표시(2026-07-16 Chang: HQ 가 주 화면).
+//   정상=회색, 주의(<8GB)=호박, 위험(<5GB)=빨강. 미보고(구버전 에이전트)만 생략.
 Widget? crDiskBadge(Peer peer) {
-  final w = crDiskWarn(peer);
-  if (w == null) return null;
+  final info = crDiskInfo(peer);
+  if (info == null) return null;
+  final bg = info.level == 2
+      ? const Color(0xFFFFE4E6)
+      : info.level == 1
+          ? const Color(0xFFFEF3C7)
+          : const Color(0xFFF1F5F9);
+  final fg = info.level == 2
+      ? const Color(0xFFBE123C)
+      : info.level == 1
+          ? const Color(0xFFB45309)
+          : const Color(0xFF64748B);
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
     decoration: BoxDecoration(
-      color: w.red ? const Color(0xFFFFE4E6) : const Color(0xFFFEF3C7),
+      color: bg,
       borderRadius: BorderRadius.circular(4),
     ),
     child: Text(
-      '여유 ${w.freeGb.toStringAsFixed(1)}GB',
-      style: TextStyle(
-        fontSize: 9,
-        fontWeight: FontWeight.w600,
-        color: w.red ? const Color(0xFFBE123C) : const Color(0xFFB45309),
-      ),
+      '여유 ${info.freeGb.toStringAsFixed(1)}GB',
+      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: fg),
     ),
   );
 }
@@ -997,7 +1004,8 @@ abstract class BasePeerCard extends StatelessWidget {
         style: style,
       ),
       proc: () {
-        final w = crDiskWarn(peer);
+        final info = crDiskInfo(peer);
+        final tempB = int.tryParse(peer.tempBytes);
         final name = peer.alias.isEmpty ? formatID(peer.id) : peer.alias;
         gFFI.dialogManager.show<void>((setState, close, context) {
           return CustomAlertDialog(
@@ -1009,7 +1017,7 @@ abstract class BasePeerCard extends StatelessWidget {
             ]),
             content: Text(
               '$name 의 Temp 폴더(전 사용자+윈도우)와 휴지통을 정리합니다.\n'
-              '${w != null ? "현재 여유 ${w.freeGb.toStringAsFixed(1)}GB${w.tempGb != null ? " · Temp 약 ${w.tempGb!.toStringAsFixed(1)}GB" : ""}\n" : ""}'
+              '${info != null ? "현재 여유 ${info.freeGb.toStringAsFixed(1)}GB${tempB != null ? " · Temp 약 ${(tempB / 1073741824).toStringAsFixed(1)}GB" : ""}\n" : ""}'
               '원격 접속 없이 몇 분 내 자동 실행되고, 사용 중인 파일은 건너뜁니다.',
               style: const TextStyle(fontSize: 13),
             ),
@@ -1252,23 +1260,15 @@ class RecentPeerCard extends BasePeerCard {
   @override
   Future<List<MenuEntryBase<String>>> _buildMenuItems(
       BuildContext context) async {
+    // 카메라·터미널·TCP 터널링은 파워유저 유산 — 거래처 운영 메뉴에선 뺐다(2026-07-16 Chang).
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
       _transferFileAction(context),
-      _viewCameraAction(context),
-      _terminalAction(context),
     ];
-
-    if (peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_terminalRunAsAdminAction(context));
-    }
 
     // user_favorites DB 캐시 (Phase 2-D).
     final List favs = bind.chainremoteGetFavoriteIds();
 
-    if (isDesktop && peer.platform != kPeerPlatformAndroid) {
-      menuItems.add(_tcpTunnelingAction(context));
-    }
     // menuItems.add(await _openNewConnInOptAction(peer.id));
     if (!isWeb) {
       menuItems.add(await _forceAlwaysRelayAction(peer.id));
@@ -1298,7 +1298,7 @@ class RecentPeerCard extends BasePeerCard {
     }
 
     menuItems.add(_supportHistoryAction(context, peer.id));
-    if (crDiskWarn(peer) != null) {
+    if (crDiskInfo(peer) != null) {
       menuItems.add(_diskCleanupAction(context, peer.id));
     }
 
@@ -1324,20 +1324,12 @@ class FavoritePeerCard extends BasePeerCard {
   @override
   Future<List<MenuEntryBase<String>>> _buildMenuItems(
       BuildContext context) async {
+    // 카메라·터미널·TCP 터널링은 파워유저 유산 — 거래처 운영 메뉴에선 뺐다(2026-07-16 Chang).
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
       _transferFileAction(context),
-      _viewCameraAction(context),
-      _terminalAction(context),
     ];
 
-    if (peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_terminalRunAsAdminAction(context));
-    }
-
-    if (isDesktop && peer.platform != kPeerPlatformAndroid) {
-      menuItems.add(_tcpTunnelingAction(context));
-    }
     // menuItems.add(await _openNewConnInOptAction(peer.id));
     if (!isWeb) {
       menuItems.add(await _forceAlwaysRelayAction(peer.id));
@@ -1365,7 +1357,7 @@ class FavoritePeerCard extends BasePeerCard {
     }
 
     menuItems.add(_supportHistoryAction(context, peer.id));
-    if (crDiskWarn(peer) != null) {
+    if (crDiskInfo(peer) != null) {
       menuItems.add(_diskCleanupAction(context, peer.id));
     }
 
@@ -1394,23 +1386,15 @@ class AllCustomersPeerCard extends BasePeerCard {
   @override
   Future<List<MenuEntryBase<String>>> _buildMenuItems(
       BuildContext context) async {
+    // 카메라·터미널·TCP 터널링은 파워유저 유산 — 거래처 운영 메뉴에선 뺐다(2026-07-16 Chang).
     final List<MenuEntryBase<String>> menuItems = [
       _connectAction(context),
       _transferFileAction(context),
-      _viewCameraAction(context),
-      _terminalAction(context),
     ];
-
-    if (peer.platform == kPeerPlatformWindows) {
-      menuItems.add(_terminalRunAsAdminAction(context));
-    }
 
     // user_favorites DB 캐시 (Phase 2-D).
     final List favs = bind.chainremoteGetFavoriteIds();
 
-    if (isDesktop && peer.platform != kPeerPlatformAndroid) {
-      menuItems.add(_tcpTunnelingAction(context));
-    }
     if (!isWeb) {
       menuItems.add(await _forceAlwaysRelayAction(peer.id));
     }
@@ -1435,7 +1419,7 @@ class AllCustomersPeerCard extends BasePeerCard {
     }
 
     menuItems.add(_supportHistoryAction(context, peer.id));
-    if (crDiskWarn(peer) != null) {
+    if (crDiskInfo(peer) != null) {
       menuItems.add(_diskCleanupAction(context, peer.id));
     }
 
