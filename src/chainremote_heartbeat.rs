@@ -375,6 +375,7 @@ fn handle_cleanup_request(remote_id: &str, token: &str, requested_at: &str) {
     );
     // 수동(사람이 버튼) = 휴지통까지 비움. 자동과 달리 명시적 의사표시가 있어서다.
     let (freed, deleted, skipped) = run_disk_cleanup(true);
+    remeasure_temp_now();
     let result = serde_json::json!({
         "freedBytes": freed,
         "deleted": deleted,
@@ -427,6 +428,7 @@ fn maybe_auto_cleanup(remote_id: &str, token: &str) {
         AUTO_CLEAN_THRESHOLD
     );
     let (freed, deleted, skipped) = run_disk_cleanup(false);
+    remeasure_temp_now();
     let result = serde_json::json!({
         "freedBytes": freed,
         "deleted": deleted,
@@ -515,32 +517,54 @@ fn dir_size(dir: &std::path::Path, depth: u32) -> u64 {
     sum
 }
 
-/// Temp 실측(원인 표시용) — 여유가 20GB 미만일 때만, 6시간에 한 번(수만 파일 순회 절제).
-/// 측정값은 캐시해 사이사이 heartbeat 에도 실어보낸다.
+/// Temp 실측 캐시 — 평시엔 6시간에 한 번만 순회(수만 파일 폴더를 10분마다 돌리면
+/// 저사양 포스에 부담). 정리 직후엔 remeasure_temp_now 가 즉시 갱신해 "정리했는데
+/// Temp 숫자가 그대로" 혼동(2026-07-16 기겸컴 실검증에서 발견)을 없앤다.
+#[cfg(windows)]
+static TEMP_MEASURED_AT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+#[cfg(windows)]
+static TEMP_MEASURED_VAL: std::sync::atomic::AtomicU64 =
+    std::sync::atomic::AtomicU64::new(u64::MAX);
+
+/// Temp 실측(원인 표시용) — 여유가 20GB 미만일 때만, 6시간에 한 번(캐시는 위 참조).
 #[cfg(windows)]
 fn measured_temp_bytes(disk_free: u64) -> Option<u64> {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static LAST_AT: AtomicU64 = AtomicU64::new(0);
-    static LAST_VAL: AtomicU64 = AtomicU64::new(u64::MAX);
+    use std::sync::atomic::Ordering;
     const LOW_BYTES: u64 = 20 * 1024 * 1024 * 1024;
     const REMEASURE_SECS: u64 = 6 * 3600;
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .ok()?
         .as_secs();
-    let last = LAST_AT.load(Ordering::Relaxed);
+    let last = TEMP_MEASURED_AT.load(Ordering::Relaxed);
     if disk_free < LOW_BYTES && (last == 0 || now.saturating_sub(last) >= REMEASURE_SECS) {
-        let total: u64 = temp_dirs().iter().map(|d| dir_size(d, 0)).sum();
-        LAST_AT.store(now, Ordering::Relaxed);
-        LAST_VAL.store(total, Ordering::Relaxed);
-        return Some(total);
+        return Some(remeasure_temp_now());
     }
-    let v = LAST_VAL.load(Ordering::Relaxed);
+    let v = TEMP_MEASURED_VAL.load(Ordering::Relaxed);
     (v != u64::MAX).then_some(v)
 }
 #[cfg(not(windows))]
 fn measured_temp_bytes(_disk_free: u64) -> Option<u64> {
     None
+}
+
+/// Temp 즉시 재측정 + 캐시 갱신. 정리 직후 호출 — 방금 비운 폴더라 순회 비용이 거의 0이고,
+/// 곧바로 나가는 결과 heartbeat 에 신선한(≈0) Temp 가 실린다.
+#[cfg(windows)]
+fn remeasure_temp_now() -> u64 {
+    use std::sync::atomic::Ordering;
+    let total: u64 = temp_dirs().iter().map(|d| dir_size(d, 0)).sum();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    TEMP_MEASURED_AT.store(now, Ordering::Relaxed);
+    TEMP_MEASURED_VAL.store(total, Ordering::Relaxed);
+    total
+}
+#[cfg(not(windows))]
+fn remeasure_temp_now() -> u64 {
+    0
 }
 
 /// Temp(전 프로필 + 윈도우) 정리 + (include_recycle_bin 이면) 휴지통 비우기.
