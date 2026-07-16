@@ -647,17 +647,11 @@ class _ConnectionPageState extends State<ConnectionPage>
                                   context: context,
                                   position: RelativeRect.fromLTRB(x, y, x, y),
                                   items: [
+                                    // 카메라·터미널은 파워유저 유산 — 거래처 운영 메뉴에선
+                                    // 뺐다(2026-07-16 Chang, 카드 우클릭 다이어트와 동일 결).
                                     (
                                       'Transfer file',
                                       () => onConnect(isFileTransfer: true)
-                                    ),
-                                    (
-                                      'View camera',
-                                      () => onConnect(isViewCamera: true)
-                                    ),
-                                    (
-                                      '${translate('Terminal')} (beta)',
-                                      () => onConnect(isTerminal: true)
                                     ),
                                     // ID 를 쳐서 바로 즐겨찾기에 넣는다. 최근 세션이 쌓이길 기다릴 필요 없다.
                                     // auto-enroll 로 등록된 거래처면 즐겨찾기에서 거래처명이 자동으로 붙는다.

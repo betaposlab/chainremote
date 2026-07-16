@@ -379,13 +379,20 @@ class _PeerTabPageState extends State<PeerTabPage>
               }
             },
             spinning: loading,
-            child: RotatedBox(
-                quarterTurns: 2,
-                child: Icon(
-                  Icons.refresh,
-                  size: 18,
-                  color: textColor,
-                ))),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              RotatedBox(
+                  quarterTurns: 2,
+                  child: Icon(
+                    Icons.refresh,
+                    size: 18,
+                    color: textColor,
+                  )),
+              const SizedBox(width: 3),
+              // 아이콘만으론 뭔지 모른다(2026-07-16 Chang) — 검색/보기/정렬과 같은 라벨 스타일.
+              Text('새로고침',
+                  style: TextStyle(
+                      fontSize: 12, color: Theme.of(context).hintColor)),
+            ])),
       ),
     );
   }
@@ -401,7 +408,13 @@ class _PeerTabPageState extends State<PeerTabPage>
       context: context,
       toolTip: '지원 기록',
       onTap: () => showCrHistoryDialog(context),
-      child: Icon(Icons.history, size: 18, color: textColor),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.history, size: 18, color: textColor),
+        const SizedBox(width: 3),
+        Text('지원 기록',
+            style:
+                TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+      ]),
     );
   }
 
