@@ -18,6 +18,9 @@ export type AgentPushMeta = {
   url: string;
   sha256: string;
   size: number;
+  /** 자동 롤아웃 킬스위치 — agent-push.json 에 "auto_rollout": false 를 넣으면 전 대리점
+   *  자동 큐잉을 일시 정지(수동 푸시 버튼은 계속 동작). 없으면 true. */
+  autoRollout: boolean;
 };
 
 function parseMeta(j: Record<string, unknown>): AgentPushMeta | null {
@@ -26,7 +29,19 @@ function parseMeta(j: Record<string, unknown>): AgentPushMeta | null {
   const sha256 = typeof j.sha256 === "string" ? j.sha256 : "";
   const size = typeof j.size === "number" ? j.size : 0;
   if (!version || !url || !sha256 || size <= 0) return null;
-  return { version, url, sha256, size };
+  const autoRollout = j.auto_rollout !== false;
+  return { version, url, sha256, size, autoRollout };
+}
+
+// 자동 롤아웃용 인메모리 캐시 — heartbeat 핫패스에서 매번 NAS 를 치지 않게 60초 재사용.
+// 실패도 캐시(음성 캐시)해 NAS 순단이 heartbeat 를 느리게 만들지 않는다.
+let _metaCache: { at: number; meta: AgentPushMeta | null } | null = null;
+export async function getAgentPushMetaCached(): Promise<AgentPushMeta | null> {
+  const now = Date.now();
+  if (_metaCache && now - _metaCache.at < 60_000) return _metaCache.meta;
+  const r = await fetchAgentPushMetaServer();
+  _metaCache = { at: now, meta: r.meta };
+  return r.meta;
 }
 
 /** 서버사이드 전용(각 후보 URL 이 사설 LAN 대역 포함) — 여러 후보를 순차 시도, 에러는 함께 반환. */

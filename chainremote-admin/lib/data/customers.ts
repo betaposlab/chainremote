@@ -7,6 +7,8 @@ import { db } from "@/lib/db";
 import { customerAlerts, customers, tenants, userFavorites } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
 import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
+import { autoQueueIfBehind } from "@/lib/data/pending-updates";
+import { getAgentPushMetaCached } from "@/lib/agent-push-meta";
 
 export interface CustomerFields {
   name: string;
@@ -214,8 +216,24 @@ export async function recordHeartbeat(
         eq(customers.heartbeatToken, hashHeartbeatToken(token)), // 저장은 해시라 대조도 해시
       ),
     )
-    .returning({ id: customers.id });
+    .returning({
+      id: customers.id,
+      tenantId: customers.tenantId,
+      isInternal: customers.isInternal,
+    });
   if (!row) return false;
+  // 자동 롤아웃(2026-07-20) — 구버전 보고면 이 자리에서 업데이트 큐잉. 최신이면 문자열 비교
+  // 한 번으로 끝(추가 DB 비용 0). 실패해도 heartbeat 는 안 깨진다.
+  try {
+    const meta = await getAgentPushMetaCached();
+    await autoQueueIfBehind(
+      { id: row.id, tenantId: row.tenantId, isInternal: row.isInternal },
+      version,
+      meta,
+    );
+  } catch {
+    // 자동 큐잉 실패는 heartbeat 성패와 무관 — 다음 tick 재시도.
+  }
   // ★ machine_uuid 앵커 전면 비활성 (2026-07-07). 원래 여기서 지문(machineUuid)을 백필해
   //   "ID 가 바뀌어도 enroll 매칭으로 상호가 따라오게" 했다. 그러나 지문(get_machine_fingerprint)이
   //   기계마다 유니크하지 않아(Win7/폴백이 같은 값 공유) 서로 다른 기계가 같은 지문을 갖고, 그러면

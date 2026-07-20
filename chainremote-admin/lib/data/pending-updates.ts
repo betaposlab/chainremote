@@ -8,6 +8,7 @@
 import { and, eq, inArray, isNull, sql, desc, count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { pendingUpdates, customers } from "@/lib/schema";
+import type { AgentPushMeta } from "@/lib/agent-push-meta";
 import { hashHeartbeatToken } from "@/lib/heartbeat-token";
 
 export interface PushAsset {
@@ -361,4 +362,66 @@ export async function listCustomersWithPending(tenantId: string) {
     ...r.customer,
     pendingUpdate: r.pending && r.pending.id ? r.pending : null,
   }));
+}
+
+/** "1.4.62" vs "1.4.54" 숫자 점 비교 — a 가 b 보다 새 버전이면 true. 파싱 불가 자리는 0. */
+export function isVersionNewer(a: string, b: string): boolean {
+  const pa = a.trim().split(".").map((x) => parseInt(x, 10) || 0);
+  const pb = b.trim().split(".").map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const da = pa[i] ?? 0;
+    const db = pb[i] ?? 0;
+    if (da !== db) return da > db;
+  }
+  return false;
+}
+
+/**
+ * 자동 롤아웃(2026-07-20) — heartbeat 가 구버전을 보고하면 그 자리에서 업데이트를 큐잉한다.
+ * 종전엔 큐 생성 경로가 패널 푸시 버튼뿐이라 "대리점마다 사람이 눌러야" 했다(50개 대리점이면
+ * 릴리즈마다 50통 전화). 이제 릴리즈(agent-push.json 갱신) 자체가 전 대리점 롤아웃 트리거다.
+ *
+ * 안전핀:
+ *  - 내부기기 제외, 같은 (거래처, 목표버전) 조합은 상태 불문 1회만 — applied 됐는데도 구버전
+ *    보고(brick 의심)·cancelled(사람이 거부)·failed 를 자동으로 다시 두들기지 않는다(사람 몫).
+ *  - agent-push.json 의 "auto_rollout": false 로 전체 일시정지 가능(비상 킬스위치).
+ *  - 어떤 실패도 heartbeat 를 깨지 않는다(전부 삼킴).
+ */
+export async function autoQueueIfBehind(
+  customer: { id: string; tenantId: string; isInternal: boolean },
+  reportedVersion: string,
+  meta: AgentPushMeta | null,
+): Promise<boolean> {
+  try {
+    if (!meta || !meta.autoRollout) return false;
+    if (customer.isInternal || !reportedVersion.trim()) return false;
+    if (!isVersionNewer(meta.version, reportedVersion)) return false;
+    const [existing] = await db
+      .select({ id: pendingUpdates.id })
+      .from(pendingUpdates)
+      .where(
+        and(
+          eq(pendingUpdates.customerId, customer.id),
+          eq(pendingUpdates.targetVersion, meta.version),
+        ),
+      )
+      .limit(1);
+    if (existing) return false;
+    await db.insert(pendingUpdates).values({
+      tenantId: customer.tenantId,
+      customerId: customer.id,
+      targetVersion: meta.version,
+      assetUrl: meta.url,
+      assetSha256: meta.sha256,
+      assetSize: meta.size,
+      // 당일 적용(0~24시) + 1시간 랜덤 분산 — 릴리즈 직후 전 플릿이 NAS 를 동시에 두들기지 않게.
+      windowStartHour: 0,
+      windowEndHour: 24,
+      randomizeMaxSec: 3600,
+      requestedBy: null, // 자동 — 사람 아님
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
