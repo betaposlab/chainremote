@@ -5,7 +5,7 @@
 // 만료/위변조 토큰은 requireApiAuth 가 revoked 없는 401 로 던진다. 앱은 revoked=true 만
 // "인계당함"으로 보고, 나머지 401 은 재로그인으로 처리한다.
 
-import { requireApiAuth, jsonError } from "@/lib/api-auth";
+import { requireApiAuth, jsonError, needsTokenRefresh, signApiToken } from "@/lib/api-auth";
 import { touchHeartbeat } from "@/lib/data/active-sessions";
 import { isTenantActive } from "@/lib/data/tenants";
 
@@ -34,15 +34,34 @@ export async function POST(req: Request) {
     } catch {
       // 빈/비-JSON 바디 (옛 클라) — version 없이 진행
     }
+    // 토큰 롤링 재발급(2026-07-20 좀비 로그인 사고 봉인) — 수명 절반부터 새 토큰을 실어
+    // 보낸다. 앱이 살아있는 한 만료가 안 오고, 만료는 "24h+ 꺼뒀다 켠 앱"에서만 발생 →
+    // 그건 클라이언트가 expired 로 감지해 재로그인 화면으로 안내한다(무음 좀비 금지).
+    let refreshed: string | undefined;
+    if (needsTokenRefresh(me.exp)) {
+      const { token } = await signApiToken(
+        {
+          uid: me.uid,
+          email: me.email,
+          displayName: me.displayName,
+          role: me.role,
+          tenantId: me.tenantId,
+        },
+        me.jti, // 같은 jti = active_login_sessions 좌석 행 그대로 유효
+      );
+      refreshed = token;
+    }
     // jti 없는 옛 토큰은 전환기 호환용 — enforcement 없이 통과시킨다.
     if (!me.jti) {
-      return Response.json({ ok: true, enforced: false });
+      return Response.json(
+        refreshed ? { ok: true, enforced: false, token: refreshed } : { ok: true, enforced: false },
+      );
     }
     const alive = await touchHeartbeat(me.uid, me.jti, version);
     if (!alive) {
       return Response.json({ error: "REVOKED", revoked: true }, { status: 401 });
     }
-    return Response.json({ ok: true });
+    return Response.json(refreshed ? { ok: true, token: refreshed } : { ok: true });
   } catch (e) {
     return jsonError(e);
   }

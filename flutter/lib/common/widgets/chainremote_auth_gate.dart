@@ -161,6 +161,40 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
       return;
     }
     if (status == 'revoked') await _onRevoked();
+    if (status == 'expired') await _onExpired();
+  }
+
+  /// 로그인 토큰 만료(비-revoked 401 연속). 조용한 좀비 로그인(2026-07-20 실사고: 만료 후
+  /// 3일간 목록·지원기록 무음 실패) 대신 명시적으로 재로그인을 안내한다.
+  /// ★인계(revoked)와 달리 원격 세션(서브윈도우)은 안 끊는다 — 원격 자체는 토큰과 무관하고,
+  ///   진행 중인 거래처 작업을 날릴 이유가 없다. 재로그인하면 기록·목록이 즉시 재개된다.
+  Future<void> _onExpired() async {
+    if (_revoking) return;
+    _revoking = true;
+    _stopHeartbeat();
+    if (mounted) {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('로그인 만료'),
+          content: const Text('보안을 위해 로그인이 만료되었습니다.\n'
+              '다시 로그인해 주세요. (진행 중인 원격은 끊기지 않습니다)'),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E5BFF)),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+    }
+    // 로그아웃하고 로그인 화면으로. 저장된 자동완성(아이디/비번)은 재로그인 편의상 남겨둔다.
+    bind.chainremoteLogout();
+    ChainRemoteAuth.authed.value = false;
+    _revoking = false;
   }
 
   /// 다른 기기에 좌석을 인계당했을 때. 원격 세션을 모두 끊고 안내 모달을 띄운 뒤 로그아웃.

@@ -68,14 +68,21 @@ pub enum LoginOutcome {
     },
 }
 
-/// heartbeat 결과 — 유지 / 인계당함(즉시 종료) / 일시오류(세션 유지).
+/// heartbeat 결과 — 유지 / 인계당함(즉시 종료) / 만료(재로그인 안내) / 일시오류(세션 유지).
 pub enum HeartbeatStatus {
     Ok,
     /// 401 revoked — 다른 기기에 인계당함. 세션 끊고 로그아웃.
     Revoked,
-    /// 네트워크 블립이나 비-revoked 오류 — 세션 유지(스펙 §7), 다음 tick 재시도.
+    /// 비-revoked 401 이 연속(≥3) — 토큰 만료/무효. 재로그인 화면으로 안내(원격 세션은 유지).
+    /// ★종전엔 이 경우를 Error(무한 재시도)로 삼켜 "좀비 로그인"이 됐다(2026-07-20 실사고:
+    ///   만료 후 3일간 목록 갱신·지원기록이 전부 무음 실패, 화면은 캐시라 멀쩡해 보임).
+    Expired,
+    /// 네트워크 블립이나 비-revoked 일회성 오류 — 세션 유지(스펙 §7), 다음 tick 재시도.
     Error,
 }
+
+/// 비-revoked 401 연속 카운터 — 일시 오류와 진짜 만료를 가른다(3연속 = 만료 판정).
+static EXPIRED_STREAK: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
 
 /// 관리 패널 API base URL. LocalConfig override 없으면 DEFAULT_API_BASE. trailing slash 제거.
 pub fn api_base() -> String {
@@ -270,11 +277,26 @@ pub fn heartbeat() -> HeartbeatStatus {
         Err(_) => return HeartbeatStatus::Error,
     };
     if (200..300).contains(&status) {
+        EXPIRED_STREAK.store(0, std::sync::atomic::Ordering::Relaxed);
+        // 롤링 재발급 수신 — 서버가 수명 절반부터 새 토큰을 실어 보낸다(좀비 로그인 봉인).
+        // 갈아끼우면 앱이 살아있는 한 만료가 오지 않는다.
+        #[derive(Deserialize)]
+        struct OkBody {
+            #[serde(default)]
+            token: String,
+        }
+        if let Ok(r) = serde_json::from_str::<OkBody>(&body) {
+            if !r.token.is_empty() {
+                if let Ok(mut t) = TOKEN.write() {
+                    *t = r.token;
+                }
+            }
+        }
         return HeartbeatStatus::Ok;
     }
     if status == 401 {
-        // revoked 플래그가 명시된 401 만 인계당함으로 본다. 그냥 토큰만료 같은 모호한 401 로는
-        // 사용자를 쫓아내지 않고 Error(세션 유지).
+        // revoked 플래그가 명시된 401 = 인계당함(즉시). 그 외 401(만료/검증실패)은 한두 번은
+        // 봐주되(프록시 순간 오류 대비) 3연속이면 만료로 확정 — 무한 재시도 좀비 금지.
         #[derive(Deserialize)]
         struct R {
             #[serde(default)]
@@ -284,6 +306,10 @@ pub fn heartbeat() -> HeartbeatStatus {
             if r.revoked {
                 return HeartbeatStatus::Revoked;
             }
+        }
+        let streak = EXPIRED_STREAK.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        if streak >= 3 {
+            return HeartbeatStatus::Expired;
         }
     }
     HeartbeatStatus::Error

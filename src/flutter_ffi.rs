@@ -2787,8 +2787,9 @@ pub fn chainremote_takeover(email: String, password: String) -> SyncReturn<Strin
     SyncReturn(result)
 }
 
-/// 좌석 heartbeat (~10초). 반환: `{"status":"ok"|"revoked"|"error"}`.
-///   ok = 유지, revoked = 인계당함(앱이 세션 끊고 로그아웃), error = 일시오류(세션 유지).
+/// 좌석 heartbeat (~10초). 반환: `{"status":"ok"|"revoked"|"expired"|"error"}`.
+///   ok = 유지, revoked = 인계당함(세션 끊고 로그아웃), expired = 토큰 만료(재로그인 안내,
+///   원격 세션은 유지), error = 일시오류(세션 유지).
 ///
 /// SyncReturn 이 아닌 async FFI 다 — 10초마다 부르는 호출이 UI isolate 를 막지 않도록 frb
 /// worker thread 에서 돈다. 내부 std::thread spawn 은 tokio nested-runtime 을 피하려는 것.
@@ -2798,6 +2799,7 @@ pub fn chainremote_heartbeat() -> String {
         let s = match crate::chainremote_auth::heartbeat() {
             HeartbeatStatus::Ok => "ok",
             HeartbeatStatus::Revoked => "revoked",
+            HeartbeatStatus::Expired => "expired",
             HeartbeatStatus::Error => "error",
         };
         serde_json::json!({ "status": s }).to_string()

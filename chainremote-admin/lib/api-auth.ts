@@ -46,6 +46,12 @@ export async function signApiToken(
   return { token, expiresIn: 60 * 60 * 24 };
 }
 
+/// 토큰 롤링 재발급 판정 — 남은 수명이 절반(12h) 미만이면 true (2026-07-20 좀비 로그인 봉인).
+/// heartbeat(10초 주기)가 이 판정으로 새 토큰을 실어 보내, 앱이 살아있는 한 만료가 오지 않는다.
+export function needsTokenRefresh(exp: unknown, nowSec = Math.floor(Date.now() / 1000)): boolean {
+  return typeof exp === "number" && exp - nowSec < 60 * 60 * 12;
+}
+
 export async function verifyApiToken(token: string): Promise<ApiTokenClaims> {
   const { payload } = await jwtVerify(token, getSecret(), {
     algorithms: [ALG],
