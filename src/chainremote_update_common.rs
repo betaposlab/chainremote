@@ -223,4 +223,94 @@ mod tests {
         }
         let _ = std::fs::remove_file(&p);
     }
+
+    // ── 적대적 확장 (2026-07-21): 위 기본 15케이스가 안 건드린 경계·악성입력·대용량 ──
+
+    #[test]
+    fn parse_version_rejects_integer_overflow() {
+        // u32 최대치 = 4294967295. 그 +1 은 파싱 실패해야(무한대 취급/랩어라운드 금지).
+        assert!(parse_version("4294967296.0.0").is_err(), "major u32 오버플로우가 통과됨");
+        assert!(parse_version("1.4294967296.0").is_err(), "minor u32 오버플로우가 통과됨");
+        // build 는 숫자 prefix 만 취하지만 그 숫자 자체가 u32 를 넘으면 실패해야 한다.
+        assert!(parse_version("1.4.99999999999").is_err(), "build u32 오버플로우가 통과됨");
+        // 경계 바로 아래는 정상.
+        assert_eq!(parse_version("4294967295.0.0").unwrap(), (4294967295, 0, 0));
+    }
+
+    #[test]
+    fn parse_version_rejects_negative_and_signed() {
+        // u32 파싱은 부호를 허용하지 않는다 — 음수/명시적 +부호 전부 Err.
+        assert!(parse_version("-1.4.5").is_err());
+        assert!(parse_version("1.-4.5").is_err());
+        // 주의: Rust 의 u32 파서는 leading '+' 를 허용한다("+1" → 1). 버전 문자열에 부호가
+        // 실존하진 않지만(매니페스트/버전상수는 항상 "1.4.65" 꼴), 관대함을 못박아 둔다 —
+        // "+1.4.5" 는 Err 가 아니라 (1,4,5) 로 파싱된다. 실무상 무해(다운/업그레이드 오판 없음).
+        assert_eq!(parse_version("+1.4.5").unwrap(), (1, 4, 5));
+        // build 의 부호는? "-5" 는 take_while(ascii_digit) 가 '-' 에서 멈춰 build_str="" → 0.
+        // (major/minor 와 달리 build 는 suffix 관용이라 음수 표기를 0 으로 관대 처리 — 문서화.)
+        assert_eq!(parse_version("1.4.-5").unwrap(), (1, 4, 0));
+    }
+
+    #[test]
+    fn parse_version_rejects_empty_and_unicode_digits() {
+        assert!(parse_version("1..5").is_err(), "빈 minor 가 통과됨");
+        assert!(parse_version(".4.5").is_err(), "빈 major 가 통과됨");
+        // 전각 숫자(U+FF11 …)는 ascii 가 아니라 u32 파싱 실패.
+        assert!(parse_version("１.4.5").is_err(), "전각 숫자 major 가 통과됨");
+        assert!(parse_version("1.4.１").unwrap() == (1, 4, 0)); // build 는 관대 → 비-ascii 에서 멈춰 0
+        // 16진 표기도 10진 파서엔 무효.
+        assert!(parse_version("0x10.4.5").is_err());
+    }
+
+    #[test]
+    fn parse_version_edge_shapes() {
+        // 정확히 3파트, build 가 빈 문자열 → 0 (예: "1.4." 트레일링 닷).
+        assert_eq!(parse_version("1.4.").unwrap(), (1, 4, 0));
+        // 4파트 이상 → 앞 3개만, 나머지 무시(버전.빌드.리비전 표기 관용).
+        assert_eq!(parse_version("1.4.65.2").unwrap(), (1, 4, 65));
+        // build 앞에 공백이 끼면 take_while 이 즉시 멈춰 0 — trim 은 문자열 양끝만 하므로.
+        // 실제 매니페스트엔 내부 공백이 안 오지만, 온다면 (1,4,0) 으로 관대 처리됨을 못박아 둔다.
+        assert_eq!(parse_version("1.4. 65").unwrap(), (1, 4, 0));
+    }
+
+    #[test]
+    fn is_newer_str_whitespace_only_and_both_garbage() {
+        assert!(is_newer_str("   ", "1.4.19").is_err()); // 공백만 → 파싱 실패
+        assert!(is_newer_str("garbage", "junk").is_err()); // 양쪽 다 쓰레기
+        assert!(is_newer_str("1.4.19", "  1.4.18  ").unwrap()); // 트림 후 정상 비교
+    }
+
+    #[test]
+    fn is_valid_sha256_hex_rejects_internal_space_and_unicode() {
+        // 트림은 양끝만 — 내부 공백이 낀 64자는 비-hex 로 걸러져야 한다.
+        let mut s = "a".repeat(63);
+        s.insert(31, ' '); // 길이 64지만 가운데 공백
+        assert!(!is_valid_sha256_hex(&s), "내부 공백 64자가 통과됨");
+        // 유니코드 문자가 섞이면 bytes().all(is_ascii_hexdigit) 이 거른다.
+        assert!(!is_valid_sha256_hex(&format!("{}é", "a".repeat(62))));
+    }
+
+    #[test]
+    fn verify_sha256_empty_file() {
+        // sha256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        let p = write_tmp("empty.bin", b"");
+        let expected = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        let r = verify_sha256(&p, expected);
+        let _ = std::fs::remove_file(&p);
+        assert!(r.is_ok(), "빈 파일 해시 검증 실패: {:?}", r.err());
+    }
+
+    #[test]
+    fn verify_sha256_large_multiblock_file() {
+        // 8192 바이트 버퍼를 여러 번 순회하는 경로(> 8KB)의 누적 정확성.
+        // 100000 개의 0xAB 바이트에 대한 sha256 을 런타임에 재계산해 대조(하드코딩 없이 자기무결).
+        let data = vec![0xABu8; 100_000];
+        let p = write_tmp("large.bin", &data);
+        let mut hasher = Sha256::new();
+        hasher.update(&data);
+        let expected = hex::encode(hasher.finalize());
+        let r = verify_sha256(&p, &expected);
+        let _ = std::fs::remove_file(&p);
+        assert!(r.is_ok(), "대용량 멀티블록 해시 불일치: {:?}", r.err());
+    }
 }
