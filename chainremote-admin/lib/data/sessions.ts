@@ -79,6 +79,9 @@ export async function startSession(input: {
     .limit(1);
   if (existing.length) return existing[0];
 
+  // ON CONFLICT DO NOTHING — 마이그 025 partial unique(같은 직원·거래처 활성 1세션)와 짝.
+  //   select-then-insert 경합으로 두 요청이 동시에 여기 도달해도 두 번째 insert 는 충돌해
+  //   행을 안 만든다(중복 방지).
   const [row] = await db
     .insert(supportSessions)
     .values({
@@ -88,8 +91,24 @@ export async function startSession(input: {
       remoteId: input.remoteId,
       resolution: "in_progress",
     })
+    .onConflictDoNothing()
     .returning();
-  return row;
+  if (row) return row;
+
+  // 동시 삽입이 충돌해 이 요청은 행을 못 만들었다 — 방금 다른 요청이 만든 활성 세션을 반환.
+  const [raced] = await db
+    .select()
+    .from(supportSessions)
+    .where(
+      and(
+        eq(supportSessions.tenantId, input.tenantId),
+        eq(supportSessions.operatorId, input.operatorId),
+        eq(supportSessions.customerId, input.customerId),
+        isNull(supportSessions.endedAt),
+      ),
+    )
+    .limit(1);
+  return raced;
 }
 
 /** 세션 종료 — 본사 앱이 원격 창 닫을 때 호출 */

@@ -2,12 +2,13 @@
 // Bearer 인증(HQ 데스크톱 앱). 에이전트가 다음 heartbeat(≤10분)에 받아
 // Temp(전 프로필+윈도우)+휴지통을 영구삭제로 비우고 결과를 보고한다.
 
-import { requireApiAuth, jsonError } from "@/lib/api-auth";
+import { requireApiAuth, requireNotViewer, jsonError } from "@/lib/api-auth";
 import * as data from "@/lib/data/customers";
 
 export async function POST(req: Request) {
   try {
     const me = await requireApiAuth(req);
+    requireNotViewer(me); // 디스크 정리 = Temp·휴지통 영구삭제 명령 — 읽기 계정 차단.
     const body = (await req.json().catch(() => ({}))) as { remoteId?: unknown };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";

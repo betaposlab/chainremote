@@ -5,7 +5,7 @@
 //
 // 모든 함수 tenantId 격리 강제. agent 폴링은 remote_id + heartbeat_token 으로 customer 매칭 후 호출.
 
-import { and, eq, inArray, isNull, sql, desc, count } from "drizzle-orm";
+import { and, eq, inArray, isNull, isNotNull, sql, desc, count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { pendingUpdates, customers } from "@/lib/schema";
 import type { AgentPushMeta } from "@/lib/agent-push-meta";
@@ -396,7 +396,28 @@ export async function autoQueueIfBehind(
     if (!meta || !meta.autoRollout) return false;
     if (customer.isInternal || !reportedVersion.trim()) return false;
     if (!isVersionNewer(meta.version, reportedVersion)) return false;
-    const [existing] = await db
+    // 운영자 수동 핀/롤백(requested_by 있음)이 미완료로 걸려 있으면 자동 큐잉하지 않는다.
+    //   에이전트는 desc(createdAt) 최신 1건만 집으므로, 자동 큐가 나중에 얹히면 운영자가 의도적으로
+    //   건 핀(핫픽스/이전버전 롤백)을 가려버린다(HBI-3). 사람이 걸어둔 게 있으면 자동은 물러난다.
+    //   (자동끼리는 여기서 안 막고 아래 target 중복 가드로만 정리 — 최신 릴리즈가 이전 자동 큐를
+    //    지연 없이 얹을 수 있게. 대기 2건 공존은 무해: 에이전트가 최신 1건만 적용.)
+    const [manualPin] = await db
+      .select({ id: pendingUpdates.id })
+      .from(pendingUpdates)
+      .where(
+        and(
+          eq(pendingUpdates.customerId, customer.id),
+          isNotNull(pendingUpdates.requestedBy),
+          isNull(pendingUpdates.appliedAt),
+          isNull(pendingUpdates.cancelledAt),
+          isNull(pendingUpdates.failedAt),
+        ),
+      )
+      .limit(1);
+    if (manualPin) return false;
+    // 같은 (거래처, 목표버전) 조합은 상태 불문 1회만 — applied 됐는데 구버전 보고(brick 의심)·
+    //   cancelled(사람이 거부)·failed 를 자동으로 다시 두들기지 않는다(사람 몫).
+    const [sameTarget] = await db
       .select({ id: pendingUpdates.id })
       .from(pendingUpdates)
       .where(
@@ -406,7 +427,7 @@ export async function autoQueueIfBehind(
         ),
       )
       .limit(1);
-    if (existing) return false;
+    if (sameTarget) return false;
     await db.insert(pendingUpdates).values({
       tenantId: customer.tenantId,
       customerId: customer.id,

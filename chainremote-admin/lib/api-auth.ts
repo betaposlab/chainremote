@@ -105,6 +105,21 @@ export function requireOwner(me: ApiTokenClaims): void {
   if (me.role !== "owner") throw new ApiAuthError(403, "owner 권한 필요");
 }
 
+// 권한 게이트: viewer(읽기 전용) 차단 — owner/admin/operator 만 허용.
+// 파괴적/부수효과 명령(디스크 정리 = Temp·휴지통 영구삭제 큐잉 등)은 읽기 계정이 못 낸다.
+export function requireNotViewer(me: ApiTokenClaims): void {
+  if (me.role === "viewer")
+    throw new ApiAuthError(403, "읽기 전용 계정은 이 작업 권한이 없습니다");
+}
+
+// Postgres uuid 컬럼에 비-UUID 문자열을 eq() 로 넘기면 22P02 로 쿼리가 터지고, 그 에러
+// 문구에 SQL·파라미터가 실려 500 바디로 샜다(CWE-209 정보노출). path/param 은 신뢰 못
+// 하므로 데이터 레이어 전에 형식을 막는다. gen_random_uuid(v4)든 뭐든 표준 8-4-4-4-12 형식.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(s: unknown): s is string {
+  return typeof s === "string" && UUID_RE.test(s);
+}
+
 // 에러 + 그 cause 체인(최대 5단)을 하나의 문자열로. drizzle-orm 0.45 는 DB 에러를
 // DrizzleQueryError 로 감싸 message 를 "Failed query: ..." 로 바꾸고 진짜 제약 위반
 // 문구(duplicate key ... uq_customers_remote_id)는 e.cause 로 내려보낸다. message 만
@@ -135,6 +150,11 @@ export function jsonError(e: unknown): Response {
       { error: "이미 등록된 원격 ID 입니다 (다른 거래처와 중복)." },
       { status: 409 },
     );
+  }
+  // 비-UUID path/param 이 uuid 컬럼 비교로 흘러 22P02 로 터진 경우 — 원시 SQL(쿼리+파라미터)을
+  // 노출하지 않고 400 으로 정리한다. 라우트 uuid 가드가 1차, 이건 미처리 경로용 심층 방어.
+  if (/invalid input syntax for (type )?uuid/i.test(chain)) {
+    return Response.json({ error: "잘못된 ID 형식입니다." }, { status: 400 });
   }
   const msg = e instanceof Error ? e.message : "internal error";
   return Response.json({ error: msg }, { status: 500 });

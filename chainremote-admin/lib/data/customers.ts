@@ -2,7 +2,7 @@
 // 프레임워크 의존 없음(revalidatePath/redirect 없음) — 후처리는 호출 측 몫.
 // 모든 함수는 tenantId 격리 강제. 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customerAlerts, customers, tenants, userFavorites } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
@@ -178,27 +178,55 @@ export async function recordHeartbeat(
   // arch(020)/os·osBits(021)/디스크(024): 보내온 경우에만 갱신. 순수 표시·진단 telemetry —
   //   WHERE/매칭에는 절대 안 쓴다(신원 키 아님). 값이 없으면 기존 값을 건드리지 않는다.
   const archSet = arch === "x86" || arch === "x64" ? { arch } : {};
-  const osSet = os && os.trim() ? { os: os.trim() } : {};
+  // os 는 자유 문자열(표시용) — arch/osBits 화이트리스트와 달리 초대형/저장남용 여지가 있어
+  //   64자로 자른다(악성 클라가 유효 토큰 1개로 거대 문자열을 밀어넣는 것 차단).
+  const osSet = os && os.trim() ? { os: os.trim().slice(0, 64) } : {};
   const osBitsSet = osBits === "x86" || osBits === "x64" ? { osBits } : {};
-  const num = (v: unknown) =>
-    typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined;
-  const diskTotal = num(extras?.diskTotal);
-  const diskFree = num(extras?.diskFree);
+  // 디스크 값 검증 — bigint 컬럼이라 상한을 둬 오버플로우 500 을 막고(1e19 등 이상값),
+  //   diskTotal 은 물리적으로 항상 >0 이라 0/음수를 이상값으로 걸러 기존 telemetry 를
+  //   0 으로 덮어쓰지 않는다. diskFree/tempBytes 는 0 허용(가득참/temp 없음). 소수는 floor.
+  const MAX_DISK = 1e15; // 1PB — 현실 상한 겸 bigint 안전 범위.
+  const posNum = (v: unknown, allowZero: boolean) =>
+    typeof v === "number" &&
+    Number.isFinite(v) &&
+    (allowZero ? v >= 0 : v > 0) &&
+    v <= MAX_DISK
+      ? Math.floor(v)
+      : undefined;
+  const diskTotal = posNum(extras?.diskTotal, false);
+  const diskFree = posNum(extras?.diskFree, true);
+  const tempBytes = posNum(extras?.tempBytes, true);
   const diskSet =
     diskTotal !== undefined && diskFree !== undefined
       ? {
           diskTotalBytes: diskTotal,
           diskFreeBytes: diskFree,
           diskReportedAt: new Date(),
-          ...(num(extras?.tempBytes) !== undefined
-            ? { tempBytes: num(extras?.tempBytes) }
-            : {}),
+          ...(tempBytes !== undefined ? { tempBytes } : {}),
         }
       : {};
-  // 정리 완료 보고 — 결과 저장 + 요청 큐 클리어 (재실행 방지).
-  const cleanupSet = extras?.cleanupResult?.trim()
-    ? { cleanupResult: extras.cleanupResult.trim(), cleanupRequestedAt: null }
-    : {};
+  // 정리 완료 보고 — 결과 저장 + 요청 큐 클리어. 단, 이 결과가 실제로 충족한 요청만 비운다.
+  //   에이전트가 T1 을 실행하는 사이 운영자가 재클릭(T2)하면, 뒤늦게 도착한 T1 결과 보고가
+  //   T2 요청까지 지워 명령이 유실됐다(disk-01). result.at(완료 시각) 이후에 들어온 더 새로운
+  //   요청(cleanup_requested_at > 완료시각)은 살려 둔다. at 이 없으면(옛 에이전트) now 로 대체.
+  let cleanupSet: Record<string, unknown> = {};
+  const cleanupResult = extras?.cleanupResult?.trim();
+  if (cleanupResult) {
+    let doneAt = new Date();
+    try {
+      const parsed = JSON.parse(cleanupResult);
+      if (parsed && typeof parsed.at === "string") {
+        const d = new Date(parsed.at);
+        if (!Number.isNaN(d.getTime())) doneAt = d;
+      }
+    } catch {
+      // at 파싱 실패 — now 로 진행(대개 요청이 과거라 정상 클리어).
+    }
+    cleanupSet = {
+      cleanupResult,
+      cleanupRequestedAt: sql`CASE WHEN ${customers.cleanupRequestedAt} <= ${doneAt} THEN NULL ELSE ${customers.cleanupRequestedAt} END`,
+    };
+  }
   const [row] = await db
     .update(customers)
     .set({

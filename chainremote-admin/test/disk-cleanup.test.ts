@@ -85,9 +85,11 @@ describe("디스크 관제 (마이그 024)", () => {
     const queued = await getCleanupRequest("DK11110003");
     expect(queued).not.toBeNull();
 
-    // 에이전트가 실행 후 결과 보고 (heartbeat 에 실어서)
+    // 에이전트가 실행 후 결과 보고 (heartbeat 에 실어서). 완료 시각(at)은 요청보다 나중이어야
+    //   정상 흐름(요청→실행→완료) — 이때만 요청 큐가 비워진다. 완료가 요청보다 과거면 그건
+    //   stale 보고라 뒤늦게 도착해 더 새로운 재요청을 지우지 않는다(adv disk-01 방어).
     const result = JSON.stringify({
-      freedBytes: 12 * GB, deleted: 31204, skipped: 8, at: "2026-07-15T10:00:00Z",
+      freedBytes: 12 * GB, deleted: 31204, skipped: 8, at: new Date(Date.now() + 1000).toISOString(),
     });
     await recordHeartbeat(
       "DK11110003", s.token, "1.4.59", undefined, undefined, undefined, undefined,
