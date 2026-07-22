@@ -101,6 +101,11 @@ Future<void> crRefreshFolders() async {
   crKnownFolders.assignAll(list.map((f) => f.name).toList());
 }
 
+// 이번 실행에서 내가 만든 폴더 — 비어 있어도 타일을 남겨 둔다(만들자마자 끌어다 넣어야 하니까).
+// 앱을 다시 켜면 비워진다. 그 밖의 빈 폴더는 탭에 멤버가 없으면 안 그린다 — 즐겨찾기 탭에
+// 회사 전체 폴더가 "0대"로 늘어서면 내가 즐겨찾기한 게 사라진 것처럼 보인다.
+final crSessionFolders = <String>{}.obs;
+
 // [새 폴더] 편집 시작 — 툴바 버튼과 빈 공간 우클릭이 공유한다.
 // 검색 중에는 폴더를 안 그리므로(평면 표시) 검색부터 비운다. 안 그러면 편집 타일이
 // 안 보여 버튼이 죽은 것처럼 보인다.
@@ -541,6 +546,7 @@ class _PeersViewState extends State<_PeersView>
       }
       final r = await ChainRemoteFolderApi.rename(id, newName);
       if (r == 'ok') {
+        if (crSessionFolders.remove(oldName)) crSessionFolders.add(newName);
         if (crOpenFolder.value == oldName) crOpenFolder.value = newName;
         bind.chainremoteLoadCustomers();
         bind.chainremoteLoadFavorites();
@@ -575,6 +581,7 @@ class _PeersViewState extends State<_PeersView>
                 }
                 final ok = await ChainRemoteFolderApi.delete(id);
                 if (ok) {
+                  crSessionFolders.remove(name);
                   if (crOpenFolder.value == name) crOpenFolder.value = null;
                   bind.chainremoteLoadCustomers();
                   bind.chainremoteLoadFavorites();
@@ -660,6 +667,7 @@ class _PeersViewState extends State<_PeersView>
       final ok = await ChainRemoteFolderApi.create(name);
       finish();
       if (ok != null) {
+        crSessionFolders.add(name); // 비어 있어도 타일이 남아야 끌어다 넣을 수 있다
         await crRefreshFolders();
       } else {
         showToast(translate('Failed'));
@@ -797,9 +805,11 @@ class _PeersViewState extends State<_PeersView>
                             slots.add(const _NewFolderSlot());
                           }
                           if (foldersApply) {
+                            // 이 탭에 멤버가 있는 폴더 + 방금 내가 만든 폴더만 그린다.
+                            // 회사 전체 폴더를 다 그리면 즐겨찾기 탭이 "0대" 폴더로 덮인다.
                             final names = <String>{
                               ...grouped.keys,
-                              ...crKnownFolders,
+                              ...crKnownFolders.where(crSessionFolders.contains),
                             }.toList()
                               ..sort();
                             for (final n in names) {

@@ -148,13 +148,24 @@ class _PeerTabPageState extends State<PeerTabPage>
                 child: selectionWrap(Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Expanded(
+                    // 탭바 우선 — 자연폭을 먼저 확보한다(아이콘 모드면 3개가 다 보임).
+                    // 오른쪽 액션에 밀려 탭이 하나만 남던 문제(2026-07-23) 해결.
+                    Flexible(
                         child: visibleContextMenuListener(
                             _createSwitchBar(context))),
-                    if (stateGlobal.isPortrait.isTrue)
-                      ..._portraitRightActions(context)
-                    else
-                      ..._landscapeRightActions(context)
+                    // 오른쪽 액션은 남은 폭을 갖되, 좁아 넘치면 가로 스크롤로 흡수한다
+                    // (검색이 맨 왼쪽이라 항상 보이고, 정렬 등 뒤쪽만 스크롤로 가려진다).
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: stateGlobal.isPortrait.isTrue
+                              ? _portraitRightActions(context)
+                              : _landscapeRightActions(context),
+                        ),
+                      ),
+                    ),
                   ],
                 )),
               ),
@@ -268,9 +279,17 @@ class _PeerTabPageState extends State<PeerTabPage>
     final model = Provider.of<PeerTabModel>(context);
     // 뉴모 세그먼트 컨트롤 (2026-06-06 재스킨).
     // 들어간(inset) 트랙 위에, 활성 탭만 솟은(raised) 표면 + 남색 글자로 표시한다.
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
+    //
+    // 창을 좁히면 탭 묶음이 오른쪽 아이콘들 위로 밀고 올라오던 문제(2026-07-23) —
+    // Expanded 안에서 Row 가 안 줄어들어 제 칸을 넘겨 그렸다. 폭에 따라 좌우 여백을
+    // 줄이고, 더 좁으면 글자를 떼어 아이콘만 남기고, 그래도 모자라면 가로 스크롤로
+    // 넘겨 어떤 폭에서도 겹치지 않게 한다.
+    return LayoutBuilder(builder: (context, box) {
+      final tight = box.maxWidth < 430;
+      final showLabel = box.maxWidth >= 330;
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Container(
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -294,8 +313,8 @@ class _PeerTabPageState extends State<PeerTabPage>
                   },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                  horizontal: tight ? 9 : 15, vertical: 8),
               decoration: BoxDecoration(
                 color: selected ? MyTheme.neuSurface : Colors.transparent,
                 borderRadius: BorderRadius.circular(9),
@@ -317,16 +336,18 @@ class _PeerTabPageState extends State<PeerTabPage>
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(model.tabIcon(t), color: fg, size: 16),
-                  const SizedBox(width: 7),
-                  Text(
-                    model.tabTooltip(t),
-                    style: TextStyle(
-                      color: fg,
-                      fontSize: 13.5,
-                      fontWeight:
-                          selected ? FontWeight.w800 : FontWeight.w700,
+                  if (showLabel) ...[
+                    const SizedBox(width: 7),
+                    Text(
+                      model.tabTooltip(t),
+                      style: TextStyle(
+                        color: fg,
+                        fontSize: 13.5,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w700,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -334,6 +355,7 @@ class _PeerTabPageState extends State<PeerTabPage>
         }).toList(),
       ),
     ));
+    });
   }
 
   Widget _createPeersView() {
