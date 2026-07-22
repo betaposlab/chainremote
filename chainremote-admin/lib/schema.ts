@@ -156,6 +156,9 @@ export const customers = pgTable(
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),
     pinOrder: integer("pin_order"),
+    // 폴더(마이그 026) — 같은 매장 여러 POS 를 묶는 수동 그룹. NULL=폴더 없음.
+    //   운영자가 폴더를 만들고 배정(이름 접두 자동그룹핑 아님). 폴더 삭제 시 SET NULL.
+    folderId: uuid("folder_id").references(() => folders.id, { onDelete: "set null" }),
     // auto-enroll 상태: 'active'(확정) | 'pending'(agent 자가등록 후보 — HQ 패널 확인 대기).
     // 기존/수동추가(importPeer·createCustomer) 거래처는 default 'active'. 마이그 016.
     enrollStatus: text("enroll_status").notNull().default("active"),
@@ -177,6 +180,25 @@ export const customers = pgTable(
     machineUuidUniq: uniqueIndex("uq_customers_machine_uuid")
       .on(t.tenantId, t.machineUuid)
       .where(sql`${t.machineUuid} IS NOT NULL AND ${t.machineUuid} <> ''`),
+  }),
+);
+
+// 거래처 폴더(마이그 026) — 같은 매장 여러 POS 를 묶는 수동 그룹. 운영자가 폴더를 만들고
+// 거래처를 직접 배정한다(이름 접두 자동그룹핑 아님 — 엉뚱한 묶임 방지). tenant 내 이름 유일.
+export const folders = pgTable(
+  "folders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => ({
+    tenantNameIdx: uniqueIndex("uq_folders_tenant_name").on(t.tenantId, t.name),
   }),
 );
 
