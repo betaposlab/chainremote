@@ -4,9 +4,9 @@
 // 2026-05-27 개편으로 remote_id 가 primary 식별자, customer_id 는 customers 에 등록된 경우만 채운다.
 // 덕분에 옵션 B+ HQ workstation 처럼 customers 에 없는 머신도 즐겨찾기할 수 있다.
 
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { customers, userFavorites, users } from "@/lib/schema";
+import { customers, folders, userFavorites, users } from "@/lib/schema";
 
 /** 본사 앱 "즐겨찾기" 탭 — 내가 즐겨찾기한 머신 전체.
  * customers 에 등록된 머신이면 customer 정보, 아니면 orphan(null). */
@@ -14,11 +14,14 @@ export async function listMyFavorites(userId: string, tenantId: string) {
   const rows = await db
     .select({
       remoteId: userFavorites.remoteId,
-      customer: customers, // LEFT JOIN — 매칭 없으면 모든 컬럼 null
+      // folderName 을 folders join 으로 함께 — HQ 즐겨찾기 탭도 폴더로 묶이게(전체 거래처와 동일).
+      //   이게 빠져 있어 즐겨찾기 탭에서만 device_group_name 이 비어 그룹핑이 안 됐다(2026-07-22 사고).
+      customer: { ...getTableColumns(customers), folderName: folders.name },
       favoritedAt: userFavorites.createdAt,
     })
     .from(userFavorites)
     .leftJoin(customers, eq(customers.id, userFavorites.customerId))
+    .leftJoin(folders, eq(folders.id, customers.folderId))
     .where(
       and(eq(userFavorites.userId, userId), eq(userFavorites.tenantId, tenantId)),
     )
