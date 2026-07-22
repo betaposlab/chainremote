@@ -61,16 +61,14 @@ export function AgentDownloadCard({
 
   return (
     <section className="mb-8 rounded-xl border border-[#00A0E5]/30 bg-[#00A0E5]/5 px-5 py-4">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-slate-800">
-            가맹점 설치파일
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            가맹점 PC 에 설치할 우리 회사 전용 원격지원 에이전트입니다. 설치하면
-            자동으로 거래처 목록에 등록됩니다.
-          </p>
-        </div>
+      <h2 className="text-base font-semibold text-slate-800">설치파일</h2>
+
+      <div className="mt-3 flex items-center justify-between gap-4">
+        <p className="text-sm text-slate-500">
+          <span className="font-medium text-slate-700">가맹점(거래처)용</span> —
+          가맹점 PC 에 설치할 우리 회사 전용 원격지원 에이전트입니다. 설치하면
+          자동으로 거래처 목록에 등록됩니다.
+        </p>
         <button
           type="button"
           onClick={doDownload}
@@ -79,6 +77,22 @@ export function AgentDownloadCard({
         >
           {downloading ? "준비 중..." : "에이전트 다운로드"}
         </button>
+      </div>
+
+      {/* HQ 는 오버레이가 없어 링크 한 줄이면 된다 — 라우트가 latest.json 을 보고 최신으로
+          넘긴다(버전을 여기 박으면 릴리즈 때마다 손봐야 하고, 빠뜨리면 굳는다). */}
+      <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#00A0E5]/20 pt-4">
+        <p className="text-sm text-slate-500">
+          <span className="font-medium text-slate-700">본사 직원용 (HQ)</span> —
+          직원 PC 에 설치하는 원격지원 앱입니다. 설치 후 본인 계정으로 로그인하면
+          우리 회사 거래처가 보입니다. 항상 최신 버전이 받아집니다.
+        </p>
+        <a
+          href={`/api/tenants/${tenantId}/hq`}
+          className="shrink-0 rounded-md border border-[#00A0E5] px-4 py-2 text-sm font-medium text-[#00A0E5] hover:bg-[#00A0E5]/10"
+        >
+          HQ 다운로드
+        </a>
       </div>
     </section>
   );

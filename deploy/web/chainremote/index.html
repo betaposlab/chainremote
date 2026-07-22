@@ -320,21 +320,23 @@
             <div class="sec-head">
                 <div class="tag">DOWNLOAD</div>
                 <h2>다운로드</h2>
-                <p>용도에 맞는 프로그램을 받으세요. 거래처에는 Agent를, 본사 직원은 HQ를 설치합니다.</p>
+                <p>본사 직원용 프로그램을 받으세요. 거래처용(Agent)은 관리패널에서 받습니다.</p>
             </div>
             <div class="grid grid-3">
-                <!-- ※ 파일명/버전은 실제 업로드 파일에 맞게 교체하세요 (현재 표기: v1.4.16) -->
+                <!-- 버전 표기와 href 는 릴리즈 스크립트가 자동 교체한다(deploy/nas/publish-landing.sh).
+                     ★거래처용 Agent 는 여기에 올리지 않는다 — 설치 파일에 대리점 식별자가 박혀 있어
+                     공개 파일 한 벌로는 어느 대리점 소속인지 정할 수 없다. 관리패널 경로만 유효. -->
                 <div class="card dl-card">
                     <div class="top">
                         <div class="ico"><i class="fas fa-store"></i></div>
                         <div>
                             <h3>ChainRemote Agent</h3>
-                            <div class="ver">거래처용 · v1.4.16</div>
+                            <div class="ver">거래처용 · 관리패널에서 받기</div>
                         </div>
                     </div>
-                    <p>거래처 PC에 설치합니다. 트레이에서 조용히 대기하다가, 본사 접속 시 '수락' 카드를 띄웁니다.</p>
-                    <span class="dl-os"><i class="fab fa-windows"></i> Windows</span>
-                    <a class="btn btn-primary" href="downloads/ChainRemote_Agent_Setup_v1.4.16.exe"><i class="fas fa-download"></i> 거래처용 다운로드</a>
+                    <p>거래처용은 <b>대리점마다 설치 파일이 다릅니다.</b> 관리패널에 로그인해 받으셔야 그 거래처가 우리 대리점 소속으로 등록되고, 이후 업데이트도 자동으로 이어집니다.</p>
+                    <span class="dl-os"><i class="fas fa-arrow-right"></i> 관리패널 → 거래처 → [에이전트 다운로드]</span>
+                    <a class="btn btn-ghost" href="#contact"><i class="fas fa-key"></i> 계정 문의</a>
                 </div>
 
                 <div class="card dl-card">
@@ -342,12 +344,12 @@
                         <div class="ico"><i class="fas fa-user-tie"></i></div>
                         <div>
                             <h3>ChainRemote HQ</h3>
-                            <div class="ver">본사 직원용 · v1.4.16</div>
+                            <div class="ver">본사 직원용 · v1.4.66</div>
                         </div>
                     </div>
-                    <p>본사 직원용 앱. 로그인 후 즐겨찾기에서 거래처를 1클릭으로 원격 지원합니다.</p>
+                    <p>본사 직원용 앱. 로그인 후 즐겨찾기에서 거래처를 1클릭으로 원격 지원합니다. 받으신 뒤 발급받은 계정으로 로그인하면 됩니다.</p>
                     <span class="dl-os"><i class="fab fa-windows"></i> Windows <span style="color:var(--line)">|</span> <i class="fab fa-apple"></i> macOS는 문의</span>
-                    <a class="btn btn-primary" href="downloads/ChainRemote_HQ_Setup_v1.4.16.exe"><i class="fas fa-download"></i> 본사용 다운로드</a>
+                    <a class="btn btn-primary" href="downloads/ChainRemote_HQ_Setup_v1.4.66.exe"><i class="fas fa-download"></i> 본사용 다운로드</a>
                 </div>
 
                 <div class="card dl-card">
@@ -355,12 +357,12 @@
                         <div class="ico"><i class="fas fa-bolt"></i></div>
                         <div>
                             <h3>ChainGo</h3>
-                            <div class="ver">포터블 · 무흔적</div>
+                            <div class="ver">포터블 · 무흔적 · v1.4.66</div>
                         </div>
                     </div>
                     <p>PC방 또는 아무 PC에서나 다운로드 → 실행 → 로그인 → 원격 → 닫기. 설치 없이 쓰고, 그 PC에 흔적이 남지 않습니다.</p>
                     <span class="dl-os"><i class="fab fa-windows"></i> Windows · 설치 불필요</span>
-                    <a class="btn btn-ghost" href="downloads/ChainGo.exe"><i class="fas fa-download"></i> ChainGo 받기</a>
+                    <a class="btn btn-ghost" href="downloads/ChainGo_v1.4.66.exe"><i class="fas fa-download"></i> ChainGo 받기</a>
                 </div>
             </div>
         </div>
