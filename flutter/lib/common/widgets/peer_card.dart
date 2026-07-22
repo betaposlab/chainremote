@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_disk.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_folders.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -1060,6 +1061,121 @@ abstract class BasePeerCard extends StatelessWidget {
     );
   }
 
+  // 우클릭 "폴더로 이동" — 같은 매장 여러 POS 를 한 폴더로 묶는다. 폴더 조작은 HQ 에서 한다
+  //   (대리점은 패널을 거의 안 봄). 다이얼로그에서 기존 폴더 선택 / 새 폴더 만들기 / 빼기.
+  @protected
+  MenuEntryBase<String> _moveToFolderAction(String id) {
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) => Row(
+        children: [
+          Text('폴더로 이동', style: style),
+          Expanded(
+              child: Align(
+            alignment: Alignment.centerRight,
+            child: Transform.scale(
+              scale: 0.8,
+              child: const Icon(Icons.folder_outlined),
+            ),
+          ).marginOnly(right: 4)),
+        ],
+      ),
+      proc: () => _showFolderPicker(id),
+      padding: menuPadding,
+      dismissOnClicked: true,
+    );
+  }
+
+  void _showFolderPicker(String remoteId) {
+    () async {
+      final folders = await ChainRemoteFolderApi.list();
+      final newCtrl = TextEditingController();
+      await gFFI.dialogManager.show<void>((setState, close, context) {
+        // 배정/해제 공통 — 성공하면 패널 재조회로 device_group_name(그룹)을 갱신한다.
+        Future<void> doAssign(String? folderId) async {
+          final ok = await ChainRemoteFolderApi.assign(remoteId, folderId);
+          close();
+          showToast(ok ? translate('Successful') : translate('Failed'));
+          if (ok) {
+            bind.chainremoteLoadCustomers();
+            bind.chainremoteLoadFavorites();
+            _update();
+          }
+        }
+
+        Future<void> createAndAssign() async {
+          final name = newCtrl.text.trim();
+          if (name.isEmpty) return;
+          final f = await ChainRemoteFolderApi.create(name);
+          if (f == null) {
+            showToast(translate('Failed'));
+            return;
+          }
+          await doAssign(f.id);
+        }
+
+        return CustomAlertDialog(
+          title: Row(children: const [
+            Icon(Icons.folder_outlined, color: Color(0xFF00A0E5), size: 22),
+            SizedBox(width: 8),
+            Text('폴더로 이동'),
+          ]),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (folders.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text('아직 폴더가 없습니다. 아래에서 새로 만드세요.',
+                          style: TextStyle(
+                              fontSize: 12, color: Color(0xFF6B7280))),
+                    ),
+                  ...folders.map((f) => ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.folder, size: 20),
+                        title: Text(f.name),
+                        onTap: () => doAssign(f.id),
+                      )),
+                  const Divider(),
+                  Row(children: [
+                    Expanded(
+                      child: TextField(
+                        controller: newCtrl,
+                        decoration: const InputDecoration(
+                          hintText: '새 폴더 이름 (예: 낭성)',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        onSubmitted: (_) => createAndAssign(),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    TextButton(
+                      onPressed: createAndAssign,
+                      child: const Text('만들기'),
+                    ),
+                  ]),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => doAssign(null),
+                      icon: const Icon(Icons.folder_off_outlined, size: 18),
+                      label: const Text('폴더에서 빼기'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [dialogButton('취소', onPressed: close, isOutline: true)],
+        );
+      });
+    }();
+  }
+
   @protected
   MenuEntryBase<String> _removeAction(String id) {
     return MenuEntryButton<String>(
@@ -1265,6 +1381,7 @@ class RecentPeerCard extends BasePeerCard {
     menuItems.add(MenuEntryDivider());
     if (isMobile || isDesktop || isWebDesktop) {
       menuItems.add(_renameAction(peer.id));
+      menuItems.add(_moveToFolderAction(peer.id));
     }
     if (await bind.mainPeerHasPassword(id: peer.id)) {
       menuItems.add(_unrememberPasswordAction(peer.id));
@@ -1326,6 +1443,7 @@ class FavoritePeerCard extends BasePeerCard {
     menuItems.add(MenuEntryDivider());
     if (isMobile || isDesktop || isWebDesktop) {
       menuItems.add(_renameAction(peer.id));
+      menuItems.add(_moveToFolderAction(peer.id));
     }
     if (await bind.mainPeerHasPassword(id: peer.id)) {
       menuItems.add(_unrememberPasswordAction(peer.id));
@@ -1392,6 +1510,7 @@ class AllCustomersPeerCard extends BasePeerCard {
     // 거래처명 변경. 전체 거래처 탭에서도 패널 customer.name 에 기록해 세 화면에 전파한다.
     if (isMobile || isDesktop || isWebDesktop) {
       menuItems.add(_renameAction(peer.id));
+      menuItems.add(_moveToFolderAction(peer.id));
     }
 
     // 전체 목록에서 내 담당 거래처를 즐겨찾기에 추가하거나 해제한다.
@@ -1545,6 +1664,7 @@ class AddressBookPeerCard extends BasePeerCard {
       menuItems.add(MenuEntryDivider());
       if (isMobile || isDesktop || isWebDesktop) {
         menuItems.add(_renameAction(peer.id));
+        menuItems.add(_moveToFolderAction(peer.id));
       }
       if (gFFI.abModel.current.isPersonal() && peer.hash.isNotEmpty) {
         menuItems.add(_unrememberPasswordAction(peer.id));
