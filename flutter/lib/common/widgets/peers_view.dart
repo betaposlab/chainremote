@@ -626,8 +626,12 @@ class _PeersViewState extends State<_PeersView>
 
   // 루트 최상단 "새 폴더" 인라인 편집 타일 — 이름 입력 후 엔터(또는 체크)로 생성.
   Widget _buildNewFolderTile() {
-    _newFolderCtrl ??= TextEditingController(text: '새 폴더')
-      ..selection = const TextSelection(baseOffset: 0, extentOffset: 3);
+    // 프리필 전체를 선택해 둔다(그대로 타이핑하면 통째로 대체). 선택 끝은 반드시
+    // 문자열 길이에서 유도할 것 — 숫자를 박아두면 꼬리글자가 남는다("새 폴"+"더").
+    const defaultName = '새 폴더';
+    _newFolderCtrl ??= TextEditingController(text: defaultName)
+      ..selection =
+          TextSelection(baseOffset: 0, extentOffset: defaultName.length);
     _newFolderFocus ??= FocusNode();
 
     void finish() {
