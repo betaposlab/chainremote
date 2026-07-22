@@ -12,6 +12,7 @@ export type CustomerFormData = {
   accessPassword?: string | null;
   notes?: string | null;
   assignedUserId?: string | null;
+  folderName?: string | null;
 };
 
 type Props = {
@@ -19,9 +20,17 @@ type Props = {
   action: (formData: FormData) => Promise<void>;
   submitLabel?: string;
   staff?: { id: string; displayName: string }[];
+  // 이 대리점의 기존 폴더 이름들 — 입력칸 자동완성(datalist)용.
+  folders?: string[];
 };
 
-export function CustomerForm({ initial, action, submitLabel = "저장", staff }: Props) {
+export function CustomerForm({
+  initial,
+  action,
+  submitLabel = "저장",
+  staff,
+  folders,
+}: Props) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -90,6 +99,26 @@ export function CustomerForm({ initial, action, submitLabel = "저장", staff }:
           </select>
         </Field>
       )}
+      <Field label="폴더 (선택)">
+        <input
+          name="folderName"
+          defaultValue={initial?.folderName ?? ""}
+          placeholder="낭성"
+          list="folder-options"
+          className="input"
+        />
+        {folders && folders.length > 0 && (
+          <datalist id="folder-options">
+            {folders.map((f) => (
+              <option key={f} value={f} />
+            ))}
+          </datalist>
+        )}
+        <p className="mt-1 text-xs text-slate-500">
+          같은 매장의 여러 POS 를 한 폴더로 묶습니다. 기존 폴더를 고르거나, 새 이름을
+          적으면 폴더가 새로 만들어집니다. 비우면 폴더 없음.
+        </p>
+      </Field>
       <Field label="원격 ID (선택)">
         <input
           name="remoteId"

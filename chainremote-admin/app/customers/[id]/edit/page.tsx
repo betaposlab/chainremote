@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { CustomerForm } from "../../_form";
 import { updateCustomer } from "@/lib/actions/customers";
 import { listTenantStaff } from "@/lib/data/users";
+import { listFolders } from "@/lib/data/folders";
 import { DeleteButton } from "./_delete";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,10 @@ export default async function EditCustomerPage({
   if (!row) notFound();
 
   const staff = await listTenantStaff(tenant.id);
+  const folderRows = await listFolders(tenant.id);
+  // 현재 폴더명(초기값) — folder_id 를 이름으로 되짚는다. 폴더 없으면 빈칸.
+  const currentFolderName =
+    folderRows.find((f) => f.id === row.folderId)?.name ?? null;
   const update = updateCustomer.bind(null, id);
 
   return (
@@ -48,7 +53,13 @@ export default async function EditCustomerPage({
         <DeleteButton id={id} name={row.name} />
       </header>
       <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <CustomerForm initial={row} action={update} submitLabel="저장" staff={staff} />
+        <CustomerForm
+          initial={{ ...row, folderName: currentFolderName }}
+          action={update}
+          submitLabel="저장"
+          staff={staff}
+          folders={folderRows.map((f) => f.name)}
+        />
       </div>
     </div>
   );

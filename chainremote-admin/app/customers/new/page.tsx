@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { CustomerForm } from "../_form";
 import { createCustomer } from "@/lib/actions/customers";
 import { listTenantStaff } from "@/lib/data/users";
+import { listFolders } from "@/lib/data/folders";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ export default async function NewCustomerPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const staff = await listTenantStaff(session.user.tenantId);
+  const folderNames = (await listFolders(session.user.tenantId)).map((f) => f.name);
 
   return (
     <div className="px-8 py-6 max-w-2xl">
@@ -20,7 +22,12 @@ export default async function NewCustomerPage() {
         </p>
       </header>
       <div className="rounded-xl border border-slate-200 bg-white p-6">
-        <CustomerForm action={createCustomer} submitLabel="거래처 추가" staff={staff} />
+        <CustomerForm
+          action={createCustomer}
+          submitLabel="거래처 추가"
+          staff={staff}
+          folders={folderNames}
+        />
       </div>
     </div>
   );

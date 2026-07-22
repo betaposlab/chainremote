@@ -6,11 +6,26 @@ import { auth } from "@/auth";
 import * as data from "@/lib/data/customers";
 import * as favData from "@/lib/data/favorites";
 import { listTenantStaff } from "@/lib/data/users";
+import { createFolder } from "@/lib/data/folders";
 
 async function requireSession() {
   const session = await auth();
   if (!session?.user) throw new Error("로그인 필요");
   return session.user;
+}
+
+// 폼의 folderName(자유 입력)을 folderId 로 푼다 — 같은 이름이 있으면 그 폴더, 없으면 새로
+//   만든다(findOrCreate). 빈값이면 null(폴더 해제). createFolder 가 tenantId 로 만들어
+//   자기 대리점 폴더만 생기므로 cross-tenant 걱정이 없다.
+async function resolveFolderId(
+  formData: FormData,
+  tenantId: string,
+): Promise<string | null> {
+  const raw = formData.get("folderName");
+  const name = typeof raw === "string" ? raw.trim() : "";
+  if (!name) return null;
+  const folder = await createFolder(tenantId, name);
+  return folder.id;
 }
 
 // 담당 배정 검증 — assignedUserId 가 이 테넌트 소속 직원일 때만 통과(타테넌트 배정 차단).
@@ -53,6 +68,7 @@ export async function createCustomer(formData: FormData) {
   const session = await requireSession();
   const fields = pickFields(formData);
   fields.assignedUserId = await sanitizeAssignee(fields.assignedUserId, session.tenantId);
+  fields.folderId = await resolveFolderId(formData, session.tenantId);
   // 담당 미선택 시 생성자로 폴백(폴백 처리는 data.createCustomer 안).
   await data.createCustomer(fields, {
     tenantId: session.tenantId,
@@ -66,6 +82,7 @@ export async function updateCustomer(id: string, formData: FormData) {
   const session = await requireSession();
   const fields = pickFields(formData);
   fields.assignedUserId = await sanitizeAssignee(fields.assignedUserId, session.tenantId);
+  fields.folderId = await resolveFolderId(formData, session.tenantId);
   await data.updateCustomer(id, fields, { tenantId: session.tenantId });
   revalidatePath("/customers");
   redirect("/customers");

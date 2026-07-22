@@ -22,6 +22,10 @@ export interface CustomerFields {
   // 옵셔널인 이유: HQ-facing API(app/api/customers)는 배정 개념 없이 필드를 만드는데,
   //   undefined 는 update 의 drizzle .set 에서 무시돼 기존 배정이 보존된다.
   assignedUserId?: string | null;
+  // 폴더(마이그 026) — 폼이 folderName 을 createFolder(findOrCreate)로 풀어 여기에 folderId 를
+  //   세팅한다. assignedUserId 처럼 undefined 면 update .set 에서 무시돼 기존 폴더가 보존된다
+  //   (folderName 을 안 보내는 HQ API 경로). 빈 폴더명이면 null(해제).
+  folderId?: string | null;
 }
 
 export async function listCustomers(tenantId: string) {
