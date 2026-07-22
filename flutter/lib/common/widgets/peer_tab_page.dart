@@ -418,6 +418,27 @@ class _PeerTabPageState extends State<PeerTabPage>
     );
   }
 
+  // 새 폴더 — 검색 오른쪽. 클릭하면 목록 보기 루트로 가서 최상단에 이름 편집 타일을 띄운다.
+  Widget _createNewFolder(BuildContext context) {
+    final textColor = Theme.of(context).textTheme.titleLarge?.color;
+    return _hoverAction(
+      context: context,
+      toolTip: '새 폴더',
+      onTap: () {
+        peerCardUiType.value = PeerUiType.list;
+        crOpenFolder.value = null;
+        crNewFolderEditing.value = true;
+        crRefreshFolders();
+      },
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.create_new_folder_outlined, size: 18, color: textColor),
+        const SizedBox(width: 3),
+        Text('새 폴더',
+            style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+      ]),
+    );
+  }
+
   Widget _createMultiSelection() {
     final textColor = Theme.of(context).textTheme.titleLarge?.color;
     final model = Provider.of<PeerTabModel>(context);
@@ -732,6 +753,10 @@ class _PeerTabPageState extends State<PeerTabPage>
     // 새로고침은 재로그인 없이 패널 목록을 다시 받아온다 — 신규 등록 거래처가 바로 내려온다.
     return [
       const PeerSearchBar().marginOnly(right: 13),
+      // 새 폴더 — 폴더가 동작하는 즐겨찾기·전체거래처 탭에서만.
+      if (model.currentTab == PeerTabIndex.fav.index ||
+          model.currentTab == PeerTabIndex.customers.index)
+        _createNewFolder(context).marginOnly(right: 4),
       if (model.currentTab == PeerTabIndex.recent.index)
         _createRefresh(index: PeerTabIndex.recent).marginOnly(right: 4),
       if (model.currentTab == PeerTabIndex.fav.index)

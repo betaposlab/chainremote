@@ -17,6 +17,7 @@ import '../../common.dart';
 import '../../models/peer_model.dart';
 import '../../models/platform_model.dart';
 import 'peer_card.dart';
+import 'chainremote_folders.dart';
 
 typedef PeerFilter = bool Function(Peer peer);
 typedef PeerCardBuilder = Widget Function(Peer peer);
@@ -82,56 +83,40 @@ RxList<RxString> get obslist => [peerSearchText, peerSort].obs;
 final peerSearchTextController =
     TextEditingController(text: peerSearchText.value);
 
-// 거래처 폴더(device_group_name) 기반 그룹화. 패널에서 운영자가 폴더를 만들고 거래처를 직접
-// 배정한다(마이그 026). 같은 폴더의 peer 들이 한 그룹으로 묶인다. 그룹별 펼침/접힘은 전역 RxMap.
-// 폴더원이 하나뿐이면 헤더 없이 평면으로 노출한다.
-//   ★이름 접두(-) 자동그룹핑은 폐기(2026-07-22 사용자 결정) — 시스템 추측이 엉뚱한 매장을
-//     묶을 수 있어(예: "5.5춘천닭갈비 복수점"), 운영자가 폴더에 명시적으로 넣은 것만 묶는다.
-final peerGroupExpanded = <String, bool>{}.obs;
+// 거래처 폴더 — 윈도우 탐색기식(2026-07-22 재설계). 폴더는 목록 속 독립 타일이고, 클릭하면
+// 그 폴더 안으로 들어가 소속 거래처만 보인다. 종전의 인라인 그룹 헤더/접기 방식은 폐기 —
+// 사용자 요구: "폴더를 클릭하면 하위 거래처만 보여야 한다"(구분선 그룹이 아니라 진짜 폴더).
+//   배정은 device_group_name(패널이 folder join 으로 실어줌, 마이그 026)에 담긴다.
 
-String? _groupKeyOf(Peer peer) {
-  final g = peer.device_group_name.trim();
-  return g.isEmpty ? null : g;
+// 열린 폴더(탐색기 진입 상태). null = 루트(폴더 타일 + 미소속 거래처를 함께 보여줌).
+final crOpenFolder = RxnString();
+// [새 폴더] 인라인 편집 중 — 루트 최상단에 이름 편집 타일을 띄운다.
+final crNewFolderEditing = false.obs;
+// 알려진 폴더 목록(빈 폴더 포함). 멤버 0 인 폴더도 타일로 보이려면 패널 API 로 채워둔다.
+final crKnownFolders = <String>[].obs;
+
+// 폴더 목록 재조회(빈 폴더 반영). 진입/새폴더 생성 후 호출. 실패는 조용히(빈 목록 유지).
+Future<void> crRefreshFolders() async {
+  final list = await ChainRemoteFolderApi.list();
+  crKnownFolders.assignAll(list.map((f) => f.name).toList());
 }
 
-class _PeerGroupHeader {
-  final String prefix;
+// 루트 폴더 타일 1개 분량 데이터(이름 + 소속 대수).
+class _FolderTileData {
+  final String name;
   final int count;
-  _PeerGroupHeader(this.prefix, this.count);
+  const _FolderTileData(this.name, this.count);
 }
 
-// Groups peers by prefix. Returns flattened list of (_PeerGroupHeader | Peer)
-// that respects ordering and current expand/collapse state.
-List<Object> buildGroupedPeerItems(List<Peer> peers) {
-  final groups = <String, List<Peer>>{};
-  final ungrouped = <Peer>[];
-  final order = <String>[]; // group keys in first-seen order
-  for (final p in peers) {
-    final k = _groupKeyOf(p);
-    if (k == null) {
-      ungrouped.add(p);
-      continue;
-    }
-    if (!groups.containsKey(k)) {
-      groups[k] = [];
-      order.add(k);
-    }
-    groups[k]!.add(p);
-  }
-  final result = <Object>[];
-  for (final k in order) {
-    final list = groups[k]!;
-    if (list.length == 1) {
-      // Single-member group → show flat (no header).
-      result.add(list.first);
-      continue;
-    }
-    result.add(_PeerGroupHeader(k, list.length));
-    final expanded = peerGroupExpanded[k] ?? true;
-    if (expanded) result.addAll(list);
-  }
-  result.addAll(ungrouped);
-  return result;
+// 루트 최상단 "새 폴더" 편집 타일 자리표시.
+class _NewFolderSlot {
+  const _NewFolderSlot();
+}
+
+// 폴더 안에서 상단에 뜨는 "◀ 뒤로" 바(전폭).
+class _FolderBack {
+  final String name;
+  const _FolderBack(this.name);
 }
 
 class _PeersView extends StatefulWidget {
@@ -173,6 +158,9 @@ class _PeersViewState extends State<_PeersView>
   bool _isActive = true;
 
   final _scrollController = ScrollController();
+  // [새 폴더] 인라인 편집용 — 편집 시작 때 생성, 끝나면 정리(null).
+  TextEditingController? _newFolderCtrl;
+  FocusNode? _newFolderFocus;
 
   _PeersViewState() {
     _startCheckOnlines();
@@ -183,6 +171,11 @@ class _PeersViewState extends State<_PeersView>
     windowManager.addListener(this);
     WidgetsBinding.instance.addObserver(this);
     super.initState();
+    // 빈 폴더도 타일로 보이도록 폴더 목록을 한 번 받아둔다(즐겨찾기·전체거래처 탭). 실패는 무해.
+    if (widget.peerTabIndex == PeerTabIndex.fav ||
+        widget.peerTabIndex == PeerTabIndex.customers) {
+      crRefreshFolders();
+    }
   }
 
   @override
@@ -190,6 +183,8 @@ class _PeersViewState extends State<_PeersView>
     windowManager.removeListener(this);
     WidgetsBinding.instance.removeObserver(this);
     _exit = true;
+    _newFolderCtrl?.dispose();
+    _newFolderFocus?.dispose();
     super.dispose();
   }
 
@@ -295,69 +290,176 @@ class _PeersViewState extends State<_PeersView>
   String _cardId(String id) => widget.peers.name + id;
   String _peerId(String cardId) => cardId.replaceAll(widget.peers.name, '');
 
-  // 거래처 그룹 헤더 (펼침/접힘).
-  Widget _buildGroupHeader(_PeerGroupHeader item) {
-    final expanded = peerGroupExpanded[item.prefix] ?? true;
+  // ── 탐색기식 폴더 UI (2026-07-22 재설계) ──
+
+  // 루트의 폴더 타일 — 클릭하면 그 폴더 안으로 진입(소속 거래처만 표시). peer 카드와 같은 높이.
+  Widget _buildFolderTile(String name, int count) {
+    return SizedBox(
+      height: 45,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => crOpenFolder.value = name,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF3FF),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFBBD0FF), width: 1),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.folder_rounded,
+                    size: 26, color: Color(0xFF1E5BFF)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    name,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1E2B45),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E5BFF).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count대',
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E5BFF)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 폴더 안 상단 "◀ 뒤로" 바(전폭). 클릭하면 루트로 나간다.
+  Widget _buildFolderBackBar(String name) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          peerGroupExpanded[item.prefix] = !expanded;
-          peerGroupExpanded.refresh();
-        },
+        onTap: () => crOpenFolder.value = null,
         child: Container(
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: const Color(0xFFF1F4F8),
             borderRadius: BorderRadius.circular(8),
-            border: Border(
-                left: BorderSide(
-                    color: const Color(0xFF1E5BFF), width: 3)),
+            border: const Border(
+                left: BorderSide(color: Color(0xFF1E5BFF), width: 3)),
           ),
           child: Row(
             children: [
-              Icon(
-                expanded
-                    ? Icons.keyboard_arrow_down_rounded
-                    : Icons.keyboard_arrow_right_rounded,
-                size: 22,
-                color: const Color(0xFF1E5BFF),
-              ),
-              const SizedBox(width: 4),
-              Icon(Icons.business_rounded,
-                  size: 16, color: const Color(0xFF1E5BFF)),
+              const Icon(Icons.arrow_back_rounded,
+                  size: 20, color: Color(0xFF1E5BFF)),
+              const SizedBox(width: 6),
+              const Icon(Icons.folder_open_rounded,
+                  size: 18, color: Color(0xFF1E5BFF)),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  item.prefix,
+                  '$name  —  전체로 나가기',
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1E2B45),
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E5BFF).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${item.count}대',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E5BFF),
-                  ),
-                ),
-              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // 루트 최상단 "새 폴더" 인라인 편집 타일 — 이름 입력 후 엔터(또는 체크)로 생성.
+  Widget _buildNewFolderTile() {
+    _newFolderCtrl ??= TextEditingController(text: '새 폴더')
+      ..selection = const TextSelection(baseOffset: 0, extentOffset: 3);
+    _newFolderFocus ??= FocusNode();
+
+    void finish() {
+      _newFolderCtrl?.dispose();
+      _newFolderFocus?.dispose();
+      _newFolderCtrl = null;
+      _newFolderFocus = null;
+      crNewFolderEditing.value = false;
+    }
+
+    Future<void> submit() async {
+      final name = _newFolderCtrl?.text.trim() ?? '';
+      if (name.isEmpty) {
+        finish();
+        return;
+      }
+      final ok = await ChainRemoteFolderApi.create(name);
+      finish();
+      if (ok != null) {
+        await crRefreshFolders();
+      } else {
+        showToast(translate('Failed'));
+      }
+    }
+
+    return SizedBox(
+      height: 45,
+      child: Container(
+        padding: const EdgeInsets.only(left: 12, right: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF3FF),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF1E5BFF), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.create_new_folder_rounded,
+                size: 26, color: Color(0xFF1E5BFF)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _newFolderCtrl,
+                focusNode: _newFolderFocus,
+                autofocus: true,
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w700),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                onSubmitted: (_) => submit(),
+              ),
+            ),
+            IconButton(
+              tooltip: '만들기',
+              icon: const Icon(Icons.check_rounded,
+                  size: 20, color: Color(0xFF1E5BFF)),
+              onPressed: submit,
+            ),
+            IconButton(
+              tooltip: '취소',
+              icon: const Icon(Icons.close_rounded,
+                  size: 20, color: Color(0xFF9CA3AF)),
+              onPressed: finish,
+            ),
+          ],
         ),
       ),
     );
@@ -407,15 +509,55 @@ class _PeersViewState extends State<_PeersView>
                     },
                   )
                 : peerCardUiType.value == PeerUiType.list
-                    // 그룹화는 list view 에서만 적용한다.
+                    // 탐색기식 폴더는 list view 에서만 적용한다.
                     ? Obx(() {
-                        // peerGroupExpanded 가 바뀌면 재빌드한다.
-                        peerGroupExpanded.length;
-                        final items = buildGroupedPeerItems(peers);
-                        // 가로 공간을 활용해 peer 카드를 반응형 N열로 배치한다.
-                        // 카드 최소폭(kTargetCardWidth)을 기준으로 창 너비에 맞춰 열 수를
-                        // 자동 결정한다(좁으면 1열, 넓히면 그만큼 늘어나며 카드는 최소폭 유지).
-                        // 그룹 헤더는 전체 폭을 쓰고, 헤더 경계에서 짝을 리셋해 그룹이 같은 행에 섞이지 않게 한다.
+                        // 폴더 상태 변화 시 재빌드(진입/새폴더/알려진폴더).
+                        crOpenFolder.value;
+                        crNewFolderEditing.value;
+                        crKnownFolders.length;
+                        // 폴더는 즐겨찾기·전체거래처 탭에서만 — recent 는 네이티브라 device_group_name 없음.
+                        final foldersApply = widget.peerTabIndex ==
+                                PeerTabIndex.fav ||
+                            widget.peerTabIndex == PeerTabIndex.customers;
+
+                        // device_group_name 으로 폴더별 분류 + 미소속.
+                        final grouped = <String, List<Peer>>{};
+                        final ungrouped = <Peer>[];
+                        for (final p in peers) {
+                          final g = p.device_group_name.trim();
+                          if (!foldersApply || g.isEmpty) {
+                            ungrouped.add(p);
+                          } else {
+                            (grouped[g] ??= <Peer>[]).add(p);
+                          }
+                        }
+
+                        // 렌더 slot 구성 — _FolderBack 은 전폭, 나머지(폴더타일/새폴더/peer)는 열 패킹.
+                        final slots = <Object>[];
+                        final open = foldersApply ? crOpenFolder.value : null;
+                        if (open != null) {
+                          slots.add(_FolderBack(open));
+                          slots.addAll(grouped[open] ?? const <Peer>[]);
+                        } else {
+                          if (foldersApply && crNewFolderEditing.value) {
+                            slots.add(const _NewFolderSlot());
+                          }
+                          if (foldersApply) {
+                            final names = <String>{
+                              ...grouped.keys,
+                              ...crKnownFolders,
+                            }.toList()
+                              ..sort();
+                            for (final n in names) {
+                              slots.add(
+                                  _FolderTileData(n, grouped[n]?.length ?? 0));
+                            }
+                          }
+                          slots.addAll(ungrouped);
+                        }
+
+                        // 가로 공간을 활용해 카드/폴더 타일을 반응형 N열로 배치한다.
+                        // 뒤로가기 바(_FolderBack)만 전폭, 나머지는 최소폭 기준 열 패킹.
                         return LayoutBuilder(builder: (context, constraints) {
                           const double kTargetCardWidth = 320;
                           final double avail = constraints.maxWidth.isFinite
@@ -424,7 +566,7 @@ class _PeersViewState extends State<_PeersView>
                           final int cols =
                               (avail / kTargetCardWidth).floor().clamp(1, 12);
                           final rows = <dynamic>[];
-                          List<Peer>? pending;
+                          List<Object>? pending;
                           void flushPair() {
                             if (pending != null) {
                               rows.add(pending);
@@ -432,12 +574,12 @@ class _PeersViewState extends State<_PeersView>
                             }
                           }
 
-                          for (final item in items) {
-                            if (item is _PeerGroupHeader) {
+                          for (final s in slots) {
+                            if (s is _FolderBack) {
                               flushPair();
-                              rows.add(item);
+                              rows.add(s);
                             } else {
-                              (pending ??= <Peer>[]).add(item as Peer);
+                              (pending ??= <Object>[]).add(s);
                               if (pending!.length == cols) flushPair();
                             }
                           }
@@ -449,20 +591,30 @@ class _PeersViewState extends State<_PeersView>
                               final row = rows[index];
                               final double topMargin =
                                   index == 0 ? 0 : space / 2;
-                              if (row is _PeerGroupHeader) {
-                                return _buildGroupHeader(row).marginOnly(
+                              if (row is _FolderBack) {
+                                return _buildFolderBackBar(row.name).marginOnly(
                                     right: space,
                                     top: topMargin,
                                     bottom: space / 2);
                               }
-                              final pair = row as List<Peer>;
+                              final cells = row as List<Object>;
                               final children = <Widget>[];
                               for (int i = 0; i < cols; i++) {
                                 if (i > 0) children.add(SizedBox(width: space));
-                                children.add(Expanded(
-                                    child: i < pair.length
-                                        ? buildOnePeer(pair[i], false)
-                                        : const SizedBox()));
+                                Widget cell;
+                                if (i < cells.length) {
+                                  final c = cells[i];
+                                  if (c is _FolderTileData) {
+                                    cell = _buildFolderTile(c.name, c.count);
+                                  } else if (c is _NewFolderSlot) {
+                                    cell = _buildNewFolderTile();
+                                  } else {
+                                    cell = buildOnePeer(c as Peer, false);
+                                  }
+                                } else {
+                                  cell = const SizedBox();
+                                }
+                                children.add(Expanded(child: cell));
                               }
                               return Row(
                                       crossAxisAlignment:
