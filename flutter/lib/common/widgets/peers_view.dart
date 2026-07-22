@@ -82,20 +82,16 @@ RxList<RxString> get obslist => [peerSearchText, peerSort].obs;
 final peerSearchTextController =
     TextEditingController(text: peerSearchText.value);
 
-// 별칭 prefix 기반 거래처 그룹화.
-// 운영 컨벤션상 별칭은 "거래처상호-기기명" 형식이다 (예: "ABC식당-메인", "ABC식당-오더1").
-// '-' 앞부분이 같은 peer 들이 한 그룹으로 묶인다. 그룹별 펼침/접힘 상태는 전역 RxMap 에 둔다.
-// 그룹원이 하나뿐이면 헤더 없이 평면으로 노출한다.
+// 거래처 폴더(device_group_name) 기반 그룹화. 패널에서 운영자가 폴더를 만들고 거래처를 직접
+// 배정한다(마이그 026). 같은 폴더의 peer 들이 한 그룹으로 묶인다. 그룹별 펼침/접힘은 전역 RxMap.
+// 폴더원이 하나뿐이면 헤더 없이 평면으로 노출한다.
+//   ★이름 접두(-) 자동그룹핑은 폐기(2026-07-22 사용자 결정) — 시스템 추측이 엉뚱한 매장을
+//     묶을 수 있어(예: "5.5춘천닭갈비 복수점"), 운영자가 폴더에 명시적으로 넣은 것만 묶는다.
 final peerGroupExpanded = <String, bool>{}.obs;
 
 String? _groupKeyOf(Peer peer) {
-  final name = peer.alias.isNotEmpty ? peer.alias : peer.hostname;
-  if (name.isEmpty) return null;
-  final dashIdx = name.indexOf('-');
-  if (dashIdx <= 0) return null;
-  final prefix = name.substring(0, dashIdx).trim();
-  if (prefix.isEmpty) return null;
-  return prefix;
+  final g = peer.device_group_name.trim();
+  return g.isEmpty ? null : g;
 }
 
 class _PeerGroupHeader {

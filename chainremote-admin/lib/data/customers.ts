@@ -2,9 +2,9 @@
 // 프레임워크 의존 없음(revalidatePath/redirect 없음) — 후처리는 호출 측 몫.
 // 모든 함수는 tenantId 격리 강제. 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { customerAlerts, customers, tenants, userFavorites } from "@/lib/schema";
+import { customerAlerts, customers, folders, tenants, userFavorites } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
 import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 import { autoQueueIfBehind } from "@/lib/data/pending-updates";
@@ -29,9 +29,12 @@ export interface CustomerFields {
 }
 
 export async function listCustomers(tenantId: string) {
+  // 폴더명을 folder_id 로 조인해 함께 낸다(folderName). HQ 는 이 값을 device_group_name 으로
+  //   받아 폴더로 묶는다. 폴더 미배정이면 leftJoin 으로 folderName=null.
   return db
-    .select()
+    .select({ ...getTableColumns(customers), folderName: folders.name })
     .from(customers)
+    .leftJoin(folders, eq(folders.id, customers.folderId))
     .where(eq(customers.tenantId, tenantId))
     .orderBy(desc(customers.updatedAt));
 }

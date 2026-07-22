@@ -46,6 +46,10 @@ struct CustomerRow {
     disk_free_bytes: Option<i64>,
     #[serde(rename = "tempBytes")]
     temp_bytes: Option<i64>,
+    // 폴더(마이그 026) — 패널이 folder join 으로 준다(folderName). HQ 가 device_group_name 으로
+    //   받아 같은 매장 여러 POS 를 폴더로 묶는다(peers_view 그룹 헤더). 미배정이면 None.
+    #[serde(rename = "folderName")]
+    folder_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -164,7 +168,8 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
         "rdpPort": "",
         "rdpUsername": "",
         "loginName": "",
-        "device_group_name": "",
+        // 폴더명(마이그 026) — peers_view 가 이 값이 같은 peer 들을 한 폴더로 묶는다.
+        "device_group_name": c.folder_name.clone().unwrap_or_default(),
         "note": c.notes.clone().unwrap_or_default(),
         "same_server": serde_json::Value::Null,
         // Flutter Peer.enrollStatus 로 흘러가 마스터 확정 버튼 게이트(pending 만 노출)에 쓰임.
