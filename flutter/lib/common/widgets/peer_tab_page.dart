@@ -424,12 +424,7 @@ class _PeerTabPageState extends State<PeerTabPage>
     return _hoverAction(
       context: context,
       toolTip: '새 폴더',
-      onTap: () {
-        peerCardUiType.value = PeerUiType.list;
-        crOpenFolder.value = null;
-        crNewFolderEditing.value = true;
-        crRefreshFolders();
-      },
+      onTap: crStartNewFolder,
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(Icons.create_new_folder_outlined, size: 18, color: textColor),
         const SizedBox(width: 3),

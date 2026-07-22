@@ -101,6 +101,18 @@ Future<void> crRefreshFolders() async {
   crKnownFolders.assignAll(list.map((f) => f.name).toList());
 }
 
+// [새 폴더] 편집 시작 — 툴바 버튼과 빈 공간 우클릭이 공유한다.
+// 검색 중에는 폴더를 안 그리므로(평면 표시) 검색부터 비운다. 안 그러면 편집 타일이
+// 안 보여 버튼이 죽은 것처럼 보인다.
+void crStartNewFolder() {
+  peerSearchTextController.clear();
+  peerSearchText.value = '';
+  peerCardUiType.value = PeerUiType.list;
+  crOpenFolder.value = null;
+  crNewFolderEditing.value = true;
+  crRefreshFolders();
+}
+
 // 루트 폴더 타일 1개 분량 데이터(이름 + 소속 대수).
 class _FolderTileData {
   final String name;
@@ -425,10 +437,7 @@ class _PeersViewState extends State<_PeersView>
       ],
     );
     if (selected == 'new') {
-      peerCardUiType.value = PeerUiType.list;
-      crOpenFolder.value = null;
-      crNewFolderEditing.value = true;
-      crRefreshFolders();
+      crStartNewFolder();
     }
   }
 
@@ -754,10 +763,16 @@ class _PeersViewState extends State<_PeersView>
                         crOpenFolder.value;
                         crNewFolderEditing.value;
                         crKnownFolders.length;
+                        // 검색 중이면 폴더를 걷어내고 결과를 평면으로 — 탐색기의 검색과 같다.
+                        // 이게 없으면 폴더에 든 거래처가 검색 결과에서 통째로 사라진다
+                        // (루트는 폴더타일+미소속만 그리므로). 검색을 지우면 폴더로 복귀.
+                        final searching = peerSearchText.value.trim().isNotEmpty;
                         // 폴더는 즐겨찾기·전체거래처 탭에서만 — recent 는 네이티브라 device_group_name 없음.
-                        final foldersApply = widget.peerTabIndex ==
-                                PeerTabIndex.fav ||
-                            widget.peerTabIndex == PeerTabIndex.customers;
+                        final foldersApply = (widget.peerTabIndex ==
+                                    PeerTabIndex.fav ||
+                                widget.peerTabIndex ==
+                                    PeerTabIndex.customers) &&
+                            !searching;
 
                         // device_group_name 으로 폴더별 분류 + 미소속.
                         final grouped = <String, List<Peer>>{};
