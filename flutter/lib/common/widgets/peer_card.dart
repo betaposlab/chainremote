@@ -84,6 +84,29 @@ String? crOsBadgeText(Peer peer) {
 
 bool crOsBadgeIsWin7(Peer peer) => peer.os.contains('Windows 7');
 
+// OS 배지 위젯 — crOsBadgeText 를 카드/목록 공용 배지로. Win7=호박, 그 외=회색.
+//   (종전엔 카드·목록에 같은 Container 가 인라인 중복이었다. 목록 2줄화하며 헬퍼로 통일.)
+Widget? crOsBadge(Peer peer) {
+  final text = crOsBadgeText(peer);
+  if (text == null) return null;
+  final win7 = crOsBadgeIsWin7(peer);
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+    decoration: BoxDecoration(
+      color: win7 ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 9,
+        fontWeight: FontWeight.w600,
+        color: win7 ? const Color(0xFFB45309) : const Color(0xFF64748B),
+      ),
+    ),
+  );
+}
+
 enum PeerUiType { grid, tile, list }
 
 final peerCardUiType = PeerUiType.grid.obs;
@@ -275,10 +298,13 @@ class _PeerCardState extends State<_PeerCard>
                           style: Theme.of(context).textTheme.titleSmall,
                         )),
                       ]).marginOnly(top: isPortrait ? 0 : 2),
-                      if (name.isNotEmpty || showNote)
+                      if (name.isNotEmpty ||
+                          showNote ||
+                          crOsBadge(peer) != null ||
+                          crDiskBadge(peer) != null)
                       Row(
                         children: [
-                          if (name.isNotEmpty)
+                          if (name.isNotEmpty) ...[
                           Flexible(
                             child: Tooltip(
                               message: name,
@@ -294,6 +320,19 @@ class _PeerCardState extends State<_PeerCard>
                               ),
                             ),
                           ),
+                          const SizedBox(width: 6),
+                          ],
+                          // OS·여유 배지를 이름 아래 줄(부제)로 내려, 목록에서 이름을 밀지 않게 한다(2줄화).
+                          //   종전엔 오른쪽 상태 pill 옆에 있어 좁은 목록 폭에서 이름 Expanded 를 0 으로
+                          //   찌부러뜨렸다(정보 보고한 거래처만 이름 증발, 미보고만 이름 노출 → 불일치).
+                          if (crOsBadge(peer) != null) ...[
+                            crOsBadge(peer)!,
+                            const SizedBox(width: 6),
+                          ],
+                          if (crDiskBadge(peer) != null) ...[
+                            crDiskBadge(peer)!,
+                            const SizedBox(width: 6),
+                          ],
                           if (showNote)
                             Expanded(
                               child: Tooltip(
@@ -324,36 +363,7 @@ class _PeerCardState extends State<_PeerCard>
                     : Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // OS 배지(마이그021, 타일·리스트 뷰) — 예외(Win7/32비트)만. "Win7 · 64비트".
-                          //   Win7=호박, 그 외=회색. 온라인 pill 왼쪽. 일반 Win10/11 64비트는 생략.
-                          if (crOsBadgeText(peer) != null) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 5, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: crOsBadgeIsWin7(peer)
-                                    ? const Color(0xFFFEF3C7)
-                                    : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                crOsBadgeText(peer)!,
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w600,
-                                  color: crOsBadgeIsWin7(peer)
-                                      ? const Color(0xFFB45309)
-                                      : const Color(0xFF64748B),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          // 디스크 배지(마이그024) — 여유공간 위험/주의만.
-                          if (crDiskBadge(peer) != null) ...[
-                            crDiskBadge(peer)!,
-                            const SizedBox(width: 8),
-                          ],
+                          // OS·디스크 배지는 이름 아래 부제 줄로 옮겼다(위 참조) — 여기선 상태·더보기만.
                           _statusPill(peer.online),
                           const SizedBox(width: 8),
                           checkBoxOrActionMoreLandscape(peer, isTile: true),
