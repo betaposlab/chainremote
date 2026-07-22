@@ -296,55 +296,138 @@ class _PeersViewState extends State<_PeersView>
   Widget _buildFolderTile(String name, int count) {
     return SizedBox(
       height: 45,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () => crOpenFolder.value = name,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF3FF),
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (_) => true,
+        onAcceptWithDetails: (d) => _dropIntoFolder(d.data, name),
+        builder: (context, candidate, rejected) {
+          final hovering = candidate.isNotEmpty; // 드래그가 이 폴더 위로 올라옴
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFBBD0FF), width: 1),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.folder_rounded,
-                    size: 26, color: Color(0xFF1E5BFF)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    name,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1E2B45),
+              onTap: () => crOpenFolder.value = name,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: hovering
+                      ? const Color(0xFFD6E4FF)
+                      : const Color(0xFFEFF3FF),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: hovering
+                          ? const Color(0xFF1E5BFF)
+                          : const Color(0xFFBBD0FF),
+                      width: hovering ? 2 : 1),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.folder_rounded,
+                        size: 26, color: Color(0xFF1E5BFF)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        name,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E2B45),
+                        ),
+                      ),
                     ),
-                  ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E5BFF).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$count대',
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1E5BFF)),
+                      ),
+                    ),
+                  ],
                 ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E5BFF).withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$count대',
-                    style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E5BFF)),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
+  }
+
+  // 루트에서 peer 카드를 드래그 가능하게 — 폴더 타일에 떨구면 그 폴더로 이동.
+  Widget _draggablePeer(Peer p, Widget child) {
+    return Draggable<String>(
+      data: p.id,
+      maxSimultaneousDrags: 1,
+      dragAnchorStrategy: pointerDragAnchorStrategy,
+      feedback: Material(
+        color: Colors.transparent,
+        child: Opacity(
+          opacity: 0.85,
+          child: SizedBox(width: 260, height: 45, child: child),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.35, child: child),
+      child: child,
+    );
+  }
+
+  // 드래그로 거래처(remoteId)를 폴더에 떨궜을 때 — 이름으로 create(findOrCreate) 후 배정.
+  //   폴더 타일은 이름만 알아서 folderId 를 모른다. create 가 findOrCreate 라 기존 폴더의
+  //   id 를 돌려주므로(중복 안 생김) 그걸로 assign 한다.
+  void _dropIntoFolder(String remoteId, String folderName) {
+    () async {
+      final f = await ChainRemoteFolderApi.create(folderName);
+      if (f == null) {
+        showToast(translate('Failed'));
+        return;
+      }
+      final ok = await ChainRemoteFolderApi.assign(remoteId, f.id);
+      if (ok) {
+        bind.chainremoteLoadCustomers();
+        bind.chainremoteLoadFavorites();
+        showToast('$folderName 폴더로 이동');
+      } else {
+        showToast(translate('Failed'));
+      }
+    }();
+  }
+
+  // 빈 공간 우클릭 → "새 폴더" 메뉴. 카드 위 우클릭은 카드가 먼저 처리하므로 빈 영역만 여기로 온다.
+  void _showNewFolderBgMenu(Offset globalPos) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(globalPos.dx, globalPos.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'new',
+          height: 38,
+          child: Row(children: const [
+            Icon(Icons.create_new_folder_outlined,
+                size: 18, color: Color(0xFF1E5BFF)),
+            SizedBox(width: 8),
+            Text('새 폴더'),
+          ]),
+        ),
+      ],
+    );
+    if (selected == 'new') {
+      peerCardUiType.value = PeerUiType.list;
+      crOpenFolder.value = null;
+      crNewFolderEditing.value = true;
+      crRefreshFolders();
+    }
   }
 
   // 폴더 안 상단 "◀ 뒤로" 바(전폭). 클릭하면 루트로 나간다.
@@ -609,7 +692,12 @@ class _PeersViewState extends State<_PeersView>
                                   } else if (c is _NewFolderSlot) {
                                     cell = _buildNewFolderTile();
                                   } else {
-                                    cell = buildOnePeer(c as Peer, false);
+                                    final peer = c as Peer;
+                                    final w = buildOnePeer(peer, false);
+                                    // 루트에서만 드래그 가능(폴더 안/미적용 탭은 그대로).
+                                    cell = (foldersApply && open == null)
+                                        ? _draggablePeer(peer, w)
+                                        : w;
                                   }
                                 } else {
                                   cell = const SizedBox();
@@ -653,7 +741,18 @@ class _PeersViewState extends State<_PeersView>
       );
     }, obslist);
 
-    return body;
+    final foldersApply = widget.peerTabIndex == PeerTabIndex.fav ||
+        widget.peerTabIndex == PeerTabIndex.customers;
+    if (!foldersApply) return body;
+    // 빈 공간 우클릭 → "새 폴더"(루트에서만). 카드 위 우클릭은 카드가 먼저 처리한다.
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onSecondaryTapUp: (d) {
+        if (crOpenFolder.value != null) return;
+        _showNewFolderBgMenu(d.globalPosition);
+      },
+      child: body,
+    );
   }
 
   var _queryInterval = const Duration(seconds: 20);
