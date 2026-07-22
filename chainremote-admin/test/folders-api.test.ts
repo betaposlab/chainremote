@@ -5,7 +5,10 @@ import { testDb } from "./helpers/db";
 import { tenants, users, customers } from "@/lib/schema";
 import { signApiToken } from "@/lib/api-auth";
 import { GET as foldersGET, POST as foldersPOST } from "@/app/api/folders/route";
-import { DELETE as folderDELETE } from "@/app/api/folders/[id]/route";
+import {
+  DELETE as folderDELETE,
+  PATCH as folderPATCH,
+} from "@/app/api/folders/[id]/route";
 import { POST as assignPOST } from "@/app/api/customers/folder/route";
 
 async function mkTenant(slug: string): Promise<string> {
@@ -130,5 +133,66 @@ describe("폴더 API (HQ)", () => {
     expect(res.status).toBe(200);
     const list = await foldersGET(req("GET", await bearer(t, "owner", uid)));
     expect((await list.json()).folders.length).toBe(0);
+  });
+
+  it("PATCH /api/folders/:id — 이름 변경", async () => {
+    const t = await mkTenant("fa8");
+    const uid = await mkUser(t, "o@fa8", "owner");
+    const f = await makeFolder(t, uid, "낭성");
+    const res = await folderPATCH(
+      req("PATCH", await bearer(t, "owner", uid), { name: "낭성지구" }),
+      { params: Promise.resolve({ id: f.id }) },
+    );
+    expect(res.status).toBe(200);
+    const list = await foldersGET(req("GET", await bearer(t, "owner", uid)));
+    expect((await list.json()).folders[0].name).toBe("낭성지구");
+  });
+
+  it("PATCH — 같은 대리점에 이미 있는 이름이면 409", async () => {
+    const t = await mkTenant("fa9");
+    const uid = await mkUser(t, "o@fa9", "owner");
+    await makeFolder(t, uid, "낭성");
+    const f2 = await makeFolder(t, uid, "도덕봉가든");
+    const res = await folderPATCH(
+      req("PATCH", await bearer(t, "owner", uid), { name: "낭성" }),
+      { params: Promise.resolve({ id: f2.id }) },
+    );
+    expect(res.status).toBe(409);
+  });
+
+  it("PATCH — viewer 차단(403)", async () => {
+    const t = await mkTenant("fa10");
+    const owner = await mkUser(t, "o@fa10", "owner");
+    const viewer = await mkUser(t, "v@fa10", "viewer");
+    const f = await makeFolder(t, owner, "낭성");
+    const res = await folderPATCH(
+      req("PATCH", await bearer(t, "viewer", viewer), { name: "낭성2" }),
+      { params: Promise.resolve({ id: f.id }) },
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("PATCH — 남의 대리점 폴더는 404", async () => {
+    const t1 = await mkTenant("fa11a");
+    const u1 = await mkUser(t1, "o@fa11a", "owner");
+    const t2 = await mkTenant("fa11b");
+    const u2 = await mkUser(t2, "o@fa11b", "owner");
+    const fOfT2 = await makeFolder(t2, u2, "남의폴더");
+    const res = await folderPATCH(
+      req("PATCH", await bearer(t1, "owner", u1), { name: "가로채기" }),
+      { params: Promise.resolve({ id: fOfT2.id }) },
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("PATCH — 빈 이름 400", async () => {
+    const t = await mkTenant("fa12");
+    const uid = await mkUser(t, "o@fa12", "owner");
+    const f = await makeFolder(t, uid, "낭성");
+    const res = await folderPATCH(
+      req("PATCH", await bearer(t, "owner", uid), { name: "  " }),
+      { params: Promise.resolve({ id: f.id }) },
+    );
+    expect(res.status).toBe(400);
   });
 });

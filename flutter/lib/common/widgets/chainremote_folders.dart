@@ -76,4 +76,19 @@ class ChainRemoteFolderApi {
       return false;
     }
   }
+
+  /// 폴더 이름 변경. 'ok' / 'dup'(같은 대리점에 그 이름 이미 있음) / 'fail'.
+  static Future<String> rename(String folderId, String newName) async {
+    try {
+      final res = await http
+          .patch(Uri.parse('$_base/api/folders/$folderId'),
+              headers: _headers, body: jsonEncode({'name': newName}))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) return 'ok';
+      if (res.statusCode == 409) return 'dup';
+      return 'fail';
+    } catch (_) {
+      return 'fail';
+    }
+  }
 }

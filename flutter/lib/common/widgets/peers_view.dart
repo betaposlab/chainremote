@@ -306,6 +306,8 @@ class _PeersViewState extends State<_PeersView>
             child: InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: () => crOpenFolder.value = name,
+              onSecondaryTapDown: (d) =>
+                  _showFolderTileMenu(d.globalPosition, name),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
@@ -428,6 +430,156 @@ class _PeersViewState extends State<_PeersView>
       crNewFolderEditing.value = true;
       crRefreshFolders();
     }
+  }
+
+  // 폴더 타일 우클릭 → 열기 / 이름 변경 / 삭제.
+  void _showFolderTileMenu(Offset globalPos, String name) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromLTWH(globalPos.dx, globalPos.dy, 0, 0),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<String>(
+          value: 'open',
+          height: 38,
+          child: Row(children: const [
+            Icon(Icons.folder_open_outlined,
+                size: 18, color: Color(0xFF1E5BFF)),
+            SizedBox(width: 8),
+            Text('열기'),
+          ]),
+        ),
+        PopupMenuItem<String>(
+          value: 'rename',
+          height: 38,
+          child: Row(children: const [
+            Icon(Icons.drive_file_rename_outline, size: 18),
+            SizedBox(width: 8),
+            Text('이름 변경'),
+          ]),
+        ),
+        PopupMenuItem<String>(
+          value: 'delete',
+          height: 38,
+          child: Row(children: const [
+            Icon(Icons.delete_outline, size: 18, color: Colors.red),
+            SizedBox(width: 8),
+            Text('삭제', style: TextStyle(color: Colors.red)),
+          ]),
+        ),
+      ],
+    );
+    if (selected == 'open') {
+      crOpenFolder.value = name;
+    } else if (selected == 'rename') {
+      _renameFolderDialog(name);
+    } else if (selected == 'delete') {
+      _deleteFolderConfirm(name);
+    }
+  }
+
+  // 폴더 이름으로 폴더 id 조회(폴더 타일은 이름만 안다). 없으면 null.
+  Future<String?> _folderIdByName(String name) async {
+    final list = await ChainRemoteFolderApi.list();
+    for (final f in list) {
+      if (f.name == name) return f.id;
+    }
+    return null;
+  }
+
+  void _renameFolderDialog(String oldName) {
+    final ctrl = TextEditingController(text: oldName)
+      ..selection =
+          TextSelection(baseOffset: 0, extentOffset: oldName.length);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('폴더 이름 변경'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+          onSubmitted: (_) => _doRenameFolder(ctx, oldName, ctrl.text),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('취소')),
+          TextButton(
+              onPressed: () => _doRenameFolder(ctx, oldName, ctrl.text),
+              child: const Text('변경')),
+        ],
+      ),
+    );
+  }
+
+  void _doRenameFolder(BuildContext dialogCtx, String oldName, String input) {
+    final newName = input.trim();
+    Navigator.of(dialogCtx).pop();
+    if (newName.isEmpty || newName == oldName) return;
+    () async {
+      final id = await _folderIdByName(oldName);
+      if (id == null) {
+        showToast(translate('Failed'));
+        return;
+      }
+      final r = await ChainRemoteFolderApi.rename(id, newName);
+      if (r == 'ok') {
+        if (crOpenFolder.value == oldName) crOpenFolder.value = newName;
+        bind.chainremoteLoadCustomers();
+        bind.chainremoteLoadFavorites();
+        await crRefreshFolders();
+      } else if (r == 'dup') {
+        showToast('이미 있는 폴더 이름입니다');
+      } else {
+        showToast(translate('Failed'));
+      }
+    }();
+  }
+
+  void _deleteFolderConfirm(String name) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('폴더 삭제'),
+        content: Text(
+            '"$name" 폴더를 삭제할까요?\n소속 거래처는 삭제되지 않고 폴더에서만 빠집니다.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('취소')),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              () async {
+                final id = await _folderIdByName(name);
+                if (id == null) {
+                  showToast(translate('Failed'));
+                  return;
+                }
+                final ok = await ChainRemoteFolderApi.delete(id);
+                if (ok) {
+                  if (crOpenFolder.value == name) crOpenFolder.value = null;
+                  bind.chainremoteLoadCustomers();
+                  bind.chainremoteLoadFavorites();
+                  await crRefreshFolders();
+                } else {
+                  showToast(translate('Failed'));
+                }
+              }();
+            },
+            child: const Text('삭제', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   // 폴더 안 상단 "◀ 뒤로" 바(전폭). 클릭하면 루트로 나간다.
