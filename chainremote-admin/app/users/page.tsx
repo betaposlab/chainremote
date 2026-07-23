@@ -123,9 +123,19 @@ export default async function UsersPage() {
         <h2 className="mb-4 text-sm font-semibold text-slate-700">직원 추가</h2>
         {seatFull ? (
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-            좌석을 모두 사용 중입니다 ({usedSeats} / {maxSeats}석). 아이디 하나가 동시
-            1명의 원격을 담당하므로, 직원을 더 추가하려면 좌석을 추가로 구매하셔야
-            합니다. 좌석 추가는 담당자에게 문의해 주세요.
+            <p>
+              좌석을 모두 사용 중입니다 ({usedSeats} / {maxSeats}석). 아이디 하나가
+              동시 1명의 원격을 담당하므로, 직원을 더 추가하려면 좌석을 추가로
+              구매하셔야 합니다.
+            </p>
+            <a
+              href="https://betaposlab.com/chainremote#contact"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-block rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+            >
+              좌석 추가 문의하기 →
+            </a>
           </div>
         ) : (
           <CreateUserForm />
