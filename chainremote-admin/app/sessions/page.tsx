@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { customers, supportSessions, tenants } from "@/lib/schema";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { ISSUE_TYPE_LABELS, RESOLUTION_LABELS } from "@/lib/session-labels";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -9,6 +9,9 @@ import { auth } from "@/auth";
 export const dynamic = "force-dynamic";
 
 const PERIODS = {
+  // "이번 달" = 달력상 이 달 1일부터(대시보드 카드와 동일 정의). 아래 days 는 안 쓰고
+  //   date_trunc 로 계산한다 — "최근 30일"(month)과 헷갈리지 않게 분리했다.
+  thisMonth: { days: 0, label: "이번 달" },
   week: { days: 7, label: "최근 7일" },
   month: { days: 30, label: "최근 30일" },
   all: { days: 0, label: "전체" },
@@ -39,7 +42,10 @@ export default async function SessionsPage({
     .orderBy(customers.name);
 
   const filters = [eq(supportSessions.tenantId, tenant.id)];
-  if (period !== "all") {
+  if (period === "thisMonth") {
+    // 대시보드 "이번 달 지원" 카드와 100% 같은 숫자가 나오도록 동일 식을 쓴다.
+    filters.push(gte(supportSessions.startedAt, sql`date_trunc('month', now())`));
+  } else if (period !== "all") {
     const since = new Date(Date.now() - PERIODS[period].days * 86400_000);
     filters.push(gte(supportSessions.startedAt, since));
   }

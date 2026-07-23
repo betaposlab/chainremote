@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { customers, supportSessions, tenants } from "@/lib/schema";
-import { count, eq } from "drizzle-orm";
+import { and, count, eq, gte, sql } from "drizzle-orm";
 import { AgentDownloadCard } from "./_agent-download-card";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,16 @@ export default async function Home() {
     .select({ value: count() })
     .from(supportSessions)
     .where(eq(supportSessions.tenantId, tenant.id));
+  // 이번 달 지원 — 이 달 1일 0시(서버 기준)부터 시작된 세션. started_at 인덱스 사용.
+  const [{ value: monthCount }] = await db
+    .select({ value: count() })
+    .from(supportSessions)
+    .where(
+      and(
+        eq(supportSessions.tenantId, tenant.id),
+        gte(supportSessions.startedAt, sql`date_trunc('month', now())`),
+      ),
+    );
 
   return (
     <div className="px-8 py-6 max-w-6xl">
@@ -35,9 +46,9 @@ export default async function Home() {
       </header>
 
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <Card label="등록 거래처" value={customerCount} suffix="곳" />
-        <Card label="누적 지원기록" value={sessionCount} suffix="건" />
-        <Card label="이번 달 지원" value={0} suffix="건" />
+        <Card label="등록 거래처" value={customerCount} suffix="곳" href="/customers" />
+        <Card label="누적 지원기록" value={sessionCount} suffix="건" href="/sessions?period=all" />
+        <Card label="이번 달 지원" value={monthCount} suffix="건" href="/sessions?period=thisMonth" />
       </div>
 
       {(session.user.role === "owner" || session.user.role === "super_admin") && (
@@ -56,14 +67,33 @@ export default async function Home() {
   );
 }
 
-function Card({ label, value, suffix }: { label: string; value: number; suffix: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white px-5 py-4">
+function Card({
+  label,
+  value,
+  suffix,
+  href,
+}: {
+  label: string;
+  value: number;
+  suffix: string;
+  href?: string;
+}) {
+  const inner = (
+    <>
       <div className="text-sm text-slate-500">{label}</div>
       <div className="mt-2 flex items-baseline gap-1">
         <span className="text-3xl font-bold tabular-nums">{value.toLocaleString()}</span>
         <span className="text-sm text-slate-500">{suffix}</span>
       </div>
-    </div>
+    </>
+  );
+  const base = "block rounded-xl border border-slate-200 bg-white px-5 py-4";
+  // href 가 있으면 클릭해서 해당 목록으로 이동 — hover 로 클릭 가능함을 알린다.
+  return href ? (
+    <Link href={href} className={`${base} transition hover:border-slate-300 hover:shadow-sm`}>
+      {inner}
+    </Link>
+  ) : (
+    <div className={base}>{inner}</div>
   );
 }
