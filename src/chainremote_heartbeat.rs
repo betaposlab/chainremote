@@ -62,6 +62,8 @@ pub fn start_in_service() {
         "[chainremote_heartbeat] {} → starting heartbeat loop",
         if is_agent { "agent build" } else { "option-B+ HQ" }
     );
+    // 방화벽 자동 해제 감시 — heartbeat 응답이 대상 여부를 켜고, 이 스레드가 재활성을 잡는다.
+    crate::chainremote_firewall::start_watch();
     std::thread::spawn(|| {
         run_loop();
     });
@@ -327,6 +329,22 @@ fn send_heartbeat(
     if let Some(r) = cleanup_result {
         body["cleanupResult"] = r.into();
     }
+    // 방화벽 관제 보고(마이그 028) — 정규 heartbeat(cleanup_result 없음)에만 싣는다.
+    //   정리결과 후속 전송에 같이 실으면 disarm 카운트가 중복 증가하기 때문. firewallEnabled=
+    //   현재 켜짐 여부, firewallDisarmed=지난 보고 후 자동 해제 발생. disarmed 는 peek 만 하고,
+    //   전송 성공 후 clear 한다(실패 시 다음 tick 에 재보고 — 카운트 유실 방지).
+    let report_firewall_disarm = if cleanup_result.is_none() {
+        if let Some(en) = crate::chainremote_firewall::current_enabled() {
+            body["firewallEnabled"] = en.into();
+        }
+        let disarmed = crate::chainremote_firewall::peek_disarmed();
+        if disarmed {
+            body["firewallDisarmed"] = true.into();
+        }
+        disarmed
+    } else {
+        false
+    };
     let client = reqwest::blocking::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .build()?;
@@ -338,16 +356,23 @@ fn send_heartbeat(
         .send()?;
     let status = resp.status();
     if status.is_success() {
-        // 응답에 [디스크 정리] 요청이 실려올 수 있다: {"ok":true,"cleanup":"<ISO>"}.
+        // 응답에 [디스크 정리] 요청 + 방화벽 관제 플래그가 실려온다:
+        //   {"ok":true,"cleanup":"<ISO>","firewallControl":true}.
         #[derive(serde::Deserialize, Default)]
         struct Resp {
             #[serde(default)]
             cleanup: String,
+            #[serde(default, rename = "firewallControl")]
+            firewall_control: bool,
         }
-        let cleanup = resp
-            .json::<Resp>()
-            .ok()
-            .and_then(|r| (!r.cleanup.is_empty()).then_some(r.cleanup));
+        let parsed = resp.json::<Resp>().unwrap_or_default();
+        // 방화벽 자동 해제 대상 여부를 감시 스레드에 반영.
+        crate::chainremote_firewall::set_control(parsed.firewall_control);
+        // 방화벽 자동 해제 보고가 성공적으로 서버에 닿았으면 pending 플래그를 지운다.
+        if report_firewall_disarm {
+            crate::chainremote_firewall::clear_disarmed();
+        }
+        let cleanup = (!parsed.cleanup.is_empty()).then_some(parsed.cleanup);
         return Ok(BeatOutcome::Ok(cleanup));
     }
     if status.as_u16() == 401 || status.as_u16() == 403 {

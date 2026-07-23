@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_disk.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_firewall.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_folders.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
@@ -1024,6 +1025,22 @@ abstract class BasePeerCard extends StatelessWidget {
     );
   }
 
+  // 우클릭 "방화벽 설정" — 거래처별 방화벽 자동 해제 on/off. 메인+오더 POS 구성에서
+  //   업데이트가 방화벽을 되살려 주문 전달·프린터 공유가 끊기는 걸 막는다. 기본 off.
+  MenuEntryBase<String> _firewallAction(String id) {
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) => Text(
+        '방화벽 설정',
+        style: style,
+      ),
+      proc: () {
+        showCrFirewallDialog(peer);
+      },
+      padding: menuPadding,
+      dismissOnClicked: true,
+    );
+  }
+
   MenuEntryBase<String> _renameAction(String id) {
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Text(
@@ -1401,6 +1418,9 @@ class RecentPeerCard extends BasePeerCard {
     if (crDiskInfo(peer) != null) {
       menuItems.add(_diskCleanupAction(context, peer.id));
     }
+    if (peer.platform == kPeerPlatformWindows) {
+      menuItems.add(_firewallAction(peer.id));
+    }
 
     menuItems.add(MenuEntryDivider());
     menuItems.add(_removeAction(peer.id));
@@ -1460,6 +1480,9 @@ class FavoritePeerCard extends BasePeerCard {
     menuItems.add(_supportHistoryAction(context, peer.id));
     if (crDiskInfo(peer) != null) {
       menuItems.add(_diskCleanupAction(context, peer.id));
+    }
+    if (peer.platform == kPeerPlatformWindows) {
+      menuItems.add(_firewallAction(peer.id));
     }
 
     menuItems.add(MenuEntryDivider());
@@ -1523,6 +1546,9 @@ class AllCustomersPeerCard extends BasePeerCard {
     menuItems.add(_supportHistoryAction(context, peer.id));
     if (crDiskInfo(peer) != null) {
       menuItems.add(_diskCleanupAction(context, peer.id));
+    }
+    if (peer.platform == kPeerPlatformWindows) {
+      menuItems.add(_firewallAction(peer.id));
     }
 
     // 미확정(pending) 후보 확정. 버튼은 마스터(owner)에게만 노출하고, 서버도 owner 를 강제한다 (이중 게이트).

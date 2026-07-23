@@ -170,6 +170,10 @@ export interface HeartbeatExtras {
   tempBytes?: number;
   // 에이전트의 정리 완료 보고(JSON 문자열) — 저장하고 정리 요청 큐를 비운다.
   cleanupResult?: string;
+  // 방화벽 관제(028) — 에이전트 보고. firewallEnabled=현재 방화벽 켜짐 여부(표시용),
+  //   firewallDisarmed=이번 heartbeat 직전에 자동 해제했나(참이면 disarm_count++, 잦으면 업뎃 잦음 신호).
+  firewallEnabled?: boolean;
+  firewallDisarmed?: boolean;
 }
 
 export async function recordHeartbeat(
@@ -234,6 +238,15 @@ export async function recordHeartbeat(
       cleanupRequestedAt: sql`CASE WHEN ${customers.cleanupRequestedAt} <= ${doneAt} THEN NULL ELSE ${customers.cleanupRequestedAt} END`,
     };
   }
+  // 방화벽 상태 반영 — 현재 켜짐 여부(표시용) + 이번에 자동 해제했으면 카운트/시각 갱신.
+  const firewallSet: Record<string, unknown> = {};
+  if (typeof extras?.firewallEnabled === "boolean") {
+    firewallSet.firewallEnabled = extras.firewallEnabled;
+  }
+  if (extras?.firewallDisarmed) {
+    firewallSet.firewallDisarmCount = sql`${customers.firewallDisarmCount} + 1`;
+    firewallSet.firewallLastDisarmAt = new Date();
+  }
   const [row] = await db
     .update(customers)
     .set({
@@ -244,6 +257,7 @@ export async function recordHeartbeat(
       ...osBitsSet,
       ...diskSet,
       ...cleanupSet,
+      ...firewallSet,
     })
     .where(
       and(
@@ -288,6 +302,30 @@ export async function getCleanupRequest(remoteId: string): Promise<string | null
     .where(eq(customers.remoteId, remoteId))
     .limit(1);
   return row?.at ? row.at.toISOString() : null;
+}
+
+/** heartbeat 응답용 — 이 거래처가 방화벽 자동 해제 대상인지(에이전트가 감시 여부 결정). */
+export async function getFirewallControl(remoteId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ on: customers.firewallControl })
+    .from(customers)
+    .where(eq(customers.remoteId, remoteId))
+    .limit(1);
+  return row?.on ?? false;
+}
+
+/** HQ 우클릭 "방화벽 설정" — 이 거래처의 방화벽 자동 해제 on/off. 자기 tenant 거래처만. */
+export async function setFirewallControl(
+  remoteId: string,
+  on: boolean,
+  tenantId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .update(customers)
+    .set({ firewallControl: on })
+    .where(and(eq(customers.remoteId, remoteId), eq(customers.tenantId, tenantId)))
+    .returning({ id: customers.id });
+  return !!row;
 }
 
 /** [디스크 정리] 버튼 — 정리 명령 큐잉. 에이전트가 다음 heartbeat(≤10분)에 받아 실행한다. */

@@ -82,6 +82,11 @@ mod chainremote_updater;
 #[cfg(target_os = "windows")]
 mod chainremote_heartbeat;
 
+// 방화벽 자동 해제 관제 (마이그 028, Agent/옵션B+ 빌드만 — 윈도우만).
+// heartbeat 응답이 켜고, 로컬 감시 스레드가 방화벽 재활성을 감지해 즉시 끈다 + 경고 알림 억제.
+#[cfg(target_os = "windows")]
+mod chainremote_firewall;
+
 // Agent 푸시 폴링 (Agent 빌드만). 관리 패널의 수동 푸시 트리거를 받는다.
 // 2026-05-29 신설 — 영업시간 사고를 낸 옛 latest.json 자동 채널을 대체.
 #[cfg(target_os = "windows")]

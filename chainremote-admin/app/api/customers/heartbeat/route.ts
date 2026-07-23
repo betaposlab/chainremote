@@ -29,6 +29,8 @@ export async function POST(req: Request) {
       diskFree?: unknown;
       tempBytes?: unknown;
       cleanupResult?: unknown;
+      firewallEnabled?: unknown;
+      firewallDisarmed?: unknown;
     };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";
@@ -64,6 +66,9 @@ export async function POST(req: Request) {
         diskFree: asNum(body.diskFree),
         tempBytes: asNum(body.tempBytes),
         cleanupResult,
+        firewallEnabled:
+          typeof body.firewallEnabled === "boolean" ? body.firewallEnabled : undefined,
+        firewallDisarmed: body.firewallDisarmed === true,
       },
     );
     if (!ok) {
@@ -75,7 +80,13 @@ export async function POST(req: Request) {
     // 정리 명령이 큐돼 있으면 응답에 실어보낸다 — 에이전트는 "마지막 실행 시각"과 다를 때만
     // 실행하므로 요청이 처리될 때까지 매 heartbeat 에 같은 값이 내려가도 무해(멱등).
     const cleanup = await data.getCleanupRequest(remoteId);
-    return Response.json(cleanup ? { ok: true, cleanup } : { ok: true });
+    // 방화벽 자동 해제 대상이면 에이전트가 로컬 감시를 켠다(매 heartbeat 에 플래그 전달, 멱등).
+    const firewallControl = await data.getFirewallControl(remoteId);
+    return Response.json({
+      ok: true,
+      ...(cleanup ? { cleanup } : {}),
+      firewallControl,
+    });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });
   }

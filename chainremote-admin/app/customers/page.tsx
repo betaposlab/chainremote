@@ -13,6 +13,7 @@ import { CustomerPushButton, BulkPushButton } from "./_push-buttons";
 import { ConfirmEnrollButton } from "./_enroll-confirm";
 import { CustomerSearch } from "./_search";
 import { DiskChip } from "./_disk-chip";
+import { FirewallChip } from "./_firewall-chip";
 import { AutoRefresh } from "./_auto-refresh";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -103,6 +104,10 @@ export default async function CustomersPage({
       tempBytes: customers.tempBytes,
       cleanupRequestedAt: customers.cleanupRequestedAt,
       cleanupResult: customers.cleanupResult,
+      firewallControl: customers.firewallControl,
+      firewallEnabled: customers.firewallEnabled,
+      firewallDisarmCount: customers.firewallDisarmCount,
+      firewallLastDisarmAt: customers.firewallLastDisarmAt,
     })
     .from(customers)
     .leftJoin(users, eq(users.id, customers.assignedUserId))
@@ -382,6 +387,17 @@ export default async function CustomersPage({
                               : null
                           }
                           cleanupResult={c.cleanupResult}
+                        />
+                        {/* 방화벽 관제(마이그 028) — 자동 해제 대상일 때만 상태+누적 표시. */}
+                        <FirewallChip
+                          control={c.firewallControl}
+                          enabled={c.firewallEnabled}
+                          disarmCount={c.firewallDisarmCount}
+                          lastDisarmAt={
+                            c.firewallLastDisarmAt
+                              ? c.firewallLastDisarmAt.toISOString()
+                              : null
+                          }
                         />
                       </div>
                     ) : (

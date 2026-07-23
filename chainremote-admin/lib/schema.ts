@@ -156,6 +156,13 @@ export const customers = pgTable(
     //   실행 후 결과(JSON)를 보고하면 requested 가 비워진다. 자동업뎃 푸시와 같은 결.
     cleanupRequestedAt: timestamp("cleanup_requested_at", { withTimezone: true }),
     cleanupResult: text("cleanup_result"),
+    // 방화벽 자동 해제 관제(마이그 028) — 메인/오더 POS 방화벽 원복 방지. 거래처별 on/off(기본 off).
+    //   firewallControl=on 이면 에이전트가 로컬에서 방화벽을 감시하다 켜지면 즉시 해제 + 알림 끔.
+    //   firewallEnabled = 에이전트 보고(현재 방화벽 켜짐?), disarmCount = 자동 해제 누적(잦으면 업뎃 잦음).
+    firewallControl: boolean("firewall_control").notNull().default(false),
+    firewallEnabled: boolean("firewall_enabled"),
+    firewallDisarmCount: integer("firewall_disarm_count").notNull().default(0),
+    firewallLastDisarmAt: timestamp("firewall_last_disarm_at", { withTimezone: true }),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),
