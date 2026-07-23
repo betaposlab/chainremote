@@ -5,7 +5,7 @@
 //! (카드 승인은 리더기 COM 직결 + VAN 아웃바운드라 방화벽과 무관 — 인바운드만 끊긴다.)
 //!
 //! 동작: 패널에서 거래처별로 [방화벽 설정 → 자동 해제 켜기] 하면, heartbeat 응답에
-//! firewallControl=true 가 실려온다. 그러면 로컬 감시 스레드가 ~90초마다 방화벽 상태를
+//! firewallControl=true 가 실려온다. 그러면 로컬 감시 스레드가 ~5초마다 방화벽 상태를
 //! 레지스트리로 확인하고, 켜져 있으면 즉시 `netsh advfirewall set allprofiles state off`
 //! 로 끈다. 동시에 "방화벽이 꺼져 있습니다" 보안센터 경고 알림도 정책 키로 억제한다
 //! (사장님이 무심코 눌러 방화벽을 다시 켜는 사고 방지).
@@ -27,13 +27,27 @@ static CONTROL: AtomicBool = AtomicBool::new(false);
 /// 마지막 heartbeat 보고 이후 자동 해제가 한 번이라도 일어났나(보고 후 서버가 카운트++).
 static DISARMED_PENDING: AtomicBool = AtomicBool::new(false);
 
-/// 감시 주기 — 방화벽이 다시 켜졌을 때 인바운드 단절이 지속되는 최대 시간.
-/// 90초면 사장님이 알아채기 전에 대개 복구된다. 로컬 레지스트리 읽기라 부하 무시 가능.
-const WATCH_INTERVAL: Duration = Duration::from_secs(90);
+/// 감시 주기 — 방화벽이 다시 켜졌을 때 인바운드(주문 전달·프린터 공유) 단절이 지속되는 최대 시간.
+/// 5초면 오더포스가 사실상 못 느낀다(주문은 재시도로 통과). 로컬 레지스트리 몇 개 읽기라
+/// 저사양 POS 도 부하 무시 가능. (레지스트리 변경 이벤트로 <1초까지 줄일 수 있으나, 드문
+///  이벤트에 unsafe FFI 를 프로덕션 POS 전체에 넣는 위험 대비 이득이 낮아 단순 폴링을 택함.)
+const WATCH_INTERVAL: Duration = Duration::from_secs(5);
+
+/// LocalConfig 캐시 키 — 마지막으로 알려진 관제 상태. 재부팅 후 heartbeat 전에도 즉시 무장용.
+const CONTROL_CACHE_KEY: &str = "chainremote-firewall-control";
 
 /// heartbeat 응답의 firewallControl 을 반영. 로컬 감시 스레드가 이 값을 읽는다.
+/// 값을 로컬에도 저장해 재부팅 직후(heartbeat 전)에도 감시가 바로 무장되게 한다 — 업데이트가
+/// 재부팅 중 방화벽을 되살리는 바로 그 순간에 대비한다. 값이 바뀔 때만 기록(불필요 쓰기 회피).
 pub fn set_control(on: bool) {
     CONTROL.store(on, Ordering::Relaxed);
+    let want = if on { "Y" } else { "N" };
+    if hbb_common::config::LocalConfig::get_option(CONTROL_CACHE_KEY) != want {
+        hbb_common::config::LocalConfig::set_option(
+            CONTROL_CACHE_KEY.to_string(),
+            want.to_string(),
+        );
+    }
 }
 
 /// 현재 방화벽 켜짐 여부(heartbeat 보고용). 판단 불가면 None.
@@ -54,6 +68,11 @@ pub fn clear_disarmed() {
 /// 감시 스레드 시작 — heartbeat 로프와 함께 서비스 진입점에서 1회 호출.
 /// CONTROL 이 off 인 동안은 그냥 잠만 잔다(대다수 거래처).
 pub fn start_watch() {
+    // 부팅 즉시 무장 — 마지막으로 알려진 관제 상태를 로컬 캐시에서 읽어, heartbeat(최대 ~2분)를
+    //   기다리지 않고 감시를 켠다. 재부팅=업데이트가 방화벽을 되살리는 바로 그 상황이라 공백 0 이 관건.
+    if hbb_common::config::LocalConfig::get_option(CONTROL_CACHE_KEY) == "Y" {
+        CONTROL.store(true, Ordering::Relaxed);
+    }
     std::thread::spawn(|| loop {
         std::thread::sleep(WATCH_INTERVAL);
         if !CONTROL.load(Ordering::Relaxed) {

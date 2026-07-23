@@ -25,7 +25,7 @@
 ;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일했다 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.68"
+#define APP_VERSION    "1.4.69"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; x64: 윈컴 Flutter 빌드 출력 (build-all.ps1)
@@ -178,6 +178,15 @@ Filename: "{commonpf}\ChainRemote\ChainRemote.exe"; Description: "지금 ChainRe
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
   ValueType: string; ValueName: "{#APP_NAME}"; \
   ValueData: """{app}\ChainRemote.exe"" --tray"; \
+  Flags: uninsdeletevalue
+
+; 방화벽 꺼짐 보안센터 알림 억제 (방화벽 자동 해제 관제, 마이그028). POS 는 방화벽을 끄는 게
+;   관례라 "방화벽이 꺼져 있습니다" 나그가 상시 뜨고, 사장님이 무심코 누르면 방화벽이 되살아난다.
+;   gpedit "보안센터 알림 끄기"와 동일한 정책 키 — SecurityHealthService 가 부팅 때 읽으므로
+;   다음 재부팅부터 유효하다(런타임 코드도 관제 켤 때 같은 값을 심지만, 이미-실행 중인 서비스는
+;   캐시 때문에 재부팅 전까진 미적용이라 여기서 선제적으로 박아 확실히 한다). 제거 시 원복.
+Root: HKLM; Subkey: "SOFTWARE\Policies\Microsoft\Windows Defender Security Center\Notifications"; \
+  ValueType: dword; ValueName: "DisableNotifications"; ValueData: "1"; \
   Flags: uninsdeletevalue
 
 [UninstallRun]
