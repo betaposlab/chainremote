@@ -49,7 +49,7 @@ export default async function Home() {
         <ul className="space-y-2 text-sm text-slate-600">
           <li>· 좌측 "거래처"에서 등록된 거래처 확인</li>
           <li>· 좌측 "지원기록"에서 원격지원 이력 확인</li>
-          <li>· DB는 Chang 댁 NAS의 PostgreSQL에 저장됩니다 (외부 서버 미경유)</li>
+          <li>· 모든 데이터는 자체 서버에 안전하게 보관됩니다 (외부 클라우드 미경유)</li>
         </ul>
       </section>
     </div>
