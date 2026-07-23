@@ -26,8 +26,15 @@ export default async function Home() {
     .from(supportSessions)
     .where(eq(supportSessions.tenantId, tenant.id));
   // 이번 달 지원 — 이 달 1일 0시(서버 기준)부터 시작된 세션. started_at 인덱스 사용.
-  const [{ value: monthCount }] = await db
-    .select({ value: count() })
+  // 기록됨 = A/S 내용(설명 또는 종류)을 하나라도 적은 것. 그 외 = 미기록(바빠서 [닫기]만 누른 것).
+  const [{ total: monthCount, logged: monthLogged }] = await db
+    .select({
+      total: count(),
+      logged:
+        sql<number>`count(*) filter (where coalesce(${supportSessions.description}, '') <> '' or coalesce(${supportSessions.categories}, '') <> '')`.mapWith(
+          Number,
+        ),
+    })
     .from(supportSessions)
     .where(
       and(
@@ -48,7 +55,13 @@ export default async function Home() {
       <div className="grid grid-cols-3 gap-4 mb-8">
         <Card label="등록 거래처" value={customerCount} suffix="곳" href="/customers" />
         <Card label="누적 지원기록" value={sessionCount} suffix="건" href="/sessions?period=all" />
-        <Card label="이번 달 지원" value={monthCount} suffix="건" href="/sessions?period=thisMonth" />
+        <Card
+          label="이번 달 지원"
+          value={monthCount}
+          suffix="건"
+          href="/sessions?period=thisMonth"
+          subtitle={`기록 ${monthLogged} · 미기록 ${monthCount - monthLogged}`}
+        />
       </div>
 
       {(session.user.role === "owner" || session.user.role === "super_admin") && (
@@ -72,11 +85,13 @@ function Card({
   value,
   suffix,
   href,
+  subtitle,
 }: {
   label: string;
   value: number;
   suffix: string;
   href?: string;
+  subtitle?: string;
 }) {
   const inner = (
     <>
@@ -85,6 +100,7 @@ function Card({
         <span className="text-3xl font-bold tabular-nums">{value.toLocaleString()}</span>
         <span className="text-sm text-slate-500">{suffix}</span>
       </div>
+      {subtitle && <div className="mt-1 text-xs text-slate-400">{subtitle}</div>}
     </>
   );
   const base = "block rounded-xl border border-slate-200 bg-white px-5 py-4";

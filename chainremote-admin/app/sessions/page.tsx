@@ -62,6 +62,7 @@ export default async function SessionsPage({
       issueType: supportSessions.issueType,
       resolution: supportSessions.resolution,
       description: supportSessions.description,
+      categories: supportSessions.categories,
     })
     .from(supportSessions)
     .leftJoin(customers, eq(customers.id, supportSessions.customerId))
@@ -130,6 +131,9 @@ export default async function SessionsPage({
           <tbody className="divide-y divide-slate-100">
             {rows.map((r) => {
               const ongoing = !r.endedAt;
+              // 미기록 = 끝났는데 A/S 내용(설명·종류)을 아무것도 안 적은 것(바빠서 [닫기]만).
+              const unlogged =
+                !ongoing && !r.description?.trim() && !r.categories?.trim();
               return (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 font-medium">
@@ -168,7 +172,13 @@ export default async function SessionsPage({
                     )}
                   </td>
                   <td className="px-4 py-3 text-slate-500 text-xs max-w-[40ch] truncate">
-                    {r.description ?? ""}
+                    {unlogged ? (
+                      <span className="inline-block bg-slate-100 text-slate-400 px-2 py-0.5 rounded">
+                        미기록
+                      </span>
+                    ) : (
+                      (r.description ?? "")
+                    )}
                   </td>
                 </tr>
               );
