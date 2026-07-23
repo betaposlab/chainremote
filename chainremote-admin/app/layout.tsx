@@ -30,16 +30,23 @@ export default async function RootLayout({
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex bg-slate-50 text-slate-900">
         <aside className="w-60 shrink-0 border-r border-slate-200 bg-white flex flex-col sticky top-0 h-screen">
-          <div className="px-6 py-5 border-b border-slate-200">
-            <Link href="/" className="flex items-center">
+          <div className="px-5 py-5 border-b border-slate-200">
+            {/* 로고 클릭 = 소개 랜딩 페이지(새 탭). 홈(대시보드)은 아래 메뉴로 간다. */}
+            <a
+              href="https://betaposlab.com/chainremote"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center"
+              title="ChainRemote 소개 페이지 열기"
+            >
               {/* 우리 로고 워드마크(랜딩 헤더와 동일). next/image 대신 정적 <img> — 브랜드 자산. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/chainremote-logo.png"
                 alt="ChainRemote"
-                className="h-7 w-auto"
+                className="h-11 w-auto"
               />
-            </Link>
+            </a>
           </div>
           <nav className="p-3 space-y-1 text-sm flex-1 overflow-y-auto min-h-0">
             <NavItem href="/">대시보드</NavItem>
