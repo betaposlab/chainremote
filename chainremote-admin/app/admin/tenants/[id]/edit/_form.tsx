@@ -25,6 +25,7 @@ type TenantData = {
   paymentMethod: "cms" | "bank_transfer" | "credit_card" | null;
   subscriptionStartedAt: string | null; // YYYY-MM-DD
   notes: string | null;
+  maxSeats: number;
 };
 
 export function EditTenantForm({ tenant }: { tenant: TenantData }) {
@@ -96,6 +97,19 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
       </Section>
 
       <Section title="구독 / 요금">
+        <Field
+          label="좌석 (동시 세션 수)"
+          hint="이 대리점이 만들 수 있는 활성 아이디 수. 아이디 1개 = 동시 1명 원격. 좌석을 더 팔면 이 수를 올린다."
+        >
+          <input
+            name="maxSeats"
+            type="number"
+            min="1"
+            step="1"
+            defaultValue={v(tenant.maxSeats)}
+            className={inp}
+          />
+        </Field>
         <Field label="월정액 (원, 부가세 별도)" hint="청구서엔 +VAT 10% 자동 표시">
           <input
             name="monthlyFeeKrw"

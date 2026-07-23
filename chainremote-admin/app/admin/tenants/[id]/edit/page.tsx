@@ -71,6 +71,7 @@ export default async function EditTenantPage({
             ? t.subscriptionStartedAt.toISOString().slice(0, 10)
             : null,
           notes: t.notes,
+          maxSeats: t.maxSeats,
         }}
       />
     </div>

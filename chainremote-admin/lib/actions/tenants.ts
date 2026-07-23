@@ -212,6 +212,10 @@ export async function updateTenantFromForm(id: string, formData: FormData) {
     notes: str("notes") || null,
   };
 
+  // 좌석 상한(판매한 동시 세션 수). 최소 1. 안 오거나 잘못되면 기존값 유지(patch 에서 제외).
+  const seats = num("maxSeats");
+  if (seats && seats >= 1) patch.maxSeats = Math.floor(seats);
+
   await updateTenant(id, patch);
   revalidatePath("/admin/tenants");
 }

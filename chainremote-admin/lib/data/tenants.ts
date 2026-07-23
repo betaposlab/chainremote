@@ -31,6 +31,7 @@ export interface TenantFields {
   paymentMethod?: "cms" | "bank_transfer" | "credit_card" | null;
   subscriptionStartedAt?: Date | null;
   notes?: string | null;
+  maxSeats?: number;                              // 좌석 상한(동시 세션 = 아이디 수). 판매 좌석 수.
 }
 
 // 신규 회사 + 그 회사 owner 1명을 한 트랜잭션으로 생성.

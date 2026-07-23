@@ -2,7 +2,7 @@
 // super_admin(Chang) 은 회사별 아코디언(CompanyAccordion), owner 는 tenant 격리로 자기 회사 직원만 본다.
 
 import { db } from "@/lib/db";
-import { users } from "@/lib/schema";
+import { users, tenants } from "@/lib/schema";
 import { eq, desc } from "drizzle-orm";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -97,18 +97,39 @@ export default async function UsersPage() {
     .where(eq(users.tenantId, session.user.tenantId))
     .orderBy(desc(users.createdAt));
 
+  // 좌석 현황 — 활성 아이디(=동시 세션) 수 / 보유 좌석. 상한이면 추가 폼 대신 안내.
+  const [tenantRow] = await db
+    .select({ maxSeats: tenants.maxSeats })
+    .from(tenants)
+    .where(eq(tenants.id, session.user.tenantId));
+  const maxSeats = tenantRow?.maxSeats ?? 1;
+  const usedSeats = rows.filter((u) => u.isActive).length;
+  const seatFull = usedSeats >= maxSeats;
+
   return (
     <div className="px-8 py-6 max-w-5xl">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {rows.length}명 · 우리 회사 직원 (거래처 사람들은 여기 등록 안 함)
+          {rows.length}명 · 좌석{" "}
+          <span className={seatFull ? "font-semibold text-amber-600" : "font-semibold text-slate-700"}>
+            {usedSeats} / {maxSeats}
+          </span>{" "}
+          사용 · 우리 회사 직원 (거래처 사람들은 여기 등록 안 함)
         </p>
       </header>
 
       <section className="mb-8 rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="mb-4 text-sm font-semibold text-slate-700">직원 추가</h2>
-        <CreateUserForm />
+        {seatFull ? (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            좌석을 모두 사용 중입니다 ({usedSeats} / {maxSeats}석). 아이디 하나가 동시
+            1명의 원격을 담당하므로, 직원을 더 추가하려면 좌석을 추가로 구매하셔야
+            합니다. 좌석 추가는 담당자에게 문의해 주세요.
+          </div>
+        ) : (
+          <CreateUserForm />
+        )}
       </section>
 
       <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">

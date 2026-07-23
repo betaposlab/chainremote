@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
-import { assertEmailAvailable } from "@/lib/data/users";
+import { assertEmailAvailable, assertSeatAvailable } from "@/lib/data/users";
 
 async function requireOwner() {
   const session = await auth();
@@ -41,6 +41,7 @@ export async function createUser(formData: FormData) {
   }
 
   await assertEmailAvailable(email); // 전역 email 중복 사전검사 (최종 방어는 마이그 012 유니크)
+  await assertSeatAvailable(me.tenantId); // ★좌석 상한 — 아이디 무제한 생성 = 과금 회피 차단
   const passwordHash = bcrypt.hashSync(password, BCRYPT_COST);
   await db.insert(users).values({
     tenantId: me.tenantId,
@@ -68,6 +69,9 @@ export async function updateUser(id: string, formData: FormData) {
   if (!["owner", "admin", "operator", "viewer"].includes(role)) {
     throw new Error("잘못된 role");
   }
+
+  // 비활성→활성 전환도 좌석을 차지하므로 상한 검사(이 아이디 제외한 활성 수 기준).
+  if (isActive) await assertSeatAvailable(me.tenantId, id);
 
   await db
     .update(users)

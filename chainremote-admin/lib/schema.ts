@@ -47,6 +47,10 @@ export const tenants = pgTable("tenants", {
   displayName: text("display_name").notNull(),
   plan: text("plan").notNull().default("free"),
   isActive: boolean("is_active").notNull().default(true),
+  // 좌석 상한(마이그 027) — 이 대리점이 만들 수 있는 활성 아이디(=동시 세션) 수.
+  //   신규 기본 1. super_admin 보유 본사는 9999(무제한). owner 는 이 한도 내에서만 직원 추가,
+  //   상한 조정은 super_admin 만. "1 아이디 = 동시 1세션"(마이그 010)과 짝을 이뤄 과금을 막는다.
+  maxSeats: integer("max_seats").notNull().default(1),
 
   // 사업자 정보 (사업자등록증 기준)
   businessNo: text("business_no"),                   // 사업자등록번호
