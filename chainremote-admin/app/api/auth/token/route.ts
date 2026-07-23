@@ -13,7 +13,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users, tenants } from "@/lib/schema";
 import { signApiToken, jsonError, ApiAuthError } from "@/lib/api-auth";
-import { claimSeat } from "@/lib/data/active-sessions";
+import { claimSeat, countLiveTenantSessions } from "@/lib/data/active-sessions";
 import { clientIp } from "@/lib/request-ip";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         tenantId: users.tenantId,
         tenantActive: tenants.isActive,
         subscriptionStatus: tenants.subscriptionStatus,
+        maxSeats: tenants.maxSeats,
       })
       .from(users)
       .innerJoin(tenants, eq(users.tenantId, tenants.id))
@@ -69,6 +70,18 @@ export async function POST(req: Request) {
       (!u.tenantActive || u.subscriptionStatus !== "active")
     ) {
       throw new ApiAuthError(403, "구독이 정지되어 로그인할 수 없습니다. 관리자에게 문의하세요.");
+    }
+
+    // ★넷플릭스식 동시 접속 총량 — 이 대리점의 다른 아이디가 이미 좌석을 다 쓰고 있으면
+    //   새 아이디는 접속 거부(같은 아이디 재로그인은 자기 자리 대체라 총량 불변 → 본인 제외).
+    //   아이디 생성 상한(max_seats)과 짝: 아이디는 여러 개 둬도 동시 원격은 좌석만큼.
+    //   super_admin 본사는 9999석이라 자연히 통과. 초과는 403 → HQ 가 메시지 그대로 표시.
+    const liveOthers = await countLiveTenantSessions(u.tenantId, u.id);
+    if (liveOthers >= u.maxSeats) {
+      throw new ApiAuthError(
+        403,
+        `동시 접속 인원(${u.maxSeats}명)이 모두 사용 중입니다. 다른 직원이 접속을 종료한 뒤 다시 시도하세요.`,
+      );
     }
 
     const jti = crypto.randomUUID();

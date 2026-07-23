@@ -9,9 +9,34 @@
 //
 // orphan TTL = 2분 (스펙 §7): heartbeat 끊긴 지 2분↑ 이면 죽은 세션 → 다음 로그인 때 프롬프트 없이 통과.
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { activeLoginSessions, users } from "@/lib/schema";
+
+/**
+ * 넷플릭스식 좌석 총량 — 이 대리점에서 (excludeUserId 제외) **살아있는** 세션 수.
+ * 살아있음 = last_seen 2분 내(claimSeat 의 orphan TTL 과 같은 기준). 로그인 시 이 수가
+ * max_seats 이상이면 대리점 좌석이 꽉 찬 것 → 새 아이디는 접속 거부(2026-07-23 Chang 결정:
+ * 아이디는 여러 개 둬도 동시 접속만 좌석만큼). 아이디 개수 상한(max_seats 생성 제한)과 짝.
+ * 본사(9999석)는 자연히 통과. excludeUserId 는 재로그인하는 본인(자기 자리 대체는 총량 불변).
+ */
+export async function countLiveTenantSessions(
+  tenantId: string,
+  excludeUserId: string,
+): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)`.mapWith(Number) })
+    .from(activeLoginSessions)
+    .innerJoin(users, eq(users.id, activeLoginSessions.userId))
+    .where(
+      and(
+        eq(users.tenantId, tenantId),
+        ne(activeLoginSessions.userId, excludeUserId),
+        sql`${activeLoginSessions.lastSeenAt} > now() - interval '2 minutes'`,
+      ),
+    );
+  return row?.n ?? 0;
+}
 
 export interface SeatParams {
   userId: string;

@@ -1,10 +1,26 @@
 // 좌석 상한(마이그 027) 테스트 — 아이디 무제한 생성으로 과금이 새는 걸 막는다.
 //   assertSeatAvailable: 활성 아이디 수가 max_seats 이상이면 throw.
 import { describe, it, expect } from "vitest";
+import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { testDb } from "./helpers/db";
-import { tenants, users } from "@/lib/schema";
+import { tenants, users, activeLoginSessions } from "@/lib/schema";
 import { assertSeatAvailable } from "@/lib/data/users";
+import { countLiveTenantSessions } from "@/lib/data/active-sessions";
+
+const NOBODY = "00000000-0000-0000-0000-000000000000"; // 아무도 제외 안 하는 더미 userId
+
+// 활성 세션 1건 심기. stale=true 면 3분 전 last_seen(orphan, 2분 TTL 초과).
+async function mkSession(userId: string, stale = false) {
+  await testDb()
+    .insert(activeLoginSessions)
+    .values({
+      userId,
+      jti: randomUUID(),
+      deviceId: "dev-" + userId,
+      lastSeenAt: stale ? new Date(Date.now() - 3 * 60_000) : new Date(),
+    });
+}
 
 async function mkTenant(slug: string, maxSeats: number): Promise<string> {
   const [t] = await testDb()
@@ -75,5 +91,39 @@ describe("좌석 상한 (assertSeatAvailable)", () => {
       .values({ slug: "seat7", displayName: "seat7" })
       .returning({ maxSeats: tenants.maxSeats });
     expect(t.maxSeats).toBe(1);
+  });
+});
+
+describe("넷플릭스식 동시 접속 총량 (countLiveTenantSessions)", () => {
+  it("살아있는 세션만 세고 본인은 제외", async () => {
+    const t = await mkTenant("live1", 2);
+    const u1 = await mkUser(t, "u1@live1");
+    const u2 = await mkUser(t, "u2@live1");
+    const u3 = await mkUser(t, "u3@live1");
+    await mkSession(u1);
+    await mkSession(u2); // u1,u2 접속 중 (2/2), u3 미접속
+    // u3 로그인 관점: 자기 제외 살아있는 세션 = 2 → 좌석(2) 꽉 참 → 거부돼야
+    expect(await countLiveTenantSessions(t, u3)).toBe(2);
+    // u1 재로그인 관점: 자기 제외 = 1(u2) → 자기 자리 대체라 허용
+    expect(await countLiveTenantSessions(t, u1)).toBe(1);
+  });
+
+  it("orphan(2분↑ 무heartbeat) 세션은 안 센다 — 닫고 나가면 좌석 반환", async () => {
+    const t = await mkTenant("live2", 2);
+    const u1 = await mkUser(t, "u1@live2");
+    const u2 = await mkUser(t, "u2@live2");
+    await mkSession(u1, true); // orphan(3분 전)
+    await mkSession(u2); // 살아있음
+    expect(await countLiveTenantSessions(t, NOBODY)).toBe(1); // u2 만
+  });
+
+  it("다른 대리점 세션은 안 센다 (tenant 격리)", async () => {
+    const t1 = await mkTenant("live3a", 2);
+    const t2 = await mkTenant("live3b", 2);
+    const u1 = await mkUser(t1, "u1@live3a");
+    const u2 = await mkUser(t2, "u2@live3b");
+    await mkSession(u1);
+    await mkSession(u2);
+    expect(await countLiveTenantSessions(t1, NOBODY)).toBe(1); // t1 의 u1 만
   });
 });
