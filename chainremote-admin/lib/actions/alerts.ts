@@ -1,18 +1,19 @@
 "use server";
 
-// 거래처 알림 처리 액션 — 기기 이동/개명/무시는 거래처 데이터를 바꾸므로 마스터(owner) 전용.
-// (거래처 수정·삭제 = owner 만 — 기존 권한 규칙 그대로.)
+// 거래처 알림 처리 액션 — 기기 이동/개명/무시.
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import * as data from "@/lib/data/alerts";
+import { canWrite } from "@/lib/roles";
 
+// 기기 이동/개명/무시 = 거래처 작업이라 직원 포함 전원이 한다(3역할 체계, 2026-07-25).
+// 계정 관리만 대표자·관리자로 제한된다 — lib/actions/users.ts 참조.
 async function requireOwnerSession() {
   const session = await auth();
   if (!session?.user) throw new Error("로그인 필요");
-  const role = session.user.role;
-  if (role !== "owner" && role !== "super_admin") {
-    throw new Error("마스터(owner) 권한 필요");
+  if (!canWrite(session.user.role)) {
+    throw new Error("읽기 전용 계정은 이 작업 권한이 없습니다");
   }
   return session.user;
 }

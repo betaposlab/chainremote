@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { auth, signOut } from "@/auth";
+import { roleLabel, canManageAccounts } from "@/lib/roles";
 
 export const metadata: Metadata = {
   title: "ChainRemote 관리 패널",
@@ -52,7 +53,9 @@ export default async function RootLayout({
             <NavItem href="/">대시보드</NavItem>
             <NavItem href="/customers">거래처</NavItem>
             <NavItem href="/sessions">지원기록</NavItem>
-            {user.role === "owner" && <NavItem href="/users">사용자</NavItem>}
+            {user.role !== "super_admin" && canManageAccounts(user.role) && (
+              <NavItem href="/users">사용자</NavItem>
+            )}
             {user.role === "super_admin" && (
               <>
                 <NavItem href="/users">사용자</NavItem>
@@ -124,19 +127,3 @@ function NavItem({ href, children }: { href: string; children: React.ReactNode }
   );
 }
 
-function roleLabel(role: string): string {
-  switch (role) {
-    case "owner":
-      return "오너";
-    case "admin":
-      return "관리자";
-    case "operator":
-      return "직원";
-    case "viewer":
-      return "뷰어";
-    case "super_admin":
-      return "플랫폼 운영자";
-    default:
-      return role;
-  }
-}

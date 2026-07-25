@@ -17,6 +17,7 @@ import { FirewallChip } from "./_firewall-chip";
 import { AutoRefresh } from "./_auto-refresh";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { canWrite } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -245,7 +246,7 @@ export default async function CustomersPage({
           customerName,
           detail: parseAlertDetail(alert.detail),
         }))}
-        isOwner={session.user.role === "owner" || session.user.role === "super_admin"}
+        isOwner={canWrite(session.user.role)}
       />
 
       {updateProblems.length > 0 && (

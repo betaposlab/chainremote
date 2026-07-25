@@ -1,10 +1,12 @@
 // GET    /api/customers/:id  → 단일 조회 (전 직원)
-// PATCH  /api/customers/:id  → 수정 (owner 만 — 결정 #7)
-// DELETE /api/customers/:id  → 삭제 (owner 만)
+// PATCH  /api/customers/:id  → 수정 (직원 포함 전원 — 3역할 체계 2026-07-25)
+// DELETE /api/customers/:id  → 삭제 (직원 포함 전원)
+//   거래처 작업은 다 열고 계정 관리만 막는 게 확정 정책. 종전 owner 전용 게이트는
+//   super_admin 을 빼먹어 owner 없는 회사의 Chang 이 403 을 받던 결함도 함께 해소된다.
 
 import {
   requireApiAuth,
-  requireOwner,
+  requireNotViewer,
   jsonError,
   ApiAuthError,
 } from "@/lib/api-auth";
@@ -27,7 +29,7 @@ export async function GET(req: Request, ctx: Ctx) {
 export async function PATCH(req: Request, ctx: Ctx) {
   try {
     const me = await requireApiAuth(req);
-    requireOwner(me);
+    requireNotViewer(me);
     const { id } = await ctx.params;
     const body = (await req.json().catch(() => ({}))) as Partial<data.CustomerFields>;
     const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -55,7 +57,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 export async function DELETE(req: Request, ctx: Ctx) {
   try {
     const me = await requireApiAuth(req);
-    requireOwner(me);
+    requireNotViewer(me);
     const { id } = await ctx.params;
     const ok = await data.deleteCustomer(id, { tenantId: me.tenantId });
     if (!ok) throw new ApiAuthError(404, "not found");

@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { resetPassword, updateUser, deleteUser } from "@/lib/actions/users";
 import { HqStatus } from "../customers/_status";
+import { roleLabel, ASSIGNABLE_ROLES, type Role } from "@/lib/roles";
 
-type Role = "owner" | "admin" | "operator" | "viewer" | "super_admin";
 type Props = {
   user: {
     id: string;
@@ -108,6 +108,9 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                 className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
                 placeholder="이름"
               />
+              {/* 본인 행에선 역할·활성을 아예 안 보낸다. disabled 컨트롤은 FormData 에 실리지
+                  않아, 이름만 고쳐 저장해도 서버 기본값(직원)으로 강등 + 비활성화되는
+                  자기잠금 사고가 났다. 서버(updateUser)도 본인 행은 이름만 반영한다. */}
               <select
                 name="role"
                 defaultValue={user.role}
@@ -115,10 +118,14 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                 title={isSelf ? "본인 역할은 변경 불가" : ""}
                 className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
               >
-                <option value="owner">오너</option>
-                <option value="admin">관리자</option>
-                <option value="operator">직원</option>
-                <option value="viewer">뷰어</option>
+                {ASSIGNABLE_ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+                {user.role === "viewer" && (
+                  <option value="viewer">{roleLabel("viewer")}</option>
+                )}
               </select>
               <label className="flex items-center gap-1 text-sm text-slate-600">
                 <input
@@ -179,17 +186,3 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
   );
 }
 
-function roleLabel(role: Role): string {
-  switch (role) {
-    case "owner":
-      return "오너";
-    case "admin":
-      return "관리자";
-    case "operator":
-      return "직원";
-    case "viewer":
-      return "뷰어";
-    case "super_admin":
-      return "플랫폼 운영자";
-  }
-}

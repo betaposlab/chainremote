@@ -19,6 +19,7 @@ import { createHash } from "crypto";
 import { auth } from "@/auth";
 import { getTenant, getOrCreateEnrollKey } from "@/lib/data/tenants";
 import { fetchAgentPushMetaServer } from "@/lib/agent-push-meta";
+import { canWrite } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -39,9 +40,12 @@ export async function POST(_req: Request, ctx: Ctx) {
   const me = session?.user;
   if (!me) return jsonError(403, "로그인이 필요합니다");
   const { id } = await ctx.params;
+  // 신규 거래처 설치는 직원도 한다(3역할 체계, 2026-07-25) — 자기 회사 것만.
+  //   종전엔 owner 전용이라 owner 가 없는 회사에선 아무도 못 받았다. 다른 회사 것은 여전히 차단
+  //   (설치본에 그 대리점 enroll-key 가 박히므로 유출되면 멀티테넌트 격리가 깨진다).
   const isSuper = me.role === "super_admin";
-  const isOwnerOfThis = me.role === "owner" && me.tenantId === id;
-  if (!isSuper && !isOwnerOfThis) {
+  const isMemberOfThis = canWrite(me.role) && me.tenantId === id;
+  if (!isSuper && !isMemberOfThis) {
     return jsonError(403, "이 회사의 에이전트를 받을 권한이 없습니다");
   }
 

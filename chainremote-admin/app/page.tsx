@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { customers, supportSessions, tenants } from "@/lib/schema";
 import { and, count, eq, gte, sql } from "drizzle-orm";
 import { AgentDownloadCard } from "./_agent-download-card";
+import { canWrite } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ export default async function Home() {
         />
       </div>
 
-      {(session.user.role === "owner" || session.user.role === "super_admin") && (
+      {canWrite(session.user.role) && (
         <AgentDownloadCard tenantId={tenant.id} displayName={tenant.displayName} />
       )}
 

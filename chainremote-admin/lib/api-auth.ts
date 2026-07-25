@@ -8,6 +8,7 @@ import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { tenants } from "@/lib/schema";
+import { canWrite } from "@/lib/roles";
 
 const ALG = "HS256";
 const ISSUER = "chainremote-admin";
@@ -100,15 +101,14 @@ export async function requireApiAuth(req: Request): Promise<ApiTokenClaims> {
   return claims;
 }
 
-// 권한 게이트: owner 만 허용 (거래처 수정/삭제 등 chang 전용 작업).
-export function requireOwner(me: ApiTokenClaims): void {
-  if (me.role !== "owner") throw new ApiAuthError(403, "owner 권한 필요");
-}
-
-// 권한 게이트: viewer(읽기 전용) 차단 — owner/admin/operator 만 허용.
-// 파괴적/부수효과 명령(디스크 정리 = Temp·휴지통 영구삭제 큐잉 등)은 읽기 계정이 못 낸다.
+// 권한 게이트: 거래처·원격 작업 — 직원 포함 전원 허용, 레거시 viewer 만 차단.
+//   3역할 체계(2026-07-25)에서 직원도 거래처 추가·수정·삭제·푸시를 다 한다. 유일한 경계는
+//   계정 관리이고 그건 세션 표면(패널)에만 있어 여기엔 짝이 없다. 판정은 lib/roles.ts 가 단일 출처.
+//   ★종전 requireOwner 는 super_admin 을 빼먹어, owner 가 없는 회사(betaposlab)의 Chang 이
+//     HQ 에서 거래처 확정·수정·삭제를 누르면 UI 는 버튼을 보여주는데 서버가 403 을 내던 결함이
+//     있었다. 이 게이트로 통일하며 함께 해소된다.
 export function requireNotViewer(me: ApiTokenClaims): void {
-  if (me.role === "viewer")
+  if (!canWrite(me.role))
     throw new ApiAuthError(403, "읽기 전용 계정은 이 작업 권한이 없습니다");
 }
 

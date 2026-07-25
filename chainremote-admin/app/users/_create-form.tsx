@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createUser } from "@/lib/actions/users";
+import { ASSIGNABLE_ROLES } from "@/lib/roles";
 
 export function CreateUserForm() {
   const [pending, setPending] = useState(false);
@@ -44,13 +45,15 @@ export function CreateUserForm() {
       />
       <select
         name="role"
-        defaultValue="admin"
+        defaultValue="operator"
+        title={ASSIGNABLE_ROLES.map((r) => `${r.label}: ${r.hint}`).join("\n")}
         className="rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-[#00A0E5] focus:outline-none"
       >
-        <option value="owner">오너</option>
-        <option value="admin">관리자</option>
-        <option value="operator">직원</option>
-        <option value="viewer">뷰어</option>
+        {ASSIGNABLE_ROLES.map((r) => (
+          <option key={r.value} value={r.value}>
+            {r.label}
+          </option>
+        ))}
       </select>
       <button
         type="submit"

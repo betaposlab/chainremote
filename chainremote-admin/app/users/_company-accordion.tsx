@@ -13,8 +13,8 @@ import {
   adminDeleteUser,
 } from "@/lib/actions/tenant-users";
 import { HqStatus } from "../customers/_status";
+import { roleLabel, ASSIGNABLE_ROLES, type Role } from "@/lib/roles";
 
-type Role = "owner" | "admin" | "operator" | "viewer" | "super_admin";
 
 export type AccUser = {
   id: string;
@@ -122,10 +122,11 @@ function AddForm({ tenantId }: { tenantId: string }) {
       <input name="displayName" required placeholder="이름" className={inp} />
       <input name="password" required placeholder="초기 비번 (4자+)" className={inp} />
       <select name="role" defaultValue="operator" className={inp}>
-        <option value="owner">오너</option>
-        <option value="admin">관리자</option>
-        <option value="operator">직원</option>
-        <option value="viewer">뷰어</option>
+        {ASSIGNABLE_ROLES.map((r) => (
+          <option key={r.value} value={r.value}>
+            {r.label}
+          </option>
+        ))}
       </select>
       <button
         type="submit"
@@ -302,10 +303,11 @@ function Row({
                 defaultValue={user.role === "super_admin" ? "owner" : user.role}
                 className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
               >
-                <option value="owner">오너</option>
-                <option value="admin">관리자</option>
-                <option value="operator">직원</option>
-                <option value="viewer">뷰어</option>
+                {ASSIGNABLE_ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
               </select>
               <label className="flex items-center gap-1 text-sm text-slate-600">
                 <input type="checkbox" name="isActive" defaultChecked={user.isActive} />
@@ -365,17 +367,3 @@ function Row({
   );
 }
 
-function roleLabel(role: Role): string {
-  switch (role) {
-    case "owner":
-      return "오너";
-    case "admin":
-      return "관리자";
-    case "operator":
-      return "직원";
-    case "viewer":
-      return "뷰어";
-    case "super_admin":
-      return "플랫폼 운영자";
-  }
-}

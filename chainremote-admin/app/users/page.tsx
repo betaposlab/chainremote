@@ -10,6 +10,7 @@ import { UserRow } from "./_user-row";
 import { CreateUserForm } from "./_create-form";
 import { CompanyAccordion, type AccUser } from "./_company-accordion";
 import { listAllUsersWithCompany, listTenants } from "@/lib/data/tenants";
+import { canManageAccounts } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -34,12 +35,12 @@ async function getTargetHqVersion(): Promise<string | null> {
 export default async function UsersPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "owner" && session.user.role !== "super_admin") {
+  if (!canManageAccounts(session.user.role)) {
     return (
       <div className="px-8 py-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
         <p className="mt-2 text-sm text-red-600">
-          owner 권한이 있어야 사용자 관리 페이지에 접근할 수 있습니다.
+          대표자·관리자만 직원 계정을 관리할 수 있습니다.
         </p>
       </div>
     );
