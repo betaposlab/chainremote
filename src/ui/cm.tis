@@ -388,10 +388,15 @@ function applyCmBanner() {
         setWindowState(View.WINDOW_SHOWN);
         view.move((sw - w) / 2, 0, w, h);
         view.windowTopmost = true;
+        // 창 자체를 활성화 불가(NOACTIVATE)+Alt+Tab 제외(TOOLWINDOW)로. POS 의 "바탕화면 보기"가
+        //   topmost 배너에 포커스를 뺏겨 방금 최소화한 POS 를 도로 띄우던 문제를 끊는다
+        //   (태조산 현장 2026-07-25). 클릭은 그대로라 [종료] 버튼은 동작한다.
+        handler.set_banner_mode(true);
     } else {
-        // 대기(수락카드)/끊김: 카드 크기.
+        // 대기(수락카드)/끊김: 카드 크기. 카드는 거래처가 눌러야 하는 창이라 스타일을 원복한다.
         var w = scaleIt(380);
         var h = scaleIt(260);
+        handler.set_banner_mode(false);
         view.windowTopmost = false;
         view.move((sw - w) / 2, 0, w, h);
     }

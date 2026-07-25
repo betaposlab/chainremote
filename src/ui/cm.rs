@@ -9,6 +9,10 @@ use std::{ops::Deref, sync::Arc};
 
 lazy_static::lazy_static! {
     pub static ref HIDE_CM: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
+    /// 이 cm 창의 HWND (ui.rs 가 창 생성 직후 채운다). 배너 모드 창 스타일 토글에 쓴다.
+    /// 0 이면 아직 없음 — 그 경우 스타일 적용을 건너뛴다(기능 자체는 그대로 동작).
+    /// ★usize 로 담는다 — u64 로 두면 32비트(Win7 POS 페이로드)에서 포인터 캐스팅이 컴파일 에러.
+    pub static ref CM_HWND: Arc<Mutex<usize>> = Arc::new(Mutex::new(0));
 }
 
 #[derive(Clone, Default)]
@@ -160,6 +164,21 @@ impl SciterConnectionManager {
     fn hide_cm(&self) -> bool {
         *crate::ui::cm::HIDE_CM.lock().unwrap()
     }
+
+    /// 배너 모드 전환 알림 — cm.tis::applyCmBanner 가 상태가 바뀔 때만 부른다.
+    /// 배너일 때 창을 NOACTIVATE/TOOLWINDOW 로, 수락 카드로 돌아가면 원복한다.
+    /// 자세한 배경은 platform::windows::set_cm_banner_style 주석 참조.
+    fn set_banner_mode(&self, banner: bool) {
+        #[cfg(windows)]
+        {
+            let hwnd = *crate::ui::cm::CM_HWND.lock().unwrap();
+            if hwnd != 0 {
+                crate::platform::windows::set_cm_banner_style(hwnd as _, banner);
+            }
+        }
+        #[cfg(not(windows))]
+        let _ = banner;
+    }
 }
 
 impl sciter::EventHandler for SciterConnectionManager {
@@ -182,5 +201,6 @@ impl sciter::EventHandler for SciterConnectionManager {
         fn elevate_portable(i32);
         fn get_option(String);
         fn hide_cm();
+        fn set_banner_mode(bool);
     }
 }

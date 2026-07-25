@@ -123,6 +123,12 @@ pub fn start(args: &mut [String]) {
         frame.sciter_handler(UIHostHandler {});
         page = "install.html";
     } else if args[0] == "--cm" {
+        // 배너 모드에서 창 스타일(NOACTIVATE/TOOLWINDOW)을 토글하려면 이 창의 HWND 가 필요하다.
+        // cm.tis 의 applyCmBanner → handler.set_banner_mode 가 이 값을 쓴다.
+        #[cfg(windows)]
+        {
+            *cm::CM_HWND.lock().unwrap() = frame.get_hwnd() as usize;
+        }
         frame.register_behavior("connection-manager", move || {
             Box::new(cm::SciterConnectionManager::new())
         });

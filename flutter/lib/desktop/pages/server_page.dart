@@ -69,8 +69,18 @@ class _DesktopServerPageState extends State<DesktopServerPage>
         final minimized = await windowManager.isMinimized();
         if (!visible || minimized) {
           _bannerDiag('restore: visible=$visible minimized=$minimized');
-          if (minimized) await windowManager.restore();
-          await windowManager.show();
+          // ★활성화 없이 복원한다(SW_SHOWNOACTIVATE). 종전엔 restore()+show() 로 창을
+          //   foreground 로 끌어올렸는데, POS 의 "바탕화면 보기"(MinimizeAll)로 배너까지
+          //   최소화된 직후 이 루프가 돌면 배너가 포커스를 가져가며 셸의 show-desktop
+          //   상태가 풀려, 방금 최소화한 POS 앱이 도로 떠버렸다(태조산 2026-07-25).
+          //   SW_SHOWNOACTIVATE 는 최소화 복원도 함께 처리하므로 restore() 가 대개 불필요하다.
+          await windowManager.show(inactive: true);
+          // 폴백: 그래도 최소화가 안 풀리는 환경이면 종전 경로로 복원한다. 배너가 안 보이면
+          //   거래처가 원격 중인지 알 수 없어(투명성) 그게 더 큰 손해라, 보이는 쪽을 택한다.
+          if (await windowManager.isMinimized()) {
+            await windowManager.restore();
+            await windowManager.show(inactive: true);
+          }
         }
         await windowManager.setAlwaysOnTop(true);
       } catch (e) {

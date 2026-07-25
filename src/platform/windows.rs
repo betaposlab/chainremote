@@ -3850,6 +3850,62 @@ fn nt_terminate_process(process_id: DWORD) -> ResultType<()> {
     }
 }
 
+// 확장 스타일 읽기/쓰기 — 32비트에는 GetWindowLongPtrW 가 없다(포인터 폭이 LONG 과 같아
+// winapi 가 Ptr 변형을 x86_64 에만 정의). Win7 32비트 POS 가 상당수라 양쪽을 다 챙긴다.
+#[cfg(target_pointer_width = "64")]
+unsafe fn get_ex_style(hwnd: HWND) -> isize {
+    GetWindowLongPtrW(hwnd, GWL_EXSTYLE)
+}
+#[cfg(target_pointer_width = "64")]
+unsafe fn set_ex_style(hwnd: HWND, v: isize) {
+    SetWindowLongPtrW(hwnd, GWL_EXSTYLE, v);
+}
+#[cfg(target_pointer_width = "32")]
+unsafe fn get_ex_style(hwnd: HWND) -> isize {
+    GetWindowLongW(hwnd, GWL_EXSTYLE) as isize
+}
+#[cfg(target_pointer_width = "32")]
+unsafe fn set_ex_style(hwnd: HWND, v: isize) {
+    SetWindowLongW(hwnd, GWL_EXSTYLE, v as i32);
+}
+
+/// CM 창(수락 카드 ↔ "원격지원 중" 배너)의 확장 스타일 토글. 배너일 때만 켠다.
+///
+/// WS_EX_NOACTIVATE — 배너가 절대 활성화되지 않게 한다. POS 앱의 "바탕화면 보기" 버튼은
+///   보통 MinimizeAll(Win+D)인데, topmost 인 배너는 최소화 대상에서 빠져 화면에 홀로 남는다.
+///   그러면 포커스가 배너로 넘어가고, 셸은 "사용자가 창을 활성화했다"고 보아 show-desktop
+///   상태를 풀어 방금 최소화한 POS 를 도로 띄운다(태조산 현장 2026-07-25). 활성화 자체를
+///   막아 이 고리를 끊는다. 클릭은 그대로 받으므로 배너의 [종료] 버튼은 동작한다.
+///   덤: 바코드 스캐너 입력 보호가 확실해진다 — 종전엔 view.focus 를 안 부르는 수준이었다.
+/// WS_EX_TOOLWINDOW — Alt+Tab 목록에서 빼 매장 직원의 작업 전환을 오염시키지 않는다.
+///
+/// 수락 카드로 돌아가면 원복한다. 카드는 거래처가 눌러야 하는 창이라 동작을 건드리지 않는다.
+pub fn set_cm_banner_style(hwnd: HWND, banner: bool) {
+    if hwnd.is_null() {
+        return;
+    }
+    unsafe {
+        let cur = get_ex_style(hwnd);
+        let flags = (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW) as isize;
+        let want = if banner { cur | flags } else { cur & !flags };
+        if want == cur {
+            return;
+        }
+        set_ex_style(hwnd, want);
+        // 스타일 변경은 SWP_FRAMECHANGED 로 알려야 비클라이언트 영역이 즉시 갱신된다.
+        // 위치·크기·z-order 는 applyCmBanner 가 관리하므로 여기선 건드리지 않는다.
+        SetWindowPos(
+            hwnd,
+            std::ptr::null_mut(),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        );
+    }
+}
+
 pub fn try_set_window_foreground(window: HWND) {
     let env_key = SET_FOREGROUND_WINDOW;
     if let Ok(value) = std::env::var(env_key) {
