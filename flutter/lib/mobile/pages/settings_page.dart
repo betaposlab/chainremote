@@ -14,6 +14,9 @@ import 'package:url_launcher/url_launcher_string.dart';
 import '../../common.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/login.dart';
+import '../../common/widgets/chainremote_auth_gate.dart';
+import '../../common/widgets/chainremote_account.dart';
+import '../../common/chainremote_update_check.dart';
 import '../../consts.dart';
 import '../../models/model.dart';
 import '../../models/platform_model.dart';
@@ -683,9 +686,53 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
     // 우리 제품에서 안 쓰므로 모바일 설정에서 숨긴다. 인증은 대리점 로그인
     // 게이트로, 서버는 코어에 baked 되어 있다. false 로 바꾸면 원래대로 노출된다.
     final crHideStock = true;
+    // ChainRemote 계정 섹션 — 데스크톱 사이드바 하단(내 ID·비번 변경·로그아웃)의 모바일판.
+    //   종전 모바일엔 로그아웃이 아예 없어, 한 번 로그인하면 앱을 지우기 전엔 계정을 못 바꿨다.
+    //   다이얼로그는 common/widgets/chainremote_account.dart 로 데스크톱과 공유한다.
+    final crAccountSection = SettingsSection(
+      title: const Text('계정'),
+      tiles: [
+        SettingsTile(
+          title: Text(ChainRemoteAuth.currentDisplayName()),
+          description: const Text('로그인된 계정'),
+          leading: const Icon(Icons.person_outline),
+        ),
+        // 내 9자리 ID + 탭하면 복사. 데스크톱 사이드바 칩과 같은 정보인데, 모바일엔 없었다
+        //   (Android 는 '화면 공유' 탭에만, iOS 는 아예 볼 방법이 없었음).
+        CustomSettingsTile(
+          child: CrMyIdBuilder(
+            builder: (ctx, id) => ListTile(
+              leading: const Icon(Icons.badge_outlined),
+              title: const Text('내 ID'),
+              subtitle: Text(
+                id,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              trailing: const Icon(Icons.copy, size: 18),
+              onTap: () => crCopyMyId(id),
+            ),
+          ),
+        ),
+        SettingsTile(
+          title: const Text('비밀번호 변경'),
+          leading: const Icon(Icons.lock_outline),
+          onPressed: (context) => showCrChangePasswordDialog(context),
+        ),
+        SettingsTile(
+          title: const Text('로그아웃'),
+          leading: const Icon(Icons.logout),
+          onPressed: (context) => showCrLogoutConfirm(context),
+        ),
+      ],
+    );
     final settings = SettingsList(
       sections: [
         customClientSection,
+        crAccountSection,
         if (!crHideStock && !bind.isDisableAccount())
           SettingsSection(
             title: Text(translate('Account')),
@@ -966,6 +1013,15 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
                       )),
                 ),
                 leading: Icon(Icons.info)),
+            // 업데이트 확인 — 데스크톱 설정과 같은 위젯. 새 버전 여부를 알려준다.
+            //   "지금 설치"는 위젯 내부에서 Windows 전용으로 가드돼 있어, 모바일에선
+            //   최신 여부 확인까지만 된다(iOS 는 앱 스토어/재설치 경로가 따로라 정상).
+            CustomSettingsTile(
+              child: const Padding(
+                padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: ChainRemoteUpdateCheckRow(),
+              ),
+            ),
             SettingsTile(
                 title: Text(translate("Build Date")),
                 value: Padding(

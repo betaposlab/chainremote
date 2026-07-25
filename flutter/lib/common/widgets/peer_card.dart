@@ -648,8 +648,10 @@ class _PeerCardState extends State<_PeerCard>
     }
   }
 
+  // 모바일엔 마우스 호버가 없다. 호버 기반 페이드를 그대로 두면 가로 모드 폰에서 더보기
+  //   버튼이 투명한 채로 남아(탭은 되지만 보이지 않아) 메뉴가 없는 것처럼 보인다 — 늘 보인다.
   Widget _actionMore(Peer peer) => Obx(() => AnimatedOpacity(
-        opacity: _rowHover.value ? 1.0 : 0.0,
+        opacity: isMobile || _rowHover.value ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 140),
         child: Listener(
           onPointerDown: (e) {

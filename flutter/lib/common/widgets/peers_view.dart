@@ -756,7 +756,12 @@ class _PeersViewState extends State<_PeersView>
             // We should avoid too many rebuilds. Win10(Some machines) on Flutter 3.19.6.
             // Continious rebuilds of `ListView.builder` will cause memory leak.
             // Simple demo can reproduce this issue.
-            final Widget child = Obx(() => stateGlobal.isPortrait.isTrue
+            // 세로(폰)에서도 list 보기면 아래 탐색기식 폴더 경로를 탄다. 종전엔 세로면 무조건
+            //   평면 목록이라, 폰에서는 폴더에 넣을 수는 있는데 그 폴더를 **열 방법이 없었다**.
+            //   카드형 보기는 종전대로 단순 목록(열 패킹이 폰 폭에 안 맞는다).
+            //   데스크톱은 isPortrait 가 항상 false 라 이 조건에 영향받지 않는다.
+            final Widget child = Obx(() => (stateGlobal.isPortrait.isTrue &&
+                    peerCardUiType.value != PeerUiType.list)
                 ? ListView.builder(
                     itemCount: peers.length,
                     itemBuilder: (BuildContext context, int index) {

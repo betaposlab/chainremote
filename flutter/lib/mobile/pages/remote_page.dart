@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import '../../common.dart';
 import '../../common/widgets/overlay.dart';
 import '../../common/widgets/dialog.dart';
+import '../../common/widgets/chainremote_session_record.dart';
 import '../../common/widgets/remote_input.dart';
 import '../../models/input_model.dart';
 import '../../models/model.dart';
@@ -121,11 +122,18 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
           isKeyboardVisible: keyboardVisibilityController.isVisible);
     });
     WidgetsBinding.instance.addObserver(this);
+    // ChainRemote: 원격 시작 기록(논블로킹). 데스크톱과 같은 전역 레지스트리를 쓴다 —
+    //   종전 모바일엔 이 훅이 없어 폰으로 지원하면 지원기록이 아예 안 남았다(과금·이력 누락).
+    //   거절/실패/내부기기는 서버와 <15초 discard 규칙이 걸러낸다.
+    crSessionStart(widget.id);
   }
 
   @override
   Future<void> dispose() async {
     WidgetsBinding.instance.removeObserver(this);
+    // ChainRemote: 세션 종료 기록 캐치올. 모바일은 창이 하나뿐이라(데스크톱의 창이동 개념 없음)
+    //   페이지가 사라지면 곧 세션 종료다. 논블로킹이라 dispose 를 막지 않는다.
+    crSessionEndAuto(widget.id);
     // https://github.com/flutter/flutter/issues/64935
     super.dispose();
     gFFI.dialogManager.hideMobileActionsOverlay(store: false);

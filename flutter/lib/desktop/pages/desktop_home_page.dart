@@ -11,6 +11,7 @@ import 'package:flutter_hbb/common/widgets/custom_password.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/connection_page.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_account.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_session_record.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_setting_page.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_tab_page.dart';
@@ -541,148 +542,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     );
   }
 
+  // 다이얼로그 본문은 common/widgets/chainremote_account.dart 로 옮겨 모바일과 공유한다.
   Future<void> _openChangePasswordDialog(BuildContext context) async {
-    final currentCtrl = TextEditingController();
-    final newCtrl = TextEditingController();
-    final confirmCtrl = TextEditingController();
-    String? errorText;
-    bool busy = false;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setState) {
-          Future<void> submit() async {
-            final current = currentCtrl.text;
-            final newPw = newCtrl.text;
-            final confirm = confirmCtrl.text;
-            if (current.isEmpty || newPw.isEmpty) {
-              setState(() => errorText = '모든 칸을 채워주세요');
-              return;
-            }
-            if (newPw.length < 4) {
-              setState(() => errorText = '새 비밀번호는 4자 이상이어야 합니다');
-              return;
-            }
-            if (newPw != confirm) {
-              setState(() => errorText = '새 비밀번호가 일치하지 않습니다');
-              return;
-            }
-            if (current == newPw) {
-              setState(() => errorText = '새 비밀번호가 현재와 동일합니다');
-              return;
-            }
-            setState(() {
-              busy = true;
-              errorText = null;
-            });
-            final res = ChainRemoteAuth.changePassword(current, newPw);
-            if (res.ok) {
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('비밀번호가 변경되었습니다')),
-                );
-              }
-              return;
-            }
-            setState(() {
-              busy = false;
-              errorText = res.error ?? '실패';
-            });
-          }
-
-          return AlertDialog(
-            title: const Text('비밀번호 변경'),
-            content: SizedBox(
-              width: 360,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: currentCtrl,
-                    enabled: !busy,
-                    obscureText: true,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      labelText: '현재 비밀번호',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: newCtrl,
-                    enabled: !busy,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: '새 비밀번호 (4자 이상)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: confirmCtrl,
-                    enabled: !busy,
-                    obscureText: true,
-                    onSubmitted: (_) => submit(),
-                    decoration: const InputDecoration(
-                      labelText: '새 비밀번호 확인',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                  if (errorText != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      errorText!,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: busy ? null : () => Navigator.pop(ctx),
-                child: const Text('취소'),
-              ),
-              FilledButton(
-                onPressed: busy ? null : submit,
-                child: busy
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('변경'),
-              ),
-            ],
-          );
-        });
-      },
-    );
+    await showCrChangePasswordDialog(context);
   }
 
   Future<void> _confirmLogout(BuildContext context) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('로그아웃'),
-        content: const Text('로그아웃하시겠습니까? 다시 사용하려면 로그인해야 합니다.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('취소')),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('로그아웃')),
-        ],
-      ),
-    );
-    if (ok == true) ChainRemoteAuth.logout();
+    await showCrLogoutConfirm(context);
   }
 
   Widget _buildBlock({required Widget child}) {

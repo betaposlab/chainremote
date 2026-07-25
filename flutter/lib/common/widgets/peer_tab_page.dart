@@ -854,7 +854,17 @@ class _PeerTabPageState extends State<PeerTabPage>
         _createRefresh(index: PeerTabIndex.customers),
     ];
     // 다중선택/태그토글은 거래처 운영에 불필요해 제거했다.
+    // ★가로(데스크톱/태블릿)에만 있던 항목을 세로(폰)에도 올린다 — 폰으로 지원하는 직원이
+    //   폴더를 만들지도, 열지도, 전체 지원기록을 보지도 못했다. 공간이 모자라면 아래 로직이
+    //   자동으로 '더보기' 드롭다운에 접어 넣으므로 좁은 화면에서도 안전하다.
     final List<Widget> dynamicActions = [
+      // 새 폴더 — 폴더가 동작하는 즐겨찾기·전체거래처 탭에서만(가로와 동일 조건).
+      if (model.currentTab == PeerTabIndex.fav.index ||
+          model.currentTab == PeerTabIndex.customers.index)
+        _createNewFolder(context),
+      _createSupportHistory(context),
+      // 보기 전환 — 폴더(탐색기식) 보기로 들어가는 유일한 입구라 세로에도 필수.
+      _createPeerViewTypeSwitch(context),
       if (model.currentTab != PeerTabIndex.recent.index) PeerSortDropdown(),
     ];
     final rightWidth = availableWidth -
