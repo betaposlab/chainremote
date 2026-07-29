@@ -152,6 +152,25 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
               const AddButton(),
             ]);
           }
+          // ★새 창의 첫 프레임엔 RemotePage 의 State 가 아직 없다(PageView 는 자식을 layout
+          //   단계에서 만드는데 이 tail 은 같은 프레임 build 단계에서 먼저 평가된다).
+          //   그 상태로 activePage.ffi 를 읽으면 `_lastState.value!` 가 Null check 예외를 던져
+          //   tail Row 전체(툴바+[+]버튼)가 ErrorWidget 으로 대체된다 — 릴리즈 빌드의 ErrorWidget
+          //   은 연회색 박스라 "툴바만 사라진" 것처럼 보인다. 이게 신규 거래처 첫 접속마다
+          //   툴바가 없다가 재접속하면 멀쩡하던 증상의 정체다(2026-07-29 규명).
+          //   ★alwaysShow(79a09c4cf)로는 못 막는다 — 예외는 RemoteToolbar 인자를 만드는
+          //   시점, 즉 그 위젯의 build() 에 들어가기도 전에 터지기 때문이다.
+          //   여기서 예외를 원천 차단하고, State 가 붙는 다음 프레임에 다시 그리게 한다
+          //   (hasState 가 true 가 되면 이 분기를 안 타므로 반복되지 않는다).
+          if (!activePage.hasState) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              tabController.state.refresh();
+            });
+            return Row(mainAxisSize: MainAxisSize.min, children: [
+              _RelativeMouseModeHint(tabController: tabController),
+              const AddButton(),
+            ]);
+          }
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [

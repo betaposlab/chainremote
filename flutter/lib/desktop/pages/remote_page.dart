@@ -65,6 +65,12 @@ class RemotePage extends StatefulWidget {
 
   FFI get ffi => (_lastState.value! as _RemotePageState)._ffi;
 
+  /// State 가 아직 붙지 않았는지(=ffi 접근이 예외를 던지는지) 미리 확인한다.
+  /// PageView 는 자식(RemotePage)을 layout 단계에서 만드는데 탭바 tail 은 같은 프레임의
+  /// build 단계에서 먼저 평가된다 → 새 창의 첫 프레임엔 _lastState 가 반드시 null 이다.
+  /// 그걸 모르고 ffi 를 읽으면 tail 전체가 ErrorWidget 으로 바뀌어 툴바가 통째로 사라진다.
+  bool get hasState => _lastState.value != null;
+
   @override
   State<RemotePage> createState() {
     final state = _RemotePageState(id);
