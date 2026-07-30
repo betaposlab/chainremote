@@ -133,7 +133,8 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Fil
 
 ; 1.5. custom.txt 절대 경로 박기 (silent-install 후) — load_custom_client() 는 설치된 exe 옆만 읽는다.
 ;    옛 Inno AppId 잔재로 {app} 이 다른 폴더를 가리켜도 안전하도록 절대 경로로 강제 (2026-05-26 fix).
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$dst='{commonpf}\ChainRemote'; New-Item -Path $dst -ItemType Directory -Force | Out-Null; Copy-Item '{tmp}\custom_payload\custom.txt' (Join-Path $dst 'custom.txt') -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
+;    경로는 CRAgentDir — 64비트 Win7 은 install_me 가 (x86) 에 설치하므로 {commonpf} 하드코딩이면 어긋난다.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$dst='{code:CRAgentDir}'; New-Item -Path $dst -ItemType Directory -Force | Out-Null; Copy-Item '{tmp}\custom_payload\custom.txt' (Join-Path $dst 'custom.txt') -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
 
 ; 2. 서비스 + 잔여 프로세스 강제 정지 — toml 박기 전 필수 (file lock 해제).
 ;    상태는 .NET Status enum 으로 비교 — 한국어 Windows "중지됨" 문자열 미스매치 회피.
@@ -161,23 +162,28 @@ Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
 ; 8.5. 인스톨 후 self-test 스모크 — Service/Process/Exe 3종 체크를 updater.log 에 PASS/FAIL 기록.
-;     (절대 경로 하드코딩 대신 {commonpf} — 32/64비트 설치 모드 모두 정확)
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Start-Sleep -Seconds 8; $log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $svcobj=Get-Service ChainRemote -ErrorAction SilentlyContinue; $svc='None'; if ($svcobj) {{ $svc=[string]$svcobj.Status }}; $procs=@(Get-Process ChainRemote -ErrorAction SilentlyContinue).Count; $exe='{commonpf}\ChainRemote\ChainRemote.exe'; $exists=Test-Path $exe; $verdict='FAIL'; if (($svc -eq 'Running') -and ($procs -ge 1) -and $exists) {{ $verdict='PASS' }}; Add-Content -Path $log -Value ($st + ' installer: SELFTEST v{#APP_VERSION} svc=' + $svc + ' procs=' + $procs + ' exe=' + $exists + ' -> ' + $verdict)"""; StatusMsg: "ChainRemote 설치 self-test 중..."; Flags: runhidden waituntilterminated
+;     (경로는 CRAgentDir — 64비트 Win7 (x86) 설치까지 3개 조합 모두 정확. 종전 {commonpf} 는
+;      64비트 Win7 에서 exe=False 오탐으로 SELFTEST FAIL 을 찍었다.)
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Start-Sleep -Seconds 8; $log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $svcobj=Get-Service ChainRemote -ErrorAction SilentlyContinue; $svc='None'; if ($svcobj) {{ $svc=[string]$svcobj.Status }}; $procs=@(Get-Process ChainRemote -ErrorAction SilentlyContinue).Count; $exe='{code:CRAgentDir}\ChainRemote.exe'; $exists=Test-Path $exe; $verdict='FAIL'; if (($svc -eq 'Running') -and ($procs -ge 1) -and $exists) {{ $verdict='PASS' }}; Add-Content -Path $log -Value ($st + ' installer: SELFTEST v{#APP_VERSION} svc=' + $svc + ' procs=' + $procs + ' exe=' + $exists + ' -> ' + $verdict)"""; StatusMsg: "ChainRemote 설치 self-test 중..."; Flags: runhidden waituntilterminated
 
 ; 8.6. 설치 환경(Win7 변종) 기록 — 거래처 환경을 파악하는 눈. Win7 은 RTM/SP1/POSReady/
 ;     Embedded + 에디션 + x86/x64 로 제각각이라 거래처별 실제 변종을 모르면 대응이 안 된다.
 ;     OS Caption/버전/SP/아키텍처 + PowerShell 버전 + UCRT(시스템/exe옆) + VC++(exe옆) 유무를
 ;     updater.log 에 한 줄로 남긴다. PS 2.0 안전: Get-WmiObject(CIM 아님) + '*>' 없음 + 스칼라 .Count 미사용.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $os=Get-WmiObject -Class Win32_OperatingSystem -EA SilentlyContinue; $psv=$PSVersionTable.PSVersion.ToString(); $exe='{commonpf}\ChainRemote\ChainRemote.exe'; $ucrtSys=Test-Path ($env:windir + '\System32\ucrtbase.dll'); $ucrtLocal=Test-Path (Join-Path (Split-Path $exe) 'api-ms-win-crt-runtime-l1-1-0.dll'); $vcrLocal=Test-Path (Join-Path (Split-Path $exe) 'vcruntime140.dll'); Add-Content -Path $log -Value ($st + ' installer: ENV os=[' + $os.Caption + '] ver=' + $os.Version + ' sp=' + $os.ServicePackMajorVersion + ' arch=' + $os.OSArchitecture + ' ps=' + $psv + ' ucrt_sys=' + $ucrtSys + ' ucrt_local=' + $ucrtLocal + ' vcr_local=' + $vcrLocal)"""; StatusMsg: "ChainRemote 설치 환경 기록 중..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $os=Get-WmiObject -Class Win32_OperatingSystem -EA SilentlyContinue; $psv=$PSVersionTable.PSVersion.ToString(); $exe='{code:CRAgentDir}\ChainRemote.exe'; $ucrtSys=Test-Path ($env:windir + '\System32\ucrtbase.dll'); $ucrtLocal=Test-Path (Join-Path (Split-Path $exe) 'api-ms-win-crt-runtime-l1-1-0.dll'); $vcrLocal=Test-Path (Join-Path (Split-Path $exe) 'vcruntime140.dll'); Add-Content -Path $log -Value ($st + ' installer: ENV os=[' + $os.Caption + '] ver=' + $os.Version + ' sp=' + $os.ServicePackMajorVersion + ' arch=' + $os.OSArchitecture + ' ps=' + $psv + ' ucrt_sys=' + $ucrtSys + ' ucrt_local=' + $ucrtLocal + ' vcr_local=' + $vcrLocal)"""; StatusMsg: "ChainRemote 설치 환경 기록 중..."; Flags: runhidden waituntilterminated
 
-; 9. 설치 직후 ChainRemote 실행 — 절대 경로 강제 (옛 AppId {app} mismatch 회피)
-Filename: "{commonpf}\ChainRemote\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
+; 9. 설치 직후 ChainRemote 실행 — 절대 경로 강제 (옛 AppId {app} mismatch 회피).
+;    ★64비트 Win7 "CreateProcess 실패 코드2"의 진원지였다 — {commonpf} 는 Program Files 인데
+;    실제 exe 는 (x86) 에 있어 파일을 못 찾았다(코드2 = ERROR_FILE_NOT_FOUND). CRAgentDir 로 해소.
+Filename: "{code:CRAgentDir}\ChainRemote.exe"; Description: "지금 ChainRemote 실행"; Flags: nowait postinstall skipifsilent
 
 [Registry]
-; 부팅 시 자동 시작 (실행파일 = ChainRemote.exe, x64/x86 동일)
+; 부팅 시 자동 시작 (실행파일 = ChainRemote.exe, x64/x86 동일).
+;   경로는 CRAgentDir — 종전 {app} 은 64비트 Win7 에서 exe 없는 폴더를 가리켜
+;   재부팅 후 트레이가 조용히 안 떴다 (CreateProcess 코드2 의 자매 증상).
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
   ValueType: string; ValueName: "{#APP_NAME}"; \
-  ValueData: """{app}\ChainRemote.exe"" --tray"; \
+  ValueData: """{code:CRAgentDir}\ChainRemote.exe"" --tray"; \
   Flags: uninsdeletevalue
 
 ; 방화벽 꺼짐 보안센터 알림 억제 (방화벽 자동 해제 관제, 마이그028). POS 는 방화벽을 끄는 게
@@ -223,6 +229,24 @@ end;
 function UseX86Payload(): Boolean;
 begin
   Result := not UseX64Payload();
+end;
+
+// ── 실제 설치 폴더 (2026-07-30 fix — 64비트 Win7 "CreateProcess 코드2" 근본 원인) ──────
+// install_me() 는 %ProgramFiles% 환경변수로 설치 경로를 계산한다(windows.rs get_default_install_path).
+//   i686 exe 는 64비트 Windows 에서 WOW64 로 돌아 %ProgramFiles% = "Program Files (x86)" 를 받는다.
+//   반면 이 인스톨러는 ArchitecturesInstallIn64BitMode=x64compatible 라 64비트 Win7 에서도
+//   {commonpf} = "Program Files" — 두 경로가 갈라진다. 그래서 64비트 Win7(= x86 페이로드 + 64비트
+//   설치 모드 유일 조합)에서만 마지막 "지금 실행"이 없는 exe 를 가리켜 CreateProcess 코드2 가 떴고,
+//   트레이 자동시작 Run 키·self-test 도 같은 잘못된 경로를 보고 있었다 (월광 판매포스 2026-07-29).
+//   32비트 OS 는 32비트 설치 모드({commonpf}=Program Files)라, Win8+ x64 는 x64 페이로드라 안 갈라진다.
+// exe 를 참조하는 모든 곳은 {commonpf} 하드코딩 대신 이 함수를 쓴다. ({commonpf32} = 64비트 OS 에선
+//   "Program Files (x86)", 32비트 OS 에선 "Program Files" — 32비트 exe 의 %ProgramFiles% 와 항상 일치.)
+function CRAgentDir(Param: String): String;
+begin
+  if UseX64Payload() then
+    Result := ExpandConstant('{commonpf}\ChainRemote')
+  else
+    Result := ExpandConstant('{commonpf32}\ChainRemote');
 end;
 
 // ── 다운그레이드 가드 (2026-06-06) ────────────────────────────────
