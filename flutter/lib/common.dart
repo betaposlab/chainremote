@@ -2514,6 +2514,15 @@ List<String>? urlLinkToCmdArgs(Uri uri) {
     // rustdesk://<connect-id>/r@<server>
     command = '--connect';
     id = uri.authority;
+    // ★대소문자 복원 — Uri.authority 는 RFC 3986 대로 host 를 소문자로 정규화한다.
+    //   우리 ID 는 'AB12345678'(대문자 2 + 숫자 8) 형식이라, 패널 [원격접속] 딥링크
+    //   rustdesk://YR10578954 가 yr10578954 로 넘어와 hbbs 가 "ID 가 존재하지 않습니다" 를
+    //   냈다(2026-07-30 테스트1). 숫자 ID(옛 거래처)는 소문자화 영향이 없어 멀쩡했던 탓에
+    //   문자 ID 를 쓰는 신규 거래처에서만 터졌다. 이 형식일 때만 되돌린다 — 사용자 지정
+    //   소문자 ID 를 쓰는 upstream 사용자는 건드리지 않는다.
+    if (RegExp(r'^[a-z]{2}\d{8}$').hasMatch(id)) {
+      id = id.toUpperCase();
+    }
     if (uri.path.length > 1) {
       id = id + uri.path;
     }

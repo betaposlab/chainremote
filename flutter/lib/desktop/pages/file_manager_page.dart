@@ -1320,7 +1320,15 @@ class _FileManagerViewState extends State<FileManagerView> {
                   onTap: () {
                     controller.renameAction(entry, isLocal);
                   },
-                )
+                ),
+              // ChainRemote: 속성 — 이름/종류/크기/수정일/전체 경로. 원격 파일을 옮기기 전에
+              //   크기와 날짜를 확인하려면 탐색기 속성이 필요했는데 파일전송 창엔 없었다.
+              //   드라이브도 경로 확인용으로 열어둔다(크기·날짜는 의미 없어 생략됨).
+              mod_menu.PopupMenuItem(
+                child: const Text('속성'),
+                height: CustomPopupMenuTheme.height,
+                onTap: () => _showEntryProperties(context, entry, isLocal),
+              ),
             ];
             if (items.isNotEmpty) {
               rightClickEntry.value = entry;
@@ -1585,6 +1593,76 @@ class _FileManagerViewState extends State<FileManagerView> {
       _lastClickEntry = entry;
     }
     return false;
+  }
+
+  // ChainRemote: 파일/폴더 속성 — 탐색기 속성창의 실무용 최소판.
+  //   원격 파일을 받거나 지우기 전에 크기·수정일·전체 경로를 확인하려면 필요한데
+  //   파일전송 창엔 그 수단이 없었다(2026-07-30 Chang 요청).
+  void _showEntryProperties(BuildContext context, Entry entry, bool isLocal) {
+    final kind = entry.isDrive
+        ? '드라이브'
+        : (entry.isDirectory ? '폴더' : '파일');
+    final rows = <List<String>>[
+      ['이름', entry.name],
+      ['종류', kind],
+      // 폴더/드라이브는 하위 용량을 세지 않으므로(원격 순회 비용) 파일만 크기를 보여준다.
+      if (entry.isFile)
+        ['크기', '${readableFileSize(entry.size.toDouble())}  (${entry.size} 바이트)'],
+      if (!entry.isDrive)
+        ['수정한 날짜',
+          entry.lastModified().toString().replaceAll('.000', '')],
+      ['위치', isLocal ? '로컬 컴퓨터' : '원격 컴퓨터'],
+      ['경로', entry.path],
+    ];
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('속성 — ${entry.name}'),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: rows
+                .map((r) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 92,
+                            child: Text(r[0],
+                                style: const TextStyle(
+                                    fontSize: 13, color: Colors.black54)),
+                          ),
+                          Expanded(
+                            child: SelectableText(
+                              r[1],
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ))
+                .toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: entry.path));
+              showToast(translate('Copied'));
+            },
+            child: const Text('경로 복사'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
   }
 
   // 방식1(2026-05-29). 드래그 시작 payload.
