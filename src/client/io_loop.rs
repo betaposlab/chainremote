@@ -921,6 +921,45 @@ impl<T: InvokeUiSession> Remote<T> {
                     self.handle_job_status(id, -1, err);
                 }
             }
+            // ChainRemote: 파일매니저 붙여넣기(같은 쪽 내부 복사/이동). rename 과 동일 구조 —
+            //   원격이면 FileCopy 프로토콜, 로컬이면 blocking 스레드에서 fs::copy_path.
+            Data::CopyFile((id, src, dst, is_move, is_remote)) => {
+                if is_remote {
+                    let mut msg_out = Message::new();
+                    let mut file_action = FileAction::new();
+                    file_action.set_copy(FileCopy {
+                        id,
+                        src,
+                        dst,
+                        is_move,
+                        ..Default::default()
+                    });
+                    msg_out.set_file_action(file_action);
+                    allow_err!(peer.send(&msg_out).await);
+                } else {
+                    // 대형 폴더 복사가 io_loop(입력·영상 처리)를 못 막게 워커 스레드로.
+                    let err = hbb_common::tokio::task::spawn_blocking(move || {
+                        fs::copy_path(&src, &dst, is_move)
+                    })
+                    .await
+                    .map_err(|e| e.to_string())
+                    .and_then(|r| r.map_err(|e| e.to_string()))
+                    .err();
+                    self.handle_job_status(id, -1, err);
+                }
+            }
+            // ChainRemote: 원격 파일 실행 — 원격 전용(로컬은 UI 미노출).
+            Data::ExecFile((id, path)) => {
+                let mut msg_out = Message::new();
+                let mut file_action = FileAction::new();
+                file_action.set_execute(FileExecute {
+                    id,
+                    path,
+                    ..Default::default()
+                });
+                msg_out.set_file_action(file_action);
+                allow_err!(peer.send(&msg_out).await);
+            }
             Data::RecordScreen(start) => {
                 self.handler.lc.write().unwrap().record_state = start;
                 self.update_record_state();

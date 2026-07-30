@@ -47,6 +47,15 @@ class JobID {
 typedef GetSessionID = SessionID Function();
 typedef GetDialogManager = OverlayDialogManager? Function();
 
+// ChainRemote: 파일매니저 복사/잘라내기 클립보드 항목 (세션 내 전용).
+class FileClipboardData {
+  final bool isLocal; // 원본이 로컬 패널인가
+  final bool isCut; // 잘라내기 여부
+  final List<Entry> items;
+  FileClipboardData(
+      {required this.isLocal, required this.isCut, required this.items});
+}
+
 class FileModel {
   final WeakReference<FFI> parent;
   // late final String sessionId;
@@ -99,6 +108,70 @@ class FileModel {
   Future<void> refreshAll() async {
     if (!isWeb) await localController.refresh();
     await remoteController.refresh();
+  }
+
+  // ── ChainRemote: 복사/잘라내기 → 붙여넣기 ─────────────────────────────────
+  // 클립보드는 파일전송 창(세션) 안에서만 유효. 같은 쪽 붙여넣기 = FileCopy(내부 복사/이동,
+  // 에이전트 1.4.73+), 반대쪽 = 기존 전송(sendFiles) 재사용. 잘라내기는 같은 쪽 전용 —
+  // 반대쪽 이동은 전송 실패 시 원본 유실 위험이 있어 v1 에선 막는다.
+  final fileClipboard = Rxn<FileClipboardData>();
+
+  void setFileClipboard(bool fromLocal, bool isCut, List<Entry> entries) {
+    final items = entries.where((e) => !e.isDrive).toList();
+    if (items.isEmpty) return;
+    fileClipboard.value =
+        FileClipboardData(isLocal: fromLocal, isCut: isCut, items: items);
+  }
+
+  Future<void> pasteFileClipboard(bool toLocal) async {
+    final clip = fileClipboard.value;
+    if (clip == null) return;
+    final dm = getDialogManager();
+    final targetController = toLocal ? localController : remoteController;
+    final toPath = targetController.directory.value.path;
+    if (toPath.isEmpty) return;
+    final isWindows = targetController.options.value.isWindows;
+    if (clip.isLocal == toLocal) {
+      // 같은 쪽 내부 복사/이동. 이름 충돌은 미리 걸러 예측 가능하게 (fs 쪽도 이중 방어).
+      final existing =
+          targetController.directory.value.entries.map((e) => e.name).toSet();
+      for (final item in clip.items) {
+        if (existing.contains(item.name)) {
+          if (dm != null) {
+            msgBox(sessionId, 'custom-error-nook-nocancel-hasclose',
+                translate('Error'), '${translate("Already exists")}: ${item.name}', '', dm);
+          }
+          return;
+        }
+      }
+      for (final item in clip.items) {
+        await bind.sessionCopyFile(
+            sessionId: sessionId,
+            actId: JobController.jobID.next(),
+            src: item.path,
+            dst: PathUtil.join(toPath, item.name, isWindows),
+            isMove: clip.isCut,
+            isRemote: !toLocal);
+      }
+      // 잘라내기는 1회용(윈도우 탐색기 관례) — 두 번 붙여넣으면 원본이 이미 없다.
+      if (clip.isCut) fileClipboard.value = null;
+      // 새로고침은 완료(job_done) 이벤트가 refreshAll 로 처리.
+    } else {
+      if (clip.isCut) {
+        if (dm != null) {
+          msgBox(sessionId, 'custom-error-nook-nocancel-hasclose',
+              translate('Error'),
+              translate('Cut paste is only supported on the same side'), '', dm);
+        }
+        return;
+      }
+      final sourceController = clip.isLocal ? localController : remoteController;
+      final items = SelectedItems(isLocal: clip.isLocal);
+      for (final e in clip.items) {
+        items.add(e);
+      }
+      await sourceController.sendFiles(items, targetController.directoryData());
+    }
   }
 
   void receiveFileDir(Map<String, dynamic> evt) {
@@ -866,6 +939,41 @@ class FileController {
             ),
           ],
         ),
+        actions: [
+          dialogButton(
+            "Cancel",
+            icon: Icon(Icons.close_rounded),
+            onPressed: close,
+            isOutline: true,
+          ),
+          dialogButton(
+            "OK",
+            icon: Icon(Icons.done_rounded),
+            onPressed: submit,
+          ),
+        ],
+        onSubmit: submit,
+        onCancel: close,
+      );
+    });
+  }
+
+  // ChainRemote: 원격 파일 실행 — 연결 프로그램으로 열기(에이전트 1.4.73+). 원격 패널 전용.
+  //   거래처 화면에 창이 그대로 뜨는 동작이라 실수 클릭 방지용 확인을 한 번 받는다.
+  Future<void> execAction(Entry item) async {
+    if (isLocal) return;
+    dialogManager?.show((setState, close, context) {
+      submit() async {
+        await bind.sessionExecFile(
+            sessionId: sessionId,
+            actId: JobController.jobID.next(),
+            path: item.path);
+        close();
+      }
+
+      return CustomAlertDialog(
+        title: Text(translate('Run on remote device?')),
+        content: Text(item.name),
         actions: [
           dialogButton(
             "Cancel",

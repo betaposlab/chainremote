@@ -116,6 +116,19 @@ pub enum FS {
         path: String,
         new_name: String,
     },
+    // ChainRemote: 파일매니저 붙여넣기(원격 내부 복사/이동). rename 과 같은 CM 위임 패턴.
+    Copy {
+        id: i32,
+        src: String,
+        dst: String,
+        is_move: bool,
+    },
+    // ChainRemote: 원격 파일 실행(연결 프로그램 open). 사용자 세션(CM)에서 실행해야
+    //   세션 0 이 아닌 거래처 데스크톱에 뜬다.
+    Exec {
+        id: i32,
+        path: String,
+    },
     // CM-side file reading operations (Windows only)
     // These enable Connection Manager to read files and stream them back to Connection
     ReadFile {

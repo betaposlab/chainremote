@@ -1873,6 +1873,61 @@ fn wire_session_rename_file_impl(
         },
     )
 }
+fn wire_session_copy_file_impl(
+    port_: MessagePort,
+    session_id: impl Wire2Api<uuid::Uuid> + UnwindSafe,
+    act_id: impl Wire2Api<i32> + UnwindSafe,
+    src: impl Wire2Api<String> + UnwindSafe,
+    dst: impl Wire2Api<String> + UnwindSafe,
+    is_move: impl Wire2Api<bool> + UnwindSafe,
+    is_remote: impl Wire2Api<bool> + UnwindSafe,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
+        WrapInfo {
+            debug_name: "session_copy_file",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_session_id = session_id.wire2api();
+            let api_act_id = act_id.wire2api();
+            let api_src = src.wire2api();
+            let api_dst = dst.wire2api();
+            let api_is_move = is_move.wire2api();
+            let api_is_remote = is_remote.wire2api();
+            move |task_callback| {
+                Ok(session_copy_file(
+                    api_session_id,
+                    api_act_id,
+                    api_src,
+                    api_dst,
+                    api_is_move,
+                    api_is_remote,
+                ))
+            }
+        },
+    )
+}
+fn wire_session_exec_file_impl(
+    port_: MessagePort,
+    session_id: impl Wire2Api<uuid::Uuid> + UnwindSafe,
+    act_id: impl Wire2Api<i32> + UnwindSafe,
+    path: impl Wire2Api<String> + UnwindSafe,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
+        WrapInfo {
+            debug_name: "session_exec_file",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_session_id = session_id.wire2api();
+            let api_act_id = act_id.wire2api();
+            let api_path = path.wire2api();
+            move |task_callback| Ok(session_exec_file(api_session_id, api_act_id, api_path))
+        },
+    )
+}
 fn wire_session_elevate_direct_impl(
     port_: MessagePort,
     session_id: impl Wire2Api<uuid::Uuid> + UnwindSafe,

@@ -894,6 +894,27 @@ pub fn session_rename_file(
     }
 }
 
+// ChainRemote: 파일매니저 붙여넣기(같은 쪽 내부 복사/이동). rename 과 동일 job status 경로.
+pub fn session_copy_file(
+    session_id: SessionID,
+    act_id: i32,
+    src: String,
+    dst: String,
+    is_move: bool,
+    is_remote: bool,
+) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.copy_file(act_id, src, dst, is_move, is_remote);
+    }
+}
+
+// ChainRemote: 원격 파일 실행(연결 프로그램 open).
+pub fn session_exec_file(session_id: SessionID, act_id: i32, path: String) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.exec_file(act_id, path);
+    }
+}
+
 pub fn session_elevate_direct(session_id: SessionID) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         session.elevate_direct();

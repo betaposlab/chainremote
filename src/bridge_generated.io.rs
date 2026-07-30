@@ -838,6 +838,29 @@ pub extern "C" fn wire_session_rename_file(
 }
 
 #[no_mangle]
+pub extern "C" fn wire_session_copy_file(
+    port_: i64,
+    session_id: *mut wire_uint_8_list,
+    act_id: i32,
+    src: *mut wire_uint_8_list,
+    dst: *mut wire_uint_8_list,
+    is_move: bool,
+    is_remote: bool,
+) {
+    wire_session_copy_file_impl(port_, session_id, act_id, src, dst, is_move, is_remote)
+}
+
+#[no_mangle]
+pub extern "C" fn wire_session_exec_file(
+    port_: i64,
+    session_id: *mut wire_uint_8_list,
+    act_id: i32,
+    path: *mut wire_uint_8_list,
+) {
+    wire_session_exec_file_impl(port_, session_id, act_id, path)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_session_elevate_direct(port_: i64, session_id: *mut wire_uint_8_list) {
     wire_session_elevate_direct_impl(port_, session_id)
 }

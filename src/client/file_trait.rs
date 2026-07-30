@@ -190,4 +190,15 @@ pub trait FileManager: Interface {
     fn rename_file(&self, act_id: i32, path: String, new_name: String, is_remote: bool) {
         self.send(Data::RenameFile((act_id, path, new_name, is_remote)));
     }
+
+    // ChainRemote: 파일매니저 붙여넣기(같은 쪽 내부 복사/이동). is_remote 면 프로토콜(FileCopy),
+    //   로컬이면 io_loop 가 fs::copy_path 직접 수행. 응답은 rename 과 같은 job status 경로.
+    fn copy_file(&self, act_id: i32, src: String, dst: String, is_move: bool, is_remote: bool) {
+        self.send(Data::CopyFile((act_id, src, dst, is_move, is_remote)));
+    }
+
+    // ChainRemote: 원격 파일 실행(연결 프로그램 open). 원격 전용 — 로컬 실행은 UI 에서 미노출.
+    fn exec_file(&self, act_id: i32, path: String) {
+        self.send(Data::ExecFile((act_id, path)));
+    }
 }

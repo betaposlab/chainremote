@@ -1083,6 +1083,18 @@ async fn handle_fs(
         ipc::FS::Rename { id, path, new_name } => {
             rename_file(path, new_name, id, tx).await;
         }
+        // ChainRemote: 파일매니저 붙여넣기(내부 복사/이동) / [실행]. rename 과 같은 done/error 응답.
+        ipc::FS::Copy {
+            id,
+            src,
+            dst,
+            is_move,
+        } => {
+            copy_path(src, dst, is_move, id, tx).await;
+        }
+        ipc::FS::Exec { id, path } => {
+            exec_file(path, id, tx).await;
+        }
         ipc::FS::ReadFile {
             path,
             id,
@@ -1530,6 +1542,40 @@ async fn create_dir(path: String, id: i32, tx: &UnboundedSender<Data>) {
 async fn rename_file(path: String, new_name: String, id: i32, tx: &UnboundedSender<Data>) {
     handle_result(
         spawn_blocking(move || fs::rename_file(&path, &new_name)).await,
+        id,
+        0,
+        tx,
+    )
+    .await;
+}
+
+// ChainRemote: 파일매니저 붙여넣기 — 대형 폴더 복사도 spawn_blocking 이라 IPC 루프를 안 막는다.
+#[cfg(not(any(target_os = "ios")))]
+async fn copy_path(src: String, dst: String, is_move: bool, id: i32, tx: &UnboundedSender<Data>) {
+    handle_result(
+        spawn_blocking(move || fs::copy_path(&src, &dst, is_move)).await,
+        id,
+        0,
+        tx,
+    )
+    .await;
+}
+
+// ChainRemote: 파일매니저 [실행] — CM(사용자 세션) 프로세스라 거래처 데스크톱에 창이 뜬다.
+//   모바일(Android)은 shell_open 이 없어 에러 응답 — HQ 는 데스크톱 피어에만 메뉴를 노출한다.
+#[cfg(not(any(target_os = "ios")))]
+async fn exec_file(path: String, id: i32, tx: &UnboundedSender<Data>) {
+    handle_result(
+        spawn_blocking(move || -> hbb_common::ResultType<()> {
+            #[cfg(any(target_os = "android", target_os = "ios"))]
+            {
+                let _ = &path;
+                hbb_common::bail!("Unsupported");
+            }
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            crate::platform::shell_open(&path)
+        })
+        .await,
         id,
         0,
         tx,

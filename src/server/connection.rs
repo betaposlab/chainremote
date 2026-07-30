@@ -3066,6 +3066,13 @@ impl Connection {
                                 Some(file_action::Union::RemoveDir(rd)) => {
                                     job_id = Some(rd.id);
                                 }
+                                // ChainRemote: 복사/이동·실행도 원격 변경 — 단방향 전송이면 차단.
+                                Some(file_action::Union::Copy(c)) => {
+                                    job_id = Some(c.id);
+                                }
+                                Some(file_action::Union::Execute(e)) => {
+                                    job_id = Some(e.id);
+                                }
                                 _ => {}
                             }
                             if let Some(job_id) = job_id {
@@ -3286,6 +3293,40 @@ impl Connection {
                                         conn_id: self.inner.id(),
                                         path: r.path,
                                         new_name: r.new_name,
+                                    })
+                                    .unwrap_or_default(),
+                                )));
+                            }
+                            // ChainRemote: 원격 내부 복사/이동 — rename 과 같은 CM 위임 + 감사 로그.
+                            Some(file_action::Union::Copy(c)) => {
+                                self.send_fs(ipc::FS::Copy {
+                                    id: c.id,
+                                    src: c.src.clone(),
+                                    dst: c.dst.clone(),
+                                    is_move: c.is_move,
+                                });
+                                self.send_to_cm(ipc::Data::FileTransferLog((
+                                    "copy".to_string(),
+                                    serde_json::to_string(&FileCopyLog {
+                                        conn_id: self.inner.id(),
+                                        src: c.src,
+                                        dst: c.dst,
+                                        is_move: c.is_move,
+                                    })
+                                    .unwrap_or_default(),
+                                )));
+                            }
+                            // ChainRemote: 원격 파일 실행 — 사용자 세션(CM)에서 셸 open.
+                            Some(file_action::Union::Execute(e)) => {
+                                self.send_fs(ipc::FS::Exec {
+                                    id: e.id,
+                                    path: e.path.clone(),
+                                });
+                                self.send_to_cm(ipc::Data::FileTransferLog((
+                                    "execute".to_string(),
+                                    serde_json::to_string(&FileExecuteLog {
+                                        conn_id: self.inner.id(),
+                                        path: e.path,
                                     })
                                     .unwrap_or_default(),
                                 )));
@@ -5246,6 +5287,23 @@ struct FileRenameLog {
     conn_id: i32,
     path: String,
     new_name: String,
+}
+
+// ChainRemote: 파일매니저 복사/이동·실행 감사 로그 (FileRenameLog 와 같은 채널).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileCopyLog {
+    conn_id: i32,
+    src: String,
+    dst: String,
+    is_move: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FileExecuteLog {
+    conn_id: i32,
+    path: String,
 }
 
 struct FileRemoveLogControl {

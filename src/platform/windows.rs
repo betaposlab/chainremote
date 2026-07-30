@@ -2300,6 +2300,27 @@ pub fn run_background(exe: &str, arg: &str) -> ResultType<bool> {
     }
 }
 
+// ChainRemote: 파일매니저 [실행] — 연결 프로그램으로 열기(문서/exe 공용, 창 표시).
+//   run_background 와 달리 SW_SHOWNORMAL — 거래처 화면에 결과 창이 떠야 한다.
+pub fn shell_open(path: &str) -> ResultType<()> {
+    let wpath = wide_string(path);
+    unsafe {
+        let ret = ShellExecuteW(
+            NULL as _,
+            NULL as _,
+            wpath.as_ptr() as _,
+            NULL as _,
+            NULL as _,
+            SW_SHOWNORMAL,
+        );
+        if ret as i32 > 32 {
+            Ok(())
+        } else {
+            bail!("ShellExecute failed ({})", ret as i32);
+        }
+    }
+}
+
 pub fn run_uac(exe: &str, arg: &str) -> ResultType<bool> {
     let wop = wide_string("runas");
     let wexe = wide_string(exe);
