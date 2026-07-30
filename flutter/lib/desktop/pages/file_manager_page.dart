@@ -89,6 +89,8 @@ class _FileManagerPageState extends State<FileManagerPage>
   final _uniqueKey = UniqueKey();
   // 방금 활성 상태였던 전송 작업 id 배치 — 전부 끝나면 결과 토스트를 낸다(_bottomTransferBar).
   final Set<int> _lastTransferBatchIds = {};
+  // 전송 진행 모달이 지금 떠 있는지 — 같은 배치에 두 번 띄우지 않기 위한 래치.
+  bool _transferDialogOpen = false;
 
   late FFI _ffi;
 
@@ -291,6 +293,17 @@ class _FileManagerPageState extends State<FileManagerPage>
         _lastTransferBatchIds.add(j.id);
       }
 
+      // ★2026-07-30(Chang): 하단 바만으론 "전송이 시작됐는지" 여전히 헷갈린다 →
+      //   전송이 시작되면 화면 중앙에 진행 창을 자동으로 띄운다. 07-08 에 전체화면 모달을
+      //   기각했던 이유(대용량 전송 중 탐색을 막는다)는 '닫을 수 있게' 해서 피한다 —
+      //   닫아도 이 하단 바가 그대로 남아 진행이 계속 보인다.
+      if (!_transferDialogOpen) {
+        _transferDialogOpen = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showTransferProgressDialog();
+        });
+      }
+
       final total = active.fold<int>(0, (s, j) => s + j.totalSize);
       final done = active.fold<int>(0, (s, j) => s + j.finishedSize);
       final pct = total > 0 ? (done / total).clamp(0.0, 1.0) : 0.0;
@@ -381,6 +394,154 @@ class _FileManagerPageState extends State<FileManagerPage>
           ),
         ),
       );
+    });
+  }
+
+  // ChainRemote: 전송 진행 모달 — 전송이 시작되면 화면 중앙에 자동으로 뜬다.
+  //   하단 바만으론 시작 여부가 안 보여 같은 파일을 두 번 보내는 일이 있었다(Chang).
+  //   [백그라운드로] 로 닫으면 하단 바가 이어받으므로 대용량 전송 중 탐색을 막지 않는다.
+  //   전송이 전부 끝나면 스스로 닫힌다(결과 토스트는 하단 바 쪽 로직이 띄운다).
+  void _showTransferProgressDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return Obx(() {
+          final active = jobController.jobTable
+              .where((j) => j.state == JobState.inProgress)
+              .toList();
+          // 진행 중인 게 없으면(=배치 완료) 스스로 닫는다.
+          if (active.isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (Navigator.canPop(ctx)) Navigator.pop(ctx);
+            });
+            return const SizedBox.shrink();
+          }
+
+          final total = active.fold<int>(0, (s, j) => s + j.totalSize);
+          final done = active.fold<int>(0, (s, j) => s + j.finishedSize);
+          final pct = total > 0 ? (done / total).clamp(0.0, 1.0) : 0.0;
+          final speed = active.fold<double>(0, (s, j) => s + j.speed);
+          // 남은 시간 — 속도가 0 이면(집계 전) 계산하지 않는다.
+          final remainSec =
+              speed > 0 ? ((total - done) / speed).round() : -1;
+          String remainText;
+          if (remainSec < 0) {
+            remainText = '계산 중';
+          } else if (remainSec < 60) {
+            remainText = '약 $remainSec초 남음';
+          } else {
+            remainText = '약 ${(remainSec / 60).ceil()}분 남음';
+          }
+
+          return AlertDialog(
+            title: Row(children: const [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
+              SizedBox(width: 10),
+              Text('파일 전송 중'),
+            ]),
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 전체 진행 — 굵은 바 + 퍼센트.
+                  Row(children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(5),
+                        child: LinearProgressIndicator(
+                          value: pct,
+                          minHeight: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text('${(pct * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w700)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${readableFileSize(done.toDouble())} / ${readableFileSize(total.toDouble())}'
+                    '   ·   ${readableFileSize(speed)}/s   ·   $remainText',
+                    style:
+                        const TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                  const Divider(height: 22),
+                  Text('파일 ${active.length}개',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  // 파일별 진행 — 많으면 스크롤.
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: active.length,
+                      itemBuilder: (_, i) {
+                        final j = active[i];
+                        final name =
+                            j.fileName.isNotEmpty ? j.fileName : j.jobName;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 5),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(children: [
+                                Icon(
+                                    j.isRemoteToLocal
+                                        ? Icons.south_west
+                                        : Icons.north_east,
+                                    size: 13,
+                                    color: Colors.black45),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(name,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 12)),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${readableFileSize(j.finishedSize.toDouble())} / ${readableFileSize(j.totalSize.toDouble())}',
+                                  style: const TextStyle(
+                                      fontSize: 11, color: Colors.black54),
+                                ),
+                              ]),
+                              const SizedBox(height: 3),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: LinearProgressIndicator(
+                                  value: j.percent.clamp(0.0, 1.0),
+                                  minHeight: 4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('백그라운드로'),
+              ),
+            ],
+          );
+        });
+      },
+    ).whenComplete(() {
+      // 닫힌 뒤(사용자가 닫든 자동이든) 다음 배치에서 다시 뜰 수 있게 래치를 푼다.
+      _transferDialogOpen = false;
     });
   }
 
