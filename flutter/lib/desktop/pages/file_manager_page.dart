@@ -1536,7 +1536,7 @@ class _FileManagerViewState extends State<FileManagerView> {
                   },
                 ),
               // ChainRemote: 복사/잘라내기/붙여넣기 — 탐색기 관례. 같은 쪽 붙여넣기는 내부
-              //   복사/이동(원격이면 에이전트 1.4.73+), 반대쪽 붙여넣기는 기존 전송 재사용.
+              //   복사/이동(원격이면 에이전트 1.4.74+), 반대쪽 붙여넣기는 기존 전송 재사용.
               if (!entry.isDrive)
                 mod_menu.PopupMenuItem(
                   child: Text(translate("Copy")),
@@ -1557,10 +1557,8 @@ class _FileManagerViewState extends State<FileManagerView> {
                   height: CustomPopupMenuTheme.height,
                   onTap: () => _ffi.fileModel.pasteFileClipboard(isLocal),
                 ),
-              // ChainRemote: 실행 — 원격 파일을 연결 프로그램으로 연다(에이전트 1.4.73+).
-              if (!isLocal &&
-                  entry.isFile &&
-                  versionCmp(_ffi.ffiModel.pi.version, "1.4.73") >= 0)
+              // ChainRemote: 실행 — 원격 파일을 연결 프로그램으로 연다(에이전트 1.4.74+).
+              if (!isLocal && entry.isFile && _agentSupportsFileOps())
                 mod_menu.PopupMenuItem(
                   child: Text(translate("Run")),
                   height: CustomPopupMenuTheme.height,
@@ -1841,17 +1839,25 @@ class _FileManagerViewState extends State<FileManagerView> {
   }
 
   // ChainRemote: 이 패널에 붙여넣기가 가능한 상태인가.
-  //   같은 쪽 = 내부 복사/이동(원격 패널이면 에이전트 1.4.73+ 필요),
+  //   같은 쪽 = 내부 복사/이동(원격 패널이면 에이전트 1.4.74+ 필요),
   //   반대쪽 = 기존 전송 재사용(잘라내기는 유실 위험 때문에 같은 쪽 전용).
   bool _pasteAllowed(FileClipboardData clip, bool isLocal) {
     if (clip.isLocal == isLocal) {
-      if (!isLocal && versionCmp(_ffi.ffiModel.pi.version, "1.4.73") < 0) {
-        return false;
-      }
+      if (!isLocal && !_agentSupportsFileOps()) return false;
     } else {
       if (clip.isCut) return false;
     }
     return true;
+  }
+
+  // ChainRemote: 에이전트가 원격 내부 복사/실행(FileCopy/FileExecute)을 아는가.
+  //   ★pi.version 으로 판단하면 안 된다 — 그건 Cargo.toml 의 RustDesk 베이스 버전(1.4.6)이라
+  //   우리 버전이 아무리 올라가도 그대로다(2026-07-31 실사고: 이 오판으로 붙여넣기가 어느
+  //   거래처에서도 안 떴다). 에이전트가 platform_additions 로 보내는 우리 버전을 본다.
+  bool _agentSupportsFileOps() {
+    final v = _ffi.ffiModel.pi.platformAdditions['chainremote_version'];
+    if (v is! String || v.isEmpty) return false;
+    return versionCmp(v, '1.4.74') >= 0;
   }
 
   // ChainRemote: 파일/폴더 속성 — 탐색기 속성창의 실무용 최소판.
@@ -1874,54 +1880,55 @@ class _FileManagerViewState extends State<FileManagerView> {
       ['경로', entry.path],
     ];
 
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('속성 — ${entry.name}'),
-        content: SizedBox(
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: rows
-                .map((r) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 92,
-                            child: Text(r[0],
-                                style: const TextStyle(
-                                    fontSize: 13, color: Colors.black54)),
-                          ),
-                          Expanded(
-                            child: SelectableText(
-                              r[1],
-                              style: const TextStyle(fontSize: 13),
+    // ★showDialog(Navigator 라우트)를 쓰면 안 된다 — mod_menu 의 handleTap 이 onTap 직후
+    //   Navigator.pop 을 부르는데, 그 pop 이 방금 띄운 다이얼로그를 도로 닫아버려 아무것도
+    //   안 뜬 것처럼 보인다(2026-07-31 실사고). 이름 바꾸기가 멀쩡했던 건 오버레이 기반
+    //   dialogManager 를 쓰기 때문 — 같은 방식으로 통일한다.
+    _ffi.dialogManager.show((setState, close, context) => CustomAlertDialog(
+          title: Text('속성 — ${entry.name}'),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: rows
+                  .map((r) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 92,
+                              child: Text(r[0],
+                                  style: const TextStyle(
+                                      fontSize: 13, color: Colors.black54)),
                             ),
-                          ),
-                        ],
-                      ),
-                    ))
-                .toList(),
+                            Expanded(
+                              child: SelectableText(
+                                r[1],
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ))
+                  .toList(),
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: entry.path));
-              showToast(translate('Copied'));
-            },
-            child: const Text('경로 복사'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('닫기'),
-          ),
-        ],
-      ),
-    );
+          actions: [
+            dialogButton(
+              '경로 복사',
+              icon: const Icon(Icons.copy, size: 18),
+              isOutline: true,
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: entry.path));
+                showToast(translate('Copied'));
+              },
+            ),
+            dialogButton('닫기', onPressed: close),
+          ],
+          onCancel: close,
+        ));
   }
 
   // 방식1(2026-05-29). 드래그 시작 payload.

@@ -1570,6 +1570,18 @@ impl Connection {
             platform_additions.insert("support_view_camera".into(), json!(true));
         }
 
+        // ChainRemote: 우리 버전을 피어에게 알린다. pi.version 은 Cargo.toml 값(RustDesk 베이스
+        //   1.4.6 고정)이라 우리 기능 게이트로 못 쓴다 — 실제로 파일매니저 복사/실행 메뉴를
+        //   pi.version 으로 막았다가 전 거래처에서 영영 안 뜨는 상태가 됐다(2026-07-31).
+        //   앞으로 에이전트 기능 게이트는 전부 이 값을 기준으로 한다.
+        #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
+        {
+            platform_additions.insert(
+                "chainremote_version".into(),
+                json!(crate::CHAINREMOTE_VERSION),
+            );
+        }
+
         #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
         if !platform_additions.is_empty() {
             pi.platform_additions = serde_json::to_string(&platform_additions).unwrap_or("".into());

@@ -112,7 +112,7 @@ class FileModel {
 
   // ── ChainRemote: 복사/잘라내기 → 붙여넣기 ─────────────────────────────────
   // 클립보드는 파일전송 창(세션) 안에서만 유효. 같은 쪽 붙여넣기 = FileCopy(내부 복사/이동,
-  // 에이전트 1.4.73+), 반대쪽 = 기존 전송(sendFiles) 재사용. 잘라내기는 같은 쪽 전용 —
+  // 에이전트 1.4.74+), 반대쪽 = 기존 전송(sendFiles) 재사용. 잘라내기는 같은 쪽 전용 —
   // 반대쪽 이동은 전송 실패 시 원본 유실 위험이 있어 v1 에선 막는다.
   final fileClipboard = Rxn<FileClipboardData>();
 
@@ -958,7 +958,7 @@ class FileController {
     });
   }
 
-  // ChainRemote: 원격 파일 실행 — 연결 프로그램으로 열기(에이전트 1.4.73+). 원격 패널 전용.
+  // ChainRemote: 원격 파일 실행 — 연결 프로그램으로 열기(에이전트 1.4.74+). 원격 패널 전용.
   //   거래처 화면에 창이 그대로 뜨는 동작이라 실수 클릭 방지용 확인을 한 번 받는다.
   Future<void> execAction(Entry item) async {
     if (isLocal) return;
