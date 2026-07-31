@@ -375,13 +375,22 @@ function applyCmBanner() {
     var hdr = $(header);
     if (hdr) hdr.style.set { display: "none" };
     var active = false;
+    var pending = false;
     for (var i = 0; i < connections.length; i++) {
         if (connections[i].authorized && !connections[i].disconnected) active = true;
+        if (!connections[i].authorized && !connections[i].disconnected) pending = true;
     }
-    if (cm_banner_state == active) return;
-    cm_banner_state = active;
+    // ★수락 대기가 하나라도 있으면 카드 크기가 우선이다 (2026-07-31 테스트1 실측).
+    //   종전엔 active 만 봤다 → 이미 원격 중(배너 260x48)인데 두 번째 본사가 접속을 시도하면
+    //   창은 배너 크기 그대로인 채 내용만 수락카드로 바뀌어, 카드가 넘쳐 스크롤바가 생기고
+    //   [수락] 버튼이 화면 밖으로 밀렸다. 거래처가 스크롤을 내려야 수락할 수 있다는 건
+    //   "수락만 누르면 끝" 이라는 우리 UX 약속을 깬다. Flutter(x64) cm 은 원래 대기 우선이라
+    //   이 증상이 32비트(Win7) 에서만 났다 — 그 동작에 맞춘다.
+    var wantBanner = active && !pending;
+    if (cm_banner_state == wantBanner) return;
+    cm_banner_state = wantBanner;
     var (sw, sh) = view.screenBox(#workarea, #dimension);
-    if (active) {
+    if (wantBanner) {
         // 활성: 슬림 "원격지원 중" 배너 (상단 중앙, 상시 최상위, focus 안 뺏음=스캐너 보호).
         var w = scaleIt(260);
         var h = scaleIt(48);
