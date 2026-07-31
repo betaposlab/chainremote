@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/utils/event_loop.dart';
+import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter_hbb/web/dummy.dart'
@@ -973,6 +974,18 @@ class FileController {
         jobController.trackSilentOp(actId, '원격 실행: ${item.name}');
         await bind.sessionExecFile(
             sessionId: sessionId, actId: actId, path: item.path);
+        // ★실행 결과를 반드시 눈으로 보게 한다 — 원격 화면 창을 앞으로 가져온다.
+        //   설치 프로그램은 거래처 화면에 보안 경고·설치 마법사를 띄우는데, 파일전송 창만
+        //   보고 있으면 그걸 모른 채 거래처 화면에 창을 열어둔 상태가 된다. 포스라면
+        //   그 창이 영업을 막을 수도 있다 (2026-07-31 Chang: "멀리서 원격하면 모르지").
+        //   화면 창이 없으면 새로 열지 않는다 — 거래처에 수락창이 또 뜨는 건 더 나쁘다.
+        final peerId = rootState.target?.id ?? '';
+        final switched = peerId.isEmpty
+            ? false
+            : await rustDeskWinManager.activateExistingRemoteDesktop(peerId);
+        if (!switched) {
+          showToast('원격 PC 에서 실행했습니다 — 원격 화면 창에서 확인하세요');
+        }
       }
 
       return CustomAlertDialog(

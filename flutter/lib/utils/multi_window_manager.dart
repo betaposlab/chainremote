@@ -286,6 +286,26 @@ class RustDeskMultiWindowManager {
     );
   }
 
+  // ChainRemote: 이미 열려 있는 그 거래처의 원격 화면 창을 앞으로 가져온다.
+  //   없으면 아무것도 하지 않고 false — 새 세션을 여는 건(거래처에 수락창이 또 뜬다)
+  //   사용자가 명시적으로 요청했을 때만 해야 하므로 여기선 절대 만들지 않는다.
+  //   파일전송 창에서 [실행] 했을 때 결과를 눈으로 확인시키는 용도(2026-07-31 Chang:
+  //   "멀리서 원격하면 실행됐는지 모른다").
+  Future<bool> activateExistingRemoteDesktop(String remoteId) async {
+    for (final windowId in List<int>.from(_remoteDesktopWindows)) {
+      try {
+        if (await DesktopMultiWindow.invokeMethod(
+            windowId, kWindowEventActiveSession, remoteId)) {
+          await WindowController.fromWindowId(windowId).show();
+          return true;
+        }
+      } catch (e) {
+        debugPrint('activateExistingRemoteDesktop($windowId) failed: $e');
+      }
+    }
+    return false;
+  }
+
   Future<MultiWindowCallResult> newFileTransfer(
     String remoteId, {
     String? password,
