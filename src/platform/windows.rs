@@ -52,7 +52,7 @@ use winapi::{
         securitybaseapi::{
             AllocateAndInitializeSid, DuplicateToken, EqualSid, FreeSid, GetTokenInformation,
         },
-        shellapi::ShellExecuteW,
+        shellapi::{ShellExecuteExW, ShellExecuteW, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW},
         sysinfoapi::{GetNativeSystemInfo, SYSTEM_INFO},
         winbase::*,
         wingdi::*,
@@ -2322,25 +2322,37 @@ pub fn shell_open(path: &str) -> ResultType<()> {
         if hr != S_OK && hr != S_FALSE && hr != RPC_E_CHANGED_MODE {
             log::warn!("shell_open: CoInitializeEx failed hr=0x{:x}", hr);
         }
-        let ret = ShellExecuteW(
-            NULL as _,
-            NULL as _,
-            wpath.as_ptr() as _,
-            NULL as _,
-            NULL as _,
-            SW_SHOWNORMAL,
-        );
-        let code = ret as i32;
+        // ★ShellExecuteW 가 아니라 Ex 를 쓴다 — 단순 버전은 실패 사유를 반환값(≤32)으로만 주는데,
+        //   거래처가 "파일 열기 - 보안 경고" 나 UAC 를 [취소] 해도 접근 거부(5)와 같은 값이 나와
+        //   정상적인 취소가 빨간 오류로 보고됐다(2026-07-31 Chang: "취소하면 아무 표시 없어야지").
+        //   Ex 는 GetLastError 로 ERROR_CANCELLED(1223) 를 따로 알려주므로 취소를 구분할 수 있다.
+        //   SEE_MASK_NOASYNC: 호출 스레드가 먼저 끝나도 실행이 완료되도록(우리는 워커 스레드다).
+        let mut sei: SHELLEXECUTEINFOW = std::mem::zeroed();
+        sei.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as _;
+        sei.fMask = SEE_MASK_NOASYNC;
+        sei.lpFile = wpath.as_ptr();
+        sei.nShow = SW_SHOWNORMAL;
+        let ok = ShellExecuteExW(&mut sei) != 0;
+        let last_err = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
         if we_initialized {
             CoUninitialize();
         }
-        if code > 32 {
+        if ok {
             log::info!("shell_open ok: {}", path);
-            Ok(())
-        } else {
-            // 32 이하는 오류 코드다 (2=파일 없음, 5=접근 거부, 31=연결 프로그램 없음 등).
-            bail!("ShellExecute failed (code {})", code);
+            return Ok(());
         }
+        const ERROR_CANCELLED: i32 = 1223;
+        if last_err == ERROR_CANCELLED {
+            // 거래처가 보안 경고/UAC 를 취소한 것 — 실패가 아니다. HQ 가 조용히 안내만 한다.
+            log::info!("shell_open canceled by user: {}", path);
+            bail!("exec-canceled");
+        }
+        // hInstApp 은 32 이하가 오류 코드다 (2=파일 없음, 5=접근 거부, 31=연결 프로그램 없음).
+        bail!(
+            "ShellExecute failed (code {}, err {})",
+            sei.hInstApp as isize,
+            last_err
+        );
     }
 }
 

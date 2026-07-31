@@ -1155,6 +1155,12 @@ class JobController {
     // 단발 작업(실행·내부 복사/이동)의 실패 — jobTable 에 없어 여기서 안 알리면 완전히 묻힌다.
     final silent = _silentOps.remove(errId);
     if (silent != null) {
+      // 거래처가 보안 경고/UAC 를 [취소] 한 건 실패가 아니다 — 빨간 오류창을 띄우면 안 된다.
+      //   (2026-07-31 Chang: 설치를 취소했을 뿐인데 오류 메시지가 떴다.)
+      if (err == 'exec-canceled') {
+        showToast('원격 PC 에서 실행이 취소되었습니다');
+        return;
+      }
       final dm = alogManager;
       if (dm != null) {
         msgBox(sessionId, 'custom-error-nook-nocancel-hasclose',
