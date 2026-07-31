@@ -88,16 +88,6 @@ pub fn major_version() -> u32 {
     unsafe { majorVersion() }
 }
 
-// ChainRemote: 파일매니저 [실행] — 연결 프로그램으로 열기 (windows.rs shell_open 대응).
-pub fn shell_open(path: &str) -> ResultType<()> {
-    let status = std::process::Command::new("open").arg(path).status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        bail!("open failed ({})", status);
-    }
-}
-
 pub fn is_process_trusted(prompt: bool) -> bool {
     autoreleasepool(|| unsafe_is_process_trusted(prompt))
 }

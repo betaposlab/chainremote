@@ -173,16 +173,6 @@ pub fn is_headless_allowed() -> bool {
     Config::get_option(OPTION_ALLOW_LINUX_HEADLESS) == "Y"
 }
 
-// ChainRemote: 파일매니저 [실행] — 연결 프로그램으로 열기 (windows.rs shell_open 대응).
-pub fn shell_open(path: &str) -> ResultType<()> {
-    let status = std::process::Command::new("xdg-open").arg(path).status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        bail!("xdg-open failed ({})", status);
-    }
-}
-
 #[inline]
 pub fn is_login_screen_wayland() -> bool {
     let values = get_values_of_seat0_with_gdm_wayland(&[0, 2]);

@@ -1557,13 +1557,6 @@ class _FileManagerViewState extends State<FileManagerView> {
                   height: CustomPopupMenuTheme.height,
                   onTap: () => _ffi.fileModel.pasteFileClipboard(isLocal),
                 ),
-              // ChainRemote: 실행 — 원격 파일을 연결 프로그램으로 연다(에이전트 1.4.74+).
-              if (!isLocal && entry.isFile && _agentSupportsFileOps())
-                mod_menu.PopupMenuItem(
-                  child: Text(translate("Run")),
-                  height: CustomPopupMenuTheme.height,
-                  onTap: () => controller.execAction(entry),
-                ),
               // ChainRemote: 속성 — 이름/종류/크기/수정일/전체 경로. 원격 파일을 옮기기 전에
               //   크기와 날짜를 확인하려면 탐색기 속성이 필요했는데 파일전송 창엔 없었다.
               //   드라이브도 경로 확인용으로 열어둔다(크기·날짜는 의미 없어 생략됨).

@@ -908,13 +908,6 @@ pub fn session_copy_file(
     }
 }
 
-// ChainRemote: 원격 파일 실행(연결 프로그램 open).
-pub fn session_exec_file(session_id: SessionID, act_id: i32, path: String) {
-    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
-        session.exec_file(act_id, path);
-    }
-}
-
 pub fn session_elevate_direct(session_id: SessionID) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         session.elevate_direct();

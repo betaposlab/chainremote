@@ -851,16 +851,6 @@ pub extern "C" fn wire_session_copy_file(
 }
 
 #[no_mangle]
-pub extern "C" fn wire_session_exec_file(
-    port_: i64,
-    session_id: *mut wire_uint_8_list,
-    act_id: i32,
-    path: *mut wire_uint_8_list,
-) {
-    wire_session_exec_file_impl(port_, session_id, act_id, path)
-}
-
-#[no_mangle]
 pub extern "C" fn wire_session_elevate_direct(port_: i64, session_id: *mut wire_uint_8_list) {
     wire_session_elevate_direct_impl(port_, session_id)
 }

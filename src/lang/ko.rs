@@ -248,11 +248,9 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("install_daemon_tip", "부팅할 때 시작하려면 시스템 서비스를 설치해야 합니다."),
         ("Remote ID", "원격 ID"),
         ("Paste", "붙여넣기"),
-        // ChainRemote: 파일매니저 복사/잘라내기/붙여넣기 + 실행 (1.4.73)
+        // ChainRemote: 파일매니저 복사/잘라내기/붙여넣기 (1.4.73)
         ("Copy", "복사"),
         ("Cut", "잘라내기"),
-        ("Run", "실행"),
-        ("Run on remote device?", "원격 PC 에서 실행할까요?"),
         ("Cut paste is only supported on the same side", "잘라내기는 같은 쪽 패널에서만 붙여넣을 수 있습니다"),
         ("Paste requires agent update", "붙여넣기는 거래처 에이전트 업데이트 후 사용할 수 있습니다"),
         ("Paste here?", "여기에 붙여넣으시겠습니까?"),

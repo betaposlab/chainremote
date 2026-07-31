@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/utils/event_loop.dart';
-import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter_hbb/web/dummy.dart'
@@ -962,53 +961,6 @@ class FileController {
     });
   }
 
-  // ChainRemote: 원격 파일 실행 — 연결 프로그램으로 열기(에이전트 1.4.74+). 원격 패널 전용.
-  //   거래처 화면에 창이 그대로 뜨는 동작이라 실수 클릭 방지용 확인을 한 번 받는다.
-  Future<void> execAction(Entry item) async {
-    if (isLocal) return;
-    dialogManager?.show((setState, close, context) {
-      submit() async {
-        // 창을 먼저 닫는다 — 전송이 늦거나 실패해도 다이얼로그가 남아 "먹통"으로 보이지 않게.
-        close();
-        final actId = JobController.jobID.next();
-        jobController.trackSilentOp(actId, '원격 실행: ${item.name}');
-        await bind.sessionExecFile(
-            sessionId: sessionId, actId: actId, path: item.path);
-        // ★실행 결과를 반드시 눈으로 보게 한다 — 원격 화면 창을 앞으로 가져온다.
-        //   설치 프로그램은 거래처 화면에 보안 경고·설치 마법사를 띄우는데, 파일전송 창만
-        //   보고 있으면 그걸 모른 채 거래처 화면에 창을 열어둔 상태가 된다. 포스라면
-        //   그 창이 영업을 막을 수도 있다 (2026-07-31 Chang: "멀리서 원격하면 모르지").
-        //   화면 창이 없으면 새로 열지 않는다 — 거래처에 수락창이 또 뜨는 건 더 나쁘다.
-        final peerId = rootState.target?.id ?? '';
-        final switched = peerId.isEmpty
-            ? false
-            : await rustDeskWinManager.activateExistingRemoteDesktop(peerId);
-        if (!switched) {
-          showToast('원격 PC 에서 실행했습니다 — 원격 화면 창에서 확인하세요');
-        }
-      }
-
-      return CustomAlertDialog(
-        title: Text(translate('Run on remote device?')),
-        content: Text(item.name),
-        actions: [
-          dialogButton(
-            "Cancel",
-            icon: Icon(Icons.close_rounded),
-            onPressed: close,
-            isOutline: true,
-          ),
-          dialogButton(
-            "OK",
-            icon: Icon(Icons.done_rounded),
-            onPressed: submit,
-          ),
-        ],
-        onSubmit: submit,
-        onCancel: close,
-      );
-    });
-  }
 }
 
 const _kOneWayFileTransferError = 'one-way-file-transfer-tip';
@@ -1155,12 +1107,6 @@ class JobController {
     // 단발 작업(실행·내부 복사/이동)의 실패 — jobTable 에 없어 여기서 안 알리면 완전히 묻힌다.
     final silent = _silentOps.remove(errId);
     if (silent != null) {
-      // 거래처가 보안 경고/UAC 를 [취소] 한 건 실패가 아니다 — 빨간 오류창을 띄우면 안 된다.
-      //   (2026-07-31 Chang: 설치를 취소했을 뿐인데 오류 메시지가 떴다.)
-      if (err == 'exec-canceled') {
-        showToast('원격 PC 에서 실행이 취소되었습니다');
-        return;
-      }
       final dm = alogManager;
       if (dm != null) {
         msgBox(sessionId, 'custom-error-nook-nocancel-hasclose',

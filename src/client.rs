@@ -3728,8 +3728,6 @@ pub enum Data {
     TakeScreenshot((i32, String)),
     // ChainRemote: 파일매니저 붙여넣기(같은 쪽 내부 복사/이동) — (act_id, src, dst, is_move, is_remote)
     CopyFile((i32, String, String, bool, bool)),
-    // ChainRemote: 원격 파일 실행 — (act_id, path)
-    ExecFile((i32, String)),
 }
 
 /// Keycode for key events.

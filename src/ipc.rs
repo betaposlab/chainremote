@@ -123,12 +123,6 @@ pub enum FS {
         dst: String,
         is_move: bool,
     },
-    // ChainRemote: 원격 파일 실행(연결 프로그램 open). 사용자 세션(CM)에서 실행해야
-    //   세션 0 이 아닌 거래처 데스크톱에 뜬다.
-    Exec {
-        id: i32,
-        path: String,
-    },
     // CM-side file reading operations (Windows only)
     // These enable Connection Manager to read files and stream them back to Connection
     ReadFile {

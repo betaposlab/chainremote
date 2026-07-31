@@ -1083,13 +1083,13 @@ async fn handle_fs(
         ipc::FS::Rename { id, path, new_name } => {
             rename_file(path, new_name, id, tx).await;
         }
-        // ChainRemote: 파일매니저 붙여넣기(내부 복사/이동) / [실행].
+        // ChainRemote: 파일매니저 붙여넣기(내부 복사/이동).
         //   ★반드시 분리 실행한다 — 이 함수를 부르는 CM 의 IPC 루프는 인라인 await 라
         //   (ui_cm_interface.rs 의 Data::FS 처리) 여기서 오래 붙잡으면 그 세션의 다음 파일
-        //   작업은 물론 [원격 종료] 신호까지 전부 막힌다. 실제로 Win7 에서 ShellExecuteW 가
-        //   UAC 응답을 기다리며 블록되자 실행·삭제가 모두 무반응이 되고 세션이 유령으로 남아
-        //   거래처가 배너를 끌 수 없었다 (2026-07-31 테스트1 실측). 응답은 끝나는 대로
-        //   같은 tx 로 보내므로 HQ 쪽 완료/실패 통지는 그대로 동작한다.
+        //   작업은 물론 [원격 종료] 신호까지 전부 막힌다. 실제로 대형 폴더 복사나 응답이
+        //   늦는 셸 호출에서 세션이 통째로 굳고 거래처가 배너를 끌 수 없었다
+        //   (2026-07-31 테스트1 실측). 응답은 끝나는 대로 같은 tx 로 보내므로
+        //   HQ 쪽 완료/실패 통지는 그대로 동작한다.
         ipc::FS::Copy {
             id,
             src,
@@ -1099,12 +1099,6 @@ async fn handle_fs(
             let tx = tx.clone();
             tokio::spawn(async move {
                 copy_path(src, dst, is_move, id, &tx).await;
-            });
-        }
-        ipc::FS::Exec { id, path } => {
-            let tx = tx.clone();
-            tokio::spawn(async move {
-                exec_file(path, id, &tx).await;
             });
         }
         ipc::FS::ReadFile {
@@ -1573,27 +1567,6 @@ async fn copy_path(src: String, dst: String, is_move: bool, id: i32, tx: &Unboun
     .await;
 }
 
-// ChainRemote: 파일매니저 [실행] — CM(사용자 세션) 프로세스라 거래처 데스크톱에 창이 뜬다.
-//   모바일(Android)은 shell_open 이 없어 에러 응답 — HQ 는 데스크톱 피어에만 메뉴를 노출한다.
-#[cfg(not(any(target_os = "ios")))]
-async fn exec_file(path: String, id: i32, tx: &UnboundedSender<Data>) {
-    handle_result(
-        spawn_blocking(move || -> hbb_common::ResultType<()> {
-            #[cfg(any(target_os = "android", target_os = "ios"))]
-            {
-                let _ = &path;
-                hbb_common::bail!("Unsupported");
-            }
-            #[cfg(not(any(target_os = "android", target_os = "ios")))]
-            crate::platform::shell_open(&path)
-        })
-        .await,
-        id,
-        0,
-        tx,
-    )
-    .await;
-}
 
 #[cfg(not(any(target_os = "ios")))]
 async fn remove_dir(path: String, id: i32, recursive: bool, tx: &UnboundedSender<Data>) {

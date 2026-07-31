@@ -196,9 +196,4 @@ pub trait FileManager: Interface {
     fn copy_file(&self, act_id: i32, src: String, dst: String, is_move: bool, is_remote: bool) {
         self.send(Data::CopyFile((act_id, src, dst, is_move, is_remote)));
     }
-
-    // ChainRemote: 원격 파일 실행(연결 프로그램 open). 원격 전용 — 로컬 실행은 UI 에서 미노출.
-    fn exec_file(&self, act_id: i32, path: String) {
-        self.send(Data::ExecFile((act_id, path)));
-    }
 }

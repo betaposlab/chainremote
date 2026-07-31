@@ -120,9 +120,6 @@ winapi = { version = "0.3", features = [
     "cfgmgr32",
     "ioapiset",
     "winspool",
-    # ShellExecuteW 는 셸 확장으로 위임될 수 있어 STA COM 초기화를 요구한다(파일매니저 [실행]).
-    "combaseapi",
-    "objbase",
 ] }
 windows = { version = "0.61", features = [
     "Win32",

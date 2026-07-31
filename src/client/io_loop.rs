@@ -948,18 +948,6 @@ impl<T: InvokeUiSession> Remote<T> {
                     self.handle_job_status(id, -1, err);
                 }
             }
-            // ChainRemote: 원격 파일 실행 — 원격 전용(로컬은 UI 미노출).
-            Data::ExecFile((id, path)) => {
-                let mut msg_out = Message::new();
-                let mut file_action = FileAction::new();
-                file_action.set_execute(FileExecute {
-                    id,
-                    path,
-                    ..Default::default()
-                });
-                msg_out.set_file_action(file_action);
-                allow_err!(peer.send(&msg_out).await);
-            }
             Data::RecordScreen(start) => {
                 self.handler.lc.write().unwrap().record_state = start;
                 self.update_record_state();

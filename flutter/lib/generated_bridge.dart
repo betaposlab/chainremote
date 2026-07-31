@@ -587,14 +587,6 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kSessionCopyFileConstMeta;
 
-  Future<void> sessionExecFile(
-      {required UuidValue sessionId,
-      required int actId,
-      required String path,
-      dynamic hint});
-
-  FlutterRustBridgeTaskConstMeta get kSessionExecFileConstMeta;
-
   Future<void> sessionElevateDirect(
       {required UuidValue sessionId, dynamic hint});
 
@@ -3932,30 +3924,6 @@ class RustdeskImpl implements Rustdesk {
       const FlutterRustBridgeTaskConstMeta(
         debugName: "session_copy_file",
         argNames: ["sessionId", "actId", "src", "dst", "isMove", "isRemote"],
-      );
-
-  Future<void> sessionExecFile(
-      {required UuidValue sessionId,
-      required int actId,
-      required String path,
-      dynamic hint}) {
-    var arg0 = _platform.api2wire_Uuid(sessionId);
-    var arg1 = api2wire_i32(actId);
-    var arg2 = _platform.api2wire_String(path);
-    return _platform.executeNormal(FlutterRustBridgeTask(
-      callFfi: (port_) =>
-          _platform.inner.wire_session_exec_file(port_, arg0, arg1, arg2),
-      parseSuccessData: _wire2api_unit,
-      constMeta: kSessionExecFileConstMeta,
-      argValues: [sessionId, actId, path],
-      hint: hint,
-    ));
-  }
-
-  FlutterRustBridgeTaskConstMeta get kSessionExecFileConstMeta =>
-      const FlutterRustBridgeTaskConstMeta(
-        debugName: "session_exec_file",
-        argNames: ["sessionId", "actId", "path"],
       );
 
   Future<void> sessionElevateDirect(
@@ -10889,28 +10857,6 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
           ffi.Pointer<wire_uint_8_list>,
           bool,
           bool)>();
-
-  void wire_session_exec_file(
-    int port_,
-    ffi.Pointer<wire_uint_8_list> session_id,
-    int act_id,
-    ffi.Pointer<wire_uint_8_list> path,
-  ) {
-    return _wire_session_exec_file(
-      port_,
-      session_id,
-      act_id,
-      path,
-    );
-  }
-
-  late final _wire_session_exec_filePtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>, ffi.Int32,
-              ffi.Pointer<wire_uint_8_list>)>>('wire_session_exec_file');
-  late final _wire_session_exec_file = _wire_session_exec_filePtr.asFunction<
-      void Function(int, ffi.Pointer<wire_uint_8_list>, int,
-          ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_elevate_direct(
     int port_,

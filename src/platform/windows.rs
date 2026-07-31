@@ -52,7 +52,7 @@ use winapi::{
         securitybaseapi::{
             AllocateAndInitializeSid, DuplicateToken, EqualSid, FreeSid, GetTokenInformation,
         },
-        shellapi::{ShellExecuteExW, ShellExecuteW, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW},
+        shellapi::ShellExecuteW,
         sysinfoapi::{GetNativeSystemInfo, SYSTEM_INFO},
         winbase::*,
         wingdi::*,
@@ -2297,62 +2297,6 @@ pub fn run_background(exe: &str, arg: &str) -> ResultType<bool> {
             SW_HIDE,
         );
         return Ok(ret as i32 > 32);
-    }
-}
-
-// ChainRemote: 파일매니저 [실행] — 연결 프로그램으로 열기(문서/exe 공용, 창 표시).
-//   run_background 와 달리 SW_SHOWNORMAL — 거래처 화면에 결과 창이 떠야 한다.
-//   ★COM(STA) 초기화 필수: ShellExecuteW 는 셸 확장으로 위임될 수 있어 MS 문서가 호출 스레드의
-//   CoInitializeEx 를 요구한다. 이 함수는 CM 의 워커 스레드에서 도는데 그쪽엔 COM 아파트먼트가
-//   없어, 초기화 없이 부르면 실행이 조용히 실패한다(2026-07-31 테스트1 — 다른 파일 작업은 다
-//   정상인데 [실행] 만 안 되던 원인). 실패 코드를 사람이 읽을 수 있게 함께 남긴다.
-pub fn shell_open(path: &str) -> ResultType<()> {
-    use winapi::um::combaseapi::{CoInitializeEx, CoUninitialize};
-    use winapi::um::objbase::{COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
-    use winapi::shared::winerror::{RPC_E_CHANGED_MODE, S_FALSE, S_OK};
-
-    let wpath = wide_string(path);
-    unsafe {
-        let hr = CoInitializeEx(
-            NULL as _,
-            COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE,
-        );
-        // 이미 다른 아파트먼트로 초기화된 스레드면(RPC_E_CHANGED_MODE) 우리가 해제하면 안 된다.
-        let we_initialized = hr == S_OK || hr == S_FALSE;
-        if hr != S_OK && hr != S_FALSE && hr != RPC_E_CHANGED_MODE {
-            log::warn!("shell_open: CoInitializeEx failed hr=0x{:x}", hr);
-        }
-        // ★ShellExecuteW 가 아니라 Ex 를 쓴다 — 단순 버전은 실패 사유를 반환값(≤32)으로만 주는데,
-        //   거래처가 "파일 열기 - 보안 경고" 나 UAC 를 [취소] 해도 접근 거부(5)와 같은 값이 나와
-        //   정상적인 취소가 빨간 오류로 보고됐다(2026-07-31 Chang: "취소하면 아무 표시 없어야지").
-        //   Ex 는 GetLastError 로 ERROR_CANCELLED(1223) 를 따로 알려주므로 취소를 구분할 수 있다.
-        //   SEE_MASK_NOASYNC: 호출 스레드가 먼저 끝나도 실행이 완료되도록(우리는 워커 스레드다).
-        let mut sei: SHELLEXECUTEINFOW = std::mem::zeroed();
-        sei.cbSize = std::mem::size_of::<SHELLEXECUTEINFOW>() as _;
-        sei.fMask = SEE_MASK_NOASYNC;
-        sei.lpFile = wpath.as_ptr();
-        sei.nShow = SW_SHOWNORMAL;
-        let ok = ShellExecuteExW(&mut sei) != 0;
-        let last_err = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
-        if we_initialized {
-            CoUninitialize();
-        }
-        if ok {
-            log::info!("shell_open ok: {}", path);
-            return Ok(());
-        }
-        const ERROR_CANCELLED: i32 = 1223;
-        if last_err == ERROR_CANCELLED {
-            // 거래처가 보안 경고/UAC 를 취소한 것 — 실패가 아니다. HQ 가 조용히 안내만 한다.
-            log::info!("shell_open canceled by user: {}", path);
-            bail!("exec-canceled");
-        }
-        // hInstApp 은 32 이하가 오류 코드다 (2=파일 없음, 5=접근 거부, 31=연결 프로그램 없음).
-        bail!(
-            "ShellExecute failed (code {}, err {})",
-            sei.hInstApp as isize,
-            last_err
-        );
     }
 }
 
