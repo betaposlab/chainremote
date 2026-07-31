@@ -1399,7 +1399,13 @@ class FfiModel with ChangeNotifier {
       setShowMyCursor(bind.sessionGetToggleOptionSync(
           sessionId: sessionId, arg: kOptionToggleShowMyCursor));
     }
-    if (connType == ConnType.defaultConn || connType == ConnType.viewCamera) {
+    // ChainRemote: 파일전송 세션도 platform_additions 를 읽는다. 원본은 화면/카메라 세션만
+    //   파싱해서, 파일매니저가 피어 능력(우리 chainremote_version 신호)을 판단할 방법이 없었다
+    //   — 복사/붙여넣기·실행 메뉴가 어느 거래처에서도 안 뜨던 진짜 원인(2026-07-31).
+    //   에이전트는 파일전송 로그인 응답에도 같은 PeerInfo 를 보내므로 값은 원래부터 와 있었다.
+    if (connType == ConnType.defaultConn ||
+        connType == ConnType.viewCamera ||
+        connType == ConnType.fileTransfer) {
       final platformAdditions = evt['platform_additions'];
       if (platformAdditions != null && platformAdditions != '') {
         try {
