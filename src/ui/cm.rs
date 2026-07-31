@@ -168,6 +168,14 @@ impl SciterConnectionManager {
     /// 배너 모드 전환 알림 — cm.tis::applyCmBanner 가 상태가 바뀔 때만 부른다.
     /// 배너일 때 창을 NOACTIVATE/TOOLWINDOW 로, 수락 카드로 돌아가면 원복한다.
     /// 자세한 배경은 platform::windows::set_cm_banner_style 주석 참조.
+    // ChainRemote: 배너로 줄어든 뒤 남는 잔상(구형 Win7 비합성 환경) 제거 — 비운 영역 재그리기.
+    fn repaint_area(&self, x: i32, y: i32, w: i32, h: i32) {
+        #[cfg(windows)]
+        crate::platform::windows::repaint_desktop_area(x, y, w, h);
+        #[cfg(not(windows))]
+        let _ = (x, y, w, h);
+    }
+
     fn set_banner_mode(&self, banner: bool) {
         #[cfg(windows)]
         {
@@ -202,5 +210,6 @@ impl sciter::EventHandler for SciterConnectionManager {
         fn get_option(String);
         fn hide_cm();
         fn set_banner_mode(bool);
+        fn repaint_area(i32, i32, i32, i32);
     }
 }

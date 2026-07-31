@@ -401,6 +401,12 @@ function applyCmBanner() {
         //   topmost 배너에 포커스를 뺏겨 방금 최소화한 POS 를 도로 띄우던 문제를 끊는다
         //   (태조산 현장 2026-07-25). 클릭은 그대로라 [종료] 버튼은 동작한다.
         handler.set_banner_mode(true);
+        // 카드(380x260)에서 배너(260x48)로 줄었으니 비운 자리를 다시 그리게 한다.
+        //   Aero 꺼진 구형 Win7 POS 는 그 영역이 자동 무효화되지 않아 직전 프레임이
+        //   검은 상자처럼 남는다 (2026-07-31 테스트1). Win10 은 원래 안 남지만 무해하다.
+        var cw = scaleIt(380);
+        var ch = scaleIt(260);
+        handler.repaint_area((sw - cw) / 2, 0, cw, ch);
     } else {
         // 대기(수락카드)/끊김: 카드 크기. 카드는 거래처가 눌러야 하는 창이라 스타일을 원복한다.
         var w = scaleIt(380);

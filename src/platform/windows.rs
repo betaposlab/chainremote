@@ -2302,9 +2302,26 @@ pub fn run_background(exe: &str, arg: &str) -> ResultType<bool> {
 
 // ChainRemote: 파일매니저 [실행] — 연결 프로그램으로 열기(문서/exe 공용, 창 표시).
 //   run_background 와 달리 SW_SHOWNORMAL — 거래처 화면에 결과 창이 떠야 한다.
+//   ★COM(STA) 초기화 필수: ShellExecuteW 는 셸 확장으로 위임될 수 있어 MS 문서가 호출 스레드의
+//   CoInitializeEx 를 요구한다. 이 함수는 CM 의 워커 스레드에서 도는데 그쪽엔 COM 아파트먼트가
+//   없어, 초기화 없이 부르면 실행이 조용히 실패한다(2026-07-31 테스트1 — 다른 파일 작업은 다
+//   정상인데 [실행] 만 안 되던 원인). 실패 코드를 사람이 읽을 수 있게 함께 남긴다.
 pub fn shell_open(path: &str) -> ResultType<()> {
+    use winapi::um::combaseapi::{CoInitializeEx, CoUninitialize};
+    use winapi::um::objbase::{COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
+    use winapi::shared::winerror::{RPC_E_CHANGED_MODE, S_FALSE, S_OK};
+
     let wpath = wide_string(path);
     unsafe {
+        let hr = CoInitializeEx(
+            NULL as _,
+            COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE,
+        );
+        // 이미 다른 아파트먼트로 초기화된 스레드면(RPC_E_CHANGED_MODE) 우리가 해제하면 안 된다.
+        let we_initialized = hr == S_OK || hr == S_FALSE;
+        if hr != S_OK && hr != S_FALSE && hr != RPC_E_CHANGED_MODE {
+            log::warn!("shell_open: CoInitializeEx failed hr=0x{:x}", hr);
+        }
         let ret = ShellExecuteW(
             NULL as _,
             NULL as _,
@@ -2313,10 +2330,16 @@ pub fn shell_open(path: &str) -> ResultType<()> {
             NULL as _,
             SW_SHOWNORMAL,
         );
-        if ret as i32 > 32 {
+        let code = ret as i32;
+        if we_initialized {
+            CoUninitialize();
+        }
+        if code > 32 {
+            log::info!("shell_open ok: {}", path);
             Ok(())
         } else {
-            bail!("ShellExecute failed ({})", ret as i32);
+            // 32 이하는 오류 코드다 (2=파일 없음, 5=접근 거부, 31=연결 프로그램 없음 등).
+            bail!("ShellExecute failed (code {})", code);
         }
     }
 }
@@ -3923,6 +3946,33 @@ pub fn set_cm_banner_style(hwnd: HWND, banner: bool) {
             0,
             0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        );
+    }
+}
+
+// ChainRemote: cm 창이 카드(380x260)에서 배너(260x48)로 줄어들 때 비워진 자리에 직전 프레임
+//   픽셀이 남는 문제 — Aero(DWM 합성)가 꺼진 구형 Win7 POS 에서만 나타난다. 합성이 있으면
+//   시스템이 알아서 아래 창들을 다시 그리지만, 비합성 환경에선 그 영역이 무효화되지 않아
+//   거래처 바탕화면에 검은 상자가 유령처럼 남는다(탐색기 창을 끌면 지워지는 게 그 증거).
+//   Win10 에서 안 보이는 것도 같은 이유다. 우리가 비운 영역을 명시적으로 무효화해 밑에 있던
+//   창·바탕화면이 다시 그리게 한다. 2026-07-31 테스트1(Win7 32비트) 실측.
+pub fn repaint_desktop_area(x: i32, y: i32, w: i32, h: i32) {
+    if w <= 0 || h <= 0 {
+        return;
+    }
+    unsafe {
+        let rect = RECT {
+            left: x,
+            top: y,
+            right: x + w,
+            bottom: y + h,
+        };
+        // hwnd=NULL = 데스크톱 전체 기준. RDW_ALLCHILDREN 으로 그 영역의 모든 창이 다시 그린다.
+        RedrawWindow(
+            std::ptr::null_mut(),
+            &rect,
+            std::ptr::null_mut(),
+            RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN,
         );
     }
 }
