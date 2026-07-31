@@ -145,9 +145,12 @@ class FileModel {
         }
       }
       for (final item in clip.items) {
+        final actId = JobController.jobID.next();
+        jobController.trackSilentOp(
+            actId, '${clip.isCut ? "이동" : "복사"}: ${item.name}');
         await bind.sessionCopyFile(
             sessionId: sessionId,
-            actId: JobController.jobID.next(),
+            actId: actId,
             src: item.path,
             dst: PathUtil.join(toPath, item.name, isWindows),
             isMove: clip.isCut,
@@ -964,11 +967,12 @@ class FileController {
     if (isLocal) return;
     dialogManager?.show((setState, close, context) {
       submit() async {
-        await bind.sessionExecFile(
-            sessionId: sessionId,
-            actId: JobController.jobID.next(),
-            path: item.path);
+        // 창을 먼저 닫는다 — 전송이 늦거나 실패해도 다이얼로그가 남아 "먹통"으로 보이지 않게.
         close();
+        final actId = JobController.jobID.next();
+        jobController.trackSilentOp(actId, '원격 실행: ${item.name}');
+        await bind.sessionExecFile(
+            sessionId: sessionId, actId: actId, path: item.path);
       }
 
       return CustomAlertDialog(
@@ -1007,6 +1011,16 @@ class JobController {
   int _lastTimeShowMsgbox = DateTime.now().millisecondsSinceEpoch;
 
   JobController(this.getSessionID, this.getDialogManager);
+
+  // ChainRemote: 전송 목록에 안 올리는 단발 작업(원격 실행·내부 복사/이동)의 결과 통지.
+  //   이런 작업은 jobTable 에 항목이 없어 jobDone/jobError 가 조용히 반환한다 —
+  //   성공도 실패도 화면에 아무 흔적이 없어 사용자에겐 "눌러도 반응 없음"으로만 보였다
+  //   (2026-07-31 Chang 리포트). 여기에 등록해 두면 끝날 때 토스트/에러로 반드시 알린다.
+  final Map<int, String> _silentOps = {};
+
+  void trackSilentOp(int id, String label) {
+    _silentOps[id] = label;
+  }
 
   int getJob(int id) {
     return jobTable.indexWhere((element) => element.id == id);
@@ -1082,6 +1096,12 @@ class JobController {
     try {
       id = int.parse(evt['id']);
     } catch (_) {}
+    // 단발 작업(실행·내부 복사/이동)은 jobTable 에 없다 — 완료를 토스트로 알리고 목록을 갱신한다.
+    final silent = _silentOps.remove(id);
+    if (silent != null) {
+      showToast('$silent — 완료');
+      return true;
+    }
     final jobIndex = getJob(id);
     if (jobIndex == -1) return true;
     final job = jobTable[jobIndex];
@@ -1118,12 +1138,32 @@ class JobController {
 
   void jobError(Map<String, dynamic> evt) {
     final err = evt['err'].toString();
+    final int errId = int.tryParse(evt['id']?.toString() ?? '') ?? -1;
+    // 단발 작업(실행·내부 복사/이동)의 실패 — jobTable 에 없어 여기서 안 알리면 완전히 묻힌다.
+    final silent = _silentOps.remove(errId);
+    if (silent != null) {
+      final dm = alogManager;
+      if (dm != null) {
+        msgBox(sessionId, 'custom-error-nook-nocancel-hasclose',
+            translate('Error'), '$silent\n$err', '', dm);
+      } else {
+        showToast('$silent — 실패: $err');
+      }
+      return;
+    }
     int jobIndex = getJob(int.parse(evt['id']));
     if (jobIndex != -1) {
       final job = jobTable[jobIndex];
       job.state = JobState.error;
       job.err = err;
       job.recvJobRes = true;
+      // ChainRemote: 삭제 실패는 하단 목록에만 남아 사실상 안 보였다 — 이유를 바로 띄운다.
+      //   (2026-07-31: "삭제해도 아무 반응 없다"의 원인 규명을 막던 침묵을 없앤다.)
+      if (job.type == JobType.deleteFile || job.type == JobType.deleteDir) {
+        if (err != 'cancel') {
+          showToast('삭제 실패: ${job.fileName} — $err');
+        }
+      }
       if (job.type == JobType.transfer) {
         int? fileNum = int.tryParse(evt['file_num']);
         if (fileNum != null) job.fileNum = fileNum;
