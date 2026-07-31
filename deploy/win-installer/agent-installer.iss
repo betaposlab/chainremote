@@ -172,6 +172,17 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;     updater.log 에 한 줄로 남긴다. PS 2.0 안전: Get-WmiObject(CIM 아님) + '*>' 없음 + 스칼라 .Count 미사용.
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$log='C:\ProgramData\ChainRemote\updater.log'; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $os=Get-WmiObject -Class Win32_OperatingSystem -EA SilentlyContinue; $psv=$PSVersionTable.PSVersion.ToString(); $exe='{code:CRAgentDir}\ChainRemote.exe'; $ucrtSys=Test-Path ($env:windir + '\System32\ucrtbase.dll'); $ucrtLocal=Test-Path (Join-Path (Split-Path $exe) 'api-ms-win-crt-runtime-l1-1-0.dll'); $vcrLocal=Test-Path (Join-Path (Split-Path $exe) 'vcruntime140.dll'); Add-Content -Path $log -Value ($st + ' installer: ENV os=[' + $os.Caption + '] ver=' + $os.Version + ' sp=' + $os.ServicePackMajorVersion + ' arch=' + $os.OSArchitecture + ' ps=' + $psv + ' ucrt_sys=' + $ucrtSys + ' ucrt_local=' + $ucrtLocal + ' vcr_local=' + $vcrLocal)"""; StatusMsg: "ChainRemote 설치 환경 기록 중..."; Flags: runhidden waituntilterminated
 
+; 8.7. 제어판 중복 항목 정리 — 코어(--silent-install)가 자기 이름으로 만드는 제거 항목을 숨긴다.
+;    우리 설치는 2층(Inno 포장지 + 코어 자체설치)이라 [프로그램 및 기능]에 ChainRemote 가 두 줄
+;    보였다(게시자 BetaposLab = Inno, ChainRemote = 코어). 거래처가 보기에 혼란스럽고 어느 쪽으로
+;    지워야 하는지도 알 수 없다.
+;    ★키를 지우지 않고 SystemComponent 로 '표시만' 숨긴다 — get_valid_subkey/is_installed 가
+;    이 키의 InstallLocation 을 타고 설치 여부·경로를 판정하므로(windows.rs), 키를 삭제하면
+;    설치본을 미설치로 오판할 위험이 있다. SystemComponent 는 화면에서만 빼는 표준 방법이라
+;    그 판정 경로에 아무 영향이 없다. 32/64 view 둘 다 — 코어는 비트수에 따라 다른 view 에 쓴다.
+Filename: "reg.exe"; Parameters: "add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ChainRemote /v SystemComponent /t REG_DWORD /d 1 /f /reg:64"; Flags: runhidden
+Filename: "reg.exe"; Parameters: "add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ChainRemote /v SystemComponent /t REG_DWORD /d 1 /f /reg:32"; Flags: runhidden
+
 ; 9. 설치 직후 ChainRemote 실행 — 절대 경로 강제 (옛 AppId {app} mismatch 회피).
 ;    ★64비트 Win7 "CreateProcess 실패 코드2"의 진원지였다 — {commonpf} 는 Program Files 인데
 ;    실제 exe 는 (x86) 에 있어 파일을 못 찾았다(코드2 = ERROR_FILE_NOT_FOUND). CRAgentDir 로 해소.
@@ -196,6 +207,16 @@ Root: HKLM; Subkey: "SOFTWARE\Policies\Microsoft\Windows Defender Security Cente
   Flags: uninsdeletevalue
 
 [UninstallRun]
+; ★코어까지 완전 제거 (2026-07-31) — 8.7 에서 코어 항목을 숨겼으므로 제어판에 보이는 제거
+;   항목은 이것 하나뿐이다. 따라서 이 제거가 서비스·프로세스·설치폴더까지 전부 지워야 한다.
+;   (종전엔 Inno 가 자기 파일만 지우고 코어가 XCOPY 로 복사한 본체는 남겨, "지웠는데 서비스가
+;    계속 도는" 상태가 될 수 있었다.)
+;   코어의 --uninstall 은 임시 배치를 띄우는 비동기 방식이라 Inno 의 파일 삭제와 경합한다 →
+;   여기선 같은 일을 결정적인 순서로 직접 한다. 실패해도 제거를 막지 않는다(전부 SilentlyContinue).
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; sc.exe delete ChainRemote >$null 2>&1; taskkill /F /IM ChainRemote.exe /T >$null 2>&1; Start-Sleep -Seconds 2; Remove-Item '{code:CRAgentDir}' -Recurse -Force -ErrorAction SilentlyContinue"""; Flags: runhidden waituntilterminated; RunOnceId: "CoreUninstall"
+; 숨겨둔 코어 제거 항목도 정리 (고아 레지스트리 방지). 32/64 view 둘 다.
+Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ChainRemote /f /reg:64"; Flags: runhidden; RunOnceId: "DelCoreArp64"
+Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ChainRemote /f /reg:32"; Flags: runhidden; RunOnceId: "DelCoreArp32"
 ; 제거 시 watchdog SYSTEM 예약작업도 정리 (고아 작업 방지)
 Filename: "schtasks.exe"; Parameters: "/Delete /TN ChainRemoteServiceWatchdog /F"; Flags: runhidden; RunOnceId: "DelWatchdogTask"
 ; 상호 레지스트리 청소 (2026-07-14) — 기기를 다른 거래처로 재사용할 때 옛 상호("태조산 메인")가
