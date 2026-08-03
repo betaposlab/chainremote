@@ -1,4 +1,4 @@
-rendezvous_server = 'sepani.synology.me:21116'
+rendezvous_server = 'rs.626.kr:21116'
 nat_type = 2
 serial = 0
 unlock_pin = ''
@@ -6,8 +6,8 @@ trusted_devices = ''
 
 [options]
 av1-test = 'Y'
-custom-rendezvous-server = 'sepani.synology.me'
-relay-server = 'sepani.synology.me'
+custom-rendezvous-server = 'rs.626.kr'
+relay-server = 'relay.626.kr'
 key = 'C2bqeqG0Nb0EQgmtomhzcykw69gRvbSLKfm019r1C8Y='
 api-server = ''
 # 거래처(Agent) 디폴트: 클릭으로만 세션 수락. 영구비번 박지 않음 — 거래처가

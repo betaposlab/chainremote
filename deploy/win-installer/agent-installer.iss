@@ -25,7 +25,7 @@
 ;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일했다 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.82"
+#define APP_VERSION    "1.4.83"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; x64: 윈컴 Flutter 빌드 출력 (build-all.ps1)
@@ -105,6 +105,12 @@ Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; 서비스 watchdog (PS2-safe — Win7/Win10 공용). 공백 없는 ProgramData 경로 = schtasks /TR 중첩인용 회피.
 Source: "watchdog.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignoreversion
 
+; 서버 주소 이관기 — 기존 설치본의 ChainRemote2.toml 에서 주소 3줄만 갈아끼운다.
+;   아래 3번 배치 단계는 파일이 이미 있으면 통째로 건너뛴다(거래처 자체 설정 보존). 그런데
+;   서버 주소는 거래처 설정이 아니라 우리 인프라인데도 같은 가드에 묶여 갱신될 길이 없었다.
+;   (ASCII 전용 — PS 는 BOM 없는 .ps1 을 시스템 ANSI 로 읽어 한글이 들어가면 파서가 깨진다.)
+Source: "migrate-server-address.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
+
 [Run]
 ; 0. Windows ephemeral port range 확장 (사업화 안전망 — 다른 원격 SW 의 socket 누수에 휘말리지 않게)
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
@@ -144,6 +150,11 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;    (dst 에 ChainRemote2.toml 이 이미 있으면 안 박는다 — 거래처 자체 설정 보존. 신규 설치만 박힘.)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force | Out-Null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ([System.IO.File]::ReadAllText(""$dst\ChainRemote2.toml"") -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{sys}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force | Out-Null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ([System.IO.File]::ReadAllText(""$dst\ChainRemote2.toml"") -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
+
+; 3.5 기존 설치본의 서버 주소 이관 — 신규 설치는 위에서 이미 새 주소가 박혀 nochange 로 끝난다.
+;     실패해도 원본을 그대로 두고 넘어간다. 결과는 updater.log 에 남는다.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\migrate-server-address.ps1"" -Path ""{userappdata}\ChainRemote\config\ChainRemote2.toml"" -Rs rs.626.kr -Relay relay.626.kr -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 서버 주소 확인 중 (사용자)..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\migrate-server-address.ps1"" -Path ""{sys}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config\ChainRemote2.toml"" -Rs rs.626.kr -Relay relay.626.kr -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 서버 주소 확인 중 (서비스)..."; Flags: runhidden waituntilterminated
 
 ; 4. 서비스 재시작 — Running 도달 폴링 + 3회 재시도 + updater.log 기록 (죽으면 진단 단서 남김)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$log='C:\ProgramData\ChainRemote\updater.log'; New-Item -Path (Split-Path $log) -ItemType Directory -Force | Out-Null; $ok=$false; for ($a=0; $a -lt 3; $a++) {{ try {{ Start-Service ChainRemote -ErrorAction Stop }} catch {{ sc.exe start ChainRemote >$null 2>&1 }}; for ($i=0; $i -lt 30; $i++) {{ $svc=Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($svc -ne $null -and $svc.Status -eq 'Running') {{ $ok=$true; break }}; Start-Sleep -Seconds 1 }}; if ($ok) {{ break }} }}; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $res= if ($ok) {{ 'Running OK' }} else {{ 'FAILED to reach Running after 3x30s' }}; Add-Content -Path $log -Value ($st + ' installer: sc start ChainRemote -> ' + $res)"""; StatusMsg: "ChainRemote 서비스 시작 중..."; Flags: runhidden waituntilterminated
