@@ -75,6 +75,11 @@ Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; 덮어써 custom.txt 가 사라졌다. 본사 custom 파일은 win-installer 밖(deploy/)에 있다.
 Source: "..\custom-hq.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.txt"; Flags: deleteafterinstall ignoreversion
 
+; 서버 주소 이관기 — 에이전트와 같은 스크립트를 공유한다. 아래 3번 배치 단계는 파일이
+;   이미 있으면 통째로 건너뛰므로(설정 보존 가드) 주소만 따로 갈아끼워야 한다.
+;   (ASCII 전용 — PS 는 BOM 없는 .ps1 을 시스템 ANSI 로 읽어 한글이 들어가면 파서가 깨진다.)
+Source: "migrate-server-address.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
+
 [Run]
 ; 0. Windows ephemeral port range 확장 (2026-05-25 사업화 안전망).
 ;    HQ 인스톨러도 같은 이유로 적용 — Chang/재성이 PC 에 다른 SW(코이노 등)가 깔려있을 때
@@ -111,6 +116,11 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;    앱이 안 읽는 파일을 보던 거짓 PASS 였다.
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{userappdata}\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ([System.IO.File]::ReadAllText(""$dst\ChainRemote2.toml"") -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (사용자)..."; Flags: runhidden waituntilterminated
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$src='{tmp}\chainremote_config'; $dst='{win}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config'; New-Item -Path $dst -ItemType Directory -Force *>$null; if (Test-Path ""$dst\ChainRemote2.toml"") {{ Write-Host 'preserved' }} else {{ for ($i=0; $i -lt 5; $i++) {{ try {{ Copy-Item ""$src\*.toml"" $dst -Force -ErrorAction Stop; if ([System.IO.File]::ReadAllText(""$dst\ChainRemote2.toml"") -match 'custom-rendezvous-server') {{ break }} }} catch {{ Start-Sleep -Seconds 2 }} }} }}"""; StatusMsg: "ChainRemote 설정 적용 중 (서비스)..."; Flags: runhidden waituntilterminated
+
+; 3.5 기존 설치본의 서버 주소 이관 — 신규 설치는 위에서 이미 새 주소가 박혀 nochange 로 끝난다.
+;     실패해도 원본을 그대로 두고 넘어간다. 결과는 updater.log 에 남는다.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\migrate-server-address.ps1"" -Path ""{userappdata}\ChainRemote\config\ChainRemote2.toml"" -Rs rs.626.kr -Relay relay.626.kr -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 서버 주소 확인 중 (사용자)..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\migrate-server-address.ps1"" -Path ""{win}\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote\config\ChainRemote2.toml"" -Rs rs.626.kr -Relay relay.626.kr -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 서버 주소 확인 중 (서비스)..."; Flags: runhidden waituntilterminated
 
 ; 4. 서비스 재시작 (간단판 — HQ 는 watchdog 없으므로 1회 시도면 충분)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Start-Service ChainRemote -ErrorAction Stop }} catch {{ sc.exe start ChainRemote *>$null }}"""; StatusMsg: "ChainRemote 서비스 시작 중..."; Flags: runhidden waituntilterminated
