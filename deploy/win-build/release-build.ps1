@@ -26,9 +26,14 @@ Mark "START kind=$Kind"
 
 git fetch origin 2>&1 | Out-Null
 git reset --hard origin/develop 2>&1 | Out-Null
+# reset --hard 는 부모 저장소만 되돌린다. 서브모듈(libs/hbb_common)은 옛 커밋에 그대로 남아
+# 조용히 낡은 코드로 빌드된다 - 2026-08-04 에 기본 rendezvous 주소가 딱 그렇게 빠질 뻔했다.
+git submodule sync --recursive 2>&1 | Out-Null
+git submodule update --init --recursive --force 2>&1 | Out-Null
+$subHead = (& git -C libs\hbb_common rev-parse --short=9 HEAD).Trim()
 $head = git rev-parse --short=9 HEAD
 $ver = (Select-String -Path 'src\chainremote_version.rs' -Pattern 'CHAINREMOTE_VERSION: &str = "([^"]+)"').Matches[0].Groups[1].Value
-Mark "HEAD $head VERSION $ver"
+Mark "HEAD $head SUB $subHead VERSION $ver"
 
 & powershell -ExecutionPolicy Bypass -File "$repo\deploy\win-build\build-all.ps1" *> "$repo\_release_${Kind}_x64.log"
 if ($LASTEXITCODE -ne 0) { Mark "FAIL x64 exit=$LASTEXITCODE"; exit 1 }
