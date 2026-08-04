@@ -26,7 +26,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-const PENDING_URL_BASE: &str = "https://sepani.synology.me:3443/api/customers/pending-update";
+const PENDING_URL_BASE: &str = "https://api.626.kr/api/customers/pending-update";
 const POLL_INTERVAL: Duration = Duration::from_secs(60 * 5); // 5분
 const FIRST_DELAY: Duration = Duration::from_secs(60 * 3); // 부팅 후 3분 — 네트워크 안정 + hbbs ID + heartbeat 토큰 대기
 const HTTP_TIMEOUT: Duration = Duration::from_secs(30);

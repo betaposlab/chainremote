@@ -30,7 +30,7 @@ lazy_static::lazy_static! {
 // — 예전 주석의 HTTPS 불안정 근거는 rustls 기준 옛 설정이었음.
 // HTTP(3001)은 옛 에이전트(≤1.4.1) 호환용으로 당분간만 살려둠 — 신빌드는 HTTPS 만.
 // override: LocalConfig "chainremote-api-base" 또는 설정 UI 의 "관리 패널 주소" 필드.
-const DEFAULT_API_BASE: &str = "https://sepani.synology.me:3443";
+const DEFAULT_API_BASE: &str = "https://api.626.kr";
 const KEY_API_BASE: &str = "chainremote-api-base";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
