@@ -272,6 +272,8 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
 .stagger.in > :nth-child(2){transition-delay:.08s}
 .stagger.in > :nth-child(3){transition-delay:.16s}
 .stagger.in > :nth-child(4){transition-delay:.24s}
+.stagger.in > :nth-child(5){transition-delay:.32s}
+.stagger.in > :nth-child(6){transition-delay:.40s}
 
 @media(max-width:1060px){
   .hero-grid{grid-template-columns:1fr;gap:34px}
@@ -317,6 +319,16 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
 .fdot{width:7px;height:7px;border-radius:50%;background:var(--mint);animation:pulse 1.8s infinite;display:inline-block}
 @media(max-width:960px){#fwmock{order:2}}
 
+/* 지원기록 섹션 — .prow 위에 얹는 칸 스타일만 (테두리·간격은 .panelmock 것을 그대로 쓴다) */
+.hdate{font-size:.76rem;color:#8a93ad;font-weight:300;min-width:52px;font-variant-numeric:tabular-nums}
+.hmemo{flex:1;min-width:0;font-size:.88rem;color:var(--mist);font-weight:300;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hwho{font-size:.74rem;font-weight:500;color:var(--lilac);background:var(--cobalt);
+  border:1px solid var(--inkline);border-radius:9999px;padding:3px 10px;white-space:nowrap}
+.hdur{font-size:.76rem;color:#8a93ad;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:34px;text-align:right}
+@media(max-width:680px){.hdur,.hdate{display:none}
+  .hmemo{font-size:.82rem;white-space:normal;overflow:visible;line-height:1.5}}
+
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none !important;transition:none !important}
   .reveal,.stagger > *{opacity:1;transform:none}
@@ -345,6 +357,9 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4.5 7l7.5 6 7.5-6"/></symbol>
   <symbol id="i-mobile" viewBox="0 0 24 24"><rect x="7.5" y="3" width="9" height="18" rx="2"/><path d="M11 17.8h2"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></symbol>
+  <symbol id="i-legacy" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12.5" rx="1.5"/><path d="M9 20h6M12 16.5V20"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 3v4.5h-4.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
   <symbol id="i-cog" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></symbol>
 </svg>
 
@@ -355,6 +370,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
       <a href="#features">특징</a>
       <a href="#disk">디스크 관제</a>
       <a href="#firewall">방화벽 관제</a>
+      <a href="#history">지원기록</a>
       <a href="#how">사용방법</a>
       <a href="#pricing">요금</a>
       <a href="#download">다운로드</a>
@@ -406,7 +422,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
             <div class="tabs">
               <span class="tab act">최근 세션</span><span class="tab">★ 즐겨찾기</span><span class="tab">전체 거래처</span>
             </div>
-            <div class="diskbanner">💾 디스크 주의 1곳 <b>달빛카페 6.7GB · Temp 0.0GB</b></div>
+            <div class="diskbanner">💾 디스크 주의 1곳 <b>달빛카페 3.2GB · Temp 1.4GB</b></div>
             <div class="cust">
               <div class="crow"><span class="avatar">행</span><span><span class="nm">행복마트 본점</span><br><span class="id2">AB 2222 3333</span></span><span class="pill pon"><i></i>Online</span></div>
               <div class="crow"><span class="avatar" style="background:#ffe9f2;color:#d3568f">큰</span><span><span class="nm">큰집설렁탕</span><br><span class="id2">AB 4444 5555</span></span><span class="pill pon"><i></i>Online</span></div>
@@ -442,20 +458,24 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
 
 <div class="marquee" aria-hidden="true">
   <div class="mq">
-    <span><svg class="chk"><use href="#i-check"/></svg> 자체 서버 운영</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 자사 직접 운영 서버</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 자동 업데이트</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 디스크 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 방화벽 자동 관제</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 지원 이력 자동 기록</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 구형 포스(Win7·32비트) 지원</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 가맹점 무제한</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 매 세션 '수락' 기반 보안</span>
-    <span><svg class="chk"><use href="#i-check"/></svg> Windows · macOS</span>
-    <span><svg class="chk"><use href="#i-check"/></svg> 자체 서버 운영</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> Windows (macOS는 문의)</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 자사 직접 운영 서버</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 자동 업데이트</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 디스크 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 방화벽 자동 관제</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 지원 이력 자동 기록</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 구형 포스(Win7·32비트) 지원</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 가맹점 무제한</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 매 세션 '수락' 기반 보안</span>
-    <span><svg class="chk"><use href="#i-check"/></svg> Windows · macOS</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> Windows (macOS는 문의)</span>
   </div>
 </div>
 
@@ -466,7 +486,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
       <h2 class="h2">복잡한 원격 접속, 이제 그만</h2>
       <p class="body">방문·세션번호·다운로드·실행으로 이어지던 번거로운 접속 절차 없이, 거래처도 본사도 클릭 한 번으로 끝납니다.</p>
     </div>
-    <div class="grid g4 stagger">
+    <div class="grid g3 stagger">
       <div class="card">
         <div class="ico"><svg class="ic"><use href="#i-click"/></svg></div>
         <h3 class="h3">거래처는 클릭 한 번</h3>
@@ -486,6 +506,16 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
         <div class="ico"><svg class="ic"><use href="#i-infinity"/></svg></div>
         <h3 class="h3">거래처는 무제한</h3>
         <p>거래처(가맹점)는 몇 곳이든 무제한으로 등록할 수 있습니다. 사용하는 계정(아이디) 수만큼만 합리적으로 과금됩니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg class="ic"><use href="#i-legacy"/></svg></div>
+        <h3 class="h3">구형 포스도 그대로</h3>
+        <p>포스는 한 번 들이면 십 년을 씁니다. Windows 7과 32비트 임베디드까지 지원하므로, 기기가 낡았다는 이유로 못 받는 지원은 없습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg class="ic"><use href="#i-refresh"/></svg></div>
+        <h3 class="h3">알아서 최신으로</h3>
+        <p>거래처 프로그램은 우리가 원격으로 올려 드립니다. 매장이 200곳이어도 한 번에, 사장님이 아무것도 누르지 않아도 조용히 최신 상태가 됩니다.</p>
       </div>
     </div>
   </div>
@@ -556,6 +586,40 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
           <li><svg class="chk"><use href="#i-check"/></svg> 성가신 '방화벽 꺼짐' 보안 알림도 함께 정리</li>
           <li><svg class="chk"><use href="#i-check"/></svg> 필요한 매장에만 — 거래처별로 켜고 끄는 관제</li>
         </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="history">
+  <div class="controlbg">
+    <div class="glow g-purple" style="left:auto;right:-240px;top:-180px;width:600px;height:460px"></div>
+  </div>
+  <div class="wrap" style="position:relative">
+    <div class="grid g2">
+      <div class="reveal">
+        <div class="tag">Only ChainRemote</div>
+        <h2 class="h2">누가 언제 뭘 고쳤는지,<br>물어보지 않아도 남습니다</h2>
+        <p class="body" style="margin-top:14px">원격을 끊으면 그 자리에서 기록 창이 뜹니다.
+        무엇을 처리했는지 한 줄 적으면 그대로 거래처 이력에 쌓입니다 —
+        <b style="color:#fff;font-weight:500">적는 걸 잊어도 접속한 사람·시각·걸린 시간은 자동으로 남습니다.</b></p>
+        <p class="body" style="margin-top:12px">직원이 여럿인 대리점일수록 값이 큽니다.
+        "저번에 간 사람이 뭘 만졌는지"를 전화로 물어볼 필요가 없고, 같은 증상이 반복되는
+        거래처는 이력만 훑어도 보입니다. 재방문 없이 원인을 좁히는 자료가 저절로 쌓이는 셈입니다.</p>
+        <ul class="plist" style="margin-top:24px">
+          <li><svg class="chk"><use href="#i-check"/></svg> 원격을 끊으면 자동 기록 — 빠뜨릴 일이 없습니다</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 거래처별 이력과 전체 타임라인, 두 가지로 조회</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 검색·기간 필터로 '그때 그 건'을 바로 찾기</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 본사 앱에서도, 관리 패널에서도 같은 기록</li>
+        </ul>
+      </div>
+      <div class="panelmock reveal">
+        <div class="phead"><svg class="ic" style="width:18px;height:18px"><use href="#i-clock"/></svg> 지원기록 · 관리 패널</div>
+        <div class="prow"><span class="hdate">오늘</span><span class="pname">달빛카페</span><span class="hmemo">재부팅 후 영수증 프린터 인식 안 됨 — 드라이버 재설치</span><span class="hwho">박지훈</span><span class="hdur">12분</span></div>
+        <div class="prow"><span class="hdate">오늘</span><span class="pname">행복마트 본점</span><span class="hmemo">임시파일 정리 — 여유 3.2GB → 41.6GB</span><span class="hwho">이수민</span><span class="hdur">3분</span></div>
+        <div class="prow"><span class="hdate">어제</span><span class="pname">큰집설렁탕</span><span class="hmemo">방화벽 재활성 자동 해제 확인, 주방 프린터 정상</span><span class="hwho">박지훈</span><span class="hdur">4분</span></div>
+        <div class="prow"><span class="hdate">3일 전</span><span class="pname">스마일분식 2호점</span><span class="hmemo">여름 메뉴 단가 일괄 수정 지원</span><span class="hwho">이수민</span><span class="hdur">21분</span></div>
+        <div class="prow pfoot">원격을 끊으면 이 줄이 <b>자동으로</b> 생깁니다. 내용은 그 자리에서 적어도 되고, 나중에 채워 넣어도 됩니다.</div>
       </div>
     </div>
   </div>
@@ -659,7 +723,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
         <li><svg class="chk"><use href="#i-check"/></svg> 거래처(가맹점) 무제한 등록</li>
         <li><svg class="chk"><use href="#i-check"/></svg> 계정(아이디) 단위 월정액</li>
         <li><svg class="chk"><use href="#i-check"/></svg> 동시 사용 인원만큼 계정 추가</li>
-        <li><svg class="chk"><use href="#i-check"/></svg> 자체 서버 · 자동 업데이트</li>
+        <li><svg class="chk"><use href="#i-check"/></svg> 자사가 직접 운영하는 서버 · 자동 업데이트</li>
         <li><svg class="chk"><use href="#i-check"/></svg> 매 세션 '수락' 기반 보안</li>
       </ul>
     </div>
