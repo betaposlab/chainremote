@@ -169,9 +169,11 @@ PYC
 if ssh -o BatchMode=yes -o ConnectTimeout=10 "$CLOUD" "mkdir -p $CLOUD_DIR" 2>/dev/null; then
   scp -o BatchMode=yes -q "$WORK/index-cloud.html" "$CLOUD:$CLOUD_DIR/index.html"
   scp -o BatchMode=yes -q "$(dirname "$INDEX_SRC")/logo.png" "$CLOUD:$CLOUD_DIR/logo.png"
-  CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://626.kr/main)"
+  # -L: /main → /main/ 301 을 따라간다(2026-08-06 슬래시 정규화 이후). 안 그러면 정상 배포를
+  #     301 이라는 이유로 실패로 읽는다.
+  CODE="$(curl -sL -o /dev/null -w '%{http_code}' --max-time 20 https://626.kr/main)"
   if [[ "$CODE" == "200" ]]; then
-    curl -fsS --max-time 20 https://626.kr/main | grep -q "$HQ_NAME" \
+    curl -fsSL --max-time 20 https://626.kr/main | grep -q "$HQ_NAME" \
       && echo "    ✓ https://626.kr/main 갱신 (다운로드는 Cafe24 로)" \
       || echo "    ⚠ 626.kr/main 이 열리지만 버전 표기가 안 맞습니다 — 확인 필요"
   else

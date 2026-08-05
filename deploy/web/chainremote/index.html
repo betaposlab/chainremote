@@ -67,9 +67,9 @@ h1,h2,h3{color:var(--white)}
 
 /* 네비: 투명 스티키 — 로고 좌 / 링크 중앙 / CTA 우 */
 header{position:sticky;top:0;z-index:60;background:rgba(11,12,14,.72);backdrop-filter:blur(12px)}
-.nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:62px;gap:16px}
+.nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:76px;gap:16px}
 .brand{display:flex;align-items:center;gap:8px}
-.brand img{height:30px}
+.brand img{height:46px}
 .nav-center{display:flex;gap:4px;justify-self:center}
 .nav-center a{padding:7px 14px;border-radius:var(--r-btn);font-size:.92rem;color:var(--ash);transition:color .2s,background .2s}
 .nav-center a:hover{color:var(--white);background:rgba(255,255,255,.06)}
@@ -275,6 +275,8 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   .linked{position:relative;right:auto;bottom:auto;width:max-content}
   .nav{grid-template-columns:auto 1fr auto}
   .nav-center{display:none}
+  .nav{height:66px}
+  .brand img{height:38px}
 }
 @keyframes accshow-m{0%,30%{opacity:0}36%,92%{opacity:1}98%,100%{opacity:0}}
 @media(max-width:960px){
