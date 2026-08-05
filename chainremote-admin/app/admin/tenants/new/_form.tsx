@@ -5,9 +5,13 @@ import Link from "next/link";
 import { createTenant, type CreateTenantResult } from "@/lib/actions/tenants";
 import { FormattedInput } from "../_formatted-input";
 
-// TODO: 임시 placeholder URL. 호스팅(재성이 홈피 또는 NAS 공개 path) 정해지면 교체.
-const HQ_DOWNLOAD_URL = "https://(설정 필요)/ChainRemote_HQ_Setup_v1.3.0.exe";
-const CHAINGO_DOWNLOAD_URL = "https://(설정 필요)/ChainGo.exe";
+// 가입 안내문에 다운로드 URL 을 박지 않는다 (2026-08-06).
+//   종전엔 "https://(설정 필요)/..." 라는 placeholder 가 그대로 남아, 대리점을 만들면
+//   깨진 주소가 든 안내문이 복사됐다(HQ 는 v1.3.0 이라는 옛 버전까지 박혀 있었다).
+//   URL 을 여기 박으면 릴리즈마다 사람이 고쳐야 하고 빠뜨리면 그 채널만 굳는다 —
+//   ★게다가 거래처용 Agent 는 반드시 그 대리점 패널에서 받아야 enroll-key 가 채워진다.
+//   그래서 파일이 아니라 "패널에 로그인해서 받으세요" 로 안내한다 = 항상 최신 + 항상 정본.
+const PANEL_URL = "https://626.kr";
 
 export function NewTenantForm() {
   const [pending, startTransition] = useTransition();
@@ -234,17 +238,19 @@ function Field({
 function RegisteredResult({ result }: { result: CreateTenantResult }) {
   const message = `[ChainRemote] ${result.tenantDisplayName} 가입 안내
 
-ChainRemote 본사 앱 (HQ) 다운로드:
-${HQ_DOWNLOAD_URL}
-
-ChainGo (외부 비상 도구):
-${CHAINGO_DOWNLOAD_URL}
-
-로그인 정보:
+관리 패널: ${PANEL_URL}
 - 아이디: ${result.adminEmail}
 - 임시 비밀번호: ${result.tempPassword}
 
-첫 로그인 후 앱 [설정] → [비밀번호 변경] 에서 본인 비밀번호로 바꿔주세요.`;
+첫 로그인 후 [비밀번호 변경] 에서 본인 비밀번호로 바꿔주세요.
+
+프로그램은 패널에 로그인한 뒤 [대시보드] → 설치파일 에서 받으시면 됩니다.
+- 가맹점(거래처)용 에이전트 : 가맹점 PC 에 설치. 설치하면 자동으로 거래처 목록에 등록됩니다.
+  ※ 반드시 이 패널에서 받으세요. 다른 경로로 받은 파일은 소속이 안 잡혀 목록에 안 뜹니다.
+- 본사 직원용 (HQ) : 직원 PC 에 설치. 로그인하면 우리 회사 거래처가 보입니다.
+- ChainGo (무설치) : 설치 없이 실행만. 외부 PC 에서 급히 원격 볼 때.
+
+항상 최신 버전이 받아집니다.`;
 
   function copy() {
     void navigator.clipboard.writeText(message);

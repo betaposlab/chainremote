@@ -86,6 +86,20 @@ export function AgentDownloadCard({
           HQ 다운로드
         </a>
       </div>
+
+      {/* ChainGo — 설치형 HQ 와 같은 앱의 무설치 판. 종전엔 이 카드에서 빠져 있어
+          대리점이 존재 자체를 몰랐다(의도된 누락이 아니라 그냥 안 넣은 것, 2026-08-06).
+          HQ 와 같은 릴리즈·같은 버전이라 라우트가 latest.json hq 버전으로 넘긴다. */}
+      <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#56699c] pt-4">
+        <p className="text-sm text-[#eef1f7]">
+          <span className="font-medium text-white">ChainGo (무설치)</span> —
+          설치 없이 실행만 하면 되는 HQ 입니다. 출장 중이거나 남의 PC·PC방에서 급히
+          원격을 봐야 할 때 받아서 바로 쓰고, 닫으면 그 PC 에 흔적이 남지 않습니다.
+        </p>
+        <a href={`/api/tenants/${tenantId}/chaingo`} className="btn btn-ghost shrink-0">
+          ChainGo 다운로드
+        </a>
+      </div>
     </section>
   );
 }

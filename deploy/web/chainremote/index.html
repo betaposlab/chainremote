@@ -205,7 +205,14 @@ header{position:sticky;top:0;z-index:60;background:rgba(11,12,14,.72);backdrop-f
 .panelmock .bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--pviolet),var(--purple));
   box-shadow:0 0 10px rgba(98,95,255,.55);transition:width 1.2s cubic-bezier(.2,.7,.2,1)}
 .panelmock .warn i{background:linear-gradient(90deg,#c2483f,var(--amber));box-shadow:0 0 10px rgba(255,176,32,.5)}
-.in .b1{width:38%}.in .b2{width:55%}.in .b3{width:93%}.in .b4{width:30%}
+.panelmock .danger i{background:linear-gradient(90deg,#7a1f24,#ff5a5f);box-shadow:0 0 10px rgba(255,90,95,.55)}
+.panelmock .badge-red{color:#ff9a9e;background:rgba(255,90,95,.12);border-color:rgba(255,90,95,.4)}
+.panelmock .cleanbtn{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+  border:1px solid var(--hairline);border-radius:var(--r-btn);padding:4px 10px;
+  font-size:.75rem;font-weight:600;color:#dfe7ff;background:rgba(255,255,255,.04)}
+.panelmock .pfoot{display:block;font-size:.78rem;color:#a9b6dd;font-weight:300;line-height:1.6;padding:12px 22px}
+.panelmock .pfoot b{color:#fff;font-weight:600}
+.in .b1{width:38%}.in .b2{width:55%}.in .b3{width:96%}.in .b4{width:88%}
 .panelmock .pfree{font-size:.82rem;color:var(--ash);width:92px;text-align:right;font-variant-numeric:tabular-nums}
 .panelmock .badge{font-size:.74rem;font-weight:700;color:#ffc65c;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3);
   border-radius:var(--r-btn);padding:3px 11px;animation:warnblink 2.6s infinite}
@@ -316,7 +323,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   .linkpath{stroke-dashoffset:0}
   .accard,.linked{opacity:1}
   .fwswap .s1{opacity:0}.fwswap .s2{opacity:1}
-  .in .b1{width:38%}.in .b2{width:55%}.in .b3{width:93%}.in .b4{width:30%}
+  .in .b1{width:38%}.in .b2{width:55%}.in .b3{width:96%}.in .b4{width:88%}
 }
 </style>
 </head>
@@ -511,9 +518,9 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
         <div class="phead"><svg class="ic" style="width:18px;height:18px"><use href="#i-gauge"/></svg> 디스크 관제 · 관리 패널</div>
         <div class="prow"><span class="pname">행복마트 본점</span><span class="bar"><i class="b1"></i></span><span class="pfree">여유 51.4GB</span></div>
         <div class="prow"><span class="pname">큰집설렁탕</span><span class="bar"><i class="b2"></i></span><span class="pfree">여유 28.9GB</span></div>
-        <div class="prow warn"><span class="pname">달빛카페</span><span class="bar"><i class="b3"></i></span><span class="badge">여유 6.7GB</span></div>
-        <div class="prow"><span class="pname">스마일분식 2호점</span><span class="bar"><i class="b4"></i></span><span class="pfree">여유 63.8GB</span></div>
-        <div class="prow" style="justify-content:flex-end"><span class="btn btn-ghost" style="padding:8px 15px;font-size:.85rem"><svg class="ic" style="stroke:currentColor;width:15px;height:15px"><use href="#i-broom"/></svg> 원격 없이 정리</span></div>
+        <div class="prow danger"><span class="pname">달빛카페</span><span class="bar"><i class="b3"></i></span><span class="badge badge-red">🔴 여유 3.2GB</span><span class="cleanbtn"><svg class="ic" style="stroke:currentColor;width:13px;height:13px"><use href="#i-broom"/></svg> 정리</span></div>
+        <div class="prow warn"><span class="pname">스마일분식 2호점</span><span class="bar"><i class="b4"></i></span><span class="badge">🟡 여유 6.7GB</span><span class="cleanbtn"><svg class="ic" style="stroke:currentColor;width:13px;height:13px"><use href="#i-broom"/></svg> 정리</span></div>
+        <div class="prow pfoot">위험(5GB 미만)·주의(8GB 미만) 거래처엔 <b>[정리]</b> 버튼이 붙습니다 — 원격 접속 없이 임시파일·휴지통을 비웁니다.</div>
       </div>
     </div>
   </div>
@@ -570,7 +577,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
       <div class="step">
         <div class="num">2</div>
         <h3 class="h3">ID 자동 등록</h3>
-        <p>설치하면 9자리 ID가 생성돼 본사 관리 패널에 등록됩니다. 거래처가 따로 할 일은 없습니다.</p>
+        <p>설치하면 그 PC 전용 접속 ID가 자동으로 만들어져 본사 관리 패널에 등록됩니다. 거래처가 따로 할 일은 없습니다.</p>
       </div>
       <div class="step">
         <div class="num">3</div>
