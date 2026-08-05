@@ -1,481 +1,658 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChainRemote — 거래처 원격지원, 클릭 한 번으로 | BetaPosLab</title>
-    <meta name="description" content="POS·키오스크 원격 A/S를 위한 한국형 원격지원 솔루션. 거래처는 원격이 올 때 '수락' 한 번이면 끝. 본사도 즐겨찾기에서 1클릭 원격. 계정 단위 월정액.">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChainRemote — 거래처 원격지원, 클릭 한 번으로</title>
+<meta name="description" content="POS·키오스크 원격지원 솔루션. 거래처는 '수락' 클릭 한 번, 본사는 즐겨찾기에서 1클릭. 디스크 관제까지.">
+<meta property="og:title" content="ChainRemote — 거래처 원격지원, 클릭 한 번으로">
+<meta property="og:url" content="https://betaposlab.com/chainremote">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* ============================================================
+   ChainRemote 랜딩 v3 — AgentQL 톤 (Aurora glow over a midnight terminal)
+   기준: docs/chainremote/design/LANDING_DESIGN_AGENTQL.md (Chang 선택)
+   ============================================================ */
+:root{
+  --void:#0b0c0e; --abyss:#0e111b; --deep:#0d172b; --cobalt:#12244f;
+  --lilac:#85a6e9; --signal:#2862d7; --pviolet:#305fbd;
+  --purple:#625fff; --pink:#ff7dda;
+  --white:#ffffff; --ash:#abaebb; --mist:#c7c9d1; --slate:#3c3f44;
+  --edge:#172540; --inkline:#151e32; --hairline:#24375a;
+  --mint:#3ddc84; --amber:#FFB020;
+  --r-card:12px; --r-btn:9999px; --r-input:8px;
+  --sh-xl:rgba(0,0,0,.5) 0 4px 30px;
+  --sh-float:rgba(0,0,0,.34) 0 20px 35px, rgba(0,0,0,.25) 0 4px 13px;
+  --grad-cta:linear-gradient(90deg,#305fbd,#625fff);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+     color:var(--white);background:var(--abyss);line-height:1.5;font-size:16px;
+     -webkit-font-smoothing:antialiased;word-break:keep-all;overflow-x:hidden}
+.wrap{max-width:1200px;margin:0 auto;padding:0 24px}
+a{color:inherit;text-decoration:none}
 
-    <!-- 카톡/검색 공유 카드 (og:image는 /chainremote/og.png 업로드 후 활성) -->
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="ChainRemote — 거래처 원격지원, 클릭 한 번으로">
-    <meta property="og:description" content="POS·키오스크 원격 A/S 솔루션. 거래처도 본사도 클릭 한 번. 계정 단위 월정액.">
-    <meta property="og:url" content="https://betaposlab.com/chainremote">
-    <!-- <meta property="og:image" content="https://betaposlab.com/chainremote/og.png"> -->
+h1,h2,h3{color:var(--white)}
+.display{font-size:clamp(2.5rem,5.2vw,4rem);font-weight:700;line-height:1.08;letter-spacing:-.02em}
+.h2{font-size:clamp(1.7rem,3vw,2.25rem);font-weight:600;line-height:1.15;letter-spacing:-.02em}
+.h3{font-size:1.1rem;font-weight:600;letter-spacing:-.01em}
+.lead{font-size:1.1rem;color:var(--ash);line-height:1.65;font-weight:300}
+.body{font-size:.975rem;color:var(--ash);line-height:1.65;font-weight:300}
+.grad-text{background:linear-gradient(92deg,var(--lilac),var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent}
 
-    <link rel="icon" type="image/png" href="symbol.png">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+/* 버튼: 전부 pill. Primary = 흰색 */
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:var(--r-btn);
+     font-size:.95rem;font-weight:500;padding:11px 22px;border:1px solid transparent;
+     transition:transform .12s,box-shadow .2s,border-color .2s,opacity .2s;cursor:pointer}
+.btn:active{transform:translateY(1px)}
+.btn-white{background:var(--white);color:#0b0c0e}
+.btn-white:hover{box-shadow:rgba(255,255,255,.35) 0 2px 14px}
+.btn-ghost{background:transparent;color:var(--white);border-color:#777a88}
+.btn-ghost:hover{border-color:var(--white)}
+.btn-grad{background:var(--grad-cta);color:#fff;position:relative;overflow:hidden}
+.btn-grad::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.25) 50%,transparent 70%);
+  transform:translateX(-120%);animation:shine 4.5s ease-in-out infinite}
+@keyframes shine{12%{transform:translateX(-120%)}45%,100%{transform:translateX(120%)}}
+.btn-lg{padding:14px 28px;font-size:1.02rem}
 
-    <style>
-        :root {
-            --blue: #1E5BFF;
-            --blue-dark: #1747CC;
-            --blue-soft: #EAF0FF;
-            --ink: #0B1220;
-            --ink-2: #1A2233;
-            --muted: #5B6472;
-            --line: #E6E9EF;
-            --bg: #FFFFFF;
-            --bg-alt: #F6F8FC;
-            --ok: #16A34A;
-            --radius: 16px;
-            --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
-            --shadow-lg: 0 20px 50px rgba(15, 23, 42, 0.10);
-        }
-        * { box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-        body {
-            margin: 0;
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-            color: var(--ink);
-            background: var(--bg);
-            line-height: 1.6;
-            -webkit-font-smoothing: antialiased;
-        }
-        a { color: inherit; text-decoration: none; }
-        .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 24px; }
-        section { scroll-margin-top: 84px; }
-        h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.25; margin: 0; }
+.card{background:var(--deep);border:1px solid var(--edge);border-radius:var(--r-card);padding:24px;
+      transition:transform .25s,border-color .25s,box-shadow .25s}
+.card:hover{transform:translateY(-4px);border-color:var(--hairline);box-shadow:var(--sh-xl)}
 
-        /* ===== Header ===== */
-        header {
-            position: sticky; top: 0; z-index: 50;
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: saturate(180%) blur(12px);
-            border-bottom: 1px solid var(--line);
-        }
-        .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
-        .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; }
-        .brand .logo-img { height: 44px; width: auto; display: block; }
-        .brand .mark {
-            width: 30px; height: 30px; border-radius: 9px; background: var(--blue);
-            color: #fff; display: grid; place-items: center; font-weight: 900; font-size: 1rem;
-        }
-        .brand .sub { font-weight: 500; font-size: 0.8rem; color: var(--muted); margin-left: 2px; }
-        .nav-links { display: flex; align-items: center; gap: 28px; }
-        .nav-links a { color: var(--ink-2); font-weight: 600; font-size: 0.95rem; transition: color 0.2s; }
-        .nav-links a:hover { color: var(--blue); }
-        .btn {
-            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-            font-weight: 700; font-size: 0.95rem; border-radius: 12px; padding: 11px 20px;
-            cursor: pointer; border: 1.5px solid transparent; transition: all 0.2s; white-space: nowrap;
-        }
-        .btn-primary { background: var(--blue); color: #fff; }
-        .btn-primary:hover { background: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(30, 91, 255, 0.28); }
-        .btn-ghost { background: #fff; color: var(--ink); border-color: var(--line); }
-        .btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
-        .btn-lg { padding: 15px 28px; font-size: 1.02rem; border-radius: 14px; }
+.ic{width:22px;height:22px;fill:none;stroke:var(--lilac);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.chk{width:17px;height:17px;stroke:#8798c1;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ico{width:42px;height:42px;border-radius:11px;background:var(--cobalt);border:1px solid #1e2b48;
+     display:flex;align-items:center;justify-content:center;margin-bottom:15px}
 
-        /* ===== Hero ===== */
-        .hero { position: relative; overflow: hidden; background: var(--bg-alt); border-bottom: 1px solid var(--line); }
-        .hero::before {
-            content: ''; position: absolute; inset: 0; pointer-events: none;
-            background:
-                radial-gradient(60% 50% at 80% 0%, rgba(30, 91, 255, 0.10) 0%, transparent 60%),
-                radial-gradient(45% 40% at 15% 100%, rgba(30, 91, 255, 0.07) 0%, transparent 60%);
-        }
-        .hero-inner { position: relative; padding: 92px 0 84px; text-align: center; }
-        .eyebrow {
-            display: inline-flex; align-items: center; gap: 7px; background: var(--blue-soft); color: var(--blue);
-            font-weight: 700; font-size: 0.85rem; padding: 7px 14px; border-radius: 999px; margin-bottom: 22px;
-        }
-        .hero h1 { font-size: 3rem; font-weight: 800; color: var(--ink); }
-        .hero p.lead { font-size: 1.18rem; color: var(--muted); max-width: 640px; margin: 22px auto 0; }
-        .hero-cta { display: flex; gap: 12px; justify-content: center; margin-top: 34px; flex-wrap: wrap; }
-        .trust { display: flex; gap: 10px 26px; justify-content: center; flex-wrap: wrap; margin-top: 40px; color: var(--muted); font-size: 0.92rem; font-weight: 600; }
-        .trust span { display: inline-flex; align-items: center; gap: 7px; }
-        .trust i { color: var(--blue); }
+/* 네비: 투명 스티키 — 로고 좌 / 링크 중앙 / CTA 우 */
+header{position:sticky;top:0;z-index:60;background:rgba(11,12,14,.72);backdrop-filter:blur(12px)}
+.nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:62px;gap:16px}
+.brand{display:flex;align-items:center;gap:8px}
+.brand img{height:30px}
+.nav-center{display:flex;gap:4px;justify-self:center}
+.nav-center a{padding:7px 14px;border-radius:var(--r-btn);font-size:.92rem;color:var(--ash);transition:color .2s,background .2s}
+.nav-center a:hover{color:var(--white);background:rgba(255,255,255,.06)}
+.nav-right{display:flex;gap:10px;justify-self:end;align-items:center}
+.nav-right .btn{padding:8px 17px;font-size:.9rem}
 
-        /* ===== Section heads ===== */
-        .sec { padding: 84px 0; }
-        .sec.alt { background: var(--bg-alt); }
-        .sec-head { text-align: center; max-width: 640px; margin: 0 auto 52px; }
-        .sec-head .tag { color: var(--blue); font-weight: 800; font-size: 0.9rem; letter-spacing: 0.02em; }
-        .sec-head h2 { font-size: 2.05rem; font-weight: 800; margin-top: 10px; }
-        .sec-head p { color: var(--muted); font-size: 1.05rem; margin-top: 14px; }
+/* 히어로: 오로라 상시 드리프트 + 별 + 그리드 */
+.hero{position:relative;padding:74px 0 40px;overflow:hidden;background:var(--void)}
+.glow{position:absolute;pointer-events:none;border-radius:50%;filter:blur(90px)}
+.g-purple{width:900px;height:640px;left:-160px;top:-300px;background:radial-gradient(closest-side,rgba(98,95,255,.42),transparent);
+  animation:breatheA 11s ease-in-out infinite alternate}
+.g-pink{width:700px;height:520px;right:-180px;bottom:-240px;background:radial-gradient(closest-side,rgba(255,125,218,.30),transparent);
+  animation:breatheB 13s ease-in-out infinite alternate}
+.g-blue{width:520px;height:420px;left:38%;top:30%;background:radial-gradient(closest-side,rgba(40,98,215,.22),transparent);
+  animation:breatheC 17s ease-in-out infinite alternate}
+@keyframes breatheA{to{transform:translate(110px,70px) scale(1.18);opacity:.8}}
+@keyframes breatheB{to{transform:translate(-90px,-60px) scale(1.22);opacity:.85}}
+@keyframes breatheC{to{transform:translate(-70px,50px) scale(.9)}}
+.stars{position:absolute;inset:0;pointer-events:none}
+.stars i{position:absolute;width:2px;height:2px;border-radius:50%;background:#9fb4ff;opacity:.32;animation:tw 3.6s ease-in-out infinite}
+.stars i:nth-child(2n){animation-delay:1.2s}.stars i:nth-child(3n){animation-delay:2.1s;background:#ffb5ec}
+@keyframes tw{0%,100%{opacity:.12;transform:scale(1)}50%{opacity:.75;transform:scale(1.5)}}
+.gridlines{position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(rgba(133,166,233,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(133,166,233,.055) 1px,transparent 1px);
+  background-size:52px 52px;
+  -webkit-mask-image:radial-gradient(ellipse 80% 70% at 50% 30%,#000 20%,transparent 78%);
+          mask-image:radial-gradient(ellipse 80% 70% at 50% 30%,#000 20%,transparent 78%)}
+.hero-grid{position:relative;display:grid;grid-template-columns:.94fr 1.06fr;gap:30px;align-items:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.84rem;font-weight:500;color:var(--lilac);
+  background:rgba(18,36,79,.6);border:1px solid var(--hairline);border-radius:var(--r-btn);padding:7px 15px}
+.eyebrow .live{width:7px;height:7px;border-radius:50%;background:var(--mint);animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(61,220,132,.5)}70%{box-shadow:0 0 0 7px rgba(61,220,132,0)}100%{box-shadow:0 0 0 0 rgba(61,220,132,0)}}
+.hero h1{margin:20px 0 16px}
+.hero .lead{max-width:470px}
+.hero-cta{display:flex;gap:12px;margin:28px 0 0;flex-wrap:wrap}
 
-        /* ===== Feature cards ===== */
-        .grid { display: grid; gap: 20px; }
-        .grid-4 { grid-template-columns: repeat(4, 1fr); }
-        .grid-3 { grid-template-columns: repeat(3, 1fr); }
-        .card {
-            background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
-            padding: 28px 24px; box-shadow: var(--shadow); transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-        .card .ico { width: 46px; height: 46px; border-radius: 12px; background: var(--blue-soft); color: var(--blue); display: grid; place-items: center; font-size: 1.25rem; margin-bottom: 16px; }
-        .card h3 { font-size: 1.12rem; font-weight: 700; }
-        .card p { color: var(--muted); font-size: 0.96rem; margin: 10px 0 0; }
+/* 히어로 우측: 실제 HQ 앱 복제 목업 (기울여 겹침) + 연결 데모 */
+.stage{position:relative;height:520px}
+.hqwin{position:absolute;top:6px;left:0;width:560px;max-width:100%;
+  background:#f4f6fb;border-radius:14px;overflow:hidden;color:#20263a;
+  box-shadow:var(--sh-float);transform:rotate(-2.2deg);animation:hqfloat 8s ease-in-out infinite}
+@keyframes hqfloat{50%{transform:rotate(-2.2deg) translateY(-9px)}}
+.hqwin .tbar{display:flex;gap:6px;align-items:center;padding:9px 12px;background:#e9edf5}
+.hqwin .tbar i{width:10px;height:10px;border-radius:50%}
+.hqwin .tbar i:nth-child(1){background:#ff5f57}.hqwin .tbar i:nth-child(2){background:#febc2e}.hqwin .tbar i:nth-child(3){background:#28c840}
+.hqbody{display:grid;grid-template-columns:150px 1fr;min-height:330px}
+.hqside{background:#fff;border-right:1px solid #e6eaf3;padding:12px 10px;display:flex;flex-direction:column;gap:9px}
+.hqside img{width:112px}
+.hqchip{font-size:.66rem;font-weight:600;color:#1E5BFF;border:1px solid #bcd0ff;border-radius:8px;padding:3px 8px;width:max-content}
+.hqside .mi{font-size:.78rem;color:#3b445f;padding:7px 9px;border-radius:8px;display:flex;gap:7px;align-items:center}
+.hqside .mi.act{background:#eef3ff;color:#1E5BFF;font-weight:600}
+.hqside .myid{margin-top:auto;font-size:.68rem;color:#66708c;background:#f1f4fa;border-radius:8px;padding:6px 8px}
+.hqside .myid b{color:#20263a;font-size:.74rem;letter-spacing:.02em}
+.hqmain{padding:12px 14px;position:relative}
+.idrow{display:flex;gap:8px;margin-bottom:10px}
+.idbox{flex:1;background:#e9edf5;border-radius:9px;padding:9px 12px;font-size:.95rem;letter-spacing:.06em;color:#2a3350;font-weight:600;font-variant-numeric:tabular-nums}
+.gobtn2{background:#1E5BFF;color:#fff;border-radius:9px;padding:9px 16px;font-size:.85rem;font-weight:700;display:flex;align-items:center;animation:gopress 10s infinite}
+@keyframes gopress{0%,7%{transform:scale(1);box-shadow:none}9%{transform:scale(.95);box-shadow:0 0 0 3px rgba(30,91,255,.3)}12%,100%{transform:scale(1)}}
+.tabs{display:flex;gap:4px;margin-bottom:9px}
+.tab{font-size:.72rem;color:#5c688a;padding:5px 10px;border-radius:8px}
+.tab.act{background:#fff;color:#20263a;font-weight:700;box-shadow:0 1px 3px rgba(30,50,100,.12)}
+.diskbanner{display:flex;gap:7px;align-items:center;background:#fff8e1;border:1px solid #f4e3ad;border-radius:9px;
+  padding:6px 10px;font-size:.7rem;color:#7a6420;margin-bottom:10px}
+.diskbanner b{background:#ffefc2;border-radius:6px;padding:2px 7px;color:#8a6a00}
+.cust{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px}
+.crow{display:flex;align-items:center;gap:8px;padding:6px 4px}
+.avatar{width:26px;height:26px;border-radius:8px;background:#e6e9ff;color:#5b63d3;font-size:.72rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;flex:none}
+.crow .nm{font-size:.75rem;font-weight:700;color:#252c47;line-height:1.25}
+.crow .id2{font-size:.62rem;color:#8b94b0;font-variant-numeric:tabular-nums}
+.pill{margin-left:auto;font-size:.6rem;font-weight:700;border-radius:99px;padding:2px 8px;display:flex;gap:4px;align-items:center}
+.pon{background:#e7f8ee;color:#199b57}.pon i{width:5px;height:5px;border-radius:50%;background:#2fbf71;display:inline-block}
+.poff{background:#eef0f5;color:#9aa3ba}.poff i{width:5px;height:5px;border-radius:50%;background:#c1c8d8;display:inline-block}
+.hqver{position:absolute;right:10px;bottom:6px;font-size:.6rem;color:#a6aec6}
+/* 연결선 + 수락 카드 */
+.link-svg{position:absolute;left:295px;top:295px;width:250px;height:190px;overflow:visible;pointer-events:none;z-index:3}
+.linkpath{fill:none;stroke:url(#lg);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:300;stroke-dashoffset:300;
+  filter:drop-shadow(0 0 6px rgba(98,95,255,.65));animation:draw 10s infinite}
+@keyframes draw{0%,10%{stroke-dashoffset:300;opacity:0}12%{opacity:1}30%{stroke-dashoffset:0}88%{stroke-dashoffset:0;opacity:1}96%,100%{stroke-dashoffset:0;opacity:0}}
+.pulsedot{position:absolute;left:295px;top:295px;width:10px;height:10px;border-radius:50%;background:var(--pink);
+  box-shadow:0 0 16px 4px rgba(255,125,218,.6);offset-path:path('M4 4 C 100 26, 140 100, 232 168');opacity:0;animation:travel 10s infinite;z-index:3}
+@keyframes travel{0%,13%{offset-distance:0%;opacity:0}15%{opacity:1}34%{offset-distance:100%}38%{opacity:0}
+  55%{offset-distance:0%;opacity:0}58%{opacity:.9}72%{offset-distance:100%;opacity:.9}76%{opacity:0}100%{opacity:0}}
+.accard{position:absolute;right:-6px;bottom:0;width:300px;background:#fff;border-radius:14px;color:#20263a;
+  box-shadow:var(--sh-float);transform:rotate(2deg) scale(.94);opacity:0;animation:accshow 10s infinite;z-index:4}
+@keyframes accshow{0%,30%{opacity:0;transform:rotate(2deg) scale(.94) translateY(14px)}
+  36%{opacity:1;transform:rotate(2deg) scale(1) translateY(0)}92%{opacity:1}98%,100%{opacity:0}}
+.accard .ahead{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #edf0f7}
+.accard .ahead img{height:20px}
+.accard .ahead span{margin-left:auto;font-size:.68rem;color:#9aa3ba}
+.accard .abody{padding:14px}
+.accard .abody b{font-size:.92rem}
+.accard .abody p{font-size:.8rem;color:#5c6580;margin:8px 0 12px;line-height:1.55}
+.accard .arow{display:flex;gap:8px}
+.accard .arow .b1{flex:1;text-align:center;background:#1E5BFF;color:#fff;border-radius:9px;padding:10px 0;
+  font-size:.88rem;font-weight:700;animation:accpress 10s infinite}
+.accard .arow .b2{flex:1;text-align:center;background:#eef0f5;color:#3b445f;border-radius:9px;padding:10px 0;font-size:.88rem;font-weight:600}
+@keyframes accpress{0%,46%{transform:scale(1)}48%{transform:scale(.94)}51%,100%{transform:scale(1)}}
+.linked{position:absolute;right:6px;bottom:-38px;display:flex;align-items:center;gap:8px;z-index:4;
+  background:rgba(18,36,79,.85);border:1px solid var(--hairline);color:#7ce6ac;font-size:.84rem;font-weight:600;
+  border-radius:var(--r-btn);padding:8px 16px;opacity:0;animation:linkedshow 10s infinite;backdrop-filter:blur(6px)}
+@keyframes linkedshow{0%,53%{opacity:0;transform:translateY(8px)}58%{opacity:1;transform:translateY(0)}90%{opacity:1}97%,100%{opacity:0}}
+.linked i{width:7px;height:7px;border-radius:50%;background:var(--mint);animation:pulse 1.6s infinite}
 
-        /* ===== Steps ===== */
-        .step { position: relative; padding-top: 8px; }
-        .step .num {
-            width: 38px; height: 38px; border-radius: 50%; background: var(--blue); color: #fff;
-            font-weight: 800; display: grid; place-items: center; margin-bottom: 16px; font-size: 1.05rem;
-        }
-        .step h3 { font-size: 1.1rem; }
-        .step p { color: var(--muted); font-size: 0.97rem; margin-top: 9px; }
-        .hq-row { margin-top: 30px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 24px; box-shadow: var(--shadow); }
-        .hq-row .label { font-weight: 800; color: var(--blue); display: inline-flex; align-items: center; gap: 8px; }
-        .hq-row .flow { color: var(--ink-2); font-weight: 600; }
-        .hq-row .flow b { color: var(--blue); }
-        .notice {
-            margin-top: 28px; display: flex; gap: 14px; align-items: flex-start;
-            background: #FFF8E8; border: 1px solid #F4E2B8; border-radius: 14px; padding: 18px 20px;
-        }
-        .notice i { color: #B8860B; font-size: 1.2rem; margin-top: 2px; }
-        .notice p { margin: 0; color: #6B5A1E; font-size: 0.95rem; }
+/* 신뢰 마퀴 */
+.marquee{position:relative;border-top:1px solid var(--inkline);border-bottom:1px solid var(--inkline);
+  padding:15px 0;overflow:hidden;background:var(--void)}
+.mq{display:flex;gap:44px;width:max-content;animation:mq 26s linear infinite}
+.mq span{display:inline-flex;gap:9px;align-items:center;font-size:.9rem;color:var(--ash);font-weight:300;white-space:nowrap}
+@keyframes mq{to{transform:translateX(-50%)}}
 
-        /* ===== Download ===== */
-        .dl-card { display: flex; flex-direction: column; }
-        .dl-card .top { display: flex; align-items: center; gap: 14px; }
-        .dl-card .top .ico { margin: 0; }
-        .dl-card .ver { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
-        .dl-card p { flex: 1; }
-        .dl-card .btn { margin-top: 20px; width: 100%; }
-        .dl-os { font-size: 0.85rem; color: var(--muted); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; }
+/* 섹션 */
+.sec{padding:84px 0;position:relative}
+.sec-head{max-width:660px;margin-bottom:46px}
+.sec-head.center{margin-left:auto;margin-right:auto;text-align:center}
+.tag{display:inline-block;font-size:.78rem;font-weight:600;color:var(--ash);letter-spacing:.14em;margin-bottom:12px;text-transform:uppercase}
+.sec-head p{margin-top:14px}
+.grid{display:grid;gap:16px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:1fr 1fr;align-items:center;gap:52px}
+.card h3{margin-bottom:8px}
+.card p{font-size:.92rem;color:var(--mist);line-height:1.65;font-weight:300}
 
-        /* ===== Pricing ===== */
-        .price-box {
-            background: linear-gradient(135deg, #0E2B7A 0%, #1E5BFF 100%); color: #fff;
-            border-radius: 22px; padding: 48px 44px; box-shadow: var(--shadow-lg);
-            display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center;
-        }
-        .price-box h2 { font-size: 1.9rem; font-weight: 800; }
-        .price-box .sub { color: #D6E1FF; margin-top: 14px; font-size: 1.05rem; }
-        .price-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
-        .price-list li { display: flex; align-items: center; gap: 11px; font-weight: 600; }
-        .price-list i { color: #8FF0B5; }
-        .price-cta { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; }
-        .price-cta .btn-primary { background: #fff; color: var(--blue); }
-        .price-cta .btn-primary:hover { background: #EAF0FF; }
-        .price-note { color: #C3D2FF; font-size: 0.85rem; margin-top: 16px; }
+/* 관제 섹션 */
+.controlbg{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.panelmock{position:relative;background:var(--deep);border:1px solid var(--edge);border-radius:14px;box-shadow:var(--sh-xl)}
+.panelmock .phead{padding:14px 20px;border-bottom:1px solid var(--inkline);font-size:.9rem;font-weight:600;display:flex;gap:9px;align-items:center}
+.panelmock .prow{display:flex;align-items:center;gap:13px;padding:13px 20px}
+.panelmock .prow + .prow{border-top:1px solid var(--inkline)}
+.panelmock .pname{font-size:.92rem;font-weight:500;min-width:112px;color:#e7ecff}
+.panelmock .bar{flex:1;height:7px;background:rgba(133,166,233,.13);border-radius:99px;overflow:hidden}
+.panelmock .bar i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--pviolet),var(--purple));
+  box-shadow:0 0 10px rgba(98,95,255,.55);transition:width 1.2s cubic-bezier(.2,.7,.2,1)}
+.panelmock .warn i{background:linear-gradient(90deg,#c2483f,var(--amber));box-shadow:0 0 10px rgba(255,176,32,.5)}
+.in .b1{width:38%}.in .b2{width:55%}.in .b3{width:93%}.in .b4{width:30%}
+.panelmock .pfree{font-size:.82rem;color:var(--ash);width:92px;text-align:right;font-variant-numeric:tabular-nums}
+.panelmock .badge{font-size:.74rem;font-weight:700;color:#ffc65c;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3);
+  border-radius:var(--r-btn);padding:3px 11px;animation:warnblink 2.6s infinite}
+@keyframes warnblink{50%{opacity:.5}}
+.plist{list-style:none;display:grid;gap:13px}
+.plist li{display:flex;gap:10px;align-items:center;font-size:.95rem;color:var(--mist);font-weight:300}
 
-        /* ===== CTA band ===== */
-        .cta-band { text-align: center; padding: 76px 0; }
-        .cta-band h2 { font-size: 2rem; font-weight: 800; }
-        .cta-band p { color: var(--muted); margin-top: 12px; font-size: 1.05rem; }
-        .cta-band .hours { margin-top: 18px; font-size: 0.9rem; color: var(--muted); }
-        /* ===== Contact ===== */
-        .contact-card { text-align: center; color: var(--ink); }
-        .contact-card .ico { margin: 0 auto 16px; }
-        .contact-card .cval { font-size: 1.15rem; font-weight: 800; color: var(--ink); margin: 8px 0 0; }
-        .contact-card .cact { display: inline-block; margin-top: 12px; color: var(--blue); font-weight: 700; font-size: 0.9rem; }
-        .contact-card:hover .cact { text-decoration: underline; }
-        .contact-cta { text-align: center; margin-top: 36px; }
-        .contact-cta .hours { margin-top: 16px; font-size: 0.9rem; color: var(--muted); }
+/* 스텝 */
+.step{padding:24px;border:1px solid var(--edge);border-radius:var(--r-card);background:var(--deep)}
+.step .num{width:34px;height:34px;border-radius:50%;background:var(--grad-cta);color:#fff;font-weight:700;
+  display:flex;align-items:center;justify-content:center;margin-bottom:15px}
+.step h3{margin-bottom:8px}
+.step p{font-size:.92rem;color:var(--mist);line-height:1.65;font-weight:300}
+.step code{background:var(--cobalt);border-radius:6px;padding:1px 7px;font-size:.86em;color:var(--lilac)}
+.hq-row{margin-top:24px;border:1px solid var(--edge);background:var(--deep);border-radius:var(--r-card);
+  padding:16px 22px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.hq-row .label{font-weight:600;font-size:.94rem;display:flex;gap:8px;align-items:center}
+.hq-row .flow{color:var(--ash);font-size:.93rem;font-weight:300}
+.notice{margin-top:14px;display:flex;gap:10px;align-items:flex-start;font-size:.86rem;color:#8a93ad;line-height:1.6;font-weight:300}
 
-        /* ===== Footer ===== */
-        footer { background: #0B1220; color: #8A93A6; padding: 40px 0; font-size: 0.88rem; }
-        .foot { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
-        .foot a { color: #B9C2D6; font-weight: 600; }
-        .foot a:hover { color: #fff; }
-        .foot .links { display: flex; gap: 20px; flex-wrap: wrap; }
-        .foot .legal { color: #5B6678; font-size: 0.8rem; }
+/* 다운로드 */
+.dl .ver{font-size:.83rem;color:var(--ash);margin-top:2px;font-weight:300}
+.dl .top{display:flex;gap:14px;align-items:flex-start;margin-bottom:12px}
+.dl .top .ico{margin-bottom:0}
+.dl p{min-height:76px}
+.dl .os{display:block;font-size:.83rem;color:var(--ash);margin:10px 0 16px;font-weight:300}
+.dl .btn{width:100%;justify-content:center}
+.dl .spotlight{background:var(--cobalt);border-color:#1e2b48}
 
-        /* ===== Responsive ===== */
-        @media (max-width: 900px) {
-            .grid-4 { grid-template-columns: repeat(2, 1fr); }
-            .price-box { grid-template-columns: 1fr; padding: 38px 30px; }
-        }
-        @media (max-width: 720px) {
-            .nav-links a:not(.btn) { display: none; }
-            .brand .logo-img { height: 36px; }
-            .brand .sub { display: none; }
-            .hero h1 { font-size: 2.2rem; }
-            .hero-inner { padding: 64px 0 56px; }
-            .sec { padding: 60px 0; }
-            .grid-3, .grid-4 { grid-template-columns: 1fr; }
-            .sec-head h2 { font-size: 1.7rem; }
-        }
-    </style>
+/* 요금 */
+.price{position:relative;display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center;
+  background:var(--cobalt);border:1px solid #1e2b48;border-radius:16px;padding:46px 50px;overflow:hidden}
+.price .pglow{position:absolute;width:420px;height:300px;right:-120px;top:-140px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(98,95,255,.28),transparent);filter:blur(60px);animation:breatheA 12s ease-in-out infinite alternate}
+.price h2{margin-bottom:12px}
+.price .sub{color:var(--mist);line-height:1.65;font-weight:300}
+.price-note{font-size:.83rem;color:var(--ash);margin-top:12px;font-weight:300}
+
+/* 문의 */
+.contact-card{display:block}
+.contact-card .cval{font-size:1.06rem;font-weight:600;margin:2px 0 8px}
+.contact-card .cact{font-size:.88rem;color:var(--lilac);font-weight:500}
+.contact-cta{text-align:center;margin-top:38px}
+.hours{margin-top:14px;font-size:.86rem;color:var(--ash);font-weight:300}
+
+footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--void)}
+.foot{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.foot .legal{color:#8a93ad;font-size:.83rem;margin-top:5px;font-weight:300}
+.foot .links{display:flex;gap:22px;font-size:.9rem;color:var(--ash)}
+.foot .links a:hover{color:var(--white)}
+
+/* 리빌 */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+.stagger > *{opacity:0;transform:translateY(26px);transition:opacity .6s ease,transform .6s ease}
+.stagger.in > *{opacity:1;transform:none}
+.stagger.in > :nth-child(2){transition-delay:.08s}
+.stagger.in > :nth-child(3){transition-delay:.16s}
+.stagger.in > :nth-child(4){transition-delay:.24s}
+
+@media(max-width:1060px){
+  .hero-grid{grid-template-columns:1fr;gap:34px}
+  .stage{height:auto;display:flex;flex-direction:column;gap:16px}
+  .hqwin{position:relative;transform:none;width:100%;animation:none}
+  .link-svg,.pulsedot{display:none}
+  .accard{position:relative;right:auto;bottom:auto;transform:none;width:100%;animation:accshow-m 10s infinite}
+  .linked{position:relative;right:auto;bottom:auto;width:max-content}
+  .nav{grid-template-columns:auto 1fr auto}
+  .nav-center{display:none}
+}
+@keyframes accshow-m{0%,30%{opacity:0}36%,92%{opacity:1}98%,100%{opacity:0}}
+@media(max-width:960px){
+  .g4{grid-template-columns:repeat(2,1fr)}
+  .g2{grid-template-columns:1fr;gap:30px}
+  .price{grid-template-columns:1fr;padding:34px 28px}
+}
+@media(max-width:680px){
+  .g3,.g4{grid-template-columns:1fr}
+  .sec{padding:60px 0}
+  .dl p{min-height:0}
+  .hqbody{grid-template-columns:1fr}
+  .hqside{flex-direction:row;align-items:center;flex-wrap:wrap}
+  .hqside .myid{margin-top:0;margin-left:auto}
+  .cust{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important}
+  .reveal,.stagger > *{opacity:1;transform:none}
+  .linkpath{stroke-dashoffset:0}
+  .accard,.linked{opacity:1}
+  .in .b1{width:38%}.in .b2{width:55%}.in .b3{width:93%}.in .b4{width:30%}
+}
+</style>
 </head>
 <body>
 
-    <!-- ===== Header ===== -->
-    <header>
-        <div class="wrap nav">
-            <a class="brand" href="#top">
-                <img class="logo-img" src="logo.png" alt="ChainRemote">
-                <span class="sub">by BetaPosLab</span>
-            </a>
-            <nav class="nav-links">
-                <a href="#features">특징</a>
-                <a href="#how">사용방법</a>
-                <a href="#pricing">요금</a>
-                <a href="#download">다운로드</a>
-                <a class="btn btn-primary" href="#contact">도입 문의</a>
-            </nav>
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11"/></symbol>
+  <symbol id="i-click" viewBox="0 0 24 24"><path d="M9 3.5v3M3.5 9h3M5 5l2 2M14 22l-4-11 11 4-4.5 2.5z"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H11L9.5 22 19 10h-6.5z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5l7.5 3v6c0 5-3.2 8.4-7.5 10-4.3-1.6-7.5-5-7.5-10v-6z"/><path d="M8.8 12l2.3 2.3 4.2-4.6"/></symbol>
+  <symbol id="i-infinity" viewBox="0 0 24 24"><path d="M7 15.5c-2 0-3.5-1.6-3.5-3.5S5 8.5 7 8.5c3.5 0 6.5 7 10 7 2 0 3.5-1.6 3.5-3.5S19 8.5 17 8.5c-3.5 0-6.5 7-10 7z"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 18a9 9 0 1 1 16 0"/><path d="M12 13.5L15.5 9"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5L22 20H2z"/><path d="M12 9.5v5M12 17.4v.2"/></symbol>
+  <symbol id="i-broom" viewBox="0 0 24 24"><path d="M14 3l3 3M10.5 9.5L16 4M5 21c.5-4 2-7.5 5.5-11.5l3 3C10.5 16 7 17.5 3 18z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.5v11M7.5 10.5l4.5 4.5 4.5-4.5M4 20h16"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M4 9.5L5.5 4h13L20 9.5M4.5 9.5V20h15V9.5M9.5 20v-6h5v6"/></symbol>
+  <symbol id="i-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.5 3.6-5.5 7-5.5s6.2 2 7 5.5"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 4h4l1.5 4.5L8 10.5a12 12 0 0 0 5.5 5.5l2-2.5L20 15v4a1.5 1.5 0 0 1-1.7 1.5C10.5 19.6 4.4 13.5 3.5 5.7A1.5 1.5 0 0 1 5 4z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4.5 7l7.5 6 7.5-6"/></symbol>
+  <symbol id="i-mobile" viewBox="0 0 24 24"><rect x="7.5" y="3" width="9" height="18" rx="2"/><path d="M11 17.8h2"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5"/></symbol>
+  <symbol id="i-cog" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M18.5 5.5l-2.1 2.1M7.6 16.4l-2.1 2.1"/></symbol>
+</svg>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#top"><img src="logo.png" alt="ChainRemote"></a>
+    <nav class="nav-center">
+      <a href="#features">특징</a>
+      <a href="#disk">디스크 관제</a>
+      <a href="#how">사용방법</a>
+      <a href="#pricing">요금</a>
+      <a href="#download">다운로드</a>
+    </nav>
+    <div class="nav-right">
+      <a class="btn btn-ghost" href="#download">다운로드</a>
+      <a class="btn btn-white" href="#contact">도입 문의</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="glow g-purple"></div><div class="glow g-pink"></div><div class="glow g-blue"></div>
+  <div class="gridlines"></div>
+  <div class="stars">
+    <i style="left:8%;top:18%"></i><i style="left:16%;top:64%"></i><i style="left:27%;top:32%"></i>
+    <i style="left:38%;top:76%"></i><i style="left:47%;top:12%"></i><i style="left:58%;top:52%"></i>
+    <i style="left:66%;top:22%"></i><i style="left:74%;top:70%"></i><i style="left:84%;top:38%"></i>
+    <i style="left:92%;top:58%"></i><i style="left:12%;top:44%"></i><i style="left:52%;top:86%"></i>
+  </div>
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><span class="live"></span> POS · 키오스크 원격지원 솔루션</span>
+      <h1 class="display">거래처 원격지원,<br><span class="grad-text">클릭 한 번</span>으로.</h1>
+      <p class="lead">거래처가 할 일은 원격이 올 때 <b style="color:#fff;font-weight:600">'수락' 클릭</b> 한 번, 그게 전부입니다.
+         설치는 처음 한 번이면 끝나고, 본사도 즐겨찾기에서 <b style="color:#fff;font-weight:600">1클릭</b>으로 바로 연결됩니다.</p>
+      <div class="hero-cta">
+        <a class="btn btn-white btn-lg" href="#contact">도입 문의하기</a>
+        <a class="btn btn-ghost btn-lg" href="#download"><svg class="ic" style="stroke:currentColor;width:18px;height:18px"><use href="#i-download"/></svg> 다운로드</a>
+      </div>
+    </div>
+
+    <div class="stage" aria-label="원격 연결 과정 데모">
+      <div class="hqwin">
+        <div class="tbar"><i></i><i></i><i></i></div>
+        <div class="hqbody">
+          <div class="hqside">
+            <img src="logo.png" alt="">
+            <span class="hqchip">본사용 (HQ)</span>
+            <span class="mi act"><svg class="ic" style="width:14px;height:14px;stroke:#1E5BFF"><use href="#i-home"/></svg> 홈</span>
+            <span class="mi"><svg class="ic" style="width:14px;height:14px;stroke:#7c86a6"><use href="#i-cog"/></svg> 설정</span>
+            <span class="myid">내 ID <b>AB 0000 0000</b></span>
+          </div>
+          <div class="hqmain">
+            <div class="idrow">
+              <span class="idbox">AB 1111 1111</span>
+              <span class="gobtn2">원격 접속</span>
+            </div>
+            <div class="tabs">
+              <span class="tab act">최근 세션</span><span class="tab">★ 즐겨찾기</span><span class="tab">전체 거래처</span>
+            </div>
+            <div class="diskbanner">💾 디스크 주의 1곳 <b>달빛카페 6.7GB · Temp 0.0GB</b></div>
+            <div class="cust">
+              <div class="crow"><span class="avatar">행</span><span><span class="nm">행복마트 본점</span><br><span class="id2">AB 2222 3333</span></span><span class="pill pon"><i></i>Online</span></div>
+              <div class="crow"><span class="avatar" style="background:#ffe9f2;color:#d3568f">큰</span><span><span class="nm">큰집설렁탕</span><br><span class="id2">AB 4444 5555</span></span><span class="pill pon"><i></i>Online</span></div>
+              <div class="crow"><span class="avatar" style="background:#e5f6ff;color:#2c8fc9">스</span><span><span class="nm">스마일분식 2호점</span><br><span class="id2">AB 1111 1111</span></span><span class="pill pon"><i></i>Online</span></div>
+              <div class="crow"><span class="avatar" style="background:#eef0f5;color:#8b94b0">달</span><span><span class="nm">달빛카페</span><br><span class="id2">AB 6666 7777</span></span><span class="pill poff"><i></i>Offline</span></div>
+            </div>
+            <span class="hqver">v1.4.86</span>
+          </div>
         </div>
-    </header>
+      </div>
 
-    <!-- ===== Hero ===== -->
-    <section class="hero" id="top">
-        <div class="wrap hero-inner">
-            <span class="eyebrow"><i class="fas fa-headset"></i> POS · 키오스크 원격지원 솔루션</span>
-            <h1>거래처 원격지원,<br>클릭 한 번으로.</h1>
-            <p class="lead">
-                거래처가 할 일은 원격이 올 때 <b>'수락' 클릭</b> 한 번, 그게 전부입니다.
-                설치는 처음 한 번이면 끝나고, 본사도 즐겨찾기에서 <b>1클릭</b>으로 바로 연결됩니다.
-            </p>
-            <div class="hero-cta">
-                <a class="btn btn-primary btn-lg" href="#contact"><i class="fas fa-comment-dots"></i> 도입 문의하기</a>
-                <a class="btn btn-ghost btn-lg" href="#download"><i class="fas fa-download"></i> 다운로드</a>
-            </div>
-            <div class="trust">
-                <span><i class="fas fa-server"></i> 자체 서버 운영</span>
-                <span><i class="fas fa-rotate"></i> 자동 업데이트</span>
-                <span><i class="fas fa-gauge-high"></i> 디스크 관제</span>
-                <span><i class="fas fa-store"></i> 가맹점 무제한</span>
-                <span><i class="fab fa-windows"></i> Windows · macOS</span>
-            </div>
+      <svg class="link-svg" viewBox="0 0 250 190" aria-hidden="true">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#625fff"/><stop offset="1" stop-color="#ff7dda"/>
+        </linearGradient></defs>
+        <path class="linkpath" d="M4 4 C 100 26, 140 100, 232 168"/>
+      </svg>
+      <span class="pulsedot" aria-hidden="true"></span>
+
+      <div class="accard">
+        <div class="ahead"><img src="logo.png" alt=""><span>거래처 POS 화면</span></div>
+        <div class="abody">
+          <b>원격지원 요청</b>
+          <p>베타포스랩(본사)에서 원격지원을 요청했습니다. 수락하시면 화면 공유가 시작됩니다.</p>
+          <div class="arow"><span class="b1">수락</span><span class="b2">거절</span></div>
         </div>
-    </section>
+      </div>
 
-    <!-- ===== Features ===== -->
-    <section class="sec" id="features">
-        <div class="wrap">
-            <div class="sec-head">
-                <div class="tag">WHY CHAINREMOTE</div>
-                <h2>복잡한 원격 접속, 이제 그만</h2>
-                <p>방문·세션번호·다운로드·실행으로 이어지던 번거로운 접속 절차 없이, 거래처도 본사도 클릭 한 번으로 끝납니다.</p>
-            </div>
-            <div class="grid grid-4">
-                <div class="card">
-                    <div class="ico"><i class="fas fa-hand-pointer"></i></div>
-                    <h3>거래처는 클릭 한 번</h3>
-                    <p>설치는 방문 시 한 번이면 끝. 거래처는 원격이 올 때 '수락' 버튼만 누르면 됩니다 — IT를 몰라도 누구나 가능합니다.</p>
-                </div>
-                <div class="card">
-                    <div class="ico"><i class="fas fa-bolt"></i></div>
-                    <h3>본사도 클릭 한 번</h3>
-                    <p>즐겨찾기에서 거래처를 누르면 바로 원격이 시작됩니다. 세션 번호를 받아 적을 필요가 없습니다.</p>
-                </div>
-                <div class="card">
-                    <div class="ico"><i class="fas fa-shield-halved"></i></div>
-                    <h3>거래처가 통제</h3>
-                    <p>매 연결마다 거래처의 '수락'이 있어야 화면이 열립니다. 무단 접속 걱정 없이 안심하고 쓸 수 있습니다.</p>
-                </div>
-                <div class="card">
-                    <div class="ico"><i class="fas fa-won-sign"></i></div>
-                    <h3>거래처는 무제한</h3>
-                    <p>거래처(가맹점)는 몇 곳이든 무제한으로 등록할 수 있습니다. 사용하는 계정(아이디) 수만큼만 합리적으로 과금됩니다.</p>
-                </div>
-            </div>
+      <div class="linked"><i></i> 연결됨 · 화면 공유 중</div>
+    </div>
+  </div>
+</section>
+
+<div class="marquee" aria-hidden="true">
+  <div class="mq">
+    <span><svg class="chk"><use href="#i-check"/></svg> 자체 서버 운영</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 자동 업데이트</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 디스크 관제</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 가맹점 무제한</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 매 세션 '수락' 기반 보안</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> Windows · macOS</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 자체 서버 운영</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 자동 업데이트</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 디스크 관제</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 가맹점 무제한</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 매 세션 '수락' 기반 보안</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> Windows · macOS</span>
+  </div>
+</div>
+
+<section class="sec" id="features">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <div class="tag">Why ChainRemote</div>
+      <h2 class="h2">복잡한 원격 접속, 이제 그만</h2>
+      <p class="body">방문·세션번호·다운로드·실행으로 이어지던 번거로운 접속 절차 없이, 거래처도 본사도 클릭 한 번으로 끝납니다.</p>
+    </div>
+    <div class="grid g4 stagger">
+      <div class="card">
+        <div class="ico"><svg class="ic"><use href="#i-click"/></svg></div>
+        <h3 class="h3">거래처는 클릭 한 번</h3>
+        <p>설치는 방문 시 한 번이면 끝. 거래처는 원격이 올 때 '수락' 버튼만 누르면 됩니다 — IT를 몰라도 누구나 가능합니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg class="ic"><use href="#i-bolt"/></svg></div>
+        <h3 class="h3">본사도 클릭 한 번</h3>
+        <p>즐겨찾기에서 거래처를 누르면 바로 원격이 시작됩니다. 세션 번호를 받아 적을 필요가 없습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg class="ic"><use href="#i-shield"/></svg></div>
+        <h3 class="h3">거래처가 통제</h3>
+        <p>매 연결마다 거래처의 '수락'이 있어야 화면이 열립니다. 무단 접속 걱정 없이 안심하고 쓸 수 있습니다.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg class="ic"><use href="#i-infinity"/></svg></div>
+        <h3 class="h3">거래처는 무제한</h3>
+        <p>거래처(가맹점)는 몇 곳이든 무제한으로 등록할 수 있습니다. 사용하는 계정(아이디) 수만큼만 합리적으로 과금됩니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="disk">
+  <div class="controlbg">
+    <div class="glow g-purple" style="left:auto;right:-260px;top:-160px;width:640px;height:480px"></div>
+    <div class="glow g-pink" style="right:auto;left:-240px;bottom:-200px;width:520px;height:400px"></div>
+  </div>
+  <div class="wrap" style="position:relative">
+    <div class="grid g2">
+      <div class="reveal">
+        <div class="tag">Only ChainRemote</div>
+        <h2 class="h2">디스크가 꽉 차기 전에,<br>우리가 먼저 압니다</h2>
+        <p class="body" style="margin-top:14px">POS·키오스크는 디스크가 가득 차면 결제·주문이 멈춥니다.
+        ChainRemote는 각 거래처의 남은 용량을 항상 지켜보다가, 위험하면 미리 알리고
+        원격 접속 없이도 정리합니다 — 장애가 나기 전에 손쓰는, 우리만의 기능입니다.</p>
+        <ul class="plist" style="margin-top:24px">
+          <li><svg class="chk"><use href="#i-check"/></svg> 모든 거래처의 디스크 여유를 자동 보고</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 위험 수준에 닿으면 경고 배지</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 임시파일·휴지통을 원격 없이 버튼 하나로 정리</li>
+        </ul>
+      </div>
+      <div class="panelmock reveal">
+        <div class="phead"><svg class="ic" style="width:18px;height:18px"><use href="#i-gauge"/></svg> 디스크 관제 · 관리 패널</div>
+        <div class="prow"><span class="pname">행복마트 본점</span><span class="bar"><i class="b1"></i></span><span class="pfree">여유 51.4GB</span></div>
+        <div class="prow"><span class="pname">큰집설렁탕</span><span class="bar"><i class="b2"></i></span><span class="pfree">여유 28.9GB</span></div>
+        <div class="prow warn"><span class="pname">달빛카페</span><span class="bar"><i class="b3"></i></span><span class="badge">여유 6.7GB</span></div>
+        <div class="prow"><span class="pname">스마일분식 2호점</span><span class="bar"><i class="b4"></i></span><span class="pfree">여유 63.8GB</span></div>
+        <div class="prow" style="justify-content:flex-end"><span class="btn btn-ghost" style="padding:8px 15px;font-size:.85rem"><svg class="ic" style="stroke:currentColor;width:15px;height:15px"><use href="#i-broom"/></svg> 원격 없이 정리</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="how">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <div class="tag">How it works</div>
+      <h2 class="h2">설치 한 번, 그 다음엔 '수락'만</h2>
+      <p class="body">설치는 단 한 번. 그 다음부터는 원격이 올 때 '수락'만 누르면 됩니다.</p>
+    </div>
+    <div class="grid g3 stagger">
+      <div class="step">
+        <div class="num">1</div>
+        <h3 class="h3">방문 시 한 번 설치</h3>
+        <p>방문 시 <code>ChainRemote Agent</code>를 한 번 설치합니다. 거래처는 손댈 것이 없습니다.</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h3 class="h3">ID 자동 등록</h3>
+        <p>설치하면 9자리 ID가 생성돼 본사 관리 패널에 등록됩니다. 거래처가 따로 할 일은 없습니다.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h3 class="h3">원격이 오면 '수락' 클릭</h3>
+        <p>본사가 접속하면 작은 카드가 뜹니다. 거래처는 '수락'만 누르면 끝 — 거래처가 하는 유일한 동작입니다.</p>
+      </div>
+    </div>
+    <div class="hq-row reveal">
+      <span class="label"><svg class="ic" style="width:18px;height:18px"><use href="#i-person"/></svg> 본사 직원은</span>
+      <span class="flow">설치 → 로그인 → 즐겨찾기에서 거래처 클릭 = <b style="color:#fff">바로 원격 시작</b></span>
+    </div>
+    <div class="notice reveal">
+      <svg class="chk" style="stroke:#8a93ad"><use href="#i-alert"/></svg>
+      <p>처음 실행할 때 Windows가 "확인되지 않은 게시자" 안내를 띄울 수 있습니다.
+         <b style="color:var(--mist)">"추가 정보 → 실행"</b>을 한 번 눌러주시면 됩니다. (정식 코드 서명 적용 전까지의 일시적 안내입니다.)</p>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="download">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <div class="tag">Download</div>
+      <h2 class="h2">다운로드</h2>
+      <p class="body">본사 직원용 프로그램을 받으세요. 거래처용(Agent)은 관리패널에서 받습니다.</p>
+    </div>
+    <div class="grid g3 dl stagger">
+      <!-- 버전 표기와 href 는 릴리즈 스크립트가 자동 교체한다(deploy/nas/publish-landing.sh).
+           ★거래처용 Agent 는 여기에 올리지 않는다 — 설치 파일에 대리점 식별자가 박혀 있어
+           공개 파일 한 벌로는 어느 대리점 소속인지 정할 수 없다. 관리패널 경로만 유효. -->
+      <div class="card">
+        <div class="top">
+          <div class="ico"><svg class="ic"><use href="#i-store"/></svg></div>
+          <div><h3 class="h3">ChainRemote Agent</h3><div class="ver">거래처용 · 관리패널에서 받기</div></div>
         </div>
-    </section>
-
-    <!-- ===== Disk watch (차별화 포인트) ===== -->
-    <section class="sec alt" id="disk">
-        <div class="wrap">
-            <div class="sec-head">
-                <div class="tag">ONLY CHAINREMOTE</div>
-                <h2>디스크가 꽉 차기 전에, 우리가 먼저 압니다</h2>
-                <p>POS·키오스크는 디스크가 가득 차면 결제·주문이 멈춥니다. ChainRemote는 각 거래처의 남은 용량을 항상 지켜보다가, 위험하면 미리 알리고 원격 접속 없이도 정리합니다 — 장애가 나기 전에 손쓰는, 우리만의 기능입니다.</p>
-            </div>
-            <div class="grid grid-3">
-                <div class="card">
-                    <div class="ico"><i class="fas fa-gauge-high"></i></div>
-                    <h3>실시간 용량 감시</h3>
-                    <p>모든 거래처의 디스크 여유와 임시파일 크기를 자동으로 보고받아, 부족한 곳을 관리 패널에서 한눈에 봅니다.</p>
-                </div>
-                <div class="card">
-                    <div class="ico"><i class="fas fa-triangle-exclamation"></i></div>
-                    <h3>위험을 미리 경고</h3>
-                    <p>남은 용량이 위험 수준에 닿으면 경고 배지가 뜹니다. 결제·주문이 멈추기 전에 미리 조치할 수 있습니다.</p>
-                </div>
-                <div class="card">
-                    <div class="ico"><i class="fas fa-broom"></i></div>
-                    <h3>원격 없이 정리</h3>
-                    <p>임시파일·휴지통을 원격 접속 없이 버튼 하나로 비웁니다. 영업 중인 거래처를 방해하지 않습니다.</p>
-                </div>
-            </div>
+        <p>거래처용은 <b style="color:var(--mist)">대리점마다 설치 파일이 다릅니다.</b> 관리패널에 로그인해 받으셔야 그 거래처가 우리 대리점 소속으로 등록되고, 이후 업데이트도 자동으로 이어집니다.</p>
+        <span class="os">관리패널 → 거래처 → [에이전트 다운로드]</span>
+        <a class="btn btn-ghost" href="#contact">계정 문의</a>
+      </div>
+      <div class="card spotlight">
+        <div class="top">
+          <div class="ico" style="background:#1a3161"><svg class="ic"><use href="#i-person"/></svg></div>
+          <div><h3 class="h3">ChainRemote HQ</h3><div class="ver">본사 직원용 · v1.4.86</div></div>
         </div>
-    </section>
-
-    <!-- ===== How to use ===== -->
-    <section class="sec alt" id="how">
-        <div class="wrap">
-            <div class="sec-head">
-                <div class="tag">HOW IT WORKS</div>
-                <h2>설치 한 번, 그 다음엔 '수락'만</h2>
-                <p>설치는 단 한 번. 그 다음부터는 원격이 올 때 '수락'만 누르면 됩니다.</p>
-            </div>
-            <div class="grid grid-3">
-                <div class="step">
-                    <div class="num">1</div>
-                    <h3>방문 시 한 번 설치</h3>
-                    <p>방문 시 <code>ChainRemote Agent</code>를 한 번 설치합니다. 거래처는 손댈 것이 없습니다.</p>
-                </div>
-                <div class="step">
-                    <div class="num">2</div>
-                    <h3>ID 자동 등록</h3>
-                    <p>설치하면 9자리 ID가 생성돼 본사 관리 패널에 등록됩니다. 거래처가 따로 할 일은 없습니다.</p>
-                </div>
-                <div class="step">
-                    <div class="num">3</div>
-                    <h3>원격이 오면 '수락' 클릭</h3>
-                    <p>본사가 접속하면 작은 카드가 뜹니다. 거래처는 '수락'만 누르면 끝 — 거래처가 하는 유일한 동작입니다.</p>
-                </div>
-            </div>
-
-            <div class="hq-row">
-                <span class="label"><i class="fas fa-user-tie"></i> 본사 직원은</span>
-                <span class="flow">설치 → 로그인 → 즐겨찾기에서 거래처 클릭 = <b>바로 원격 시작</b></span>
-            </div>
-
-            <div class="notice">
-                <i class="fas fa-circle-info"></i>
-                <p>처음 실행할 때 Windows가 "확인되지 않은 게시자" 안내를 띄울 수 있습니다.
-                   <b>"추가 정보 → 실행"</b>을 한 번 눌러주시면 됩니다. (정식 코드 서명 적용 전까지의 일시적 안내입니다.)</p>
-            </div>
+        <p>본사 직원용 앱. 로그인 후 즐겨찾기에서 거래처를 1클릭으로 원격 지원합니다. 받으신 뒤 발급받은 계정으로 로그인하면 됩니다.</p>
+        <span class="os">Windows · macOS는 문의</span>
+        <a class="btn btn-white" href="downloads/ChainRemote_HQ_Setup_v1.4.86.exe"><svg class="ic" style="stroke:#0b0c0e;width:17px;height:17px"><use href="#i-download"/></svg> 본사용 다운로드</a>
+      </div>
+      <div class="card">
+        <div class="top">
+          <div class="ico"><svg class="ic"><use href="#i-bolt"/></svg></div>
+          <div><h3 class="h3">ChainGo</h3><div class="ver">포터블 · 무흔적 · v1.4.86</div></div>
         </div>
-    </section>
+        <p>PC방 또는 아무 PC에서나 다운로드 → 실행 → 로그인 → 원격 → 닫기. 설치 없이 쓰고, 그 PC에 흔적이 남지 않습니다.</p>
+        <span class="os">Windows · 설치 불필요</span>
+        <a class="btn btn-ghost" href="downloads/ChainGo_v1.4.86.exe"><svg class="ic" style="stroke:currentColor;width:17px;height:17px"><use href="#i-download"/></svg> ChainGo 받기</a>
+      </div>
+    </div>
+  </div>
+</section>
 
-    <!-- ===== Download ===== -->
-    <section class="sec" id="download">
-        <div class="wrap">
-            <div class="sec-head">
-                <div class="tag">DOWNLOAD</div>
-                <h2>다운로드</h2>
-                <p>본사 직원용 프로그램을 받으세요. 거래처용(Agent)은 관리패널에서 받습니다.</p>
-            </div>
-            <div class="grid grid-3">
-                <!-- 버전 표기와 href 는 릴리즈 스크립트가 자동 교체한다(deploy/nas/publish-landing.sh).
-                     ★거래처용 Agent 는 여기에 올리지 않는다 — 설치 파일에 대리점 식별자가 박혀 있어
-                     공개 파일 한 벌로는 어느 대리점 소속인지 정할 수 없다. 관리패널 경로만 유효. -->
-                <div class="card dl-card">
-                    <div class="top">
-                        <div class="ico"><i class="fas fa-store"></i></div>
-                        <div>
-                            <h3>ChainRemote Agent</h3>
-                            <div class="ver">거래처용 · 관리패널에서 받기</div>
-                        </div>
-                    </div>
-                    <p>거래처용은 <b>대리점마다 설치 파일이 다릅니다.</b> 관리패널에 로그인해 받으셔야 그 거래처가 우리 대리점 소속으로 등록되고, 이후 업데이트도 자동으로 이어집니다.</p>
-                    <span class="dl-os"><i class="fas fa-arrow-right"></i> 관리패널 → 거래처 → [에이전트 다운로드]</span>
-                    <a class="btn btn-ghost" href="#contact"><i class="fas fa-key"></i> 계정 문의</a>
-                </div>
+<section class="sec" id="pricing">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <div class="tag">Pricing</div>
+      <h2 class="h2">합리적인 계정 단위 요금</h2>
+      <p class="body">계정(아이디) 단위로 과금합니다. 거래처는 무제한, 도입 규모에 맞춰 견적을 드립니다.</p>
+    </div>
+    <div class="price reveal">
+      <div class="pglow"></div>
+      <div style="position:relative">
+        <h2 class="h2">거래처는 몇 곳이든.</h2>
+        <p class="sub">거래처(가맹점)는 몇 곳이든 무제한으로 등록하세요. 요금은 계정(아이디) 단위 월정액이며,
+           동시 사용 인원이 늘면 계정만 추가하면 됩니다.</p>
+        <div style="margin-top:22px"><a class="btn btn-grad btn-lg" href="#contact">요금·견적 문의</a></div>
+        <p class="price-note">* 도입 규모와 사용 환경에 따라 맞춤 견적을 안내해 드립니다.</p>
+      </div>
+      <ul class="plist" style="position:relative">
+        <li><svg class="chk"><use href="#i-check"/></svg> 거래처(가맹점) 무제한 등록</li>
+        <li><svg class="chk"><use href="#i-check"/></svg> 계정(아이디) 단위 월정액</li>
+        <li><svg class="chk"><use href="#i-check"/></svg> 동시 사용 인원만큼 계정 추가</li>
+        <li><svg class="chk"><use href="#i-check"/></svg> 자체 서버 · 자동 업데이트</li>
+        <li><svg class="chk"><use href="#i-check"/></svg> 매 세션 '수락' 기반 보안</li>
+      </ul>
+    </div>
+  </div>
+</section>
 
-                <div class="card dl-card">
-                    <div class="top">
-                        <div class="ico"><i class="fas fa-user-tie"></i></div>
-                        <div>
-                            <h3>ChainRemote HQ</h3>
-                            <div class="ver">본사 직원용 · v1.4.66</div>
-                        </div>
-                    </div>
-                    <p>본사 직원용 앱. 로그인 후 즐겨찾기에서 거래처를 1클릭으로 원격 지원합니다. 받으신 뒤 발급받은 계정으로 로그인하면 됩니다.</p>
-                    <span class="dl-os"><i class="fab fa-windows"></i> Windows <span style="color:var(--line)">|</span> <i class="fab fa-apple"></i> macOS는 문의</span>
-                    <a class="btn btn-primary" href="downloads/ChainRemote_HQ_Setup_v1.4.66.exe"><i class="fas fa-download"></i> 본사용 다운로드</a>
-                </div>
+<section class="sec" id="contact">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <div class="tag">Contact</div>
+      <h2 class="h2">도입 문의</h2>
+      <p class="body">도입을 검토 중이신가요? 아래로 편하게 연락 주세요. 설치부터 첫 원격까지 안내해 드립니다.</p>
+    </div>
+    <div class="grid g3 stagger">
+      <a class="card contact-card" href="tel:0426266002">
+        <div class="ico"><svg class="ic"><use href="#i-phone"/></svg></div>
+        <h3 class="h3">회사 전화</h3>
+        <p class="cval">042-626-6002</p>
+        <span class="cact">전화 걸기 →</span>
+      </a>
+      <a class="card contact-card" href="tel:01029695756">
+        <div class="ico"><svg class="ic"><use href="#i-mobile"/></svg></div>
+        <h3 class="h3">휴대폰</h3>
+        <p class="cval">010-2969-5756</p>
+        <span class="cact">전화 걸기 →</span>
+      </a>
+      <a class="card contact-card" href="mailto:betapos@icloud.com?subject=%5BChainRemote%20%EB%8F%84%EC%9E%85%20%EB%AC%B8%EC%9D%98%5D&amp;body=%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94%2C%20ChainRemote%20%EB%8F%84%EC%9E%85%EC%9D%84%20%EB%AC%B8%EC%9D%98%ED%95%A9%EB%8B%88%EB%8B%A4.%0A%0A%C2%B7%20%EB%8C%80%EB%A6%AC%EC%A0%90/%ED%9A%8C%EC%82%AC%EB%AA%85%20%3A%20%0A%C2%B7%20%EA%B4%80%EB%A6%AC%ED%95%A0%20%EA%B0%80%EB%A7%B9%EC%A0%90%28%EA%B1%B0%EB%9E%98%EC%B2%98%29%20%EC%88%98%20%3A%20%0A%C2%B7%20%ED%98%84%EC%9E%AC%20%EC%93%B0%EB%8A%94%20%EC%9B%90%EA%B2%A9%EC%A7%80%EC%9B%90%28%EC%9E%88%EC%9C%BC%EB%A9%B4%29%20%3A%20%0A%C2%B7%20%EB%AC%B8%EC%9D%98%20%EB%82%B4%EC%9A%A9%20%3A%20%0A%C2%B7%20%EC%97%B0%EB%9D%BD%EC%B2%98%20%3A%20%0A">
+        <div class="ico"><svg class="ic"><use href="#i-mail"/></svg></div>
+        <h3 class="h3">이메일</h3>
+        <p class="cval">betapos@icloud.com</p>
+        <span class="cact">메일 보내기 →</span>
+      </a>
+    </div>
+    <div class="contact-cta reveal">
+      <a class="btn btn-white btn-lg" href="mailto:betapos@icloud.com?subject=%5BChainRemote%20%EB%8F%84%EC%9E%85%20%EB%AC%B8%EC%9D%98%5D">이메일로 문의하기</a>
+      <div class="hours">상담 평일 09:00 – 18:00</div>
+    </div>
+  </div>
+</section>
 
-                <div class="card dl-card">
-                    <div class="top">
-                        <div class="ico"><i class="fas fa-bolt"></i></div>
-                        <div>
-                            <h3>ChainGo</h3>
-                            <div class="ver">포터블 · 무흔적 · v1.4.66</div>
-                        </div>
-                    </div>
-                    <p>PC방 또는 아무 PC에서나 다운로드 → 실행 → 로그인 → 원격 → 닫기. 설치 없이 쓰고, 그 PC에 흔적이 남지 않습니다.</p>
-                    <span class="dl-os"><i class="fab fa-windows"></i> Windows · 설치 불필요</span>
-                    <a class="btn btn-ghost" href="downloads/ChainGo_v1.4.66.exe"><i class="fas fa-download"></i> ChainGo 받기</a>
-                </div>
-            </div>
-        </div>
-    </section>
+<footer>
+  <div class="wrap foot">
+    <div>
+      <img src="logo.png" alt="ChainRemote" style="height:26px">
+      <div class="legal">&copy; 2026 BetaPosLab. All rights reserved.</div>
+      <div class="legal">RustDesk 기반 오픈소스 · AGPL-3.0</div>
+    </div>
+    <div class="links">
+      <a href="#contact">문의하기</a>
+      <a href="privacy.html">개인정보처리방침</a>
+      <a href="https://github.com/betaposlab/chainremote" target="_blank" rel="noopener">소스 코드</a>
+    </div>
+  </div>
+</footer>
 
-    <!-- ===== Pricing ===== -->
-    <section class="sec alt" id="pricing">
-        <div class="wrap">
-            <div class="sec-head">
-                <div class="tag">PRICING</div>
-                <h2>합리적인 계정 단위 요금</h2>
-                <p>계정(아이디) 단위로 과금합니다. 거래처는 무제한, 도입 규모에 맞춰 견적을 드립니다.</p>
-            </div>
-            <div class="price-box">
-                <div>
-                    <h2>거래처는 몇 곳이든.</h2>
-                    <p class="sub">거래처(가맹점)는 몇 곳이든 무제한으로 등록하세요. 요금은 계정(아이디) 단위 월정액이며,
-                       동시 사용 인원이 늘면 계정만 추가하면 됩니다.</p>
-                    <div class="price-cta">
-                        <a class="btn btn-primary btn-lg" href="#contact"><i class="fas fa-file-invoice"></i> 요금·견적 문의</a>
-                    </div>
-                    <p class="price-note">* 도입 규모와 사용 환경에 따라 맞춤 견적을 안내해 드립니다.</p>
-                </div>
-                <ul class="price-list">
-                    <li><i class="fas fa-circle-check"></i> 거래처(가맹점) 무제한 등록</li>
-                    <li><i class="fas fa-circle-check"></i> 계정(아이디) 단위 월정액</li>
-                    <li><i class="fas fa-circle-check"></i> 동시 사용 인원만큼 계정 추가</li>
-                    <li><i class="fas fa-circle-check"></i> 자체 서버 · 자동 업데이트</li>
-                    <li><i class="fas fa-circle-check"></i> 매 세션 '수락' 기반 보안</li>
-                </ul>
-            </div>
-        </div>
-    </section>
-
-    <!-- ===== Contact ===== -->
-    <section class="sec alt" id="contact">
-        <div class="wrap">
-            <div class="sec-head">
-                <div class="tag">CONTACT</div>
-                <h2>도입 문의</h2>
-                <p>도입을 검토 중이신가요? 아래로 편하게 연락 주세요. 설치부터 첫 원격까지 안내해 드립니다.</p>
-            </div>
-            <div class="grid grid-3">
-                <a class="card contact-card" href="tel:0426266002">
-                    <div class="ico"><i class="fas fa-phone"></i></div>
-                    <h3>회사 전화</h3>
-                    <p class="cval">042-626-6002</p>
-                    <span class="cact">전화 걸기 →</span>
-                </a>
-                <a class="card contact-card" href="tel:01029695756">
-                    <div class="ico"><i class="fas fa-mobile-screen-button"></i></div>
-                    <h3>휴대폰</h3>
-                    <p class="cval">010-2969-5756</p>
-                    <span class="cact">전화 걸기 →</span>
-                </a>
-                <a class="card contact-card" href="mailto:betapos@icloud.com?subject=%5BChainRemote%20%EB%8F%84%EC%9E%85%20%EB%AC%B8%EC%9D%98%5D&amp;body=%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94%2C%20ChainRemote%20%EB%8F%84%EC%9E%85%EC%9D%84%20%EB%AC%B8%EC%9D%98%ED%95%A9%EB%8B%88%EB%8B%A4.%0A%0A%C2%B7%20%EB%8C%80%EB%A6%AC%EC%A0%90/%ED%9A%8C%EC%82%AC%EB%AA%85%20%3A%20%0A%C2%B7%20%EA%B4%80%EB%A6%AC%ED%95%A0%20%EA%B0%80%EB%A7%B9%EC%A0%90%28%EA%B1%B0%EB%9E%98%EC%B2%98%29%20%EC%88%98%20%3A%20%0A%C2%B7%20%ED%98%84%EC%9E%AC%20%EC%93%B0%EB%8A%94%20%EC%9B%90%EA%B2%A9%EC%A7%80%EC%9B%90%28%EC%9E%88%EC%9C%BC%EB%A9%B4%29%20%3A%20%0A%C2%B7%20%EB%AC%B8%EC%9D%98%20%EB%82%B4%EC%9A%A9%20%3A%20%0A%C2%B7%20%EC%97%B0%EB%9D%BD%EC%B2%98%20%3A%20%0A">
-                    <div class="ico"><i class="fas fa-envelope"></i></div>
-                    <h3>이메일</h3>
-                    <p class="cval">betapos@icloud.com</p>
-                    <span class="cact">메일 보내기 →</span>
-                </a>
-            </div>
-            <div class="contact-cta">
-                <a class="btn btn-primary btn-lg" href="mailto:betapos@icloud.com?subject=%5BChainRemote%20%EB%8F%84%EC%9E%85%20%EB%AC%B8%EC%9D%98%5D&amp;body=%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94%2C%20ChainRemote%20%EB%8F%84%EC%9E%85%EC%9D%84%20%EB%AC%B8%EC%9D%98%ED%95%A9%EB%8B%88%EB%8B%A4.%0A%0A%C2%B7%20%EB%8C%80%EB%A6%AC%EC%A0%90/%ED%9A%8C%EC%82%AC%EB%AA%85%20%3A%20%0A%C2%B7%20%EA%B4%80%EB%A6%AC%ED%95%A0%20%EA%B0%80%EB%A7%B9%EC%A0%90%28%EA%B1%B0%EB%9E%98%EC%B2%98%29%20%EC%88%98%20%3A%20%0A%C2%B7%20%ED%98%84%EC%9E%AC%20%EC%93%B0%EB%8A%94%20%EC%9B%90%EA%B2%A9%EC%A7%80%EC%9B%90%28%EC%9E%88%EC%9C%BC%EB%A9%B4%29%20%3A%20%0A%C2%B7%20%EB%AC%B8%EC%9D%98%20%EB%82%B4%EC%9A%A9%20%3A%20%0A%C2%B7%20%EC%97%B0%EB%9D%BD%EC%B2%98%20%3A%20%0A"><i class="fas fa-paper-plane"></i> 이메일로 문의하기</a>
-                <div class="hours"><i class="far fa-clock"></i> 상담 평일 09:00 – 18:00</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ===== Footer ===== -->
-    <footer>
-        <div class="wrap foot">
-            <div>
-                <div style="color:#E5E9F2;font-weight:800;font-size:1rem;">ChainRemote</div>
-                <div class="legal" style="margin-top:6px;">&copy; 2026 BetaPosLab. All rights reserved.</div>
-                <div class="legal" style="margin-top:4px;">RustDesk 기반 오픈소스 · AGPL-3.0</div>
-            </div>
-            <div class="links">
-                <a href="#contact">문의하기</a>
-                <a href="privacy.html">개인정보처리방침</a>
-                <a href="https://github.com/betaposlab/chainremote" target="_blank" rel="noopener">소스 코드</a>
-            </div>
-        </div>
-    </footer>
-
+<script>
+(function(){
+  var io = new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, {threshold:.18});
+  document.querySelectorAll('.reveal,.stagger,.panelmock').forEach(function(el){ io.observe(el); });
+})();
+</script>
 </body>
 </html>

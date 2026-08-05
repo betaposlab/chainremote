@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainRemote — 거래처 원격지원, 클릭 한 번으로 | BetaPosLab</title>
+    <meta name="description" content="POS·키오스크 원격 A/S를 위한 한국형 원격지원 솔루션. 거래처는 원격이 올 때 '수락' 한 번이면 끝. 본사도 즐겨찾기에서 1클릭 원격. 계정 단위 월정액.">
+
+    <!-- 카톡/검색 공유 카드 (og:image는 /chainremote/og.png 업로드 후 활성) -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="ChainRemote — 거래처 원격지원, 클릭 한 번으로">
+    <meta property="og:description" content="POS·키오스크 원격 A/S 솔루션. 거래처도 본사도 클릭 한 번. 계정 단위 월정액.">
+    <meta property="og:url" content="https://betaposlab.com/chainremote">
+    <!-- <meta property="og:image" content="https://betaposlab.com/chainremote/og.png"> -->
+
+    <link rel="icon" type="image/png" href="symbol.png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --blue: #1E5BFF;
+            --blue-dark: #1747CC;
+            --blue-soft: #EAF0FF;
+            --ink: #0B1220;
+            --ink-2: #1A2233;
+            --muted: #5B6472;
+            --line: #E6E9EF;
+            --bg: #FFFFFF;
+            --bg-alt: #F6F8FC;
+            --ok: #16A34A;
+            --radius: 16px;
+            --shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+            --shadow-lg: 0 20px 50px rgba(15, 23, 42, 0.10);
+        }
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+            color: var(--ink);
+            background: var(--bg);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        a { color: inherit; text-decoration: none; }
+        .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+        section { scroll-margin-top: 84px; }
+        h1, h2, h3 { letter-spacing: -0.02em; line-height: 1.25; margin: 0; }
+
+        /* ===== Header ===== */
+        header {
+            position: sticky; top: 0; z-index: 50;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: saturate(180%) blur(12px);
+            border-bottom: 1px solid var(--line);
+        }
+        .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 1.15rem; }
+        .brand .logo-img { height: 44px; width: auto; display: block; }
+        .brand .mark {
+            width: 30px; height: 30px; border-radius: 9px; background: var(--blue);
+            color: #fff; display: grid; place-items: center; font-weight: 900; font-size: 1rem;
+        }
+        .brand .sub { font-weight: 500; font-size: 0.8rem; color: var(--muted); margin-left: 2px; }
+        .nav-links { display: flex; align-items: center; gap: 28px; }
+        .nav-links a { color: var(--ink-2); font-weight: 600; font-size: 0.95rem; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--blue); }
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font-weight: 700; font-size: 0.95rem; border-radius: 12px; padding: 11px 20px;
+            cursor: pointer; border: 1.5px solid transparent; transition: all 0.2s; white-space: nowrap;
+        }
+        .btn-primary { background: var(--blue); color: #fff; }
+        .btn-primary:hover { background: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(30, 91, 255, 0.28); }
+        .btn-ghost { background: #fff; color: var(--ink); border-color: var(--line); }
+        .btn-ghost:hover { border-color: var(--blue); color: var(--blue); }
+        .btn-lg { padding: 15px 28px; font-size: 1.02rem; border-radius: 14px; }
+
+        /* ===== Hero ===== */
+        .hero { position: relative; overflow: hidden; background: var(--bg-alt); border-bottom: 1px solid var(--line); }
+        .hero::before {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background:
+                radial-gradient(60% 50% at 80% 0%, rgba(30, 91, 255, 0.10) 0%, transparent 60%),
+                radial-gradient(45% 40% at 15% 100%, rgba(30, 91, 255, 0.07) 0%, transparent 60%);
+        }
+        .hero-inner { position: relative; padding: 92px 0 84px; text-align: center; }
+        .eyebrow {
+            display: inline-flex; align-items: center; gap: 7px; background: var(--blue-soft); color: var(--blue);
+            font-weight: 700; font-size: 0.85rem; padding: 7px 14px; border-radius: 999px; margin-bottom: 22px;
+        }
+        .hero h1 { font-size: 3rem; font-weight: 800; color: var(--ink); }
+        .hero p.lead { font-size: 1.18rem; color: var(--muted); max-width: 640px; margin: 22px auto 0; }
+        .hero-cta { display: flex; gap: 12px; justify-content: center; margin-top: 34px; flex-wrap: wrap; }
+        .trust { display: flex; gap: 10px 26px; justify-content: center; flex-wrap: wrap; margin-top: 40px; color: var(--muted); font-size: 0.92rem; font-weight: 600; }
+        .trust span { display: inline-flex; align-items: center; gap: 7px; }
+        .trust i { color: var(--blue); }
+
+        /* ===== Section heads ===== */
+        .sec { padding: 84px 0; }
+        .sec.alt { background: var(--bg-alt); }
+        .sec-head { text-align: center; max-width: 640px; margin: 0 auto 52px; }
+        .sec-head .tag { color: var(--blue); font-weight: 800; font-size: 0.9rem; letter-spacing: 0.02em; }
+        .sec-head h2 { font-size: 2.05rem; font-weight: 800; margin-top: 10px; }
+        .sec-head p { color: var(--muted); font-size: 1.05rem; margin-top: 14px; }
+
+        /* ===== Feature cards ===== */
+        .grid { display: grid; gap: 20px; }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .card {
+            background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+            padding: 28px 24px; box-shadow: var(--shadow); transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+        .card .ico { width: 46px; height: 46px; border-radius: 12px; background: var(--blue-soft); color: var(--blue); display: grid; place-items: center; font-size: 1.25rem; margin-bottom: 16px; }
+        .card h3 { font-size: 1.12rem; font-weight: 700; }
+        .card p { color: var(--muted); font-size: 0.96rem; margin: 10px 0 0; }
+
+        /* ===== Steps ===== */
+        .step { position: relative; padding-top: 8px; }
+        .step .num {
+            width: 38px; height: 38px; border-radius: 50%; background: var(--blue); color: #fff;
+            font-weight: 800; display: grid; place-items: center; margin-bottom: 16px; font-size: 1.05rem;
+        }
+        .step h3 { font-size: 1.1rem; }
+        .step p { color: var(--muted); font-size: 0.97rem; margin-top: 9px; }
+        .hq-row { margin-top: 30px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 24px; box-shadow: var(--shadow); }
+        .hq-row .label { font-weight: 800; color: var(--blue); display: inline-flex; align-items: center; gap: 8px; }
+        .hq-row .flow { color: var(--ink-2); font-weight: 600; }
+        .hq-row .flow b { color: var(--blue); }
+        .notice {
+            margin-top: 28px; display: flex; gap: 14px; align-items: flex-start;
+            background: #FFF8E8; border: 1px solid #F4E2B8; border-radius: 14px; padding: 18px 20px;
+        }
+        .notice i { color: #B8860B; font-size: 1.2rem; margin-top: 2px; }
+        .notice p { margin: 0; color: #6B5A1E; font-size: 0.95rem; }
+
+        /* ===== Download ===== */
+        .dl-card { display: flex; flex-direction: column; }
+        .dl-card .top { display: flex; align-items: center; gap: 14px; }
+        .dl-card .top .ico { margin: 0; }
+        .dl-card .ver { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+        .dl-card p { flex: 1; }
+        .dl-card .btn { margin-top: 20px; width: 100%; }
+        .dl-os { font-size: 0.85rem; color: var(--muted); font-weight: 600; display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; }
+
+        /* ===== Pricing ===== */
+        .price-box {
+            background: linear-gradient(135deg, #0E2B7A 0%, #1E5BFF 100%); color: #fff;
+            border-radius: 22px; padding: 48px 44px; box-shadow: var(--shadow-lg);
+            display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center;
+        }
+        .price-box h2 { font-size: 1.9rem; font-weight: 800; }
+        .price-box .sub { color: #D6E1FF; margin-top: 14px; font-size: 1.05rem; }
+        .price-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+        .price-list li { display: flex; align-items: center; gap: 11px; font-weight: 600; }
+        .price-list i { color: #8FF0B5; }
+        .price-cta { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; }
+        .price-cta .btn-primary { background: #fff; color: var(--blue); }
+        .price-cta .btn-primary:hover { background: #EAF0FF; }
+        .price-note { color: #C3D2FF; font-size: 0.85rem; margin-top: 16px; }
+
+        /* ===== CTA band ===== */
+        .cta-band { text-align: center; padding: 76px 0; }
+        .cta-band h2 { font-size: 2rem; font-weight: 800; }
+        .cta-band p { color: var(--muted); margin-top: 12px; font-size: 1.05rem; }
+        .cta-band .hours { margin-top: 18px; font-size: 0.9rem; color: var(--muted); }
+        /* ===== Contact ===== */
+        .contact-card { text-align: center; color: var(--ink); }
+        .contact-card .ico { margin: 0 auto 16px; }
+        .contact-card .cval { font-size: 1.15rem; font-weight: 800; color: var(--ink); margin: 8px 0 0; }
+        .contact-card .cact { display: inline-block; margin-top: 12px; color: var(--blue); font-weight: 700; font-size: 0.9rem; }
+        .contact-card:hover .cact { text-decoration: underline; }
+        .contact-cta { text-align: center; margin-top: 36px; }
+        .contact-cta .hours { margin-top: 16px; font-size: 0.9rem; color: var(--muted); }
+
+        /* ===== Footer ===== */
+        footer { background: #0B1220; color: #8A93A6; padding: 40px 0; font-size: 0.88rem; }
+        .foot { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+        .foot a { color: #B9C2D6; font-weight: 600; }
+        .foot a:hover { color: #fff; }
+        .foot .links { display: flex; gap: 20px; flex-wrap: wrap; }
+        .foot .legal { color: #5B6678; font-size: 0.8rem; }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 900px) {
+            .grid-4 { grid-template-columns: repeat(2, 1fr); }
+            .price-box { grid-template-columns: 1fr; padding: 38px 30px; }
+        }
+        @media (max-width: 720px) {
+            .nav-links a:not(.btn) { display: none; }
+            .brand .logo-img { height: 36px; }
+            .brand .sub { display: none; }
+            .hero h1 { font-size: 2.2rem; }
+            .hero-inner { padding: 64px 0 56px; }
+            .sec { padding: 60px 0; }
+            .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .sec-head h2 { font-size: 1.7rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== Header ===== -->
+    <header>
+        <div class="wrap nav">
+            <a class="brand" href="#top">
+                <img class="logo-img" src="logo.png" alt="ChainRemote">
+                <span class="sub">by BetaPosLab</span>
+            </a>
+            <nav class="nav-links">
+                <a href="#features">특징</a>
+                <a href="#how">사용방법</a>
+                <a href="#pricing">요금</a>
+                <a href="#download">다운로드</a>
+                <a class="btn btn-primary" href="#contact">도입 문의</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- ===== Hero ===== -->
+    <section class="hero" id="top">
+        <div class="wrap hero-inner">
+            <span class="eyebrow"><i class="fas fa-headset"></i> POS · 키오스크 원격지원 솔루션</span>
+            <h1>거래처 원격지원,<br>클릭 한 번으로.</h1>
+            <p class="lead">
+                거래처가 할 일은 원격이 올 때 <b>'수락' 클릭</b> 한 번, 그게 전부입니다.
+                설치는 처음 한 번이면 끝나고, 본사도 즐겨찾기에서 <b>1클릭</b>으로 바로 연결됩니다.
+            </p>
+            <div class="hero-cta">
+                <a class="btn btn-primary btn-lg" href="#contact"><i class="fas fa-comment-dots"></i> 도입 문의하기</a>
+                <a class="btn btn-ghost btn-lg" href="#download"><i class="fas fa-download"></i> 다운로드</a>
+            </div>
+            <div class="trust">
+                <span><i class="fas fa-server"></i> 자체 서버 운영</span>
+                <span><i class="fas fa-rotate"></i> 자동 업데이트</span>
+                <span><i class="fas fa-gauge-high"></i> 디스크 관제</span>
+                <span><i class="fas fa-store"></i> 가맹점 무제한</span>
+                <span><i class="fab fa-windows"></i> Windows · macOS</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== Features ===== -->
+    <section class="sec" id="features">
+        <div class="wrap">
+            <div class="sec-head">
+                <div class="tag">WHY CHAINREMOTE</div>
+                <h2>복잡한 원격 접속, 이제 그만</h2>
+                <p>방문·세션번호·다운로드·실행으로 이어지던 번거로운 접속 절차 없이, 거래처도 본사도 클릭 한 번으로 끝납니다.</p>
+            </div>
+            <div class="grid grid-4">
+                <div class="card">
+                    <div class="ico"><i class="fas fa-hand-pointer"></i></div>
+                    <h3>거래처는 클릭 한 번</h3>
+                    <p>설치는 방문 시 한 번이면 끝. 거래처는 원격이 올 때 '수락' 버튼만 누르면 됩니다 — IT를 몰라도 누구나 가능합니다.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><i class="fas fa-bolt"></i></div>
+                    <h3>본사도 클릭 한 번</h3>
+                    <p>즐겨찾기에서 거래처를 누르면 바로 원격이 시작됩니다. 세션 번호를 받아 적을 필요가 없습니다.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><i class="fas fa-shield-halved"></i></div>
+                    <h3>거래처가 통제</h3>
+                    <p>매 연결마다 거래처의 '수락'이 있어야 화면이 열립니다. 무단 접속 걱정 없이 안심하고 쓸 수 있습니다.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><i class="fas fa-won-sign"></i></div>
+                    <h3>거래처는 무제한</h3>
+                    <p>거래처(가맹점)는 몇 곳이든 무제한으로 등록할 수 있습니다. 사용하는 계정(아이디) 수만큼만 합리적으로 과금됩니다.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== Disk watch (차별화 포인트) ===== -->
+    <section class="sec alt" id="disk">
+        <div class="wrap">
+            <div class="sec-head">
+                <div class="tag">ONLY CHAINREMOTE</div>
+                <h2>디스크가 꽉 차기 전에, 우리가 먼저 압니다</h2>
+                <p>POS·키오스크는 디스크가 가득 차면 결제·주문이 멈춥니다. ChainRemote는 각 거래처의 남은 용량을 항상 지켜보다가, 위험하면 미리 알리고 원격 접속 없이도 정리합니다 — 장애가 나기 전에 손쓰는, 우리만의 기능입니다.</p>
+            </div>
+            <div class="grid grid-3">
+                <div class="card">
+                    <div class="ico"><i class="fas fa-gauge-high"></i></div>
+                    <h3>실시간 용량 감시</h3>
+                    <p>모든 거래처의 디스크 여유와 임시파일 크기를 자동으로 보고받아, 부족한 곳을 관리 패널에서 한눈에 봅니다.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><i class="fas fa-triangle-exclamation"></i></div>
+                    <h3>위험을 미리 경고</h3>
+                    <p>남은 용량이 위험 수준에 닿으면 경고 배지가 뜹니다. 결제·주문이 멈추기 전에 미리 조치할 수 있습니다.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><i class="fas fa-broom"></i></div>
+                    <h3>원격 없이 정리</h3>
+                    <p>임시파일·휴지통을 원격 접속 없이 버튼 하나로 비웁니다. 영업 중인 거래처를 방해하지 않습니다.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== How to use ===== -->
+    <section class="sec alt" id="how">
+        <div class="wrap">
+            <div class="sec-head">
+                <div class="tag">HOW IT WORKS</div>
+                <h2>설치 한 번, 그 다음엔 '수락'만</h2>
+                <p>설치는 단 한 번. 그 다음부터는 원격이 올 때 '수락'만 누르면 됩니다.</p>
+            </div>
+            <div class="grid grid-3">
+                <div class="step">
+                    <div class="num">1</div>
+                    <h3>방문 시 한 번 설치</h3>
+                    <p>방문 시 <code>ChainRemote Agent</code>를 한 번 설치합니다. 거래처는 손댈 것이 없습니다.</p>
+                </div>
+                <div class="step">
+                    <div class="num">2</div>
+                    <h3>ID 자동 등록</h3>
+                    <p>설치하면 9자리 ID가 생성돼 본사 관리 패널에 등록됩니다. 거래처가 따로 할 일은 없습니다.</p>
+                </div>
+                <div class="step">
+                    <div class="num">3</div>
+                    <h3>원격이 오면 '수락' 클릭</h3>
+                    <p>본사가 접속하면 작은 카드가 뜹니다. 거래처는 '수락'만 누르면 끝 — 거래처가 하는 유일한 동작입니다.</p>
+                </div>
+            </div>
+
+            <div class="hq-row">
+                <span class="label"><i class="fas fa-user-tie"></i> 본사 직원은</span>
+                <span class="flow">설치 → 로그인 → 즐겨찾기에서 거래처 클릭 = <b>바로 원격 시작</b></span>
+            </div>
+
+            <div class="notice">
+                <i class="fas fa-circle-info"></i>
+                <p>처음 실행할 때 Windows가 "확인되지 않은 게시자" 안내를 띄울 수 있습니다.
+                   <b>"추가 정보 → 실행"</b>을 한 번 눌러주시면 됩니다. (정식 코드 서명 적용 전까지의 일시적 안내입니다.)</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== Download ===== -->
+    <section class="sec" id="download">
+        <div class="wrap">
+            <div class="sec-head">
+                <div class="tag">DOWNLOAD</div>
+                <h2>다운로드</h2>
+                <p>본사 직원용 프로그램을 받으세요. 거래처용(Agent)은 관리패널에서 받습니다.</p>
+            </div>
+            <div class="grid grid-3">
+                <!-- 버전 표기와 href 는 릴리즈 스크립트가 자동 교체한다(deploy/nas/publish-landing.sh).
+                     ★거래처용 Agent 는 여기에 올리지 않는다 — 설치 파일에 대리점 식별자가 박혀 있어
+                     공개 파일 한 벌로는 어느 대리점 소속인지 정할 수 없다. 관리패널 경로만 유효. -->
+                <div class="card dl-card">
+                    <div class="top">
+                        <div class="ico"><i class="fas fa-store"></i></div>
+                        <div>
+                            <h3>ChainRemote Agent</h3>
+                            <div class="ver">거래처용 · 관리패널에서 받기</div>
+                        </div>
+                    </div>
+                    <p>거래처용은 <b>대리점마다 설치 파일이 다릅니다.</b> 관리패널에 로그인해 받으셔야 그 거래처가 우리 대리점 소속으로 등록되고, 이후 업데이트도 자동으로 이어집니다.</p>
+                    <span class="dl-os"><i class="fas fa-arrow-right"></i> 관리패널 → 거래처 → [에이전트 다운로드]</span>
+                    <a class="btn btn-ghost" href="#contact"><i class="fas fa-key"></i> 계정 문의</a>
+                </div>
+
+                <div class="card dl-card">
+                    <div class="top">
+                        <div class="ico"><i class="fas fa-user-tie"></i></div>
+                        <div>
+                            <h3>ChainRemote HQ</h3>
+                            <div class="ver">본사 직원용 · v1.4.66</div>
+                        </div>
+                    </div>
+                    <p>본사 직원용 앱. 로그인 후 즐겨찾기에서 거래처를 1클릭으로 원격 지원합니다. 받으신 뒤 발급받은 계정으로 로그인하면 됩니다.</p>
+                    <span class="dl-os"><i class="fab fa-windows"></i> Windows <span style="color:var(--line)">|</span> <i class="fab fa-apple"></i> macOS는 문의</span>
+                    <a class="btn btn-primary" href="downloads/ChainRemote_HQ_Setup_v1.4.66.exe"><i class="fas fa-download"></i> 본사용 다운로드</a>
+                </div>
+
+                <div class="card dl-card">
+                    <div class="top">
+                        <div class="ico"><i class="fas fa-bolt"></i></div>
+                        <div>
+                            <h3>ChainGo</h3>
+                            <div class="ver">포터블 · 무흔적 · v1.4.66</div>
+                        </div>
+                    </div>
+                    <p>PC방 또는 아무 PC에서나 다운로드 → 실행 → 로그인 → 원격 → 닫기. 설치 없이 쓰고, 그 PC에 흔적이 남지 않습니다.</p>
+                    <span class="dl-os"><i class="fab fa-windows"></i> Windows · 설치 불필요</span>
+                    <a class="btn btn-ghost" href="downloads/ChainGo_v1.4.66.exe"><i class="fas fa-download"></i> ChainGo 받기</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== Pricing ===== -->
+    <section class="sec alt" id="pricing">
+        <div class="wrap">
+            <div class="sec-head">
+                <div class="tag">PRICING</div>
+                <h2>합리적인 계정 단위 요금</h2>
+                <p>계정(아이디) 단위로 과금합니다. 거래처는 무제한, 도입 규모에 맞춰 견적을 드립니다.</p>
+            </div>
+            <div class="price-box">
+                <div>
+                    <h2>거래처는 몇 곳이든.</h2>
+                    <p class="sub">거래처(가맹점)는 몇 곳이든 무제한으로 등록하세요. 요금은 계정(아이디) 단위 월정액이며,
+                       동시 사용 인원이 늘면 계정만 추가하면 됩니다.</p>
+                    <div class="price-cta">
+                        <a class="btn btn-primary btn-lg" href="#contact"><i class="fas fa-file-invoice"></i> 요금·견적 문의</a>
+                    </div>
+                    <p class="price-note">* 도입 규모와 사용 환경에 따라 맞춤 견적을 안내해 드립니다.</p>
+                </div>
+                <ul class="price-list">
+                    <li><i class="fas fa-circle-check"></i> 거래처(가맹점) 무제한 등록</li>
+                    <li><i class="fas fa-circle-check"></i> 계정(아이디) 단위 월정액</li>
+                    <li><i class="fas fa-circle-check"></i> 동시 사용 인원만큼 계정 추가</li>
+                    <li><i class="fas fa-circle-check"></i> 자체 서버 · 자동 업데이트</li>
+                    <li><i class="fas fa-circle-check"></i> 매 세션 '수락' 기반 보안</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== Contact ===== -->
+    <section class="sec alt" id="contact">
+        <div class="wrap">
+            <div class="sec-head">
+                <div class="tag">CONTACT</div>
+                <h2>도입 문의</h2>
+                <p>도입을 검토 중이신가요? 아래로 편하게 연락 주세요. 설치부터 첫 원격까지 안내해 드립니다.</p>
+            </div>
+            <div class="grid grid-3">
+                <a class="card contact-card" href="tel:0426266002">
+                    <div class="ico"><i class="fas fa-phone"></i></div>
+                    <h3>회사 전화</h3>
+                    <p class="cval">042-626-6002</p>
+                    <span class="cact">전화 걸기 →</span>
+                </a>
+                <a class="card contact-card" href="tel:01029695756">
+                    <div class="ico"><i class="fas fa-mobile-screen-button"></i></div>
+                    <h3>휴대폰</h3>
+                    <p class="cval">010-2969-5756</p>
+                    <span class="cact">전화 걸기 →</span>
+                </a>
+                <a class="card contact-card" href="mailto:betapos@icloud.com?subject=%5BChainRemote%20%EB%8F%84%EC%9E%85%20%EB%AC%B8%EC%9D%98%5D&amp;body=%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94%2C%20ChainRemote%20%EB%8F%84%EC%9E%85%EC%9D%84%20%EB%AC%B8%EC%9D%98%ED%95%A9%EB%8B%88%EB%8B%A4.%0A%0A%C2%B7%20%EB%8C%80%EB%A6%AC%EC%A0%90/%ED%9A%8C%EC%82%AC%EB%AA%85%20%3A%20%0A%C2%B7%20%EA%B4%80%EB%A6%AC%ED%95%A0%20%EA%B0%80%EB%A7%B9%EC%A0%90%28%EA%B1%B0%EB%9E%98%EC%B2%98%29%20%EC%88%98%20%3A%20%0A%C2%B7%20%ED%98%84%EC%9E%AC%20%EC%93%B0%EB%8A%94%20%EC%9B%90%EA%B2%A9%EC%A7%80%EC%9B%90%28%EC%9E%88%EC%9C%BC%EB%A9%B4%29%20%3A%20%0A%C2%B7%20%EB%AC%B8%EC%9D%98%20%EB%82%B4%EC%9A%A9%20%3A%20%0A%C2%B7%20%EC%97%B0%EB%9D%BD%EC%B2%98%20%3A%20%0A">
+                    <div class="ico"><i class="fas fa-envelope"></i></div>
+                    <h3>이메일</h3>
+                    <p class="cval">betapos@icloud.com</p>
+                    <span class="cact">메일 보내기 →</span>
+                </a>
+            </div>
+            <div class="contact-cta">
+                <a class="btn btn-primary btn-lg" href="mailto:betapos@icloud.com?subject=%5BChainRemote%20%EB%8F%84%EC%9E%85%20%EB%AC%B8%EC%9D%98%5D&amp;body=%EC%95%88%EB%85%95%ED%95%98%EC%84%B8%EC%9A%94%2C%20ChainRemote%20%EB%8F%84%EC%9E%85%EC%9D%84%20%EB%AC%B8%EC%9D%98%ED%95%A9%EB%8B%88%EB%8B%A4.%0A%0A%C2%B7%20%EB%8C%80%EB%A6%AC%EC%A0%90/%ED%9A%8C%EC%82%AC%EB%AA%85%20%3A%20%0A%C2%B7%20%EA%B4%80%EB%A6%AC%ED%95%A0%20%EA%B0%80%EB%A7%B9%EC%A0%90%28%EA%B1%B0%EB%9E%98%EC%B2%98%29%20%EC%88%98%20%3A%20%0A%C2%B7%20%ED%98%84%EC%9E%AC%20%EC%93%B0%EB%8A%94%20%EC%9B%90%EA%B2%A9%EC%A7%80%EC%9B%90%28%EC%9E%88%EC%9C%BC%EB%A9%B4%29%20%3A%20%0A%C2%B7%20%EB%AC%B8%EC%9D%98%20%EB%82%B4%EC%9A%A9%20%3A%20%0A%C2%B7%20%EC%97%B0%EB%9D%BD%EC%B2%98%20%3A%20%0A"><i class="fas fa-paper-plane"></i> 이메일로 문의하기</a>
+                <div class="hours"><i class="far fa-clock"></i> 상담 평일 09:00 – 18:00</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== Footer ===== -->
+    <footer>
+        <div class="wrap foot">
+            <div>
+                <div style="color:#E5E9F2;font-weight:800;font-size:1rem;">ChainRemote</div>
+                <div class="legal" style="margin-top:6px;">&copy; 2026 BetaPosLab. All rights reserved.</div>
+                <div class="legal" style="margin-top:4px;">RustDesk 기반 오픈소스 · AGPL-3.0</div>
+            </div>
+            <div class="links">
+                <a href="#contact">문의하기</a>
+                <a href="privacy.html">개인정보처리방침</a>
+                <a href="https://github.com/betaposlab/chainremote" target="_blank" rel="noopener">소스 코드</a>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
