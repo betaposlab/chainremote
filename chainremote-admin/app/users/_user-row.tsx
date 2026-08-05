@@ -36,7 +36,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
             </span>
           )}
         </td>
-        <td className="px-4 py-3 text-[#dfe3ee]">@{user.email}</td>
+        <td className="px-4 py-3 text-[#cbd1e0]">@{user.email}</td>
         <td className="px-4 py-3">{roleLabel(user.role)}</td>
         <td className="px-4 py-3">
           {user.isActive ? (
@@ -64,13 +64,13 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
         <td className="px-4 py-3 text-right whitespace-nowrap">
           <button
             onClick={() => setEditing((v) => !v)}
-            className="px-2 py-1 text-xs text-[#dfe3ee] hover:text-white"
+            className="px-2 py-1 text-xs text-[#cbd1e0] hover:text-white"
           >
             {editing ? "닫기" : "수정"}
           </button>
           <button
             onClick={() => setResetting((v) => !v)}
-            className="ml-1 px-2 py-1 text-xs text-[#dfe3ee] hover:text-[#e0e8ff]"
+            className="ml-1 px-2 py-1 text-xs text-[#cbd1e0] hover:text-[#c3d3ff]"
           >
             비번 리셋
           </button>
@@ -105,7 +105,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               <input
                 name="displayName"
                 defaultValue={user.displayName}
-                className="rounded-md border border-[#98a4c3] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#7485ae] px-3 py-1.5 text-sm"
                 placeholder="이름"
               />
               {/* 본인 행에선 역할·활성을 아예 안 보낸다. disabled 컨트롤은 FormData 에 실리지
@@ -116,7 +116,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                 defaultValue={user.role}
                 disabled={isSelf}
                 title={isSelf ? "본인 역할은 변경 불가" : ""}
-                className="rounded-md border border-[#98a4c3] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#7485ae] px-3 py-1.5 text-sm"
               >
                 {ASSIGNABLE_ROLES.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -127,7 +127,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                   <option value="viewer">{roleLabel("viewer")}</option>
                 )}
               </select>
-              <label className="flex items-center gap-1 text-sm text-[#dfe3ee]">
+              <label className="flex items-center gap-1 text-sm text-[#cbd1e0]">
                 <input
                   type="checkbox"
                   name="isActive"
@@ -160,7 +160,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               }
               className="flex items-center gap-2"
             >
-              <span className="text-sm text-[#f7f8fa]">
+              <span className="text-sm text-[#eef1f7]">
                 {user.displayName} 의 새 비번:
               </span>
               <input
@@ -169,7 +169,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                 required
                 minLength={4}
                 placeholder="새 비번"
-                className="rounded-md border border-[#98a4c3] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#7485ae] px-3 py-1.5 text-sm"
               />
               <button
                 type="submit"

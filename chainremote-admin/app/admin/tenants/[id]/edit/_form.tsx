@@ -165,7 +165,7 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
       <div className="flex justify-end gap-2">
         <Link
           href="/admin/tenants"
-          className="rounded-md border border-[#98a4c3] bg-[#4e639c] px-4 py-2 text-sm hover:bg-white/[0.04]"
+          className="rounded-md border border-[#7485ae] bg-[#3d4e7a] px-4 py-2 text-sm hover:bg-white/[0.04]"
         >
           취소
         </Link>
@@ -182,11 +182,11 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
 }
 
 const inp =
-  "block w-full rounded-md border border-[#98a4c3] bg-[#4e639c] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none focus:ring-1 focus:ring-[#4c7dff]";
+  "block w-full rounded-md border border-[#7485ae] bg-[#3d4e7a] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none focus:ring-1 focus:ring-[#4c7dff]";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-[#7687b2] bg-[#4e639c] p-5">
+    <div className="rounded-lg border border-[#566999] bg-[#3d4e7a] p-5">
       <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#b9bfd2]">
         {title}
       </h2>
@@ -210,7 +210,7 @@ function Field({
 }) {
   return (
     <label className={`block ${wide ? "md:col-span-2" : ""}`}>
-      <div className="mb-1 text-sm font-medium text-[#f7f8fa]">
+      <div className="mb-1 text-sm font-medium text-[#eef1f7]">
         {label}
         {required && <span className="ml-1 text-[#ff6b6f]">*</span>}
       </div>

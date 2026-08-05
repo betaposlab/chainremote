@@ -129,8 +129,8 @@ function EndSessionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#02040a]/70 p-4">
-      <div className="w-full max-w-md rounded-xl bg-[#4e639c] border border-[#98a4c3] shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
-        <header className="border-b border-[#7687b2] px-5 py-3">
+      <div className="w-full max-w-md rounded-xl bg-[#3d4e7a] border border-[#7485ae] shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+        <header className="border-b border-[#566999] px-5 py-3">
           <h2 className="font-semibold text-white">지원 기록 마감</h2>
           {/* 패널은 hbbs 세션을 끊을 통로가 없다 — 여기서 닫히는 건 기록뿐이다. 버튼이
               '종료'라고만 되어 있던 때는 눌러도 원격이 안 끊겨 혼란을 샀다. */}
@@ -141,7 +141,7 @@ function EndSessionModal({
           {/* 어느 거래처를 원격했는지 — 딴짓하다 와도 한눈에. (거래처명 + RustDesk ID) */}
           <p className="text-sm font-medium text-white mt-1">
             {customerName}
-            <span className="ml-1.5 font-mono text-xs text-[#e4e7f0]">· {remoteId}</span>
+            <span className="ml-1.5 font-mono text-xs text-[#ccd2e3]">· {remoteId}</span>
           </p>
           {startedAt && (
             <p className="text-xs text-[#b9bfd2] mt-0.5">
@@ -159,7 +159,7 @@ function EndSessionModal({
           className="px-5 py-4 space-y-3"
         >
           <label className="block">
-            <span className="block text-sm font-medium text-[#f7f8fa] mb-1">장애 유형</span>
+            <span className="block text-sm font-medium text-[#eef1f7] mb-1">장애 유형</span>
             <select name="issueType" defaultValue="other" className="input">
               {(Object.keys(ISSUE_TYPE_LABELS) as IssueType[]).map((k) => (
                 <option key={k} value={k}>
@@ -169,7 +169,7 @@ function EndSessionModal({
             </select>
           </label>
           <label className="block">
-            <span className="block text-sm font-medium text-[#f7f8fa] mb-1">해결 여부</span>
+            <span className="block text-sm font-medium text-[#eef1f7] mb-1">해결 여부</span>
             <select name="resolution" defaultValue="resolved" className="input">
               {(["resolved", "pending", "escalated"] as Resolution[]).map((k) => (
                 <option key={k} value={k}>
@@ -179,7 +179,7 @@ function EndSessionModal({
             </select>
           </label>
           <label className="block">
-            <span className="block text-sm font-medium text-[#f7f8fa] mb-1">지원 내용</span>
+            <span className="block text-sm font-medium text-[#eef1f7] mb-1">지원 내용</span>
             <textarea
               name="description"
               rows={4}
@@ -204,7 +204,7 @@ function EndSessionModal({
                 });
               }}
               disabled={pending}
-              className="text-xs text-[#e4e7f0] hover:text-[#ff9a9e] underline"
+              className="text-xs text-[#ccd2e3] hover:text-[#ff9a9e] underline"
             >
               기록 폐기
             </button>

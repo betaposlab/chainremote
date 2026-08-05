@@ -75,7 +75,7 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
         {peers.map((p) => (
           <li
             key={p.remoteId}
-            className="flex items-center justify-between rounded-lg bg-[#4e639c] border border-amber-500/25 px-3 py-2 text-sm"
+            className="flex items-center justify-between rounded-lg bg-[#3d4e7a] border border-amber-500/25 px-3 py-2 text-sm"
           >
             <div className="flex-1 min-w-0">
               <div className="font-medium text-white truncate">
@@ -86,11 +86,11 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
                   {formatRemoteId(p.remoteId)}
                 </span>
                 {p.favoritedBy.length > 0 && (
-                  <span className="text-[#e4e7f0] text-xs">
+                  <span className="text-[#ccd2e3] text-xs">
                     즐겨찾기: {p.favoritedBy.join(", ")}
                   </span>
                 )}
-                <span className="text-[#e4e7f0] text-xs">
+                <span className="text-[#ccd2e3] text-xs">
                   {new Date(p.favoritedAt).toLocaleString("ko-KR")}
                 </span>
               </div>
@@ -120,8 +120,8 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
 
       {dialogPeer && (
         <div className="fixed inset-0 z-50 bg-[#02040a]/70 p-4 flex items-start justify-center overflow-y-auto">
-          <div className="mt-24 w-full max-w-sm rounded-xl bg-[#4e639c] border border-[#98a4c3] shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
-            <header className="border-b border-[#7687b2] px-5 py-3">
+          <div className="mt-24 w-full max-w-sm rounded-xl bg-[#3d4e7a] border border-[#7485ae] shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+            <header className="border-b border-[#566999] px-5 py-3">
               <h2 className="text-base font-semibold">거래처 등록</h2>
               <p className="text-xs text-[#b9bfd2] mt-0.5 font-mono">
                 {formatRemoteId(dialogPeer.remoteId)}
@@ -129,7 +129,7 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
               </p>
             </header>
             <div className="px-5 py-4">
-              <label className="block text-xs font-medium text-[#f7f8fa] mb-1">
+              <label className="block text-xs font-medium text-[#eef1f7] mb-1">
                 거래처 상호
               </label>
               <input
@@ -141,13 +141,13 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
                   if (e.key === "Enter") confirmAdd();
                 }}
                 placeholder="예: 삼성공판장"
-                className="w-full rounded border border-[#98a4c3] px-2 py-1.5 text-sm"
+                className="w-full rounded border border-[#7485ae] px-2 py-1.5 text-sm"
               />
-              <p className="text-xs text-[#e4e7f0] mt-1">
+              <p className="text-xs text-[#ccd2e3] mt-1">
                 비워두면 hostname/ID 로 임시 이름이 들어가요.
               </p>
             </div>
-            <footer className="border-t border-[#7687b2] px-5 py-3 flex justify-end gap-2">
+            <footer className="border-t border-[#566999] px-5 py-3 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={closeDialog}

@@ -52,7 +52,7 @@ export default async function EditCustomerPage({
         </div>
         <DeleteButton id={id} name={row.name} />
       </header>
-      <div className="rounded-xl border border-[#7687b2] bg-[#4e639c] p-6">
+      <div className="rounded-xl border border-[#566999] bg-[#3d4e7a] p-6">
         <CustomerForm
           initial={{ ...row, folderName: currentFolderName }}
           action={update}

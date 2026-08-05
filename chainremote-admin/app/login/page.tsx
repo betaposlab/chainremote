@@ -40,8 +40,8 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="aurora-bg flex min-h-screen w-full flex-col items-center justify-center bg-[#364463] px-4">
-      <div className="relative z-10 w-full max-w-sm space-y-6 rounded-xl border border-[#7687b2] bg-[#4e639c] p-8 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
+    <div className="aurora-bg flex min-h-screen w-full flex-col items-center justify-center bg-[#2b364f] px-4">
+      <div className="relative z-10 w-full max-w-sm space-y-6 rounded-xl border border-[#566999] bg-[#3d4e7a] p-8 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
         <div className="text-center">
           {/* 사이드바·랜딩과 같은 워드마크 — 종전의 파란 "CR" 박스는 임시 심볼이었다.
               "사내 직원 전용" 부제는 뺐다: 대리점 직원도 로그인하는 멀티테넌트 화면이라
@@ -63,7 +63,7 @@ export default async function LoginPage({
 
         <form action={login} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#f7f8fa]" htmlFor="username">
+            <label className="mb-1 block text-sm font-medium text-[#eef1f7]" htmlFor="username">
               아이디
             </label>
             <input
@@ -77,7 +77,7 @@ export default async function LoginPage({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-[#f7f8fa]" htmlFor="password">
+            <label className="mb-1 block text-sm font-medium text-[#eef1f7]" htmlFor="password">
               비밀번호
             </label>
             <input
@@ -96,7 +96,7 @@ export default async function LoginPage({
       </div>
 
       {/* 운영사 표기 — 대리점 직원이 보는 첫 화면이라 누가 운영하는 서비스인지 밝힌다. */}
-      <footer className="relative z-10 mt-8 text-center text-xs leading-relaxed text-[#e4e7f0]">
+      <footer className="relative z-10 mt-8 text-center text-xs leading-relaxed text-[#ccd2e3]">
         <p>
           © 2026 베타포스랩 (BetaPosLab) · ChainRemote 플랫폼 운영
         </p>

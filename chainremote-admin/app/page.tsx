@@ -71,7 +71,7 @@ export default async function Home() {
 
       <section>
         <h2 className="text-lg font-semibold mb-3 text-white">시작하기</h2>
-        <ul className="space-y-2 text-sm text-[#dfe3ee]">
+        <ul className="space-y-2 text-sm text-[#cbd1e0]">
           <li>· 좌측 "거래처"에서 등록된 거래처 확인</li>
           <li>· 좌측 "지원기록"에서 원격지원 이력 확인</li>
           {/* 2026-08-05 클라우드 전환으로 "자체 서버(외부 클라우드 미경유)" 표현이 사실과
@@ -104,13 +104,13 @@ function Card({
         <span className="text-3xl font-bold tabular-nums text-white">{value.toLocaleString()}</span>
         <span className="text-sm text-[#b9bfd2]">{suffix}</span>
       </div>
-      {subtitle && <div className="mt-1 text-xs text-[#e4e7f0]">{subtitle}</div>}
+      {subtitle && <div className="mt-1 text-xs text-[#ccd2e3]">{subtitle}</div>}
     </>
   );
   const base = "panel-card block px-5 py-4 transition";
   // href 가 있으면 클릭해서 해당 목록으로 이동 — hover 로 클릭 가능함을 알린다.
   return href ? (
-    <Link href={href} className={`${base} hover:border-[#98a4c3]`}>
+    <Link href={href} className={`${base} hover:border-[#7485ae]`}>
       {inner}
     </Link>
   ) : (

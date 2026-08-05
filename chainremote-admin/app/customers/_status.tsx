@@ -156,7 +156,7 @@ function UpdateBadge({ health }: { health: NonNullable<UpdateHealth> }) {
 function renderHeartbeat(lastHeartbeatAt: Date | null, lastVersion: string | null) {
   if (!lastHeartbeatAt) {
     return (
-      <span className="inline-flex items-center gap-1 text-[#e4e7f0]">
+      <span className="inline-flex items-center gap-1 text-[#ccd2e3]">
         <span className="h-1.5 w-1.5 rounded-full bg-[#7d84a0]" />
         <span>미보고</span>
       </span>
@@ -194,7 +194,7 @@ function renderHeartbeat(lastHeartbeatAt: Date | null, lastVersion: string | nul
       <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
       <span className="font-mono">{label}</span>
       {lastVersion && (
-        <span className="text-[10px] tabular-nums text-[#e4e7f0]">v{lastVersion}</span>
+        <span className="text-[10px] tabular-nums text-[#ccd2e3]">v{lastVersion}</span>
       )}
     </span>
   );
