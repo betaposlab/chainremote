@@ -177,7 +177,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block text-sm font-medium text-[#eef0f4] mb-1">
+      <span className="block text-sm font-medium text-[#f7f8fa] mb-1">
         {label}
         {required && <span className="text-[#ff6b6f] ml-1">*</span>}
       </span>

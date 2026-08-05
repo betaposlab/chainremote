@@ -104,7 +104,7 @@ export default async function SessionsPage({
         <select
           name="period"
           defaultValue={period}
-          className="rounded-md border border-[#46557c] px-2 py-1.5"
+          className="rounded-md border border-[#7687b2] px-2 py-1.5"
         >
           {(Object.keys(PERIODS) as Period[]).map((k) => (
             <option key={k} value={k}>
@@ -115,7 +115,7 @@ export default async function SessionsPage({
         <select
           name="customerId"
           defaultValue={customerId ?? ""}
-          className="rounded-md border border-[#46557c] px-2 py-1.5"
+          className="rounded-md border border-[#7687b2] px-2 py-1.5"
         >
           <option value="">전체 거래처</option>
           {customerOptions.map((c) => (
@@ -126,12 +126,12 @@ export default async function SessionsPage({
         </select>
         <button
           type="submit"
-          className="rounded-md bg-white/[0.06] hover:bg-white/[0.1] px-3 py-1.5 text-[#eef0f4]"
+          className="rounded-md bg-white/[0.06] hover:bg-white/[0.1] px-3 py-1.5 text-[#f7f8fa]"
         >
           필터
         </button>
         {(periodParam || customerId) && (
-          <Link href="/sessions" className="text-xs text-[#a3aac2] hover:text-[#abaebb] underline">
+          <Link href="/sessions" className="text-xs text-[#e4e7f0] hover:text-[#dfe3ee] underline">
             초기화
           </Link>
         )}

@@ -33,7 +33,7 @@ export default async function EditTenantPage({
       <div className="mb-6">
         <Link
           href="/admin/tenants"
-          className="text-sm text-[#b9bfd2] hover:text-[#eef0f4]"
+          className="text-sm text-[#b9bfd2] hover:text-[#f7f8fa]"
         >
           ← 회사 목록
         </Link>

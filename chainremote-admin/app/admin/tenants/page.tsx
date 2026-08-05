@@ -47,7 +47,7 @@ export default async function TenantsPage() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-[#46557c] bg-[#2e3a5c]">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-[#7687b2] bg-[#4e639c]">
         <table className="panel-table">
           <thead className="bg-white/[0.025] text-left text-xs uppercase tracking-wider text-[#b9bfd2]">
             <tr>
@@ -68,7 +68,7 @@ export default async function TenantsPage() {
               <tr>
                 <td
                   colSpan={10}
-                  className="px-4 py-10 text-center text-[#a3aac2]"
+                  className="px-4 py-10 text-center text-[#e4e7f0]"
                 >
                   등록된 회사가 없습니다. 우측 상단의 &quot;신규 회사 등록&quot;
                   으로 시작하세요.
@@ -80,11 +80,11 @@ export default async function TenantsPage() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/admin/tenants/${t.id}/edit`}
-                    className="font-medium text-white hover:text-[#a9c0ff] hover:underline"
+                    className="font-medium text-white hover:text-[#e0e8ff] hover:underline"
                   >
                     {t.displayName}
                   </Link>
-                  <div className="text-xs text-[#a3aac2]">{t.slug}</div>
+                  <div className="text-xs text-[#e4e7f0]">{t.slug}</div>
                   <div className="mt-1">
                     {t.enrollSecretHash ? (
                       <span className="inline-block rounded bg-green-50 px-1.5 py-0.5 text-[11px] text-green-700">
@@ -101,26 +101,26 @@ export default async function TenantsPage() {
                   <Link
                     href="/users"
                     title="사용자 관리에서 회사별로 보기"
-                    className="inline-block rounded bg-white/[0.06] px-2 py-0.5 text-xs font-medium text-[#eef0f4] hover:bg-[#4c7dff] hover:text-white"
+                    className="inline-block rounded bg-white/[0.06] px-2 py-0.5 text-xs font-medium text-[#f7f8fa] hover:bg-[#4c7dff] hover:text-white"
                   >
                     {userCounts[t.id] ?? 0}개
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-[#eef0f4]">
+                <td className="px-4 py-3 text-[#f7f8fa]">
                   {t.representativeName ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-[#eef0f4]">
+                <td className="px-4 py-3 text-[#f7f8fa]">
                   {t.contactPhone ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-[#eef0f4]">
+                <td className="px-4 py-3 text-[#f7f8fa]">
                   {t.monthlyFeeKrw != null
                     ? `${t.monthlyFeeKrw.toLocaleString()}원`
                     : "—"}
                 </td>
-                <td className="px-4 py-3 text-[#eef0f4]">
+                <td className="px-4 py-3 text-[#f7f8fa]">
                   {t.paymentDay != null ? `${t.paymentDay}일` : "—"}
                 </td>
-                <td className="px-4 py-3 text-[#eef0f4]">
+                <td className="px-4 py-3 text-[#f7f8fa]">
                   {paymentMethodLabel(t.paymentMethod)}
                 </td>
                 <td className="px-4 py-3">
@@ -135,7 +135,7 @@ export default async function TenantsPage() {
                   <div className="flex justify-end gap-1">
                     <Link
                       href={`/admin/tenants/${t.id}/edit`}
-                      className="rounded border border-[#6274a3] bg-[#2e3a5c] px-2 py-1 text-xs hover:bg-white/[0.04]"
+                      className="rounded border border-[#98a4c3] bg-[#4e639c] px-2 py-1 text-xs hover:bg-white/[0.04]"
                     >
                       수정
                     </Link>
@@ -174,7 +174,7 @@ function StatusBadge({ status }: { status: string }) {
     );
   }
   return (
-    <span className="inline-block rounded bg-white/[0.1] px-2 py-0.5 text-xs text-[#abaebb]">
+    <span className="inline-block rounded bg-white/[0.1] px-2 py-0.5 text-xs text-[#dfe3ee]">
       해지
     </span>
   );

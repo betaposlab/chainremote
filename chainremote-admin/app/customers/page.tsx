@@ -50,10 +50,10 @@ function SortHeader({
     <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
       <Link
         href={`/customers?sort=${col}&dir=${nextDir}`}
-        className="inline-flex items-center gap-1 hover:text-[#a9c0ff]"
+        className="inline-flex items-center gap-1 hover:text-[#e0e8ff]"
       >
         {label}
-        <span className="text-[10px] text-[#a3aac2]">
+        <span className="text-[10px] text-[#e4e7f0]">
           {active ? (activeDir === "asc" ? "▲" : "▼") : "↕"}
         </span>
       </Link>
@@ -323,7 +323,7 @@ export default async function CustomersPage({
                   <td className="px-4 py-3">
                     <Link
                       href={`/customers/${c.id}/edit`}
-                      className="font-medium hover:text-[#a9c0ff]"
+                      className="font-medium hover:text-[#e0e8ff]"
                     >
                       {c.name}
                     </Link>
@@ -333,7 +333,7 @@ export default async function CustomersPage({
                       </span>
                     )}
                     {c.address && (
-                      <div className="text-xs text-[#a3aac2] mt-0.5">{c.address}</div>
+                      <div className="text-xs text-[#e4e7f0] mt-0.5">{c.address}</div>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -341,22 +341,22 @@ export default async function CustomersPage({
                       <span
                         className={
                           c.assignedUserId === currentUserId
-                            ? "inline-block bg-[#4c7dff]/15 text-[#a9c0ff] px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap"
-                            : "text-[#abaebb] whitespace-nowrap"
+                            ? "inline-block bg-[#4c7dff]/15 text-[#e0e8ff] px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap"
+                            : "text-[#dfe3ee] whitespace-nowrap"
                         }
                       >
                         {c.assignedUserName}
                       </span>
                     ) : (
-                      <span className="text-[#a3aac2] text-xs">미배정</span>
+                      <span className="text-[#e4e7f0] text-xs">미배정</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-[#abaebb] whitespace-nowrap">{c.contactName ?? "-"}</td>
-                  <td className="px-4 py-3 text-[#abaebb] tabular-nums whitespace-nowrap">{c.phone ?? "-"}</td>
+                  <td className="px-4 py-3 text-[#dfe3ee] whitespace-nowrap">{c.contactName ?? "-"}</td>
+                  <td className="px-4 py-3 text-[#dfe3ee] tabular-nums whitespace-nowrap">{c.phone ?? "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">
                     {c.remoteId ? (
                       <div className="flex flex-col items-start gap-1">
-                        <span className="inline-block bg-[#4c7dff]/15 text-[#a9c0ff] px-2 py-0.5 rounded whitespace-nowrap">
+                        <span className="inline-block bg-[#4c7dff]/15 text-[#e0e8ff] px-2 py-0.5 rounded whitespace-nowrap">
                           {formatRemoteId(c.remoteId)}
                         </span>
                         {/* OS 배지(마이그 021) — "Win7 · 64비트" 식으로 OS+네이티브 비트수. Win7 은
@@ -398,7 +398,7 @@ export default async function CustomersPage({
                         />
                       </div>
                     ) : (
-                      <span className="text-[#a3aac2]">미등록</span>
+                      <span className="text-[#e4e7f0]">미등록</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs">
@@ -424,7 +424,7 @@ export default async function CustomersPage({
                     ) : (
                       <Link
                         href={`/customers/${c.id}/edit`}
-                        className="inline-flex items-center text-xs text-[#a3aac2] hover:text-[#a9c0ff] px-3 py-1.5"
+                        className="inline-flex items-center text-xs text-[#e4e7f0] hover:text-[#e0e8ff] px-3 py-1.5"
                       >
                         ID 등록
                       </Link>
@@ -451,16 +451,16 @@ export default async function CustomersPage({
               );
             })}
             <tr id="cust-search-empty" style={{ display: "none" }}>
-              <td colSpan={8} className="px-4 py-12 text-center text-[#a3aac2] text-sm">
+              <td colSpan={8} className="px-4 py-12 text-center text-[#e4e7f0] text-sm">
                 검색 결과가 없습니다.
               </td>
             </tr>
           </tbody>
         </table>
         {rows.length === 0 && (
-          <div className="px-4 py-12 text-center text-[#a3aac2] text-sm">
+          <div className="px-4 py-12 text-center text-[#e4e7f0] text-sm">
             아직 등록된 거래처가 없습니다.
-            <Link href="/customers/new" className="text-[#a9c0ff] hover:underline ml-2">
+            <Link href="/customers/new" className="text-[#e0e8ff] hover:underline ml-2">
               첫 거래처 추가하기
             </Link>
           </div>

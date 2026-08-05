@@ -15,24 +15,24 @@
    같은 팔레트를 정보 밀도 쪽으로 눌러 쓴다 — 정적이고 스캔하기 쉽게.
    ============================================================ */
 :root {
-  --void: #1c2333;
-  --abyss: #242c40;
-  --deep: #2e3a5c;
-  --cobalt: #3c4f82;
-  --edge: #46557c;
-  --inkline: #384462;
-  --hairline: #6274a3;
+  --void: #364463;
+  --abyss: #3e4c6f;
+  --deep: #4e639c;
+  --cobalt: #4a67b5;
+  --edge: #7687b2;
+  --inkline: #6d7fac;
+  --hairline: #98a4c3;
   --ink: #ffffff;
-  --ash: #abaebb;
-  --mist: #eef0f4;
-  --faint: #a3aac2;
+  --ash: #dfe3ee;
+  --mist: #f7f8fa;
+  --faint: #e4e7f0;
 
   --accent: #4c7dff;
   --accent-hover: #6b93ff;
   --accent-dim: #2862d7;
   --accent-soft-bg: rgba(76, 125, 255, 0.12);
   --accent-soft-border: rgba(76, 125, 255, 0.28);
-  --accent-soft-text: #a9c0ff;
+  --accent-soft-text: #e0e8ff;
 
   --ok: #3ddc84;
   --ok-bg: rgba(61, 220, 132, 0.1);

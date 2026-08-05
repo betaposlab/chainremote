@@ -35,7 +35,7 @@ export type CompanyGroup = {
 };
 
 const inp =
-  "rounded-md border border-[#6274a3] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none";
+  "rounded-md border border-[#98a4c3] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none";
 
 export function CompanyAccordion({
   companies,
@@ -66,29 +66,29 @@ function Group({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="overflow-hidden rounded-xl border border-[#46557c] bg-[#2e3a5c]">
+    <div className="overflow-hidden rounded-xl border border-[#7687b2] bg-[#4e639c]">
       <div className="flex items-center justify-between px-5 py-4">
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-3 text-left"
         >
-          <span className="w-4 text-[#a3aac2]">{open ? "▾" : "▸"}</span>
+          <span className="w-4 text-[#e4e7f0]">{open ? "▾" : "▸"}</span>
           <span className="font-semibold text-white">
             {company.displayName}
           </span>
-          <span className="rounded bg-white/[0.06] px-2 py-0.5 text-xs text-[#abaebb]">
+          <span className="rounded bg-white/[0.06] px-2 py-0.5 text-xs text-[#dfe3ee]">
             아이디 {company.users.length}개
           </span>
         </button>
         <Link
           href={`/admin/tenants/${company.id}/edit`}
-          className="text-xs text-[#a3aac2] hover:text-[#a9c0ff]"
+          className="text-xs text-[#e4e7f0] hover:text-[#e0e8ff]"
         >
           회사 정보 →
         </Link>
       </div>
       {open && (
-        <div className="border-t border-[#384462] bg-white/[0.02] p-4">
+        <div className="border-t border-[#6d7fac] bg-white/[0.02] p-4">
           <AddForm tenantId={company.id} />
           <UserTable
             tenantId={company.id}
@@ -152,7 +152,7 @@ function UserTable({
   targetVersion: string | null;
 }) {
   return (
-    <div className="overflow-hidden rounded-md border border-[#46557c] bg-[#2e3a5c]">
+    <div className="overflow-hidden rounded-md border border-[#7687b2] bg-[#4e639c]">
       <table className="panel-table">
         <thead className="bg-white/[0.025] text-left text-xs text-[#b9bfd2]">
           <tr>
@@ -168,7 +168,7 @@ function UserTable({
         <tbody>
           {users.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-3 py-4 text-center text-[#a3aac2]">
+              <td colSpan={7} className="px-3 py-4 text-center text-[#e4e7f0]">
                 아이디 없음 — 위에서 추가하세요.
               </td>
             </tr>
@@ -214,7 +214,7 @@ function Row({
             </span>
           )}
         </td>
-        <td className="px-3 py-2 text-[#abaebb]">@{user.email}</td>
+        <td className="px-3 py-2 text-[#dfe3ee]">@{user.email}</td>
         <td className="px-3 py-2">{roleLabel(user.role)}</td>
         <td className="px-3 py-2">
           {user.isActive ? (
@@ -241,18 +241,18 @@ function Row({
         </td>
         <td className="whitespace-nowrap px-3 py-2 text-right">
           {isSelf ? (
-            <span className="text-xs text-[#a3aac2]">—</span>
+            <span className="text-xs text-[#e4e7f0]">—</span>
           ) : (
             <>
               <button
                 onClick={() => setEditing((v) => !v)}
-                className="px-2 py-1 text-xs text-[#abaebb] hover:text-white"
+                className="px-2 py-1 text-xs text-[#dfe3ee] hover:text-white"
               >
                 {editing ? "닫기" : "수정"}
               </button>
               <button
                 onClick={() => setResetting((v) => !v)}
-                className="ml-1 px-2 py-1 text-xs text-[#abaebb] hover:text-[#a9c0ff]"
+                className="ml-1 px-2 py-1 text-xs text-[#dfe3ee] hover:text-[#e0e8ff]"
               >
                 비번 리셋
               </button>
@@ -295,13 +295,13 @@ function Row({
               <input
                 name="displayName"
                 defaultValue={user.displayName}
-                className="rounded-md border border-[#6274a3] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#98a4c3] px-3 py-1.5 text-sm"
                 placeholder="이름"
               />
               <select
                 name="role"
                 defaultValue={user.role === "super_admin" ? "owner" : user.role}
-                className="rounded-md border border-[#6274a3] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#98a4c3] px-3 py-1.5 text-sm"
               >
                 {ASSIGNABLE_ROLES.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -309,7 +309,7 @@ function Row({
                   </option>
                 ))}
               </select>
-              <label className="flex items-center gap-1 text-sm text-[#abaebb]">
+              <label className="flex items-center gap-1 text-sm text-[#dfe3ee]">
                 <input type="checkbox" name="isActive" defaultChecked={user.isActive} />
                 활성
               </label>
@@ -341,7 +341,7 @@ function Row({
               }
               className="flex items-center gap-2"
             >
-              <span className="text-sm text-[#eef0f4]">
+              <span className="text-sm text-[#f7f8fa]">
                 {user.displayName} 의 새 비번:
               </span>
               <input
@@ -350,7 +350,7 @@ function Row({
                 required
                 minLength={4}
                 placeholder="새 비번"
-                className="rounded-md border border-[#6274a3] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#98a4c3] px-3 py-1.5 text-sm"
               />
               <button
                 type="submit"

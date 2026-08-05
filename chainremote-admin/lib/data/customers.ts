@@ -2,7 +2,7 @@
 // 프레임워크 의존 없음(revalidatePath/redirect 없음) — 후처리는 호출 측 몫.
 // 모든 함수는 tenantId 격리 강제. 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customerAlerts, customers, folders, tenants, userFavorites } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
@@ -81,12 +81,47 @@ export async function updateCustomer(
   return row ?? null;
 }
 
+// 거래처 삭제 — 즐겨찾기 잔재까지 같이 지운다.
+//
+// ★2026-08-05 실사고: 봉스푸드(포스가 없어져 삭제)가 다음 화면에서 "신규 거래처 후보
+//   이름 미상"으로 되살아났다. user_favorites.customer_id 의 FK 가 onDelete:"set null"
+//   이라, 거래처를 지우면 즐겨찾기 행은 남고 customer_id 만 NULL 이 된다. 그런데
+//   listOrphanFavorites 는 "customer_id IS NULL" 을 곧 "아직 등록 안 된 신규 후보"로
+//   읽으므로, 방금 지운 거래처가 후보로 부활한다 — 지운 사람 입장에선 삭제가 안 먹은 것.
+//   삭제는 "이 기기를 우리 목록에서 뺀다"는 뜻이므로 즐겨찾기도 같이 걷어낸다.
+//   (같은 기기가 나중에 재설치되면 auto-enroll 로 pending 거래처가 되는 정상 경로를 탄다.)
 export async function deleteCustomer(id: string, ctx: { tenantId: string }) {
-  const result = await db
-    .delete(customers)
-    .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
-    .returning({ id: customers.id });
-  return result.length > 0;
+  return await db.transaction(async (tx) => {
+    const [target] = await tx
+      .select({ id: customers.id, remoteId: customers.remoteId })
+      .from(customers)
+      .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
+      .limit(1);
+    if (!target) return false;
+
+    // remote_id 로도 지운다 — 즐겨찾기가 customer_id 없이 remote_id 만 들고 있는
+    // 경우(직원이 거래처 등록 전에 즐겨찾기한 뒤 나중에 등록된 행)까지 걷어내야
+    // 부활 경로가 완전히 막힌다.
+    await tx
+      .delete(userFavorites)
+      .where(
+        and(
+          eq(userFavorites.tenantId, ctx.tenantId),
+          target.remoteId
+            ? or(
+                eq(userFavorites.customerId, id),
+                eq(userFavorites.remoteId, target.remoteId),
+              )
+            : eq(userFavorites.customerId, id),
+        ),
+      );
+
+    const result = await tx
+      .delete(customers)
+      .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
+      .returning({ id: customers.id });
+    return result.length > 0;
+  });
 }
 
 /**

@@ -148,7 +148,7 @@ export function CustomerPushButton({
           setError(null);
           setOpen(true);
         }}
-        className="inline-flex items-center text-xs text-[#b9bfd2] hover:text-[#a9c0ff] px-2 py-1.5"
+        className="inline-flex items-center text-xs text-[#b9bfd2] hover:text-[#e0e8ff] px-2 py-1.5"
         title={currentVersion ? `현재 v${currentVersion}` : "버전 미보고"}
       >
         ⬆ 푸시
@@ -202,7 +202,7 @@ export function BulkPushButton() {
           setResult(null);
           setOpen(true);
         }}
-        className="rounded-lg border border-[#4c7dff] text-[#a9c0ff] hover:bg-[#4c7dff]/15 px-4 py-2 text-sm font-medium"
+        className="rounded-lg border border-[#4c7dff] text-[#e0e8ff] hover:bg-[#4c7dff]/15 px-4 py-2 text-sm font-medium"
       >
         ⬆ 전체 일괄 푸시
       </button>
@@ -294,8 +294,8 @@ function PushDialog({
 
   return (
     <div className="fixed inset-0 z-50 bg-[#02040a]/70 p-4 flex items-start justify-center overflow-y-auto">
-      <div className="mt-12 w-full max-w-lg rounded-xl bg-[#2e3a5c] border border-[#6274a3] shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
-        <header className="border-b border-[#46557c] px-5 py-3 flex items-start justify-between gap-3">
+      <div className="mt-12 w-full max-w-lg rounded-xl bg-[#4e639c] border border-[#98a4c3] shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+        <header className="border-b border-[#7687b2] px-5 py-3 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">{title}</h2>
             <p className="text-xs text-[#b9bfd2] mt-0.5">{subtitle}</p>
@@ -304,7 +304,7 @@ function PushDialog({
             type="button"
             onClick={handleAutoFill}
             disabled={fetching}
-            className="shrink-0 rounded border border-[#4c7dff] text-[#a9c0ff] hover:bg-[#4c7dff]/15 text-xs px-2 py-1 disabled:opacity-50"
+            className="shrink-0 rounded border border-[#4c7dff] text-[#e0e8ff] hover:bg-[#4c7dff]/15 text-xs px-2 py-1 disabled:opacity-50"
             title="NAS agent-push.json 에서 최신 메타 가져오기"
           >
             {fetching ? "가져오는 중..." : "⤓ 최신 가져오기"}
@@ -322,7 +322,7 @@ function PushDialog({
               value={state.targetVersion}
               onChange={(e) => set("targetVersion", e.target.value)}
               placeholder="1.3.5"
-              className="w-full rounded border border-[#6274a3] px-2 py-1 text-sm font-mono"
+              className="w-full rounded border border-[#98a4c3] px-2 py-1 text-sm font-mono"
             />
           </Field>
           <Field label=".exe URL" hint="NAS 또는 외부 호스팅의 직접 다운로드 URL">
@@ -331,7 +331,7 @@ function PushDialog({
               value={state.assetUrl}
               onChange={(e) => set("assetUrl", e.target.value)}
               placeholder="https://sepani.synology.me/chainremote/ChainRemote_Agent_Setup_v1.3.5.exe"
-              className="w-full rounded border border-[#6274a3] px-2 py-1 text-sm font-mono"
+              className="w-full rounded border border-[#98a4c3] px-2 py-1 text-sm font-mono"
             />
           </Field>
           <div className="grid grid-cols-3 gap-2">
@@ -341,7 +341,7 @@ function PushDialog({
                 value={state.assetSha256}
                 onChange={(e) => set("assetSha256", e.target.value)}
                 placeholder="abc123..."
-                className="w-full rounded border border-[#6274a3] px-2 py-1 text-xs font-mono"
+                className="w-full rounded border border-[#98a4c3] px-2 py-1 text-xs font-mono"
               />
             </Field>
             <Field label="크기 (bytes)">
@@ -350,11 +350,11 @@ function PushDialog({
                 value={state.assetSize}
                 onChange={(e) => set("assetSize", e.target.value)}
                 placeholder="12345678"
-                className="w-full rounded border border-[#6274a3] px-2 py-1 text-sm font-mono"
+                className="w-full rounded border border-[#98a4c3] px-2 py-1 text-sm font-mono"
               />
             </Field>
           </div>
-          <div className="border-t border-[#46557c] pt-3 mt-3">
+          <div className="border-t border-[#7687b2] pt-3 mt-3">
             <p className="text-xs text-[#b9bfd2] mb-2">
               설치 허용 시간대 (시 단위, 24h). 기본 0~23 = 하루 종일(퇴근 시 끄는 거래처 권장). 24h 켜진 PC 만 0~7.
             </p>
@@ -366,7 +366,7 @@ function PushDialog({
                   max={23}
                   value={state.windowStartHour}
                   onChange={(e) => set("windowStartHour", e.target.value)}
-                  className="w-full rounded border border-[#6274a3] px-2 py-1 text-sm"
+                  className="w-full rounded border border-[#98a4c3] px-2 py-1 text-sm"
                 />
               </Field>
               <Field label="종료 시간">
@@ -376,7 +376,7 @@ function PushDialog({
                   max={23}
                   value={state.windowEndHour}
                   onChange={(e) => set("windowEndHour", e.target.value)}
-                  className="w-full rounded border border-[#6274a3] px-2 py-1 text-sm"
+                  className="w-full rounded border border-[#98a4c3] px-2 py-1 text-sm"
                 />
               </Field>
               <Field label="무작위지연 (초)" hint="기본 600 = 10분">
@@ -385,7 +385,7 @@ function PushDialog({
                   min={0}
                   value={state.randomizeMaxSec}
                   onChange={(e) => set("randomizeMaxSec", e.target.value)}
-                  className="w-full rounded border border-[#6274a3] px-2 py-1 text-sm"
+                  className="w-full rounded border border-[#98a4c3] px-2 py-1 text-sm"
                 />
               </Field>
             </div>
@@ -395,12 +395,12 @@ function PushDialog({
           )}
           {extraTail}
         </div>
-        <footer className="border-t border-[#46557c] px-5 py-3 flex justify-end gap-2">
+        <footer className="border-t border-[#7687b2] px-5 py-3 flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
             disabled={submitting}
-            className="rounded border border-[#6274a3] hover:bg-white/[0.04] px-3 py-1.5 text-sm disabled:opacity-50"
+            className="rounded border border-[#98a4c3] hover:bg-white/[0.04] px-3 py-1.5 text-sm disabled:opacity-50"
           >
             닫기
           </button>
@@ -431,9 +431,9 @@ function Field({
 }) {
   return (
     <div className={colSpan === 2 ? "col-span-2" : undefined}>
-      <label className="block text-xs font-medium text-[#eef0f4] mb-1">
+      <label className="block text-xs font-medium text-[#f7f8fa] mb-1">
         {label}
-        {hint && <span className="font-normal text-[#a3aac2] ml-1">· {hint}</span>}
+        {hint && <span className="font-normal text-[#e4e7f0] ml-1">· {hint}</span>}
       </label>
       {children}
     </div>

@@ -113,7 +113,7 @@ export default async function UsersPage() {
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
         <p className="text-sm text-[#b9bfd2] mt-1">
           {rows.length}명 · 좌석{" "}
-          <span className={seatFull ? "font-semibold text-amber-300" : "font-semibold text-[#eef0f4]"}>
+          <span className={seatFull ? "font-semibold text-amber-300" : "font-semibold text-[#f7f8fa]"}>
             {usedSeats} / {maxSeats}
           </span>{" "}
           사용 · 우리 회사 직원 (거래처 사람들은 여기 등록 안 함)
@@ -121,7 +121,7 @@ export default async function UsersPage() {
       </header>
 
       <section className="mb-8 panel-card p-5">
-        <h2 className="mb-4 text-sm font-semibold text-[#eef0f4]">직원 추가</h2>
+        <h2 className="mb-4 text-sm font-semibold text-[#f7f8fa]">직원 추가</h2>
         {seatFull ? (
           <div className="rounded-lg banner banner-warn">
             <p>

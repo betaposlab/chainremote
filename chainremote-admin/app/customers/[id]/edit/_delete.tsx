@@ -12,7 +12,17 @@ export function DeleteButton({ id, name }: { id: string; name: string }) {
       type="button"
       disabled={pending}
       onClick={() => {
-        if (!confirm(`"${name}" 거래처를 삭제할까요?\n관련 지원기록도 같이 삭제됩니다.`)) return;
+        // 즐겨찾기까지 지운다는 걸 명시한다 — 조용히 없애지 않는다(마이그019 가 경계했던
+        // "직원 즐겨찾기 조용한 손실"을, 동작 대신 고지로 해결).
+        if (
+          !confirm(
+            `"${name}" 거래처를 삭제할까요?\n\n` +
+              `· 관련 지원기록도 같이 삭제됩니다.\n` +
+              `· 이 기기를 즐겨찾기한 직원들의 즐겨찾기에서도 빠집니다.\n` +
+              `  (안 그러면 '신규 거래처 후보'로 다시 올라옵니다.)`,
+          )
+        )
+          return;
         start(async () => {
           await deleteCustomer(id);
           router.push("/customers");

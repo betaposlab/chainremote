@@ -268,7 +268,15 @@ describe("(d) 거래처 삭제 — 관련 레코드 FK on-delete 동작", () => 
   //    결과: 거래처를 삭제하면 그 머신을 즐겨찾기한 '모든 직원의 즐겨찾기 행이 통째로 삭제'된다.
   //    설계 의도(favorites.ts 주석: 삭제 후 orphan '신규 거래처 후보' 로 복귀, SET NULL 로 remote_id
   //    보존)와 정반대의 조용한 데이터 손실. 드리즐 스키마만 읽고 set-null 을 가정하는 코드는 틀린다.
-  it("[수정됨/마이그019] 삭제 시 user_favorites.customer_id 가 SET NULL — 즐겨찾기 행 보존", async () => {
+  // ★★ 2026-08-05 제품 결정 변경 — 위 서술(orphan 후보로 복귀가 설계 의도)은 더는 유효하지 않다.
+  //    실사고: 봉스푸드(포스 철거로 삭제)가 다음 화면에서 "신규 거래처 후보 · 이름 미상"으로
+  //    되살아났다. 운영자 입장에서 삭제는 "이 기기를 우리 목록에서 뺀다"인데, 지운 게 후보로
+  //    되돌아오면 삭제가 안 먹은 것으로 보인다(Chang 지적).
+  //    → deleteCustomer 가 같은 트랜잭션에서 그 거래처의 즐겨찾기까지 지운다.
+  //    FK 는 계속 SET NULL 로 둔다(마이그019 유지) — 다른 경로의 우발적 CASCADE 를 막는
+  //    방어선은 그대로 두고, "거래처 삭제" 라는 의도된 행위에서만 앱 레이어가 명시적으로 치운다.
+  //    마이그019 가 경계한 "직원 즐겨찾기 조용한 손실"은 삭제 확인창 고지로 해소한다.
+  it("[변경/2026-08-05] 삭제하면 즐겨찾기도 같이 지워진다 — orphan 후보로 부활 금지", async () => {
     const db = testDb();
     const tid = await makeTenant("betapos");
     const uid = await makeUser(tid, "chang");
@@ -290,11 +298,9 @@ describe("(d) 거래처 삭제 — 관련 레코드 FK on-delete 동작", () => 
       .select()
       .from(userFavorites)
       .where(and(eq(userFavorites.userId, uid), eq(userFavorites.remoteId, "GN40004000")));
-    // ★ 마이그019 로 FK=SET NULL: 즐겨찾기 행은 살아남고(remote_id 유지 → orphan 후보 복귀),
-    //   customer_id 만 NULL. 스키마 선언(set null)과 일치. 직원 즐겨찾기 조용한 삭제 없음.
-    expect(favs.length).toBe(1);
-    expect(favs[0].customerId).toBeNull();
-    expect(favs[0].remoteId).toBe("GN40004000");
+    // 즐겨찾기 행 자체가 사라져야 한다 — 남으면 customer_id=NULL 이 되어
+    // listOrphanFavorites 가 "신규 거래처 후보"로 다시 올린다(= 삭제가 안 먹은 것처럼 보임).
+    expect(favs.length).toBe(0);
   });
 
   it("삭제 시 pending_updates 는 CASCADE 로 함께 지워진다(고아 큐 미방지)", async () => {

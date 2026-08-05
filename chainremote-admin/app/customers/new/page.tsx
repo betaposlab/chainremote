@@ -21,7 +21,7 @@ export default async function NewCustomerPage() {
           상호와 연락처만 필수. 나머지는 나중에 채워도 OK.
         </p>
       </header>
-      <div className="rounded-xl border border-[#46557c] bg-[#2e3a5c] p-6">
+      <div className="rounded-xl border border-[#7687b2] bg-[#4e639c] p-6">
         <CustomerForm
           action={createCustomer}
           submitLabel="거래처 추가"
