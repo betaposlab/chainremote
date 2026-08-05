@@ -172,6 +172,16 @@ Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\
 ; 8. 단축아이콘 IconLocation 을 ChainRemote .ico 로 갱신
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
+; 8.3. 거래처가 바꾼 아이콘 이름 존중 (2026-08-05 Chang 결정) — 현장은 영어를 못 읽는
+;    사장님을 위해 바탕화면 아이콘 이름을 한글("포스원격" 등)로 바꿔 쓴다(코이노 시절부터의
+;    관례). 코어 설치는 바로가기를 파일 이름(ChainRemote.lnk)으로만 알아봐서, 이름을 바꾸면
+;    업데이트마다 영어 기본 아이콘을 새로 만들어 중복이 쌓였다. 여기서는 이름이 아니라
+;    "어느 exe 를 가리키는가"로 판별한다: 같은 exe 를 가리키는 다른 이름의 바로가기가 이미
+;    있으면 방금 코어가 만든 기본 이름 쪽을 지운다 = 거래처가 붙인 이름이 유일본으로 유지.
+;    스캔은 공용 + 각 사용자 바탕화면(자동업뎃은 LocalSystem 이라 %USERPROFILE% 은 사용자를
+;    안 가리킨다). 실패하면 기본 lnk 가 남을 뿐(종전 동작 그대로) — 파괴적 경로 없음. ASCII 전용.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $pub=[Environment]::ExpandEnvironmentVariables('%PUBLIC%\Desktop\ChainRemote.lnk'); if(Test-Path $pub){{ $tgt=$wsh.CreateShortcut($pub).TargetPath; if($tgt){{ $cand=@(); $cand+=@(Get-ChildItem ([Environment]::ExpandEnvironmentVariables('%PUBLIC%\Desktop\*.lnk')) -ErrorAction SilentlyContinue); $cand+=@(Get-ChildItem 'C:\Users\*\Desktop\*.lnk' -ErrorAction SilentlyContinue); foreach($f in $cand){{ if(($f.Name -ne 'ChainRemote.lnk') -and ($wsh.CreateShortcut($f.FullName).TargetPath -eq $tgt)){{ Remove-Item $pub -Force -ErrorAction SilentlyContinue; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path 'C:\ProgramData\ChainRemote\updater.log' -Value ($st + ' installer: ICON custom shortcut kept [' + $f.Name + '] -> default lnk removed'); break }} }} }} }}"""; StatusMsg: "ChainRemote 바로가기 확인 중..."; Flags: runhidden waituntilterminated
+
 ; 8.5. 인스톨 후 self-test 스모크 — Service/Process/Exe 3종 체크를 updater.log 에 PASS/FAIL 기록.
 ;     (경로는 CRAgentDir — 64비트 Win7 (x86) 설치까지 3개 조합 모두 정확. 종전 {commonpf} 는
 ;      64비트 Win7 에서 exe=False 오탐으로 SELFTEST FAIL 을 찍었다.)
@@ -228,6 +238,12 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ; 숨겨둔 코어 제거 항목도 정리 (고아 레지스트리 방지). 32/64 view 둘 다.
 Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ChainRemote /f /reg:64"; Flags: runhidden; RunOnceId: "DelCoreArp64"
 Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ChainRemote /f /reg:32"; Flags: runhidden; RunOnceId: "DelCoreArp32"
+; 바탕화면 바로가기 청소 — 이름이 아니라 "우리 exe 를 가리키는가"로 지운다. 종전엔 아무도
+;   lnk 를 안 지워서(코어 --uninstall 을 안 타므로) 기본 이름조차 고아로 남았고, 거래처가
+;   이름을 바꾼 바로가기는 더더욱 남았다. 대상 경로 비교라 어떤 이름이든 잡힌다.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $exe='{code:CRAgentDir}\ChainRemote.exe'; $cand=@(); $cand+=@(Get-ChildItem ([Environment]::ExpandEnvironmentVariables('%PUBLIC%\Desktop\*.lnk')) -ErrorAction SilentlyContinue); $cand+=@(Get-ChildItem 'C:\Users\*\Desktop\*.lnk' -ErrorAction SilentlyContinue); foreach($f in $cand){{ if($wsh.CreateShortcut($f.FullName).TargetPath -eq $exe){{ Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue }} }}"""; Flags: runhidden waituntilterminated; RunOnceId: "DelDesktopShortcuts"
+; 시작 메뉴 폴더도 정리 (코어가 만들고 코어 --uninstall 을 안 타니 여기서 지워야 한다)
+Filename: "{cmd}"; Parameters: "/c rmdir /S /Q ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\ChainRemote"" 2>nul"; Flags: runhidden; RunOnceId: "DelStartMenuDir"
 ; 제거 시 watchdog SYSTEM 예약작업도 정리 (고아 작업 방지)
 Filename: "schtasks.exe"; Parameters: "/Delete /TN ChainRemoteServiceWatchdog /F"; Flags: runhidden; RunOnceId: "DelWatchdogTask"
 ; 상호 레지스트리 청소 (2026-07-14) — 기기를 다른 거래처로 재사용할 때 옛 상호("태조산 메인")가
