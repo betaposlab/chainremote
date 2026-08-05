@@ -82,8 +82,9 @@ export function RemoteButton({
           type="button"
           onClick={() => setModalOpen(true)}
           className="inline-flex items-center gap-1 rounded-md bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 text-xs font-medium animate-pulse"
+          title="지원 기록을 마감합니다. 원격 연결은 HQ 창을 닫아야 끊깁니다."
         >
-          🔴 진행 중 · 종료
+          🔴 지원 중 · 기록 마감
         </button>
       ) : (
         <button
@@ -130,7 +131,13 @@ function EndSessionModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-white shadow-2xl">
         <header className="border-b border-slate-100 px-5 py-3">
-          <h2 className="font-semibold text-slate-900">지원 종료 + 기록 저장</h2>
+          <h2 className="font-semibold text-slate-900">지원 기록 마감</h2>
+          {/* 패널은 hbbs 세션을 끊을 통로가 없다 — 여기서 닫히는 건 기록뿐이다. 버튼이
+              '종료'라고만 되어 있던 때는 눌러도 원격이 안 끊겨 혼란을 샀다. */}
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1.5">
+            기록만 마감합니다. <strong>원격 연결은 끊기지 않습니다</strong> — 끊으려면 HQ
+            원격 창을 닫으세요.
+          </p>
           {/* 어느 거래처를 원격했는지 — 딴짓하다 와도 한눈에. (거래처명 + RustDesk ID) */}
           <p className="text-sm font-medium text-slate-800 mt-1">
             {customerName}
@@ -184,7 +191,13 @@ function EndSessionModal({
             <button
               type="button"
               onClick={() => {
-                if (!confirm("이 세션 기록을 폐기할까요? (실수로 시작했을 때만)")) return;
+                if (
+                  !confirm(
+                    "이 지원 기록을 폐기할까요? (실수로 시작했을 때만)\n\n" +
+                      "기록만 지워지고 원격 연결은 그대로 유지됩니다.",
+                  )
+                )
+                  return;
                 start(async () => {
                   await discardSession(sessionId);
                   onComplete();
@@ -208,7 +221,7 @@ function EndSessionModal({
                 disabled={pending}
                 className="rounded-lg bg-[#00A0E5] hover:bg-[#0090d0] disabled:opacity-50 text-white px-4 py-2 text-sm font-medium"
               >
-                {pending ? "저장 중..." : "저장 + 종료"}
+                {pending ? "저장 중..." : "기록 저장"}
               </button>
             </div>
           </div>

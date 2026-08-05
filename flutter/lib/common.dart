@@ -65,7 +65,7 @@ var isMobile = isAndroid || isIOS;
 var version = ''; // RustDesk 코어 버전 (bind.mainGetVersion)
 // 우리 자체 버전. src/chainremote_version.rs 의 CHAINREMOTE_VERSION,
 // deploy/win-installer/{agent,hq}-installer.iss 의 APP_VERSION 과 늘 맞춰야 한다.
-const chainRemoteVersion = '1.4.85';
+const chainRemoteVersion = '1.4.86';
 int androidVersion = 0;
 
 // Only used on Linux.
@@ -2579,6 +2579,50 @@ List<String>? urlLinkToCmdArgs(Uri uri) {
   return null;
 }
 
+/// 패널에 등록된 거래처명을 로컬 peer 별칭으로 굳힌다.
+///
+/// 원격 창은 메인 창과 **다른 프로세스**라 메모리에 올라온 거래처 목록을 못 본다. 그래서
+/// 탭 제목이 "YR10578954@pos-pc" 같은 9자리 ID 로 떴다 — 두 곳을 동시에 보면 어느 탭이
+/// 어느 거래처인지 구분이 안 된다. 두 프로세스가 같이 읽는 곳은 peer config 뿐이라,
+/// 창을 띄우기 직전에 여기서 한 번 써두면 그 창이 알아서 읽어 간다.
+///
+/// 우클릭 '이름 변경'이 로컬 별칭과 패널 customer.name 을 같이 고치는 것과 짝이 되는,
+/// 그 반대 방향(패널 → 로컬)의 채움이다. 패널이 진실 원천이므로 덮어써도 된다.
+void _syncPeerAliasFromPanel(String id) {
+  try {
+    String name = '';
+    // 즐겨찾기가 먼저 — '전체 거래처'는 별칭 앞에 상태 마커를 달고 있어 raw 이름이 아니다.
+    for (final model in [
+      gFFI.favoritePeersModel,
+      gFFI.allCustomersPeersModel,
+      gFFI.recentPeersModel,
+    ]) {
+      for (final p in model.peers) {
+        if (p.id == id && p.alias.trim().isNotEmpty) {
+          name = p.alias.trim();
+          break;
+        }
+      }
+      if (name.isNotEmpty) break;
+    }
+    // '전체 거래처' 탭이 별칭 앞에 붙이는 상태 마커(⏳ 미확정 / 🆕 미배정)는 이름이 아니다.
+    // 문자 클래스 대신 startsWith 로 떼는 이유: 🆕 는 서로게이트 쌍이라 [..] 안에 넣으면
+    // 반쪽만 매칭될 수 있다. 마커 출처는 Rust customer_to_peer_json 딱 한 곳이다.
+    for (final marker in ['⏳', '🆕']) {
+      if (name.startsWith(marker)) {
+        name = name.substring(marker.length).trim();
+        break;
+      }
+    }
+    if (name.isEmpty) return; // 미등록 peer — ID 를 직접 친 경우. 종전 동작 그대로.
+    if (bind.mainGetPeerOptionSync(id: id, key: 'alias') == name) return;
+    bind.mainSetPeerOptionSync(id: id, key: 'alias', value: name);
+  } catch (e) {
+    // 이름을 못 채워도 연결 자체는 막지 않는다 — 탭이 ID 로 뜰 뿐이다.
+    debugPrint('peer alias sync from panel failed: $e');
+  }
+}
+
 connectMainDesktop(String id,
     {required bool isFileTransfer,
     required bool isViewCamera,
@@ -2589,6 +2633,8 @@ connectMainDesktop(String id,
     String? password,
     String? connToken,
     bool? isSharedPassword}) async {
+  // 창이 뜨기 전에 이름을 박아야 한다 — 창이 열린 뒤엔 그 프로세스가 다시 읽지 않는다.
+  _syncPeerAliasFromPanel(id);
   if (isFileTransfer) {
     await rustDeskWinManager.newFileTransfer(id,
         password: password,
@@ -3353,7 +3399,11 @@ Widget buildErrorBanner(BuildContext context,
 }
 
 String getDesktopTabLabel(String peerId, String alias) {
-  String label = alias.isEmpty ? peerId : alias;
+  // 이름이 있으면 그게 곧 라벨이다. 뒤에 @hostname 을 덧붙이면 "삼익할인마트@pos-pc" 처럼
+  // 길어져 탭 폭에 잘리는데, 정작 구분에 필요한 건 앞의 상호다. hostname 은 이름이 없어
+  // 9자리 ID 만 남을 때 두 탭을 가르는 마지막 단서라 그때만 붙인다.
+  if (alias.isNotEmpty) return alias;
+  String label = peerId;
   try {
     String peer = bind.mainGetPeerSync(id: peerId);
     Map<String, dynamic> config = jsonDecode(peer);
