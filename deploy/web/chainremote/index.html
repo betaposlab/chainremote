@@ -291,11 +291,29 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   .hqside .myid{margin-top:0;margin-left:auto}
   .cust{grid-template-columns:1fr}
 }
+
+/* 방화벽 관제 섹션 */
+.fnote{font-size:.78rem;color:#8a93ad;font-weight:300;min-width:52px}
+.fs{margin-left:auto;font-size:.76rem;font-weight:600;border-radius:9999px;padding:4px 12px;white-space:nowrap}
+.fs-ok{color:#7ce6ac;background:rgba(61,220,132,.09);border:1px solid rgba(61,220,132,.25)}
+.fs-warn{color:#ffc65c;background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.3)}
+.fs-off{color:var(--ash);background:rgba(171,174,187,.07);border:1px solid var(--inkline)}
+.fwswap{margin-left:auto;display:inline-grid}
+.fwswap > span{grid-area:1/1;font-size:.76rem;font-weight:600;border-radius:9999px;padding:4px 12px;white-space:nowrap;text-align:center}
+.fwswap .s1{animation:fw1 7s infinite}
+.fwswap .s2{animation:fw2 7s infinite}
+@keyframes fw1{0%,40%{opacity:1}48%,92%{opacity:0}100%{opacity:1}}
+@keyframes fw2{0%,40%{opacity:0}48%,92%{opacity:1}100%{opacity:0}}
+.fsub{font-size:.78rem;color:#8a93ad;display:inline-flex;gap:7px;align-items:center;font-weight:300}
+.fdot{width:7px;height:7px;border-radius:50%;background:var(--mint);animation:pulse 1.8s infinite;display:inline-block}
+@media(max-width:960px){#fwmock{order:2}}
+
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none !important;transition:none !important}
   .reveal,.stagger > *{opacity:1;transform:none}
   .linkpath{stroke-dashoffset:0}
   .accard,.linked{opacity:1}
+  .fwswap .s1{opacity:0}.fwswap .s2{opacity:1}
   .in .b1{width:38%}.in .b2{width:55%}.in .b3{width:93%}.in .b4{width:30%}
 }
 </style>
@@ -327,6 +345,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
     <nav class="nav-center">
       <a href="#features">특징</a>
       <a href="#disk">디스크 관제</a>
+      <a href="#firewall">방화벽 관제</a>
       <a href="#how">사용방법</a>
       <a href="#pricing">요금</a>
       <a href="#download">다운로드</a>
@@ -417,12 +436,14 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
     <span><svg class="chk"><use href="#i-check"/></svg> 자체 서버 운영</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 자동 업데이트</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 디스크 관제</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 방화벽 자동 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 가맹점 무제한</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 매 세션 '수락' 기반 보안</span>
     <span><svg class="chk"><use href="#i-check"/></svg> Windows · macOS</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 자체 서버 운영</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 자동 업데이트</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 디스크 관제</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 방화벽 자동 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 가맹점 무제한</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 매 세션 '수락' 기반 보안</span>
     <span><svg class="chk"><use href="#i-check"/></svg> Windows · macOS</span>
@@ -471,9 +492,13 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
       <div class="reveal">
         <div class="tag">Only ChainRemote</div>
         <h2 class="h2">디스크가 꽉 차기 전에,<br>우리가 먼저 압니다</h2>
-        <p class="body" style="margin-top:14px">POS·키오스크는 디스크가 가득 차면 결제·주문이 멈춥니다.
-        ChainRemote는 각 거래처의 남은 용량을 항상 지켜보다가, 위험하면 미리 알리고
-        원격 접속 없이도 정리합니다 — 장애가 나기 전에 손쓰는, 우리만의 기능입니다.</p>
+        <p class="body" style="margin-top:14px">포스의 디스크는 가만히 둬도 매일 조금씩 찹니다 —
+        윈도우 업데이트가 남기는 설치 잔재, 프로그램들이 쌓는 임시파일, 포스 프로그램이 매일
+        기록하는 로그와 영수증 데이터. 지우는 사람이 없으면 쌓이기만 하는데, 포스·키오스크는
+        큰 디스크를 쓰지 않아 몇 년이면 가득 찹니다.
+        <b style="color:#fff;font-weight:500">가득 차는 그날, 결제와 주문이 멈춥니다.</b></p>
+        <p class="body" style="margin-top:12px">ChainRemote는 각 거래처의 남은 용량을 항상 지켜보다가,
+        위험하면 미리 알리고 원격 접속 없이도 정리합니다 — 장애가 나기 전에 손쓰는, 우리만의 기능입니다.</p>
         <ul class="plist" style="margin-top:24px">
           <li><svg class="chk"><use href="#i-check"/></svg> 모든 거래처의 디스크 여유를 자동 보고</li>
           <li><svg class="chk"><use href="#i-check"/></svg> 위험 수준에 닿으면 경고 배지</li>
@@ -487,6 +512,41 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
         <div class="prow warn"><span class="pname">달빛카페</span><span class="bar"><i class="b3"></i></span><span class="badge">여유 6.7GB</span></div>
         <div class="prow"><span class="pname">스마일분식 2호점</span><span class="bar"><i class="b4"></i></span><span class="pfree">여유 63.8GB</span></div>
         <div class="prow" style="justify-content:flex-end"><span class="btn btn-ghost" style="padding:8px 15px;font-size:.85rem"><svg class="ic" style="stroke:currentColor;width:15px;height:15px"><use href="#i-broom"/></svg> 원격 없이 정리</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="firewall">
+  <div class="controlbg">
+    <div class="glow g-blue" style="left:-220px;top:-140px;width:580px;height:440px"></div>
+  </div>
+  <div class="wrap" style="position:relative">
+    <div class="grid g2">
+      <div class="panelmock reveal" id="fwmock">
+        <div class="phead"><svg class="ic" style="width:18px;height:18px"><use href="#i-shield"/></svg> 방화벽 관제 · 관리 패널</div>
+        <div class="prow"><span class="pname">행복마트 본점</span><span class="fnote">포스 3대</span><span class="fs fs-ok">해제 유지 중</span></div>
+        <div class="prow"><span class="pname">큰집설렁탕</span><span class="fnote">포스 2대</span><span class="fs fs-ok">해제 유지 중</span></div>
+        <div class="prow"><span class="pname">달빛카페</span><span class="fnote">포스 2대</span><span class="fwswap"><span class="s1 fs-warn">⚠ 업데이트 후 재활성 감지</span><span class="s2 fs-ok">자동 해제 완료</span></span></div>
+        <div class="prow"><span class="pname">스마일분식 2호점</span><span class="fnote">포스 1대</span><span class="fs fs-off">관제 꺼짐 · 기본값</span></div>
+        <div class="prow" style="justify-content:flex-end"><span class="fsub"><i class="fdot"></i> 90초마다 감시 · 거래처별로 켜고 끕니다</span></div>
+      </div>
+      <div class="reveal">
+        <div class="tag">Only ChainRemote</div>
+        <h2 class="h2">꺼놓은 방화벽,<br>윈도우 업데이트가 되살립니다</h2>
+        <p class="body" style="margin-top:14px">한 매장에 포스가 두 대 이상이면 메인 포스와 서브 포스가
+        주문·매출·주방 프린터를 실시간으로 주고받습니다. 윈도우 방화벽이 이 통신을 막기 때문에,
+        포스 업계는 설치할 때 방화벽을 해제해 두는 게 관례입니다.</p>
+        <p class="body" style="margin-top:12px">문제는 그 다음입니다 —
+        <b style="color:#fff;font-weight:500">어떤 방법으로 꺼 놓아도, 윈도우 업데이트 한 번에
+        방화벽이 소리 없이 되살아날 수 있습니다.</b> 그날부터 서브 포스 주문이 메인으로 넘어가지
+        않는데 화면에는 아무 안내가 없습니다. 장사 중에 원인도 모른 채 전화부터 받게 됩니다.</p>
+        <ul class="plist" style="margin-top:22px">
+          <li><svg class="chk"><use href="#i-check"/></svg> 에이전트가 90초마다 방화벽 상태를 감시</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 되살아나면 즉시 다시 해제 — 사람이 몰라도 스스로 복구</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 성가신 '방화벽 꺼짐' 보안 알림도 함께 정리</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 필요한 매장에만 — 거래처별로 켜고 끄는 관제</li>
+        </ul>
       </div>
     </div>
   </div>
