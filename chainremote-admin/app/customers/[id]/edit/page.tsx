@@ -48,11 +48,11 @@ export default async function EditCustomerPage({
       <header className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">거래처 수정</h1>
-          <p className="text-sm text-slate-500 mt-1">{row.name}</p>
+          <p className="text-sm text-[#8a93ad] mt-1">{row.name}</p>
         </div>
         <DeleteButton id={id} name={row.name} />
       </header>
-      <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="rounded-xl border border-[#172540] bg-[#0d172b] p-6">
         <CustomerForm
           initial={{ ...row, folderName: currentFolderName }}
           action={update}

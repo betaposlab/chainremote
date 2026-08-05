@@ -18,7 +18,7 @@ export function DeleteButton({ id, name }: { id: string; name: string }) {
           router.push("/customers");
         });
       }}
-      className="rounded-lg border border-red-200 text-red-600 hover:bg-red-50 px-3 py-1.5 text-sm disabled:opacity-50"
+      className="rounded-lg border border-[#ff6b6f]/30 text-[#ff9a9e] hover:bg-[#ff5a5f]/10 px-3 py-1.5 text-sm disabled:opacity-50"
     >
       {pending ? "삭제 중..." : "삭제"}
     </button>

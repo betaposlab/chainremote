@@ -17,7 +17,7 @@ export default async function TenantsPage() {
     return (
       <div className="px-8 py-6">
         <h1 className="text-2xl font-bold tracking-tight">회사 관리</h1>
-        <p className="mt-2 text-sm text-red-600">
+        <p className="mt-2 text-sm text-[#ff9a9e]">
           super_admin 권한이 있어야 이 페이지에 접근할 수 있습니다.
         </p>
       </div>
@@ -32,7 +32,7 @@ export default async function TenantsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">회사 관리</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-[#8a93ad]">
             ChainRemote 를 사용하는 대리점(회사) 목록. 데이터는 각 회사 안에서
             격리되어 운영자(Chang) 는 거래처/세션/이력을 직접 조회하지 않습니다.
           </p>
@@ -40,16 +40,16 @@ export default async function TenantsPage() {
         <div className="flex items-center gap-2">
           <Link
             href="/admin/tenants/new"
-            className="rounded-md bg-[#00A0E5] px-4 py-2 text-sm font-medium text-white hover:bg-[#0086c2]"
+            className="btn btn-primary"
           >
             + 신규 회사 등록
           </Link>
         </div>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-[#172540] bg-[#0d172b]">
+        <table className="panel-table">
+          <thead className="bg-white/[0.025] text-left text-xs uppercase tracking-wider text-[#8a93ad]">
             <tr>
               <th className="px-4 py-3">회사명</th>
               <th className="px-4 py-3">아이디</th>
@@ -63,12 +63,12 @@ export default async function TenantsPage() {
               <th className="px-4 py-3 text-right">관리</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {rows.length === 0 && (
               <tr>
                 <td
                   colSpan={10}
-                  className="px-4 py-10 text-center text-slate-400"
+                  className="px-4 py-10 text-center text-[#6b7390]"
                 >
                   등록된 회사가 없습니다. 우측 상단의 &quot;신규 회사 등록&quot;
                   으로 시작하세요.
@@ -76,22 +76,22 @@ export default async function TenantsPage() {
               </tr>
             )}
             {rows.map((t) => (
-              <tr key={t.id} className="hover:bg-slate-50">
+              <tr key={t.id} className="hover:bg-white/[0.04]">
                 <td className="px-4 py-3">
                   <Link
                     href={`/admin/tenants/${t.id}/edit`}
-                    className="font-medium text-slate-900 hover:text-[#00A0E5] hover:underline"
+                    className="font-medium text-white hover:text-[#a9c0ff] hover:underline"
                   >
                     {t.displayName}
                   </Link>
-                  <div className="text-xs text-slate-400">{t.slug}</div>
+                  <div className="text-xs text-[#6b7390]">{t.slug}</div>
                   <div className="mt-1">
                     {t.enrollSecretHash ? (
                       <span className="inline-block rounded bg-green-50 px-1.5 py-0.5 text-[11px] text-green-700">
                         🔑 에이전트 키 발급됨
                       </span>
                     ) : (
-                      <span className="inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500">
+                      <span className="inline-block rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-[#8a93ad]">
                         에이전트 키 미발급
                       </span>
                     )}
@@ -101,32 +101,32 @@ export default async function TenantsPage() {
                   <Link
                     href="/users"
                     title="사용자 관리에서 회사별로 보기"
-                    className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 hover:bg-[#00A0E5] hover:text-white"
+                    className="inline-block rounded bg-white/[0.06] px-2 py-0.5 text-xs font-medium text-[#c7c9d1] hover:bg-[#4c7dff] hover:text-white"
                   >
                     {userCounts[t.id] ?? 0}개
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-4 py-3 text-[#c7c9d1]">
                   {t.representativeName ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-4 py-3 text-[#c7c9d1]">
                   {t.contactPhone ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-4 py-3 text-[#c7c9d1]">
                   {t.monthlyFeeKrw != null
                     ? `${t.monthlyFeeKrw.toLocaleString()}원`
                     : "—"}
                 </td>
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-4 py-3 text-[#c7c9d1]">
                   {t.paymentDay != null ? `${t.paymentDay}일` : "—"}
                 </td>
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-4 py-3 text-[#c7c9d1]">
                   {paymentMethodLabel(t.paymentMethod)}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={t.subscriptionStatus} />
                 </td>
-                <td className="px-4 py-3 text-slate-500">
+                <td className="px-4 py-3 text-[#8a93ad]">
                   {t.subscriptionStartedAt
                     ? new Date(t.subscriptionStartedAt).toLocaleDateString("ko-KR")
                     : new Date(t.createdAt).toLocaleDateString("ko-KR")}
@@ -135,7 +135,7 @@ export default async function TenantsPage() {
                   <div className="flex justify-end gap-1">
                     <Link
                       href={`/admin/tenants/${t.id}/edit`}
-                      className="rounded border border-slate-300 bg-white px-2 py-1 text-xs hover:bg-slate-50"
+                      className="rounded border border-[#24375a] bg-[#0d172b] px-2 py-1 text-xs hover:bg-white/[0.04]"
                     >
                       수정
                     </Link>
@@ -168,13 +168,13 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (status === "suspended") {
     return (
-      <span className="inline-block rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+      <span className="inline-block rounded bg-amber-500/12 px-2 py-0.5 text-xs text-amber-300">
         일시정지
       </span>
     );
   }
   return (
-    <span className="inline-block rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-600">
+    <span className="inline-block rounded bg-white/[0.1] px-2 py-0.5 text-xs text-[#abaebb]">
       해지
     </span>
   );

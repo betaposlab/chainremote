@@ -39,7 +39,7 @@ export default async function UsersPage() {
     return (
       <div className="px-8 py-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
-        <p className="mt-2 text-sm text-red-600">
+        <p className="mt-2 text-sm text-[#ff9a9e]">
           대표자·관리자만 직원 계정을 관리할 수 있습니다.
         </p>
       </div>
@@ -77,7 +77,7 @@ export default async function UsersPage() {
       <div className="max-w-5xl px-8 py-6">
         <header className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-[#8a93ad]">
             {allUsers.length}명 · 회사별로 묶어 표시. 회사를 클릭하면 그 회사의
             아이디가 펼쳐집니다. (거래처 사람들은 등록 안 함)
           </p>
@@ -111,19 +111,19 @@ export default async function UsersPage() {
     <div className="px-8 py-6 max-w-5xl">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-sm text-[#8a93ad] mt-1">
           {rows.length}명 · 좌석{" "}
-          <span className={seatFull ? "font-semibold text-amber-600" : "font-semibold text-slate-700"}>
+          <span className={seatFull ? "font-semibold text-amber-300" : "font-semibold text-[#c7c9d1]"}>
             {usedSeats} / {maxSeats}
           </span>{" "}
           사용 · 우리 회사 직원 (거래처 사람들은 여기 등록 안 함)
         </p>
       </header>
 
-      <section className="mb-8 rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">직원 추가</h2>
+      <section className="mb-8 panel-card p-5">
+        <h2 className="mb-4 text-sm font-semibold text-[#c7c9d1]">직원 추가</h2>
         {seatFull ? (
-          <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          <div className="rounded-lg banner banner-warn">
             <p>
               좌석을 모두 사용 중입니다 ({usedSeats} / {maxSeats}석). 아이디 하나가
               동시 1명의 원격을 담당하므로, 직원을 더 추가하려면 좌석을 추가로
@@ -143,9 +143,9 @@ export default async function UsersPage() {
         )}
       </section>
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600">
+      <div className="panel-table-wrap">
+        <table className="panel-table">
+          <thead>
             <tr>
               <th className="text-left px-4 py-3 font-medium">이름</th>
               <th className="text-left px-4 py-3 font-medium">아이디</th>
@@ -156,7 +156,7 @@ export default async function UsersPage() {
               <th className="text-right px-4 py-3 font-medium">작업</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {rows.map((u) => (
               <UserRow
                 key={u.id}

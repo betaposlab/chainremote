@@ -81,7 +81,7 @@ export function RemoteButton({
         <button
           type="button"
           onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-1 rounded-md bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 text-xs font-medium animate-pulse"
+          className="inline-flex items-center gap-1 rounded-md bg-[#d64550] hover:bg-[#e35560] text-white px-3 py-1.5 text-xs font-medium animate-pulse"
           title="지원 기록을 마감합니다. 원격 연결은 HQ 창을 닫아야 끊깁니다."
         >
           🔴 지원 중 · 기록 마감
@@ -90,7 +90,7 @@ export function RemoteButton({
         <button
           type="button"
           onClick={onConnect}
-          className="inline-flex items-center gap-1 rounded-md bg-[#00A0E5] hover:bg-[#0090d0] text-white px-3 py-1.5 text-xs font-medium"
+          className="inline-flex items-center gap-1 rounded-md btn btn-primary px-3 py-1.5 text-xs font-medium"
         >
           🖥️ 원격접속
         </button>
@@ -128,23 +128,23 @@ function EndSessionModal({
   const [pending, start] = useTransition();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white shadow-2xl">
-        <header className="border-b border-slate-100 px-5 py-3">
-          <h2 className="font-semibold text-slate-900">지원 기록 마감</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#02040a]/70 p-4">
+      <div className="w-full max-w-md rounded-xl bg-[#0d172b] border border-[#24375a] shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+        <header className="border-b border-[#172540] px-5 py-3">
+          <h2 className="font-semibold text-white">지원 기록 마감</h2>
           {/* 패널은 hbbs 세션을 끊을 통로가 없다 — 여기서 닫히는 건 기록뿐이다. 버튼이
               '종료'라고만 되어 있던 때는 눌러도 원격이 안 끊겨 혼란을 샀다. */}
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1.5">
+          <p className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/25 rounded px-2 py-1 mt-1.5">
             기록만 마감합니다. <strong>원격 연결은 끊기지 않습니다</strong> — 끊으려면 HQ
             원격 창을 닫으세요.
           </p>
           {/* 어느 거래처를 원격했는지 — 딴짓하다 와도 한눈에. (거래처명 + RustDesk ID) */}
-          <p className="text-sm font-medium text-slate-800 mt-1">
+          <p className="text-sm font-medium text-white mt-1">
             {customerName}
-            <span className="ml-1.5 font-mono text-xs text-slate-400">· {remoteId}</span>
+            <span className="ml-1.5 font-mono text-xs text-[#6b7390]">· {remoteId}</span>
           </p>
           {startedAt && (
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[#8a93ad] mt-0.5">
               시작: {new Date(startedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}
             </p>
           )}
@@ -159,7 +159,7 @@ function EndSessionModal({
           className="px-5 py-4 space-y-3"
         >
           <label className="block">
-            <span className="block text-sm font-medium text-slate-700 mb-1">장애 유형</span>
+            <span className="block text-sm font-medium text-[#c7c9d1] mb-1">장애 유형</span>
             <select name="issueType" defaultValue="other" className="input">
               {(Object.keys(ISSUE_TYPE_LABELS) as IssueType[]).map((k) => (
                 <option key={k} value={k}>
@@ -169,7 +169,7 @@ function EndSessionModal({
             </select>
           </label>
           <label className="block">
-            <span className="block text-sm font-medium text-slate-700 mb-1">해결 여부</span>
+            <span className="block text-sm font-medium text-[#c7c9d1] mb-1">해결 여부</span>
             <select name="resolution" defaultValue="resolved" className="input">
               {(["resolved", "pending", "escalated"] as Resolution[]).map((k) => (
                 <option key={k} value={k}>
@@ -179,7 +179,7 @@ function EndSessionModal({
             </select>
           </label>
           <label className="block">
-            <span className="block text-sm font-medium text-slate-700 mb-1">지원 내용</span>
+            <span className="block text-sm font-medium text-[#c7c9d1] mb-1">지원 내용</span>
             <textarea
               name="description"
               rows={4}
@@ -204,7 +204,7 @@ function EndSessionModal({
                 });
               }}
               disabled={pending}
-              className="text-xs text-slate-400 hover:text-rose-600 underline"
+              className="text-xs text-[#6b7390] hover:text-[#ff9a9e] underline"
             >
               기록 폐기
             </button>
@@ -212,14 +212,14 @@ function EndSessionModal({
               <button
                 type="button"
                 onClick={onCancel}
-                className="rounded-lg border border-slate-200 hover:bg-slate-50 px-4 py-2 text-sm"
+                className="btn btn-ghost"
               >
                 나중에
               </button>
               <button
                 type="submit"
                 disabled={pending}
-                className="rounded-lg bg-[#00A0E5] hover:bg-[#0090d0] disabled:opacity-50 text-white px-4 py-2 text-sm font-medium"
+                className="btn btn-primary"
               >
                 {pending ? "저장 중..." : "기록 저장"}
               </button>

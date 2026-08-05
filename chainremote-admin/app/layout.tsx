@@ -21,17 +21,19 @@ export default async function RootLayout({
   if (!user) {
     return (
       <html lang="ko" className="h-full antialiased">
-        <body className="min-h-full bg-slate-50 text-slate-900">{children}</body>
+        <body className="min-h-full bg-[#0e111b] text-white">{children}</body>
       </html>
     );
   }
 
-  // 인증된 사용자 — 사이드바 + 헤더 박힌 본 레이아웃
+  // 인증된 사용자 — 사이드바 + 헤더 박힌 본 레이아웃.
+  // 다크 톤은 랜딩(betaposlab.com/chainremote)과 같은 언어(AgentQL 계열) —
+  // 매일 쓰는 도구라 오로라·모션은 빼고 4층 표면(Void/Abyss/DeepSea/Cobalt)만 가져왔다.
   return (
     <html lang="ko" className="h-full antialiased">
-      <body className="min-h-full flex bg-slate-50 text-slate-900">
-        <aside className="w-60 shrink-0 border-r border-slate-200 bg-white flex flex-col sticky top-0 h-screen">
-          <div className="px-5 py-5 border-b border-slate-200">
+      <body className="min-h-full flex bg-[#0e111b] text-white">
+        <aside className="w-60 shrink-0 border-r border-[#172540] bg-[#0b0c0e] flex flex-col sticky top-0 h-screen">
+          <div className="px-5 py-5 border-b border-[#172540]">
             {/* 로고 클릭 = 소개 랜딩 페이지(새 탭). 홈(대시보드)은 아래 메뉴로 간다. */}
             <a
               href="https://betaposlab.com/chainremote"
@@ -45,7 +47,7 @@ export default async function RootLayout({
               <img
                 src="/chainremote-logo.png"
                 alt="ChainRemote"
-                className="h-11 w-auto"
+                className="h-9 w-auto"
               />
             </a>
           </div>
@@ -59,7 +61,7 @@ export default async function RootLayout({
             {user.role === "super_admin" && (
               <>
                 <NavItem href="/users">사용자</NavItem>
-                <div className="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <div className="mt-4 mb-1 px-3 text-[0.68rem] font-semibold uppercase tracking-wider text-[#6b7390]">
                   플랫폼 운영
                 </div>
                 <NavItem href="/admin/tenants">회사 관리</NavItem>
@@ -67,16 +69,16 @@ export default async function RootLayout({
             )}
           </nav>
           {/* 사이드바 하단 — 현재 사용자 정보 + 로그아웃 */}
-          <div className="border-t border-slate-200 p-3 pb-6 text-sm">
+          <div className="border-t border-[#172540] p-3 pb-6 text-sm">
             <div className="flex items-center gap-2 px-3 py-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 font-medium text-slate-600">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#12244f] border border-[#1e2b48] font-medium text-[#a9c0ff]">
                 {user.displayName.slice(0, 1)}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate font-medium text-slate-700">
+                <div className="truncate font-medium text-white">
                   {user.displayName}
                 </div>
-                <div className="truncate text-xs text-slate-500">
+                <div className="truncate text-xs text-[#8a93ad]">
                   @{user.email} · {roleLabel(user.role)}
                 </div>
               </div>
@@ -89,7 +91,7 @@ export default async function RootLayout({
             >
               <button
                 type="submit"
-                className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-slate-600 hover:bg-slate-100 transition-colors"
+                className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-[#abaebb] hover:bg-white/[0.05] hover:text-white transition-colors"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -114,14 +116,14 @@ export default async function RootLayout({
           <div className="flex-1">{children}</div>
           {/* 운영사 푸터 — 모든 인증 화면 하단 공통. 대리점(tenant) 사용자에게도
               보이는 화면이라, 표기는 개별 회사가 아니라 플랫폼 운영사(베타포스랩)다. */}
-          <footer className="border-t border-slate-200 px-8 py-4 text-xs text-slate-400">
+          <footer className="border-t border-[#151e32] px-8 py-4 text-xs text-[#6b7390]">
             <span>© 2026 베타포스랩 (BetaPosLab) · ChainRemote 플랫폼 운영</span>
             <span className="mx-2">·</span>
             <a
               href="https://betaposlab.com/chainremote"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-slate-600 hover:underline"
+              className="hover:text-white hover:underline"
             >
               서비스 소개
             </a>
@@ -138,7 +140,7 @@ function NavItem({ href, children }: { href: string; children: React.ReactNode }
   return (
     <Link
       href={href}
-      className="block px-3 py-2 rounded-md hover:bg-slate-100 transition-colors"
+      className="block px-3 py-2 rounded-md text-[#abaebb] hover:bg-white/[0.05] hover:text-white transition-colors"
     >
       {children}
     </Link>

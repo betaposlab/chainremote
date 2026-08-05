@@ -115,7 +115,7 @@ export function HqStatus({
   return (
     <div className="flex flex-col gap-1">
       {hb}
-      <span className="inline-flex w-fit items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+      <span className="chip chip-warn">
         ⚠ 옛 버전 (최신 v{targetVersion})
       </span>
     </div>
@@ -126,8 +126,8 @@ function UpdateBadge({ health }: { health: NonNullable<UpdateHealth> }) {
   if (health.kind === "ok") return null;
   if (health.kind === "pending") {
     return (
-      <span className="inline-flex w-fit items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-700">
-        <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
+      <span className="chip chip-accent w-fit">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#4c7dff] animate-pulse" />
         업뎃 적용중 v{health.targetVersion}
       </span>
     );
@@ -135,7 +135,7 @@ function UpdateBadge({ health }: { health: NonNullable<UpdateHealth> }) {
   if (health.kind === "failed") {
     return (
       <span
-        className="inline-flex w-fit items-center gap-1 rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-medium text-rose-700"
+        className="chip chip-danger w-fit"
         title={health.failureReason ?? undefined}
       >
         ⚠ 업뎃 실패 v{health.targetVersion}
@@ -145,7 +145,7 @@ function UpdateBadge({ health }: { health: NonNullable<UpdateHealth> }) {
   // brick
   return (
     <span
-      className="inline-flex w-fit items-center gap-1 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+      className="chip chip-danger-solid w-fit"
       title={`푸시 적용 보고 후 ${health.ageMin}분 지나도록 v${health.targetVersion} heartbeat 미수신 — 설치 실패/brick 의심. 거래처 PC 점검 필요(RDP/현장).`}
     >
       ⚠ 업뎃 미확인 v{health.targetVersion}
@@ -156,8 +156,8 @@ function UpdateBadge({ health }: { health: NonNullable<UpdateHealth> }) {
 function renderHeartbeat(lastHeartbeatAt: Date | null, lastVersion: string | null) {
   if (!lastHeartbeatAt) {
     return (
-      <span className="inline-flex items-center gap-1 text-slate-400">
-        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+      <span className="inline-flex items-center gap-1 text-[#6b7390]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#4b5370]" />
         <span>미보고</span>
       </span>
     );
@@ -185,16 +185,16 @@ function renderHeartbeat(lastHeartbeatAt: Date | null, lastVersion: string | nul
   }
 
   const dotClass =
-    color === "green" ? "bg-emerald-500" : color === "amber" ? "bg-amber-500" : "bg-rose-500";
+    color === "green" ? "bg-[#3ddc84]" : color === "amber" ? "bg-amber-400" : "bg-[#ff6b6f]";
   const textClass =
-    color === "green" ? "text-emerald-700" : color === "amber" ? "text-amber-700" : "text-rose-700";
+    color === "green" ? "text-[#3ddc84]" : color === "amber" ? "text-amber-300" : "text-[#ffb3b6]";
 
   return (
     <span className={`inline-flex items-center gap-1.5 ${textClass}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
       <span className="font-mono">{label}</span>
       {lastVersion && (
-        <span className="text-[10px] tabular-nums text-slate-400">v{lastVersion}</span>
+        <span className="text-[10px] tabular-nums text-[#6b7390]">v{lastVersion}</span>
       )}
     </span>
   );

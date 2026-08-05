@@ -19,7 +19,7 @@ export default async function EditTenantPage({
   if (session.user.role !== "super_admin") {
     return (
       <div className="px-8 py-6">
-        <p className="text-sm text-red-600">super_admin 권한 필요</p>
+        <p className="text-sm text-[#ff9a9e]">super_admin 권한 필요</p>
       </div>
     );
   }
@@ -33,14 +33,14 @@ export default async function EditTenantPage({
       <div className="mb-6">
         <Link
           href="/admin/tenants"
-          className="text-sm text-slate-500 hover:text-slate-700"
+          className="text-sm text-[#8a93ad] hover:text-[#c7c9d1]"
         >
           ← 회사 목록
         </Link>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">
           {t.displayName} 정보 수정
         </h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-[#8a93ad]">
           slug ({t.slug}) 와 관리자 계정은 여기서 수정 불가합니다.
         </p>
       </div>

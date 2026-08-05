@@ -157,7 +157,7 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
       </Section>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="banner banner-danger">
           {error}
         </div>
       )}
@@ -165,14 +165,14 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
       <div className="flex justify-end gap-2">
         <Link
           href="/admin/tenants"
-          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50"
+          className="rounded-md border border-[#24375a] bg-[#0d172b] px-4 py-2 text-sm hover:bg-white/[0.04]"
         >
           취소
         </Link>
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-[#00A0E5] px-5 py-2 text-sm font-medium text-white hover:bg-[#0086c2] disabled:opacity-50"
+          className="btn btn-primary"
         >
           {pending ? "저장 중…" : "저장"}
         </button>
@@ -182,12 +182,12 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
 }
 
 const inp =
-  "block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#00A0E5] focus:outline-none focus:ring-1 focus:ring-[#00A0E5]";
+  "block w-full rounded-md border border-[#24375a] bg-[#0d172b] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none focus:ring-1 focus:ring-[#4c7dff]";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500">
+    <div className="rounded-lg border border-[#172540] bg-[#0d172b] p-5">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#8a93ad]">
         {title}
       </h2>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{children}</div>
@@ -210,12 +210,12 @@ function Field({
 }) {
   return (
     <label className={`block ${wide ? "md:col-span-2" : ""}`}>
-      <div className="mb-1 text-sm font-medium text-slate-700">
+      <div className="mb-1 text-sm font-medium text-[#c7c9d1]">
         {label}
-        {required && <span className="ml-1 text-red-500">*</span>}
+        {required && <span className="ml-1 text-[#ff6b6f]">*</span>}
       </div>
       {children}
-      {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
+      {hint && <div className="mt-1 text-xs text-[#8a93ad]">{hint}</div>}
     </label>
   );
 }

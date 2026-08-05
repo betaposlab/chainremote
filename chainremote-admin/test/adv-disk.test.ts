@@ -165,7 +165,7 @@ describe("disk — 통과(의도된 동작·방어 회귀가드)", () => {
       const h = renderChip({ totalBytes: 120 * GB, freeBytes: 5 * GB });
       expect(h).toContain("🟡");
       expect(h).not.toContain("🔴");
-      expect(h).toContain("bg-amber-100");
+      expect(h).toContain("bg-amber-500/12");
       expect(h).toContain(">정리<"); // level!==ok → 정리 버튼
     });
 
@@ -173,7 +173,7 @@ describe("disk — 통과(의도된 동작·방어 회귀가드)", () => {
       const h = renderChip({ totalBytes: 120 * GB, freeBytes: 5 * GB - 1 });
       expect(h).toContain("🔴");
       expect(h).not.toContain("🟡");
-      expect(h).toContain("bg-rose-100");
+      expect(h).toContain("bg-[#ff5a5f]/12");
       expect(h).toContain(">정리<");
     });
 
@@ -181,7 +181,7 @@ describe("disk — 통과(의도된 동작·방어 회귀가드)", () => {
       const h = renderChip({ totalBytes: 120 * GB, freeBytes: 8 * GB });
       expect(h).not.toContain("🔴");
       expect(h).not.toContain("🟡");
-      expect(h).toContain("bg-slate-100");
+      expect(h).toContain("bg-white/[0.06]"); // 중립(ok) 칩 다크톤 — 2026-08-05 패널 리디자인
       expect(h).not.toContain(">정리<");
       expect(h).not.toContain("정리 중");
     });
@@ -190,7 +190,7 @@ describe("disk — 통과(의도된 동작·방어 회귀가드)", () => {
       const h = renderChip({ totalBytes: 120 * GB, freeBytes: 8 * GB - 1 });
       expect(h).toContain("🟡");
       expect(h).not.toContain("🔴");
-      expect(h).toContain("bg-amber-100");
+      expect(h).toContain("bg-amber-500/12");
     });
 
     it("totalBytes=0 → 아무것도 렌더 안 함(null)", () => {
@@ -424,7 +424,7 @@ describe("disk — 통과(의도된 동작·방어 회귀가드)", () => {
     expect(r.diskFreeBytes).toBe(500 * GB); // 클램프/거부 없이 그대로
     // UI: free 500GB → level ok (색상판정 왜곡되나 저위험 — 문서화)
     const h = renderChip({ totalBytes: 100 * GB, freeBytes: 500 * GB });
-    expect(h).toContain("bg-slate-100");
+    expect(h).toContain("bg-white/[0.06]"); // 중립(ok) 칩 다크톤 — 2026-08-05 패널 리디자인
   });
 });
 

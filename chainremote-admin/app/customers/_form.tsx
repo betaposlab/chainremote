@@ -114,7 +114,7 @@ export function CustomerForm({
             ))}
           </datalist>
         )}
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-[#8a93ad]">
           같은 매장의 여러 POS 를 한 폴더로 묶습니다. 기존 폴더를 고르거나, 새 이름을
           적으면 폴더가 새로 만들어집니다. 비우면 폴더 없음.
         </p>
@@ -127,7 +127,7 @@ export function CustomerForm({
           pattern="[A-Za-z0-9 ]*"
           className="input font-mono"
         />
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-[#8a93ad]">
           한 번이라도 원격 접속해본 거래처면 ID 입력해두면 다음부턴 1-클릭 접속.
         </p>
       </Field>
@@ -142,7 +142,7 @@ export function CustomerForm({
       </Field>
 
       {error && (
-        <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-md banner banner-danger">
           {error}
         </div>
       )}
@@ -151,13 +151,13 @@ export function CustomerForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-[#00A0E5] hover:bg-[#0090d0] disabled:opacity-50 text-white px-5 py-2 text-sm font-medium"
+          className="btn btn-primary"
         >
           {pending ? "저장 중..." : submitLabel}
         </button>
         <a
           href="/customers"
-          className="rounded-lg border border-slate-200 hover:bg-slate-50 px-5 py-2 text-sm"
+          className="btn btn-ghost"
         >
           취소
         </a>
@@ -177,9 +177,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block text-sm font-medium text-slate-700 mb-1">
+      <span className="block text-sm font-medium text-[#c7c9d1] mb-1">
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
+        {required && <span className="text-[#ff6b6f] ml-1">*</span>}
       </span>
       {children}
     </label>

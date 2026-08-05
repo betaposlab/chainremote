@@ -27,16 +27,16 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
 
   return (
     <>
-      <tr className="hover:bg-slate-50 transition-colors">
+      <tr >
         <td className="px-4 py-3 font-medium">
           {user.displayName}
           {isSelf && (
-            <span className="ml-2 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+            <span className="ml-2 inline-block rounded bg-white/[0.06] px-1.5 py-0.5 text-xs text-[#8a93ad]">
               본인
             </span>
           )}
         </td>
-        <td className="px-4 py-3 text-slate-600">@{user.email}</td>
+        <td className="px-4 py-3 text-[#abaebb]">@{user.email}</td>
         <td className="px-4 py-3">{roleLabel(user.role)}</td>
         <td className="px-4 py-3">
           {user.isActive ? (
@@ -44,12 +44,12 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               활성
             </span>
           ) : (
-            <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+            <span className="inline-block rounded bg-white/[0.06] px-2 py-0.5 text-xs text-[#8a93ad]">
               비활성
             </span>
           )}
         </td>
-        <td className="px-4 py-3 text-xs text-slate-500">
+        <td className="px-4 py-3 text-xs text-[#8a93ad]">
           {user.lastLoginAt
             ? new Date(user.lastLoginAt).toLocaleString("ko-KR")
             : "—"}
@@ -64,13 +64,13 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
         <td className="px-4 py-3 text-right whitespace-nowrap">
           <button
             onClick={() => setEditing((v) => !v)}
-            className="px-2 py-1 text-xs text-slate-600 hover:text-slate-900"
+            className="px-2 py-1 text-xs text-[#abaebb] hover:text-white"
           >
             {editing ? "닫기" : "수정"}
           </button>
           <button
             onClick={() => setResetting((v) => !v)}
-            className="ml-1 px-2 py-1 text-xs text-slate-600 hover:text-[#00A0E5]"
+            className="ml-1 px-2 py-1 text-xs text-[#abaebb] hover:text-[#a9c0ff]"
           >
             비번 리셋
           </button>
@@ -83,7 +83,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                 })
               }
               disabled={pending}
-              className="ml-1 px-2 py-1 text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
+              className="ml-1 px-2 py-1 text-xs text-[#ff9a9e] hover:text-[#ffcdd0] disabled:opacity-50"
             >
               삭제
             </button>
@@ -91,7 +91,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
         </td>
       </tr>
       {editing && (
-        <tr className="bg-slate-50">
+        <tr className="bg-white/[0.02]">
           <td colSpan={7} className="px-4 py-3">
             <form
               action={(fd) =>
@@ -105,7 +105,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               <input
                 name="displayName"
                 defaultValue={user.displayName}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#24375a] px-3 py-1.5 text-sm"
                 placeholder="이름"
               />
               {/* 본인 행에선 역할·활성을 아예 안 보낸다. disabled 컨트롤은 FormData 에 실리지
@@ -116,7 +116,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                 defaultValue={user.role}
                 disabled={isSelf}
                 title={isSelf ? "본인 역할은 변경 불가" : ""}
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#24375a] px-3 py-1.5 text-sm"
               >
                 {ASSIGNABLE_ROLES.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -127,7 +127,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                   <option value="viewer">{roleLabel("viewer")}</option>
                 )}
               </select>
-              <label className="flex items-center gap-1 text-sm text-slate-600">
+              <label className="flex items-center gap-1 text-sm text-[#abaebb]">
                 <input
                   type="checkbox"
                   name="isActive"
@@ -139,7 +139,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               <button
                 type="submit"
                 disabled={pending}
-                className="rounded-md bg-[#00A0E5] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                className="btn btn-primary"
               >
                 저장
               </button>
@@ -148,7 +148,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
         </tr>
       )}
       {resetting && (
-        <tr className="bg-amber-50">
+        <tr className="bg-amber-500/[0.06]">
           <td colSpan={7} className="px-4 py-3">
             <form
               action={(fd) =>
@@ -160,7 +160,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               }
               className="flex items-center gap-2"
             >
-              <span className="text-sm text-slate-700">
+              <span className="text-sm text-[#c7c9d1]">
                 {user.displayName} 의 새 비번:
               </span>
               <input
@@ -169,7 +169,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                 required
                 minLength={4}
                 placeholder="새 비번"
-                className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#24375a] px-3 py-1.5 text-sm"
               />
               <button
                 type="submit"

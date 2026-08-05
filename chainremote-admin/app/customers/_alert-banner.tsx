@@ -36,14 +36,14 @@ export function AlertBanner({ items, isOwner }: { items: AlertItem[]; isOwner: b
     });
 
   const btn =
-    "rounded-md border border-amber-300 bg-white hover:bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900 disabled:opacity-50";
+    "rounded-md border border-amber-500/30 bg-transparent hover:bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-200 disabled:opacity-50";
 
   return (
-    <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    <div className="mb-4 banner banner-warn">
       <div className="font-semibold mb-1">
         🔔 확인이 필요한 설치 이벤트 {items.length}건
       </div>
-      {err && <div className="mb-2 text-xs text-rose-700">{err}</div>}
+      {err && <div className="mb-2 text-xs text-[#ffb3b6]">{err}</div>}
       <ul className="space-y-2">
         {items.map((a) => (
           <li key={a.id} className="flex flex-wrap items-center gap-2">

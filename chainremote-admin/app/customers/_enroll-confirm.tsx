@@ -30,7 +30,7 @@ export function ConfirmEnrollButton({
           await confirmEnrollment(customerId);
         });
       }}
-      className="inline-flex items-center gap-1 rounded bg-emerald-50 text-emerald-700 text-xs px-2 py-1 hover:bg-emerald-100 disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded chip chip-ok btn-sm disabled:opacity-50 hover:brightness-125"
       title="자동등록 후보를 정식 거래처로 확정"
     >
       ✓ 확인

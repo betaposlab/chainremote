@@ -25,8 +25,8 @@ export function FirewallChip({
   // enabled=true 면 지금 방화벽이 켜져 있다는 뜻 → 다음 감시 주기에 자동 해제 예정(잠깐 이 상태).
   const armed = enabled === true;
   const cls = armed
-    ? "bg-amber-100 text-amber-700 font-medium"
-    : "bg-emerald-100 text-emerald-700";
+    ? "bg-amber-500/12 text-amber-300 font-medium"
+    : "chip chip-ok";
 
   const title = [
     "방화벽 자동 해제 켜짐",

@@ -47,8 +47,8 @@ export default async function Home() {
   return (
     <div className="px-8 py-6 max-w-6xl">
       <header className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight">대시보드</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="text-2xl font-bold tracking-tight text-white">대시보드</h1>
+        <p className="text-sm text-[#8a93ad] mt-1">
           {tenant.displayName} · 사업장 운영 현황
         </p>
       </header>
@@ -70,8 +70,8 @@ export default async function Home() {
       )}
 
       <section>
-        <h2 className="text-lg font-semibold mb-3">시작하기</h2>
-        <ul className="space-y-2 text-sm text-slate-600">
+        <h2 className="text-lg font-semibold mb-3 text-white">시작하기</h2>
+        <ul className="space-y-2 text-sm text-[#abaebb]">
           <li>· 좌측 "거래처"에서 등록된 거래처 확인</li>
           <li>· 좌측 "지원기록"에서 원격지원 이력 확인</li>
           {/* 2026-08-05 클라우드 전환으로 "자체 서버(외부 클라우드 미경유)" 표현이 사실과
@@ -99,18 +99,18 @@ function Card({
 }) {
   const inner = (
     <>
-      <div className="text-sm text-slate-500">{label}</div>
+      <div className="text-sm text-[#8a93ad]">{label}</div>
       <div className="mt-2 flex items-baseline gap-1">
-        <span className="text-3xl font-bold tabular-nums">{value.toLocaleString()}</span>
-        <span className="text-sm text-slate-500">{suffix}</span>
+        <span className="text-3xl font-bold tabular-nums text-white">{value.toLocaleString()}</span>
+        <span className="text-sm text-[#8a93ad]">{suffix}</span>
       </div>
-      {subtitle && <div className="mt-1 text-xs text-slate-400">{subtitle}</div>}
+      {subtitle && <div className="mt-1 text-xs text-[#6b7390]">{subtitle}</div>}
     </>
   );
-  const base = "block rounded-xl border border-slate-200 bg-white px-5 py-4";
+  const base = "panel-card block px-5 py-4 transition";
   // href 가 있으면 클릭해서 해당 목록으로 이동 — hover 로 클릭 가능함을 알린다.
   return href ? (
-    <Link href={href} className={`${base} transition hover:border-slate-300 hover:shadow-sm`}>
+    <Link href={href} className={`${base} hover:border-[#24375a]`}>
       {inner}
     </Link>
   ) : (

@@ -33,9 +33,9 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-slate-600">
+    <div className="panel-table-wrap">
+      <table className="panel-table">
+        <thead>
           <tr>
             <th className="text-left px-4 py-3 font-medium">거래처</th>
             <th className="text-left px-4 py-3 font-medium">시작</th>
@@ -46,7 +46,7 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
             <th className="text-left px-4 py-3 font-medium">내용</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody>
           {rows.map((r) => {
             const ongoing = !r.endedAt;
             // 미기록 = 끝났는데 A/S 내용(설명·종류)을 아무것도 안 적은 것(바빠서 [닫기]만).
@@ -62,46 +62,47 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                 <tr
                   key={r.id}
                   onClick={() => setOpenId(open ? null : r.id)}
-                  className={`cursor-pointer ${open ? "bg-slate-50" : "hover:bg-slate-50"}`}
+                  className="cursor-pointer"
+                  style={open ? {background:"rgba(255,255,255,.035)"} : undefined}
                 >
                   <td className="px-4 py-3 font-medium">
                     <span className="inline-flex items-center gap-1.5">
                       <span
-                        className={`text-slate-300 transition-transform ${open ? "rotate-90" : ""}`}
+                        className={`text-[#4b5370] transition-transform ${open ? "rotate-90" : ""}`}
                         aria-hidden
                       >
                         ▸
                       </span>
-                      {r.customerName ?? <span className="text-slate-400">(삭제됨)</span>}
+                      {r.customerName ?? <span className="text-[#6b7390]">(삭제됨)</span>}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                  <td className="px-4 py-3 text-[#abaebb] whitespace-nowrap">
                     {formatDate(r.startedAt)}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 tabular-nums">
+                  <td className="px-4 py-3 text-[#abaebb] tabular-nums">
                     {ongoing ? (
-                      <span className="inline-block bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-xs animate-pulse">
+                      <span className="inline-block chip chip-danger animate-pulse">
                         진행 중
                       </span>
                     ) : (
                       formatDuration(r.durationSec)
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                    {r.operatorName ?? <span className="text-slate-300">-</span>}
+                  <td className="px-4 py-3 text-[#abaebb] whitespace-nowrap">
+                    {r.operatorName ?? <span className="text-[#4b5370]">-</span>}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-[#abaebb]">
                     {r.issueType ? ISSUE_TYPE_LABELS[r.issueType] : "-"}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-[#abaebb]">
                     {r.resolution ? (
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-xs ${
                           r.resolution === "resolved"
-                            ? "bg-emerald-100 text-emerald-700"
+                            ? "chip chip-ok"
                             : r.resolution === "in_progress"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-slate-100 text-slate-700"
+                              ? "bg-amber-500/12 text-amber-300"
+                              : "bg-white/[0.06] text-[#c7c9d1]"
                         }`}
                       >
                         {RESOLUTION_LABELS[r.resolution]}
@@ -111,9 +112,9 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                     )}
                   </td>
                   {/* 두 줄까지 보여주고, 그래도 길면 펼쳐서 읽는다. */}
-                  <td className="px-4 py-3 text-slate-500 text-xs max-w-[52ch]">
+                  <td className="px-4 py-3 text-[#8a93ad] text-xs max-w-[52ch]">
                     {unlogged ? (
-                      <span className="inline-block bg-slate-100 text-slate-400 px-2 py-0.5 rounded">
+                      <span className="inline-block bg-white/[0.06] text-[#6b7390] px-2 py-0.5 rounded">
                         미기록
                       </span>
                     ) : (
@@ -125,9 +126,9 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                 </tr>
 
                 {open && (
-                  <tr key={`${r.id}-detail`} className="bg-slate-50">
+                  <tr key={`${r.id}-detail`} className="bg-white/[0.02]">
                     <td colSpan={7} className="px-4 pb-5 pt-1">
-                      <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+                      <div className="rounded-lg border border-[#172540] bg-[#0e111b] p-4 space-y-3">
                         <dl className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-xs">
                           <Field label="시작" value={formatDateFull(r.startedAt)} />
                           <Field
@@ -141,11 +142,11 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
 
                         {cats.length > 0 && (
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-xs text-slate-400 mr-1">A/S 종류</span>
+                            <span className="text-xs text-[#6b7390] mr-1">A/S 종류</span>
                             {cats.map((c) => (
                               <span
                                 key={c}
-                                className="inline-block bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs"
+                                className="inline-block bg-white/[0.06] text-[#abaebb] px-2 py-0.5 rounded text-xs"
                               >
                                 {CATEGORY_LABELS[c] ?? c}
                               </span>
@@ -154,13 +155,13 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                         )}
 
                         <div>
-                          <div className="text-xs text-slate-400 mb-1">내용</div>
+                          <div className="text-xs text-[#6b7390] mb-1">내용</div>
                           {r.description?.trim() ? (
-                            <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                            <p className="text-sm text-[#c7c9d1] whitespace-pre-wrap leading-relaxed">
                               {r.description}
                             </p>
                           ) : (
-                            <p className="text-sm text-slate-400">
+                            <p className="text-sm text-[#6b7390]">
                               {ongoing
                                 ? "원격이 진행 중입니다. 종료하면서 기록할 수 있습니다."
                                 : "기록된 내용이 없습니다. 본사 앱의 지원기록에서 채울 수 있습니다."}
@@ -177,7 +178,7 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
         </tbody>
       </table>
       {rows.length === 0 && (
-        <div className="px-4 py-12 text-center text-slate-400 text-sm">
+        <div className="px-4 py-12 text-center text-[#6b7390] text-sm">
           해당 조건의 지원기록이 없습니다.
         </div>
       )}
@@ -188,8 +189,8 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
 function Field({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
-      <dt className="text-slate-400">{label}</dt>
-      <dd className="text-slate-700 mt-0.5">{value?.trim() ? value : "-"}</dd>
+      <dt className="text-[#6b7390]">{label}</dt>
+      <dd className="text-[#c7c9d1] mt-0.5">{value?.trim() ? value : "-"}</dd>
     </div>
   );
 }

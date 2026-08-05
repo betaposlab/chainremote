@@ -50,10 +50,10 @@ function SortHeader({
     <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
       <Link
         href={`/customers?sort=${col}&dir=${nextDir}`}
-        className="inline-flex items-center gap-1 hover:text-[#00A0E5]"
+        className="inline-flex items-center gap-1 hover:text-[#a9c0ff]"
       >
         {label}
-        <span className="text-[10px] text-slate-400">
+        <span className="text-[10px] text-[#6b7390]">
           {active ? (activeDir === "asc" ? "▲" : "▼") : "↕"}
         </span>
       </Link>
@@ -213,7 +213,7 @@ export default async function CustomersPage({
       <header className="mb-6 flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">거래처</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-[#8a93ad] mt-1">
             등록된 거래처 {rows.length}곳 · ID 등록된 곳은 클릭 한 번으로 원격 접속
           </p>
         </div>
@@ -222,7 +222,7 @@ export default async function CustomersPage({
           <BulkPushButton />
           <Link
             href="/customers/new"
-            className="rounded-lg bg-[#00A0E5] hover:bg-[#0090d0] text-white px-4 py-2 text-sm font-medium whitespace-nowrap"
+            className="rounded-lg btn btn-primary px-4 py-2 text-sm font-medium whitespace-nowrap"
           >
             + 거래처 추가
           </Link>
@@ -232,7 +232,7 @@ export default async function CustomersPage({
       <DiscoveredPeerBanner peers={newPeers} />
 
       {pendingEnroll.length > 0 && (
-        <div className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="mb-4 banner banner-ok">
           ⊕ <span className="font-semibold">{pendingEnroll.length}곳</span>이 자동등록(에이전트 설치)으로
           후보 등록됐습니다. 표에서 <span className="font-medium">후보·자동등록</span> 거래처를
           확인(✓)하면 정식 거래처로 등록됩니다 (업데이트는 확인 안 해도 자동 적용됩니다).
@@ -250,18 +250,18 @@ export default async function CustomersPage({
       />
 
       {updateProblems.length > 0 && (
-        <div className="mb-4 rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <div className="mb-4 banner banner-danger">
           ⚠ <span className="font-semibold">{updateProblems.length}곳</span>에서 자동업데이트가
           “적용됨”으로 보고됐지만 새 버전 heartbeat가 확인되지 않았습니다 (설치 실패·brick 의심).
-          아래 표에서 <span className="font-medium text-rose-700">⚠ 업뎃 미확인</span> /
-          <span className="font-medium text-rose-700"> 업뎃 실패</span> 표시된 거래처를 점검하세요
+          아래 표에서 <span className="font-medium text-[#ffb3b6]">⚠ 업뎃 미확인</span> /
+          <span className="font-medium text-[#ffb3b6]"> 업뎃 실패</span> 표시된 거래처를 점검하세요
           (RDP·현장).
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600">
+      <div className="panel-table-wrap overflow-x-auto">
+        <table className="panel-table">
+          <thead>
             <tr>
               <SortHeader label="상호" col="name" activeSort={sortKey} activeDir={sortDir} />
               <SortHeader label="직원" col="assigned" activeSort={sortKey} activeDir={sortDir} />
@@ -273,7 +273,7 @@ export default async function CustomersPage({
               <th className="text-right px-4 py-3 font-medium">작업</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {rows.map((c) => {
               const active = activeByCustomer.get(c.id) ?? null;
               // OS 배지(마이그 021): os 있으면 "Win7 · 64비트", 없으면 arch 폴백(구버전 에이전트).
@@ -319,25 +319,21 @@ export default async function CustomersPage({
                 .join(" ")
                 .toLowerCase();
               return (
-                <tr
-                  key={c.id}
-                  data-search={searchHay}
-                  className="hover:bg-slate-50 transition-colors"
-                >
+                <tr key={c.id} data-search={searchHay}>
                   <td className="px-4 py-3">
                     <Link
                       href={`/customers/${c.id}/edit`}
-                      className="font-medium hover:text-[#00A0E5]"
+                      className="font-medium hover:text-[#a9c0ff]"
                     >
                       {c.name}
                     </Link>
                     {c.enrollStatus === "pending" && (
-                      <span className="ml-2 inline-block bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[10px] font-medium align-middle">
+                      <span className="ml-2 inline-block chip chip-ok">
                         후보·자동등록
                       </span>
                     )}
                     {c.address && (
-                      <div className="text-xs text-slate-400 mt-0.5">{c.address}</div>
+                      <div className="text-xs text-[#6b7390] mt-0.5">{c.address}</div>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -345,22 +341,22 @@ export default async function CustomersPage({
                       <span
                         className={
                           c.assignedUserId === currentUserId
-                            ? "inline-block bg-[#00A0E5]/10 text-[#0070a8] px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap"
-                            : "text-slate-600 whitespace-nowrap"
+                            ? "inline-block bg-[#4c7dff]/15 text-[#a9c0ff] px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap"
+                            : "text-[#abaebb] whitespace-nowrap"
                         }
                       >
                         {c.assignedUserName}
                       </span>
                     ) : (
-                      <span className="text-slate-400 text-xs">미배정</span>
+                      <span className="text-[#6b7390] text-xs">미배정</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{c.contactName ?? "-"}</td>
-                  <td className="px-4 py-3 text-slate-600 tabular-nums whitespace-nowrap">{c.phone ?? "-"}</td>
+                  <td className="px-4 py-3 text-[#abaebb] whitespace-nowrap">{c.contactName ?? "-"}</td>
+                  <td className="px-4 py-3 text-[#abaebb] tabular-nums whitespace-nowrap">{c.phone ?? "-"}</td>
                   <td className="px-4 py-3 font-mono text-xs">
                     {c.remoteId ? (
                       <div className="flex flex-col items-start gap-1">
-                        <span className="inline-block bg-[#00A0E5]/10 text-[#0070a8] px-2 py-0.5 rounded whitespace-nowrap">
+                        <span className="inline-block bg-[#4c7dff]/15 text-[#a9c0ff] px-2 py-0.5 rounded whitespace-nowrap">
                           {formatRemoteId(c.remoteId)}
                         </span>
                         {/* OS 배지(마이그 021) — "Win7 · 64비트" 식으로 OS+네이티브 비트수. Win7 은
@@ -369,8 +365,8 @@ export default async function CustomersPage({
                           <span
                             className={`inline-block px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap ${
                               osIsWin7
-                                ? "bg-amber-100 text-amber-700 font-medium"
-                                : "bg-slate-100 text-slate-500"
+                                ? "bg-amber-500/12 text-amber-300 font-medium"
+                                : "bg-white/[0.06] text-[#8a93ad]"
                             }`}
                           >
                             {osBadgeText}
@@ -402,7 +398,7 @@ export default async function CustomersPage({
                         />
                       </div>
                     ) : (
-                      <span className="text-slate-400">미등록</span>
+                      <span className="text-[#6b7390]">미등록</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs">
@@ -413,7 +409,7 @@ export default async function CustomersPage({
                       isInternal={c.isInternal}
                     />
                   </td>
-                  <td className="px-4 py-3 text-slate-500 text-xs max-w-[16ch] truncate">
+                  <td className="px-4 py-3 text-[#8a93ad] text-xs max-w-[16ch] truncate">
                     {c.notes ?? ""}
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -428,7 +424,7 @@ export default async function CustomersPage({
                     ) : (
                       <Link
                         href={`/customers/${c.id}/edit`}
-                        className="inline-flex items-center text-xs text-slate-400 hover:text-[#00A0E5] px-3 py-1.5"
+                        className="inline-flex items-center text-xs text-[#6b7390] hover:text-[#a9c0ff] px-3 py-1.5"
                       >
                         ID 등록
                       </Link>
@@ -446,7 +442,7 @@ export default async function CustomersPage({
                     )}
                     <Link
                       href={`/customers/${c.id}/edit`}
-                      className="inline-flex items-center text-xs text-slate-500 hover:text-slate-900 px-2 py-1.5 ml-1"
+                      className="inline-flex items-center text-xs text-[#8a93ad] hover:text-white px-2 py-1.5 ml-1"
                     >
                       수정
                     </Link>
@@ -455,16 +451,16 @@ export default async function CustomersPage({
               );
             })}
             <tr id="cust-search-empty" style={{ display: "none" }}>
-              <td colSpan={8} className="px-4 py-12 text-center text-slate-400 text-sm">
+              <td colSpan={8} className="px-4 py-12 text-center text-[#6b7390] text-sm">
                 검색 결과가 없습니다.
               </td>
             </tr>
           </tbody>
         </table>
         {rows.length === 0 && (
-          <div className="px-4 py-12 text-center text-slate-400 text-sm">
+          <div className="px-4 py-12 text-center text-[#6b7390] text-sm">
             아직 등록된 거래처가 없습니다.
-            <Link href="/customers/new" className="text-[#00A0E5] hover:underline ml-2">
+            <Link href="/customers/new" className="text-[#a9c0ff] hover:underline ml-2">
               첫 거래처 추가하기
             </Link>
           </div>

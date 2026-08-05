@@ -162,7 +162,7 @@ export function NewTenantForm() {
       </Section>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="banner banner-danger">
           {error}
         </div>
       )}
@@ -170,14 +170,14 @@ export function NewTenantForm() {
       <div className="flex justify-end gap-2">
         <Link
           href="/admin/tenants"
-          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50"
+          className="rounded-md border border-[#24375a] bg-[#0d172b] px-4 py-2 text-sm hover:bg-white/[0.04]"
         >
           취소
         </Link>
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-[#00A0E5] px-5 py-2 text-sm font-medium text-white hover:bg-[#0086c2] disabled:opacity-50"
+          className="btn btn-primary"
         >
           {pending ? "등록 중…" : "등록"}
         </button>
@@ -187,7 +187,7 @@ export function NewTenantForm() {
 }
 
 const inp =
-  "block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#00A0E5] focus:outline-none focus:ring-1 focus:ring-[#00A0E5]";
+  "block w-full rounded-md border border-[#24375a] bg-[#0d172b] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none focus:ring-1 focus:ring-[#4c7dff]";
 
 function Section({
   title,
@@ -197,8 +197,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500">
+    <div className="rounded-lg border border-[#172540] bg-[#0d172b] p-5">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#8a93ad]">
         {title}
       </h2>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{children}</div>
@@ -221,12 +221,12 @@ function Field({
 }) {
   return (
     <label className={`block ${wide ? "md:col-span-2" : ""}`}>
-      <div className="mb-1 text-sm font-medium text-slate-700">
+      <div className="mb-1 text-sm font-medium text-[#c7c9d1]">
         {label}
-        {required && <span className="ml-1 text-red-500">*</span>}
+        {required && <span className="ml-1 text-[#ff6b6f]">*</span>}
       </div>
       {children}
-      {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
+      {hint && <div className="mt-1 text-xs text-[#8a93ad]">{hint}</div>}
     </label>
   );
 }
@@ -262,14 +262,14 @@ ${CHAINGO_DOWNLOAD_URL}
         </p>
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-5">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
+      <div className="rounded-lg border border-[#172540] bg-[#0d172b] p-5">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#8a93ad]">
           카톡 전달 메시지
         </h3>
-        <pre className="whitespace-pre-wrap break-all rounded-md bg-slate-50 px-3 py-3 text-sm font-mono">
+        <pre className="whitespace-pre-wrap break-all rounded-md bg-[#0b0c0e] border border-[#172540] px-3 py-3 text-sm font-mono text-[#c7c9d1]">
 {message}
         </pre>
-        <p className="mt-3 text-xs text-amber-700">
+        <p className="mt-3 text-xs text-amber-300">
           ⚠️ 임시 비밀번호는 이 화면에서만 확인 가능합니다. DB 엔 hash 만 저장돼서
           다시 못 봅니다. 분실 시엔 회사 목록에서 [비번 리셋] 으로 새 비밀번호를
           발급할 수 있습니다.
@@ -278,13 +278,13 @@ ${CHAINGO_DOWNLOAD_URL}
           <button
             type="button"
             onClick={copy}
-            className="rounded-md bg-[#00A0E5] px-5 py-2 text-sm font-medium text-white hover:bg-[#0086c2]"
+            className="btn btn-primary"
           >
             카톡 메시지 복사
           </button>
           <Link
             href="/admin/tenants"
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50"
+            className="rounded-md border border-[#24375a] bg-[#0d172b] px-4 py-2 text-sm hover:bg-white/[0.04]"
           >
             회사 목록으로
           </Link>

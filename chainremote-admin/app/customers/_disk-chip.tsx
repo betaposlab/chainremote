@@ -61,10 +61,10 @@ export function DiskChip({
 
   const chipCls =
     level === "red"
-      ? "bg-rose-100 text-rose-700 font-medium"
+      ? "bg-[#ff5a5f]/12 text-[#ffb3b6] font-medium"
       : level === "amber"
-        ? "bg-amber-100 text-amber-700 font-medium"
-        : "bg-slate-100 text-slate-500";
+        ? "bg-amber-500/12 text-amber-300 font-medium"
+        : "bg-white/[0.06] text-[#8a93ad]";
 
   return (
     <span className="inline-flex items-center gap-1">
@@ -86,7 +86,7 @@ export function DiskChip({
       </span>
       {level !== "ok" &&
         (waiting ? (
-          <span className="text-[10px] text-slate-400 whitespace-nowrap">
+          <span className="text-[10px] text-[#6b7390] whitespace-nowrap">
             정리 중…
           </span>
         ) : (
@@ -99,7 +99,7 @@ export function DiskChip({
                 if (ok) setQueued(true);
               })
             }
-            className="rounded border border-slate-300 bg-white hover:bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600 disabled:opacity-50 whitespace-nowrap"
+            className="rounded border border-[#24375a] bg-[#0d172b] hover:bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[#abaebb] disabled:opacity-50 whitespace-nowrap"
             title="원격 접속 없이 Temp(전 사용자+윈도우)와 휴지통을 영구삭제로 정리합니다. 다음 heartbeat(≤10분)에 실행 후 결과가 표시됩니다."
           >
             정리

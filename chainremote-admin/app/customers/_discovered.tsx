@@ -60,13 +60,13 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
   };
 
   return (
-    <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3">
+    <div className="mb-5 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-semibold text-sm text-amber-900">
+          <h3 className="font-semibold text-sm text-amber-200">
             ✨ 신규 거래처 후보 {peers.length}곳 발견
           </h3>
-          <p className="text-xs text-amber-800 mt-0.5">
+          <p className="text-xs text-amber-200 mt-0.5">
             직원이 즐겨찾기했지만 아직 거래처로 등록 안 된 머신이에요.
           </p>
         </div>
@@ -75,22 +75,22 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
         {peers.map((p) => (
           <li
             key={p.remoteId}
-            className="flex items-center justify-between rounded-lg bg-white border border-amber-200 px-3 py-2 text-sm"
+            className="flex items-center justify-between rounded-lg bg-[#0d172b] border border-amber-500/25 px-3 py-2 text-sm"
           >
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-slate-800 truncate">
+              <div className="font-medium text-white truncate">
                 {p.alias || p.hostname || "이름 미상"}
               </div>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded">
+                <span className="font-mono text-xs bg-white/[0.06] px-1.5 py-0.5 rounded">
                   {formatRemoteId(p.remoteId)}
                 </span>
                 {p.favoritedBy.length > 0 && (
-                  <span className="text-slate-400 text-xs">
+                  <span className="text-[#6b7390] text-xs">
                     즐겨찾기: {p.favoritedBy.join(", ")}
                   </span>
                 )}
-                <span className="text-slate-400 text-xs">
+                <span className="text-[#6b7390] text-xs">
                   {new Date(p.favoritedAt).toLocaleString("ko-KR")}
                 </span>
               </div>
@@ -100,7 +100,7 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
                 type="button"
                 onClick={() => openDialog(p)}
                 disabled={pending}
-                className="rounded-md bg-[#00A0E5] hover:bg-[#0090d0] disabled:opacity-50 text-white px-3 py-1 text-xs font-medium"
+                className="btn btn-primary btn-sm"
               >
                 {busyId === p.remoteId ? "추가 중..." : "+ 추가"}
               </button>
@@ -109,7 +109,7 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
                 onClick={() => onDismiss(p)}
                 disabled={pending}
                 title="후보 삭제 (미등록 즐겨찾기 제거)"
-                className="rounded-md border border-slate-300 hover:bg-slate-50 disabled:opacity-50 text-slate-500 px-2.5 py-1 text-xs font-medium"
+                className="btn btn-ghost btn-sm"
               >
                 {busyId === p.remoteId ? "..." : "삭제"}
               </button>
@@ -119,17 +119,17 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
       </ul>
 
       {dialogPeer && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 p-4 flex items-start justify-center overflow-y-auto">
-          <div className="mt-24 w-full max-w-sm rounded-xl bg-white shadow-2xl">
-            <header className="border-b border-slate-200 px-5 py-3">
+        <div className="fixed inset-0 z-50 bg-[#02040a]/70 p-4 flex items-start justify-center overflow-y-auto">
+          <div className="mt-24 w-full max-w-sm rounded-xl bg-[#0d172b] border border-[#24375a] shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+            <header className="border-b border-[#172540] px-5 py-3">
               <h2 className="text-base font-semibold">거래처 등록</h2>
-              <p className="text-xs text-slate-500 mt-0.5 font-mono">
+              <p className="text-xs text-[#8a93ad] mt-0.5 font-mono">
                 {formatRemoteId(dialogPeer.remoteId)}
                 {dialogPeer.hostname ? ` · ${dialogPeer.hostname}` : ""}
               </p>
             </header>
             <div className="px-5 py-4">
-              <label className="block text-xs font-medium text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-[#c7c9d1] mb-1">
                 거래처 상호
               </label>
               <input
@@ -141,18 +141,18 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
                   if (e.key === "Enter") confirmAdd();
                 }}
                 placeholder="예: 삼성공판장"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm"
+                className="w-full rounded border border-[#24375a] px-2 py-1.5 text-sm"
               />
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-[#6b7390] mt-1">
                 비워두면 hostname/ID 로 임시 이름이 들어가요.
               </p>
             </div>
-            <footer className="border-t border-slate-200 px-5 py-3 flex justify-end gap-2">
+            <footer className="border-t border-[#172540] px-5 py-3 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={closeDialog}
                 disabled={pending}
-                className="rounded border border-slate-300 hover:bg-slate-50 px-3 py-1.5 text-sm disabled:opacity-50"
+                className="btn btn-ghost"
               >
                 취소
               </button>
@@ -160,7 +160,7 @@ export function DiscoveredPeerBanner({ peers }: { peers: OrphanFavorite[] }) {
                 type="button"
                 onClick={confirmAdd}
                 disabled={pending}
-                className="rounded bg-[#00A0E5] hover:bg-[#0090d0] text-white px-3 py-1.5 text-sm disabled:opacity-50"
+                className="rounded btn btn-primary px-3 py-1.5 text-sm disabled:opacity-50"
               >
                 {pending ? "처리 중..." : "등록"}
               </button>
