@@ -650,8 +650,14 @@ class _PeerCardState extends State<_PeerCard>
 
   // 모바일엔 마우스 호버가 없다. 호버 기반 페이드를 그대로 두면 가로 모드 폰에서 더보기
   //   버튼이 투명한 채로 남아(탭은 되지만 보이지 않아) 메뉴가 없는 것처럼 보인다 — 늘 보인다.
+  //
+  // ★데스크탑도 완전 투명(0.0)은 안 쓴다 (2026-08-06 Chang). 호버해야만 나타나면
+  //   컴퓨터에 익숙하지 않은 직원은 "아이콘을 못 알아보는" 게 아니라 메뉴가 있다는 것
+  //   자체를 모른다. 평소 연하게 깔아 "여기 뭔가 있다"만 전하고, 호버 때 또렷해진다.
+  //   (톱니바퀴로 바꾸는 안은 기각 — 이건 설정이 아니라 동작 메뉴이고 삭제까지 들어
+  //    있는데, 좌측에 진짜 [설정] 메뉴가 따로 있어 같은 아이콘이 두 뜻이 된다.)
   Widget _actionMore(Peer peer) => Obx(() => AnimatedOpacity(
-        opacity: isMobile || _rowHover.value ? 1.0 : 0.0,
+        opacity: isMobile || _rowHover.value ? 1.0 : 0.45,
         duration: const Duration(milliseconds: 140),
         child: Listener(
           onPointerDown: (e) {
