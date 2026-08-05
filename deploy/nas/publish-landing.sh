@@ -149,5 +149,37 @@ else
   echo "    (지울 것 없음)"
 fi
 
+
+# ── [7/7] 626.kr/main 동시 배포 (클라우드가 직접 페이지를 낸다) ─────────────
+#   Chang 요구(2026-08-05): 짧은 주소가 betaposlab 으로 튕기지 않고 그대로 열릴 것.
+#   ★설치파일은 여기 올리지 않는다 — 35MB × 방문자를 클라우드 트래픽(하루 33GB)으로
+#   받을 이유가 없다. HTML/로고(수십 KB)만 클라우드가 내고, 다운로드 링크와
+#   privacy.html 은 Cafe24 절대주소로 바꿔 그쪽에서 받게 한다.
+echo "[7/7] 626.kr/main 동시 배포..."
+CLOUD="root@115.68.192.153"
+CLOUD_DIR="/opt/chainremote/web/main"
+python3 - "$WORK/index.html" "$WORK/index-cloud.html" "$PUBLIC_BASE" <<'PYC'
+import re, sys
+src, dst, base = sys.argv[1], sys.argv[2], sys.argv[3]
+h = open(src, encoding='utf-8').read()
+h = h.replace('href="downloads/', 'href="%s/downloads/' % base)
+h = h.replace('href="privacy.html"', 'href="%s/privacy.html"' % base)
+open(dst, 'w', encoding='utf-8').write(h)
+PYC
+if ssh -o BatchMode=yes -o ConnectTimeout=10 "$CLOUD" "mkdir -p $CLOUD_DIR" 2>/dev/null; then
+  scp -o BatchMode=yes -q "$WORK/index-cloud.html" "$CLOUD:$CLOUD_DIR/index.html"
+  scp -o BatchMode=yes -q "$(dirname "$INDEX_SRC")/logo.png" "$CLOUD:$CLOUD_DIR/logo.png"
+  CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://626.kr/main)"
+  if [[ "$CODE" == "200" ]]; then
+    curl -fsS --max-time 20 https://626.kr/main | grep -q "$HQ_NAME" \
+      && echo "    ✓ https://626.kr/main 갱신 (다운로드는 Cafe24 로)" \
+      || echo "    ⚠ 626.kr/main 이 열리지만 버전 표기가 안 맞습니다 — 확인 필요"
+  else
+    echo "    ⚠ https://626.kr/main → HTTP $CODE (Caddy 설정 확인 필요). Cafe24 배포는 정상입니다."
+  fi
+else
+  echo "    ⚠ 클라우드 접속 실패 — Cafe24 배포는 정상. 626.kr/main 은 옛 내용일 수 있습니다."
+fi
+
 echo ""
-echo "✅ 랜딩 배포 완료 — HQ v$VERSION${CHAINGO_NAME:+ + ChainGo}, Agent 는 의도적으로 없음."
+echo "✅ 랜딩 배포 완료 — betaposlab.com/chainremote + 626.kr/main, HQ v$VERSION${CHAINGO_NAME:+ + ChainGo}. Agent 는 의도적으로 없음."
