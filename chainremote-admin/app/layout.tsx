@@ -110,7 +110,25 @@ export default async function RootLayout({
             </form>
           </div>
         </aside>
-        <main className="flex-1 min-w-0">{children}</main>
+        <main className="flex-1 min-w-0 flex flex-col">
+          <div className="flex-1">{children}</div>
+          {/* 운영사 푸터 — 모든 인증 화면 하단 공통. 대리점(tenant) 사용자에게도
+              보이는 화면이라, 표기는 개별 회사가 아니라 플랫폼 운영사(베타포스랩)다. */}
+          <footer className="border-t border-slate-200 px-8 py-4 text-xs text-slate-400">
+            <span>© 2026 베타포스랩 (BetaPosLab) · ChainRemote 플랫폼 운영</span>
+            <span className="mx-2">·</span>
+            <a
+              href="https://betaposlab.com/chainremote"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-slate-600 hover:underline"
+            >
+              서비스 소개
+            </a>
+            <span className="mx-2">·</span>
+            <span>RustDesk 기반 오픈소스 (AGPL-3.0)</span>
+          </footer>
+        </main>
       </body>
     </html>
   );

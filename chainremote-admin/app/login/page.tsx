@@ -40,14 +40,19 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4">
+    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm space-y-6 rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="text-center">
-          <div className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#00A0E5] text-white text-base font-bold">
-            CR
-          </div>
+          {/* 사이드바·랜딩과 같은 워드마크 — 종전의 파란 "CR" 박스는 임시 심볼이었다.
+              "사내 직원 전용" 부제는 뺐다: 대리점 직원도 로그인하는 멀티테넌트 화면이라
+              사실과도 안 맞았다 (2026-08-05 Chang). */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/chainremote-logo.png"
+            alt="ChainRemote"
+            className="mx-auto mb-4 h-12 w-auto"
+          />
           <h1 className="text-lg font-semibold tracking-tight">ChainRemote 관리 패널</h1>
-          <p className="mt-1 text-sm text-slate-500">사내 직원 전용</p>
         </div>
 
         {errorMsg === "invalid" && (
@@ -92,6 +97,25 @@ export default async function LoginPage({
           </button>
         </form>
       </div>
+
+      {/* 운영사 표기 — 대리점 직원이 보는 첫 화면이라 누가 운영하는 서비스인지 밝힌다. */}
+      <footer className="mt-8 text-center text-xs leading-relaxed text-slate-400">
+        <p>
+          © 2026 베타포스랩 (BetaPosLab) · ChainRemote 플랫폼 운영
+        </p>
+        <p className="mt-0.5">
+          <a
+            href="https://betaposlab.com/chainremote"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-slate-600 hover:underline"
+          >
+            서비스 소개
+          </a>
+          <span className="mx-1.5">·</span>
+          RustDesk 기반 오픈소스 (AGPL-3.0)
+        </p>
+      </footer>
     </div>
   );
 }

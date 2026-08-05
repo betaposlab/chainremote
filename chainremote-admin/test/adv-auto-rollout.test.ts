@@ -163,16 +163,69 @@ describe("자동 롤아웃 — 큐잉 억제(의도된 동작)", () => {
 // 상태왜곡/중복(멱등) — 상태불문 SELECT 가 유일 방어
 // ─────────────────────────────────────────────────────────────────────────────
 describe("자동 롤아웃 — 재두들김/중복 방지(상태불문 1회)", () => {
-  it("AR-02 applied 이력이 있는데 여전히 구버전 heartbeat → 재큐잉 금지(brick 무한재설치 방지)", async () => {
-    const s = await seed("ar02", "브릭의심", "6000002");
-    // 업뎃이 적용됐다고 기록된 행(applied_at 채움)을 직접 심는다.
+  it("AR-02 applied 후 구버전 heartbeat → 1회 재큐잉, 2회째부턴 금지 (2026-08-05 스펙 변경)", async () => {
+    // 종전 스펙은 "재큐잉 금지(brick 의심)"였다. 그러나 applied_at 은 에이전트의 설치 완료
+    // 보고로만 찍히므로 applied+구버전 = 새 버전을 완주하고 되돌아간 기기(수동 재설치/
+    // 다운그레이드)다 — brick 은 완료 보고를 못 해 pending 으로 남는다. 실제로 테스트1 을
+    // 1.4.84 로 재설치했더니 서버가 영영 안 끌어올리는 걸 실증하고 스펙을 바꿨다.
+    // 재큐잉은 1회 한도 — 또 내려가면 사람 몫(무한 되밀기 루프 차단).
+    const s = await seed("ar02", "다운그레이드복귀", "6000002");
     await insertPending(s.tenantId, s.customerId, META.version, { appliedAt: new Date() });
-    // 그런데 에이전트가 여전히 구버전 보고(설치 후에도 안 올라감 = brick 의심).
+    // 1회차: 다운그레이드 복귀로 판정 → 재큐잉된다.
     const again = await autoQueueIfBehind(cust(s), "1.4.54", META);
-    expect(again).toBe(false);
+    expect(again).toBe(true);
     const r = await rows(s.customerId);
-    expect(r.length).toBe(1); // applied 이력 그대로, 새 행 없음
-    expect(r[0].appliedAt).not.toBeNull();
+    expect(r.length).toBe(2); // applied 이력 + 새 대기 행
+    // 재큐잉된 행이 또 applied 됐는데 다시 구버전 보고 → 이번엔 침묵(1회 한도).
+    const db = testDb();
+    await db
+      .update(pendingUpdates)
+      .set({ appliedAt: new Date() })
+      .where(eq(pendingUpdates.customerId, s.customerId));
+    const third = await autoQueueIfBehind(cust(s), "1.4.54", META);
+    expect(third).toBe(false);
+    expect((await rows(s.customerId)).length).toBe(2);
+  });
+
+  it("AR-02b 일괄푸시 북키핑 cancelled + 그 뒤 applied → 구버전 보고 시 재큐잉된다 (테스트1 실데이터형)", async () => {
+    // 일괄 푸시는 기존 대기 행을 cancel 하고 새 행을 얹는다. 그래서 정상 적용된 기계에도
+    // (cancelled 옛 행 + applied 새 행) 이력이 남는다 — cancelled 를 "사람 거부"로 읽으면
+    // 이 기계들의 다운그레이드 복귀가 전부 막힌다. 판단은 최신 행(applied)으로.
+    const s = await seed("ar02b", "북키핑케이스", "6000022");
+    const old = new Date(Date.now() - 60_000);
+    const db = testDb();
+    await db.insert(pendingUpdates).values({
+      tenantId: s.tenantId,
+      customerId: s.customerId,
+      targetVersion: META.version,
+      assetUrl: "https://x/whatever.exe",
+      assetSha256: "b".repeat(64),
+      assetSize: 1_000,
+      cancelledAt: old,
+      createdAt: old,
+    });
+    await insertPending(s.tenantId, s.customerId, META.version, { appliedAt: new Date() });
+    expect(await autoQueueIfBehind(cust(s), "1.4.54", META)).toBe(true);
+    expect((await rows(s.customerId)).length).toBe(3);
+  });
+
+  it("AR-02c 최신이 cancelled(진짜 사람 거부) → 구버전 보고여도 침묵", async () => {
+    const s = await seed("ar02c", "최신거부", "6000023");
+    const old = new Date(Date.now() - 60_000);
+    const db = testDb();
+    await db.insert(pendingUpdates).values({
+      tenantId: s.tenantId,
+      customerId: s.customerId,
+      targetVersion: META.version,
+      assetUrl: "https://x/whatever.exe",
+      assetSha256: "b".repeat(64),
+      assetSize: 1_000,
+      appliedAt: old,
+      createdAt: old,
+    });
+    await insertPending(s.tenantId, s.customerId, META.version, { cancelledAt: new Date() });
+    expect(await autoQueueIfBehind(cust(s), "1.4.54", META)).toBe(false);
+    expect((await rows(s.customerId)).length).toBe(2);
   });
 
   it("AR-03 사람이 거부(cancelled)한 자동푸시는 되살리지 않는다", async () => {

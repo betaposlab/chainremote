@@ -382,8 +382,14 @@ export function isVersionNewer(a: string, b: string): boolean {
  * 릴리즈마다 50통 전화). 이제 릴리즈(agent-push.json 갱신) 자체가 전 대리점 롤아웃 트리거다.
  *
  * 안전핀:
- *  - 내부기기 제외, 같은 (거래처, 목표버전) 조합은 상태 불문 1회만 — applied 됐는데도 구버전
- *    보고(brick 의심)·cancelled(사람이 거부)·failed 를 자동으로 다시 두들기지 않는다(사람 몫).
+ *  - 내부기기 제외. cancelled(사람이 거부)·failed(설치 실패)가 한 번이라도 있으면 자동은
+ *    영원히 침묵한다(사람 몫).
+ *  - ★applied 인데 구버전 보고 = 다운그레이드/재설치 복귀로 판정하고 **딱 1회** 재큐잉한다
+ *    (2026-08-05 테스트1 실검증에서 발견 — 1.4.84 재설치 후 서버가 "이미 적용됨"만 믿고
+ *    영영 안 끌어올렸다). brick 과 혼동되지 않는 근거: applied_at 은 에이전트의 설치 완료
+ *    보고(markApplied)로만 찍히므로, applied 후 구버전 보고는 새 버전을 완주하고 되돌아간
+ *    기기다. brick 은 완료 보고를 못 보내 row 가 pending 으로 남는다. 재큐잉 1회 한도라
+ *    또 내려가면(반복 실험 등) 그때부턴 사람 몫 — 무한 되밀기 루프가 원천 차단된다.
  *  - agent-push.json 의 "auto_rollout": false 로 전체 일시정지 가능(비상 킬스위치).
  *  - 어떤 실패도 heartbeat 를 깨지 않는다(전부 삼킴).
  */
@@ -415,19 +421,35 @@ export async function autoQueueIfBehind(
       )
       .limit(1);
     if (manualPin) return false;
-    // 같은 (거래처, 목표버전) 조합은 상태 불문 1회만 — applied 됐는데 구버전 보고(brick 의심)·
-    //   cancelled(사람이 거부)·failed 를 자동으로 다시 두들기지 않는다(사람 몫).
-    const [sameTarget] = await db
-      .select({ id: pendingUpdates.id })
+    // 같은 (거래처, 목표버전) 기록은 **최신 행의 상태**로 판단한다 — 이력 전체가 아니라.
+    //   일괄 푸시가 기존 대기 행을 cancel 하고 새 행을 얹는 교체 흐름을 쓰기 때문에, 오래된
+    //   cancelled 는 "사람이 이 기계를 거부했다"가 아니라 북키핑이다(테스트1 실데이터에서
+    //   확인). 진짜 사람 거부/설치 실패는 그 뒤에 새 행이 없으니 최신 행으로 남는다.
+    const priorRows = await db
+      .select({
+        appliedAt: pendingUpdates.appliedAt,
+        cancelledAt: pendingUpdates.cancelledAt,
+        failedAt: pendingUpdates.failedAt,
+        createdAt: pendingUpdates.createdAt,
+      })
       .from(pendingUpdates)
       .where(
         and(
           eq(pendingUpdates.customerId, customer.id),
           eq(pendingUpdates.targetVersion, meta.version),
         ),
-      )
-      .limit(1);
-    if (sameTarget) return false;
+      );
+    if (priorRows.length > 0) {
+      const latest = [...priorRows].sort(
+        (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0),
+      )[0];
+      // 최신이 대기 중 → 중복 큐잉 불필요 / 최신이 cancelled·failed → 사람 몫, 자동은 침묵.
+      if (!latest.appliedAt) return false;
+      // 최신이 applied 인데 구버전 보고 = 다운그레이드/재설치 복귀 → 재큐잉.
+      //   한도: 같은 target 이 두 번 applied 됐는데 또 내려갔다면 사람 몫(되밀기 루프 차단).
+      const appliedCount = priorRows.filter((r) => r.appliedAt).length;
+      if (appliedCount >= 2) return false;
+    }
     await db.insert(pendingUpdates).values({
       tenantId: customer.tenantId,
       customerId: customer.id,
