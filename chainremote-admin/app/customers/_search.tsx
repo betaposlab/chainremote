@@ -29,7 +29,7 @@ export function CustomerSearch() {
   return (
     <div className="relative">
       <svg
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#838aa4]"
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#a3aac2]"
         width="15"
         height="15"
         viewBox="0 0 24 24"
@@ -47,7 +47,7 @@ export function CustomerSearch() {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="상호 · 담당자 · 연락처 · ID 검색"
-        className="w-64 rounded-lg border border-[#2c3852] bg-[#1e2740] pl-9 pr-3 py-2 text-sm placeholder:text-[#838aa4] focus:outline-none focus:ring-2 focus:ring-[#4c7dff]/30 focus:border-[#4c7dff]"
+        className="w-64 rounded-lg border border-[#46557c] bg-[#2e3a5c] pl-9 pr-3 py-2 text-sm placeholder:text-[#a3aac2] focus:outline-none focus:ring-2 focus:ring-[#4c7dff]/30 focus:border-[#4c7dff]"
       />
     </div>
   );

@@ -170,7 +170,7 @@ export function NewTenantForm() {
       <div className="flex justify-end gap-2">
         <Link
           href="/admin/tenants"
-          className="rounded-md border border-[#3d4c71] bg-[#1e2740] px-4 py-2 text-sm hover:bg-white/[0.04]"
+          className="rounded-md border border-[#6274a3] bg-[#2e3a5c] px-4 py-2 text-sm hover:bg-white/[0.04]"
         >
           취소
         </Link>
@@ -187,7 +187,7 @@ export function NewTenantForm() {
 }
 
 const inp =
-  "block w-full rounded-md border border-[#3d4c71] bg-[#1e2740] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none focus:ring-1 focus:ring-[#4c7dff]";
+  "block w-full rounded-md border border-[#6274a3] bg-[#2e3a5c] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none focus:ring-1 focus:ring-[#4c7dff]";
 
 function Section({
   title,
@@ -197,8 +197,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-[#2c3852] bg-[#1e2740] p-5">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#9ba2b8]">
+    <div className="rounded-lg border border-[#46557c] bg-[#2e3a5c] p-5">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#b9bfd2]">
         {title}
       </h2>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{children}</div>
@@ -221,12 +221,12 @@ function Field({
 }) {
   return (
     <label className={`block ${wide ? "md:col-span-2" : ""}`}>
-      <div className="mb-1 text-sm font-medium text-[#d6d8de]">
+      <div className="mb-1 text-sm font-medium text-[#eef0f4]">
         {label}
         {required && <span className="ml-1 text-[#ff6b6f]">*</span>}
       </div>
       {children}
-      {hint && <div className="mt-1 text-xs text-[#9ba2b8]">{hint}</div>}
+      {hint && <div className="mt-1 text-xs text-[#b9bfd2]">{hint}</div>}
     </label>
   );
 }
@@ -262,11 +262,11 @@ ${CHAINGO_DOWNLOAD_URL}
         </p>
       </div>
 
-      <div className="rounded-lg border border-[#2c3852] bg-[#1e2740] p-5">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#9ba2b8]">
+      <div className="rounded-lg border border-[#46557c] bg-[#2e3a5c] p-5">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-[#b9bfd2]">
           카톡 전달 메시지
         </h3>
-        <pre className="whitespace-pre-wrap break-all rounded-md bg-[#14171f] border border-[#2c3852] px-3 py-3 text-sm font-mono text-[#d6d8de]">
+        <pre className="whitespace-pre-wrap break-all rounded-md bg-[#1c2333] border border-[#46557c] px-3 py-3 text-sm font-mono text-[#eef0f4]">
 {message}
         </pre>
         <p className="mt-3 text-xs text-amber-300">
@@ -284,7 +284,7 @@ ${CHAINGO_DOWNLOAD_URL}
           </button>
           <Link
             href="/admin/tenants"
-            className="rounded-md border border-[#3d4c71] bg-[#1e2740] px-4 py-2 text-sm hover:bg-white/[0.04]"
+            className="rounded-md border border-[#6274a3] bg-[#2e3a5c] px-4 py-2 text-sm hover:bg-white/[0.04]"
           >
             회사 목록으로
           </Link>

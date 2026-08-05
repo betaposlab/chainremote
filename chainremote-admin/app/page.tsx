@@ -48,7 +48,7 @@ export default async function Home() {
     <div className="px-8 py-6 max-w-6xl">
       <header className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-white">대시보드</h1>
-        <p className="text-sm text-[#9ba2b8] mt-1">
+        <p className="text-sm text-[#b9bfd2] mt-1">
           {tenant.displayName} · 사업장 운영 현황
         </p>
       </header>
@@ -99,18 +99,18 @@ function Card({
 }) {
   const inner = (
     <>
-      <div className="text-sm text-[#9ba2b8]">{label}</div>
+      <div className="text-sm text-[#b9bfd2]">{label}</div>
       <div className="mt-2 flex items-baseline gap-1">
         <span className="text-3xl font-bold tabular-nums text-white">{value.toLocaleString()}</span>
-        <span className="text-sm text-[#9ba2b8]">{suffix}</span>
+        <span className="text-sm text-[#b9bfd2]">{suffix}</span>
       </div>
-      {subtitle && <div className="mt-1 text-xs text-[#838aa4]">{subtitle}</div>}
+      {subtitle && <div className="mt-1 text-xs text-[#a3aac2]">{subtitle}</div>}
     </>
   );
   const base = "panel-card block px-5 py-4 transition";
   // href 가 있으면 클릭해서 해당 목록으로 이동 — hover 로 클릭 가능함을 알린다.
   return href ? (
-    <Link href={href} className={`${base} hover:border-[#3d4c71]`}>
+    <Link href={href} className={`${base} hover:border-[#6274a3]`}>
       {inner}
     </Link>
   ) : (

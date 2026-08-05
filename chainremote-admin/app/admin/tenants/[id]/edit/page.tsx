@@ -33,14 +33,14 @@ export default async function EditTenantPage({
       <div className="mb-6">
         <Link
           href="/admin/tenants"
-          className="text-sm text-[#9ba2b8] hover:text-[#d6d8de]"
+          className="text-sm text-[#b9bfd2] hover:text-[#eef0f4]"
         >
           ← 회사 목록
         </Link>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">
           {t.displayName} 정보 수정
         </h1>
-        <p className="mt-1 text-sm text-[#9ba2b8]">
+        <p className="mt-1 text-sm text-[#b9bfd2]">
           slug ({t.slug}) 와 관리자 계정은 여기서 수정 불가합니다.
         </p>
       </div>

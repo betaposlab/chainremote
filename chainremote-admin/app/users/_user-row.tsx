@@ -31,7 +31,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
         <td className="px-4 py-3 font-medium">
           {user.displayName}
           {isSelf && (
-            <span className="ml-2 inline-block rounded bg-white/[0.06] px-1.5 py-0.5 text-xs text-[#9ba2b8]">
+            <span className="ml-2 inline-block rounded bg-white/[0.06] px-1.5 py-0.5 text-xs text-[#b9bfd2]">
               본인
             </span>
           )}
@@ -44,12 +44,12 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               활성
             </span>
           ) : (
-            <span className="inline-block rounded bg-white/[0.06] px-2 py-0.5 text-xs text-[#9ba2b8]">
+            <span className="inline-block rounded bg-white/[0.06] px-2 py-0.5 text-xs text-[#b9bfd2]">
               비활성
             </span>
           )}
         </td>
-        <td className="px-4 py-3 text-xs text-[#9ba2b8]">
+        <td className="px-4 py-3 text-xs text-[#b9bfd2]">
           {user.lastLoginAt
             ? new Date(user.lastLoginAt).toLocaleString("ko-KR")
             : "—"}
@@ -105,7 +105,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               <input
                 name="displayName"
                 defaultValue={user.displayName}
-                className="rounded-md border border-[#3d4c71] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#6274a3] px-3 py-1.5 text-sm"
                 placeholder="이름"
               />
               {/* 본인 행에선 역할·활성을 아예 안 보낸다. disabled 컨트롤은 FormData 에 실리지
@@ -116,7 +116,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                 defaultValue={user.role}
                 disabled={isSelf}
                 title={isSelf ? "본인 역할은 변경 불가" : ""}
-                className="rounded-md border border-[#3d4c71] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#6274a3] px-3 py-1.5 text-sm"
               >
                 {ASSIGNABLE_ROLES.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -160,7 +160,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               }
               className="flex items-center gap-2"
             >
-              <span className="text-sm text-[#d6d8de]">
+              <span className="text-sm text-[#eef0f4]">
                 {user.displayName} 의 새 비번:
               </span>
               <input
@@ -169,7 +169,7 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                 required
                 minLength={4}
                 placeholder="새 비번"
-                className="rounded-md border border-[#3d4c71] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#6274a3] px-3 py-1.5 text-sm"
               />
               <button
                 type="submit"

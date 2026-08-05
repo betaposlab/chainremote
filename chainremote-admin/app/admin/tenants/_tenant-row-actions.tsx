@@ -156,7 +156,7 @@ export function TenantRowActions({
           onClick={doIssueKey}
           disabled={pending || downloading}
           title="키/custom.txt 만 발급 (winpc 수동 빌드용 — 보통은 '에이전트 다운로드' 사용)"
-          className="rounded border border-[#3d4c71] bg-[#1e2740] px-2 py-1 text-xs text-[#abaebb] hover:bg-white/[0.04] disabled:opacity-50"
+          className="rounded border border-[#6274a3] bg-[#2e3a5c] px-2 py-1 text-xs text-[#abaebb] hover:bg-white/[0.04] disabled:opacity-50"
         >
           {hasEnrollKey ? "키 재발급" : "키만"}
         </button>
@@ -164,7 +164,7 @@ export function TenantRowActions({
           type="button"
           onClick={doReset}
           disabled={pending}
-          className="rounded border border-[#3d4c71] bg-[#1e2740] px-2 py-1 text-xs hover:bg-white/[0.04] disabled:opacity-50"
+          className="rounded border border-[#6274a3] bg-[#2e3a5c] px-2 py-1 text-xs hover:bg-white/[0.04] disabled:opacity-50"
         >
           비번 리셋
         </button>
@@ -173,7 +173,7 @@ export function TenantRowActions({
             type="button"
             onClick={() => doSuspend("suspended")}
             disabled={pending}
-            className="rounded border border-amber-500/30 bg-[#1e2740] px-2 py-1 text-xs text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"
+            className="rounded border border-amber-500/30 bg-[#2e3a5c] px-2 py-1 text-xs text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"
           >
             일시정지
           </button>
@@ -182,7 +182,7 @@ export function TenantRowActions({
             type="button"
             onClick={() => doSuspend("active")}
             disabled={pending}
-            className="rounded border border-green-300 bg-[#1e2740] px-2 py-1 text-xs text-green-700 hover:bg-green-50 disabled:opacity-50"
+            className="rounded border border-green-300 bg-[#2e3a5c] px-2 py-1 text-xs text-green-700 hover:bg-green-50 disabled:opacity-50"
           >
             재개
           </button>
@@ -192,7 +192,7 @@ export function TenantRowActions({
             type="button"
             onClick={() => doSuspend("cancelled")}
             disabled={pending}
-            className="rounded border border-[#3d4c71] bg-[#1e2740] px-2 py-1 text-xs text-[#abaebb] hover:bg-white/[0.04] disabled:opacity-50"
+            className="rounded border border-[#6274a3] bg-[#2e3a5c] px-2 py-1 text-xs text-[#abaebb] hover:bg-white/[0.04] disabled:opacity-50"
           >
             해지
           </button>
@@ -202,7 +202,7 @@ export function TenantRowActions({
           onClick={doDelete}
           disabled={pending || downloading}
           title="이 회사와 소속 사용자·거래처를 완전 삭제 (되돌리기 불가)"
-          className="rounded border border-[#ff6b6f]/30 bg-[#1e2740] px-2 py-1 text-xs text-[#ff9a9e] hover:bg-[#ff5a5f]/10 disabled:opacity-50"
+          className="rounded border border-[#ff6b6f]/30 bg-[#2e3a5c] px-2 py-1 text-xs text-[#ff9a9e] hover:bg-[#ff5a5f]/10 disabled:opacity-50"
         >
           회사 삭제
         </button>
@@ -260,7 +260,7 @@ function EnrollKeyDialog({
       onClick={onClose}
     >
       <div
-        className="w-[560px] max-w-[94vw] rounded-lg bg-[#1e2740] p-6 shadow-xl text-left"
+        className="w-[560px] max-w-[94vw] rounded-lg bg-[#2e3a5c] p-6 shadow-xl text-left"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold">
@@ -274,19 +274,19 @@ function EnrollKeyDialog({
           </p>
         )}
 
-        <p className="mt-3 text-sm text-[#9ba2b8]">
+        <p className="mt-3 text-sm text-[#b9bfd2]">
           아래 <code>custom.txt</code> 로 <b>이 대리점({result.slug}) 전용 에이전트</b>를
           빌드하세요. 이 설정이 박힌 .exe 로 깐 가맹점은 자동으로 이 대리점 소속으로 등록됩니다.
           <br />이 키는 <b>이 화면에서만</b> 보입니다 (DB 엔 해시만 저장 — 분실 시 재발급).
         </p>
 
-        <div className="mt-3 text-xs font-medium text-[#9ba2b8]">enroll-key (평문)</div>
-        <pre className="mt-1 whitespace-pre-wrap break-all rounded-md bg-[#14171f] border border-[#2c3852] px-3 py-2 text-xs font-mono text-[#d6d8de]">
+        <div className="mt-3 text-xs font-medium text-[#b9bfd2]">enroll-key (평문)</div>
+        <pre className="mt-1 whitespace-pre-wrap break-all rounded-md bg-[#1c2333] border border-[#46557c] px-3 py-2 text-xs font-mono text-[#eef0f4]">
 {result.enrollKey}
         </pre>
 
-        <div className="mt-3 text-xs font-medium text-[#9ba2b8]">custom.txt (빌드 입력값)</div>
-        <pre className="mt-1 whitespace-pre-wrap break-all rounded-md bg-[#14171f] border border-[#2c3852] px-3 py-3 text-xs font-mono text-[#d6d8de]">
+        <div className="mt-3 text-xs font-medium text-[#b9bfd2]">custom.txt (빌드 입력값)</div>
+        <pre className="mt-1 whitespace-pre-wrap break-all rounded-md bg-[#1c2333] border border-[#46557c] px-3 py-3 text-xs font-mono text-[#eef0f4]">
 {result.customTxt}
         </pre>
 
@@ -294,14 +294,14 @@ function EnrollKeyDialog({
           <button
             type="button"
             onClick={() => copy(result.enrollKey, "key")}
-            className="rounded-md border border-[#3d4c71] bg-[#1e2740] px-3 py-2 text-sm hover:bg-white/[0.04]"
+            className="rounded-md border border-[#6274a3] bg-[#2e3a5c] px-3 py-2 text-sm hover:bg-white/[0.04]"
           >
             {copied === "key" ? "복사됨 ✓" : "키 복사"}
           </button>
           <button
             type="button"
             onClick={() => copy(result.customTxt, "txt")}
-            className="rounded-md border border-[#3d4c71] bg-[#1e2740] px-3 py-2 text-sm hover:bg-white/[0.04]"
+            className="rounded-md border border-[#6274a3] bg-[#2e3a5c] px-3 py-2 text-sm hover:bg-white/[0.04]"
           >
             {copied === "txt" ? "복사됨 ✓" : "custom.txt 복사"}
           </button>
@@ -315,7 +315,7 @@ function EnrollKeyDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-[#3d4c71] bg-[#1e2740] px-4 py-2 text-sm hover:bg-white/[0.04]"
+            className="rounded-md border border-[#6274a3] bg-[#2e3a5c] px-4 py-2 text-sm hover:bg-white/[0.04]"
           >
             닫기
           </button>
@@ -348,15 +348,15 @@ function ResetResultDialog({
       onClick={onClose}
     >
       <div
-        className="w-[480px] max-w-[92vw] rounded-lg bg-[#1e2740] p-6 shadow-xl text-left"
+        className="w-[480px] max-w-[92vw] rounded-lg bg-[#2e3a5c] p-6 shadow-xl text-left"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold">비밀번호 재설정 완료</h2>
-        <p className="mt-2 text-sm text-[#9ba2b8]">
+        <p className="mt-2 text-sm text-[#b9bfd2]">
           아래 임시 비밀번호를 카톡으로 전달하세요. 이 비번은 *이 화면에서만*
           확인 가능합니다 (DB 엔 hash 만 저장).
         </p>
-        <pre className="mt-4 whitespace-pre-wrap break-all rounded-md bg-[#14171f] border border-[#2c3852] px-3 py-3 text-sm font-mono text-[#d6d8de]">
+        <pre className="mt-4 whitespace-pre-wrap break-all rounded-md bg-[#1c2333] border border-[#46557c] px-3 py-3 text-sm font-mono text-[#eef0f4]">
 {message}
         </pre>
         <div className="mt-4 flex justify-end gap-2">
@@ -370,7 +370,7 @@ function ResetResultDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-[#3d4c71] bg-[#1e2740] px-4 py-2 text-sm hover:bg-white/[0.04]"
+            className="rounded-md border border-[#6274a3] bg-[#2e3a5c] px-4 py-2 text-sm hover:bg-white/[0.04]"
           >
             닫기
           </button>

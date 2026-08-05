@@ -35,7 +35,7 @@ export type CompanyGroup = {
 };
 
 const inp =
-  "rounded-md border border-[#3d4c71] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none";
+  "rounded-md border border-[#6274a3] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none";
 
 export function CompanyAccordion({
   companies,
@@ -66,13 +66,13 @@ function Group({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="overflow-hidden rounded-xl border border-[#2c3852] bg-[#1e2740]">
+    <div className="overflow-hidden rounded-xl border border-[#46557c] bg-[#2e3a5c]">
       <div className="flex items-center justify-between px-5 py-4">
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-3 text-left"
         >
-          <span className="w-4 text-[#838aa4]">{open ? "▾" : "▸"}</span>
+          <span className="w-4 text-[#a3aac2]">{open ? "▾" : "▸"}</span>
           <span className="font-semibold text-white">
             {company.displayName}
           </span>
@@ -82,13 +82,13 @@ function Group({
         </button>
         <Link
           href={`/admin/tenants/${company.id}/edit`}
-          className="text-xs text-[#838aa4] hover:text-[#a9c0ff]"
+          className="text-xs text-[#a3aac2] hover:text-[#a9c0ff]"
         >
           회사 정보 →
         </Link>
       </div>
       {open && (
-        <div className="border-t border-[#242d41] bg-white/[0.02] p-4">
+        <div className="border-t border-[#384462] bg-white/[0.02] p-4">
           <AddForm tenantId={company.id} />
           <UserTable
             tenantId={company.id}
@@ -152,9 +152,9 @@ function UserTable({
   targetVersion: string | null;
 }) {
   return (
-    <div className="overflow-hidden rounded-md border border-[#2c3852] bg-[#1e2740]">
+    <div className="overflow-hidden rounded-md border border-[#46557c] bg-[#2e3a5c]">
       <table className="panel-table">
-        <thead className="bg-white/[0.025] text-left text-xs text-[#9ba2b8]">
+        <thead className="bg-white/[0.025] text-left text-xs text-[#b9bfd2]">
           <tr>
             <th className="px-3 py-2 font-medium">이름</th>
             <th className="px-3 py-2 font-medium">아이디</th>
@@ -168,7 +168,7 @@ function UserTable({
         <tbody>
           {users.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-3 py-4 text-center text-[#838aa4]">
+              <td colSpan={7} className="px-3 py-4 text-center text-[#a3aac2]">
                 아이디 없음 — 위에서 추가하세요.
               </td>
             </tr>
@@ -209,7 +209,7 @@ function Row({
         <td className="px-3 py-2 font-medium">
           {user.displayName}
           {isSelf && (
-            <span className="ml-2 inline-block rounded bg-white/[0.06] px-1.5 py-0.5 text-xs text-[#9ba2b8]">
+            <span className="ml-2 inline-block rounded bg-white/[0.06] px-1.5 py-0.5 text-xs text-[#b9bfd2]">
               본인
             </span>
           )}
@@ -222,12 +222,12 @@ function Row({
               활성
             </span>
           ) : (
-            <span className="inline-block rounded bg-white/[0.06] px-2 py-0.5 text-xs text-[#9ba2b8]">
+            <span className="inline-block rounded bg-white/[0.06] px-2 py-0.5 text-xs text-[#b9bfd2]">
               비활성
             </span>
           )}
         </td>
-        <td className="px-3 py-2 text-xs text-[#9ba2b8]">
+        <td className="px-3 py-2 text-xs text-[#b9bfd2]">
           {user.lastLoginAt
             ? new Date(user.lastLoginAt).toLocaleString("ko-KR")
             : "—"}
@@ -241,7 +241,7 @@ function Row({
         </td>
         <td className="whitespace-nowrap px-3 py-2 text-right">
           {isSelf ? (
-            <span className="text-xs text-[#838aa4]">—</span>
+            <span className="text-xs text-[#a3aac2]">—</span>
           ) : (
             <>
               <button
@@ -295,13 +295,13 @@ function Row({
               <input
                 name="displayName"
                 defaultValue={user.displayName}
-                className="rounded-md border border-[#3d4c71] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#6274a3] px-3 py-1.5 text-sm"
                 placeholder="이름"
               />
               <select
                 name="role"
                 defaultValue={user.role === "super_admin" ? "owner" : user.role}
-                className="rounded-md border border-[#3d4c71] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#6274a3] px-3 py-1.5 text-sm"
               >
                 {ASSIGNABLE_ROLES.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -341,7 +341,7 @@ function Row({
               }
               className="flex items-center gap-2"
             >
-              <span className="text-sm text-[#d6d8de]">
+              <span className="text-sm text-[#eef0f4]">
                 {user.displayName} 의 새 비번:
               </span>
               <input
@@ -350,7 +350,7 @@ function Row({
                 required
                 minLength={4}
                 placeholder="새 비번"
-                className="rounded-md border border-[#3d4c71] px-3 py-1.5 text-sm"
+                className="rounded-md border border-[#6274a3] px-3 py-1.5 text-sm"
               />
               <button
                 type="submit"

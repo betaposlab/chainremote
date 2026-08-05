@@ -21,7 +21,7 @@ export default async function RootLayout({
   if (!user) {
     return (
       <html lang="ko" className="h-full antialiased">
-        <body className="min-h-full bg-[#191d29] text-white">{children}</body>
+        <body className="min-h-full bg-[#242c40] text-white">{children}</body>
       </html>
     );
   }
@@ -31,9 +31,9 @@ export default async function RootLayout({
   // 매일 쓰는 도구라 오로라·모션은 빼고 4층 표면(Void/Abyss/DeepSea/Cobalt)만 가져왔다.
   return (
     <html lang="ko" className="h-full antialiased">
-      <body className="min-h-full flex bg-[#191d29] text-white">
-        <aside className="w-60 shrink-0 border-r border-[#2c3852] bg-[#14171f] flex flex-col sticky top-0 h-screen">
-          <div className="px-5 py-5 border-b border-[#2c3852]">
+      <body className="min-h-full flex bg-[#242c40] text-white">
+        <aside className="w-60 shrink-0 border-r border-[#46557c] bg-[#1c2333] flex flex-col sticky top-0 h-screen">
+          <div className="px-5 py-5 border-b border-[#46557c]">
             {/* 로고 클릭 = 소개 랜딩 페이지(새 탭). 홈(대시보드)은 아래 메뉴로 간다. */}
             <a
               href="https://betaposlab.com/chainremote"
@@ -61,7 +61,7 @@ export default async function RootLayout({
             {user.role === "super_admin" && (
               <>
                 <NavItem href="/users">사용자</NavItem>
-                <div className="mt-4 mb-1 px-3 text-[0.68rem] font-semibold uppercase tracking-wider text-[#838aa4]">
+                <div className="mt-4 mb-1 px-3 text-[0.68rem] font-semibold uppercase tracking-wider text-[#a3aac2]">
                   플랫폼 운영
                 </div>
                 <NavItem href="/admin/tenants">회사 관리</NavItem>
@@ -69,16 +69,16 @@ export default async function RootLayout({
             )}
           </nav>
           {/* 사이드바 하단 — 현재 사용자 정보 + 로그아웃 */}
-          <div className="border-t border-[#2c3852] p-3 pb-6 text-sm">
+          <div className="border-t border-[#46557c] p-3 pb-6 text-sm">
             <div className="flex items-center gap-2 px-3 py-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#283761] border border-[#354268] font-medium text-[#a9c0ff]">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#3c4f82] border border-[#56699c] font-medium text-[#a9c0ff]">
                 {user.displayName.slice(0, 1)}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate font-medium text-white">
                   {user.displayName}
                 </div>
-                <div className="truncate text-xs text-[#9ba2b8]">
+                <div className="truncate text-xs text-[#b9bfd2]">
                   @{user.email} · {roleLabel(user.role)}
                 </div>
               </div>
@@ -116,7 +116,7 @@ export default async function RootLayout({
           <div className="flex-1">{children}</div>
           {/* 운영사 푸터 — 모든 인증 화면 하단 공통. 대리점(tenant) 사용자에게도
               보이는 화면이라, 표기는 개별 회사가 아니라 플랫폼 운영사(베타포스랩)다. */}
-          <footer className="border-t border-[#242d41] px-8 py-4 text-xs text-[#838aa4]">
+          <footer className="border-t border-[#384462] px-8 py-4 text-xs text-[#a3aac2]">
             <span>© 2026 베타포스랩 (BetaPosLab) · ChainRemote 플랫폼 운영</span>
             <span className="mx-2">·</span>
             <a

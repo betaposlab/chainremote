@@ -32,7 +32,7 @@ export default async function TenantsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">회사 관리</h1>
-          <p className="mt-1 text-sm text-[#9ba2b8]">
+          <p className="mt-1 text-sm text-[#b9bfd2]">
             ChainRemote 를 사용하는 대리점(회사) 목록. 데이터는 각 회사 안에서
             격리되어 운영자(Chang) 는 거래처/세션/이력을 직접 조회하지 않습니다.
           </p>
@@ -47,9 +47,9 @@ export default async function TenantsPage() {
         </div>
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-[#2c3852] bg-[#1e2740]">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-[#46557c] bg-[#2e3a5c]">
         <table className="panel-table">
-          <thead className="bg-white/[0.025] text-left text-xs uppercase tracking-wider text-[#9ba2b8]">
+          <thead className="bg-white/[0.025] text-left text-xs uppercase tracking-wider text-[#b9bfd2]">
             <tr>
               <th className="px-4 py-3">회사명</th>
               <th className="px-4 py-3">아이디</th>
@@ -68,7 +68,7 @@ export default async function TenantsPage() {
               <tr>
                 <td
                   colSpan={10}
-                  className="px-4 py-10 text-center text-[#838aa4]"
+                  className="px-4 py-10 text-center text-[#a3aac2]"
                 >
                   등록된 회사가 없습니다. 우측 상단의 &quot;신규 회사 등록&quot;
                   으로 시작하세요.
@@ -84,14 +84,14 @@ export default async function TenantsPage() {
                   >
                     {t.displayName}
                   </Link>
-                  <div className="text-xs text-[#838aa4]">{t.slug}</div>
+                  <div className="text-xs text-[#a3aac2]">{t.slug}</div>
                   <div className="mt-1">
                     {t.enrollSecretHash ? (
                       <span className="inline-block rounded bg-green-50 px-1.5 py-0.5 text-[11px] text-green-700">
                         🔑 에이전트 키 발급됨
                       </span>
                     ) : (
-                      <span className="inline-block rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-[#9ba2b8]">
+                      <span className="inline-block rounded bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-[#b9bfd2]">
                         에이전트 키 미발급
                       </span>
                     )}
@@ -101,32 +101,32 @@ export default async function TenantsPage() {
                   <Link
                     href="/users"
                     title="사용자 관리에서 회사별로 보기"
-                    className="inline-block rounded bg-white/[0.06] px-2 py-0.5 text-xs font-medium text-[#d6d8de] hover:bg-[#4c7dff] hover:text-white"
+                    className="inline-block rounded bg-white/[0.06] px-2 py-0.5 text-xs font-medium text-[#eef0f4] hover:bg-[#4c7dff] hover:text-white"
                   >
                     {userCounts[t.id] ?? 0}개
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-[#d6d8de]">
+                <td className="px-4 py-3 text-[#eef0f4]">
                   {t.representativeName ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-[#d6d8de]">
+                <td className="px-4 py-3 text-[#eef0f4]">
                   {t.contactPhone ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-[#d6d8de]">
+                <td className="px-4 py-3 text-[#eef0f4]">
                   {t.monthlyFeeKrw != null
                     ? `${t.monthlyFeeKrw.toLocaleString()}원`
                     : "—"}
                 </td>
-                <td className="px-4 py-3 text-[#d6d8de]">
+                <td className="px-4 py-3 text-[#eef0f4]">
                   {t.paymentDay != null ? `${t.paymentDay}일` : "—"}
                 </td>
-                <td className="px-4 py-3 text-[#d6d8de]">
+                <td className="px-4 py-3 text-[#eef0f4]">
                   {paymentMethodLabel(t.paymentMethod)}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={t.subscriptionStatus} />
                 </td>
-                <td className="px-4 py-3 text-[#9ba2b8]">
+                <td className="px-4 py-3 text-[#b9bfd2]">
                   {t.subscriptionStartedAt
                     ? new Date(t.subscriptionStartedAt).toLocaleDateString("ko-KR")
                     : new Date(t.createdAt).toLocaleDateString("ko-KR")}
@@ -135,7 +135,7 @@ export default async function TenantsPage() {
                   <div className="flex justify-end gap-1">
                     <Link
                       href={`/admin/tenants/${t.id}/edit`}
-                      className="rounded border border-[#3d4c71] bg-[#1e2740] px-2 py-1 text-xs hover:bg-white/[0.04]"
+                      className="rounded border border-[#6274a3] bg-[#2e3a5c] px-2 py-1 text-xs hover:bg-white/[0.04]"
                     >
                       수정
                     </Link>

@@ -114,7 +114,7 @@ export function CustomerForm({
             ))}
           </datalist>
         )}
-        <p className="mt-1 text-xs text-[#9ba2b8]">
+        <p className="mt-1 text-xs text-[#b9bfd2]">
           같은 매장의 여러 POS 를 한 폴더로 묶습니다. 기존 폴더를 고르거나, 새 이름을
           적으면 폴더가 새로 만들어집니다. 비우면 폴더 없음.
         </p>
@@ -127,7 +127,7 @@ export function CustomerForm({
           pattern="[A-Za-z0-9 ]*"
           className="input font-mono"
         />
-        <p className="mt-1 text-xs text-[#9ba2b8]">
+        <p className="mt-1 text-xs text-[#b9bfd2]">
           한 번이라도 원격 접속해본 거래처면 ID 입력해두면 다음부턴 1-클릭 접속.
         </p>
       </Field>
@@ -177,7 +177,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="block text-sm font-medium text-[#d6d8de] mb-1">
+      <span className="block text-sm font-medium text-[#eef0f4] mb-1">
         {label}
         {required && <span className="text-[#ff6b6f] ml-1">*</span>}
       </span>
