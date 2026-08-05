@@ -165,7 +165,7 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
       <div className="flex justify-end gap-2">
         <Link
           href="/admin/tenants"
-          className="rounded-md border border-[#24375a] bg-[#0d172b] px-4 py-2 text-sm hover:bg-white/[0.04]"
+          className="rounded-md border border-[#3d4c71] bg-[#1e2740] px-4 py-2 text-sm hover:bg-white/[0.04]"
         >
           취소
         </Link>
@@ -182,12 +182,12 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
 }
 
 const inp =
-  "block w-full rounded-md border border-[#24375a] bg-[#0d172b] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none focus:ring-1 focus:ring-[#4c7dff]";
+  "block w-full rounded-md border border-[#3d4c71] bg-[#1e2740] px-3 py-2 text-sm focus:border-[#4c7dff] focus:outline-none focus:ring-1 focus:ring-[#4c7dff]";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-[#172540] bg-[#0d172b] p-5">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#8a93ad]">
+    <div className="rounded-lg border border-[#2c3852] bg-[#1e2740] p-5">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-[#9ba2b8]">
         {title}
       </h2>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{children}</div>
@@ -210,12 +210,12 @@ function Field({
 }) {
   return (
     <label className={`block ${wide ? "md:col-span-2" : ""}`}>
-      <div className="mb-1 text-sm font-medium text-[#c7c9d1]">
+      <div className="mb-1 text-sm font-medium text-[#d6d8de]">
         {label}
         {required && <span className="ml-1 text-[#ff6b6f]">*</span>}
       </div>
       {children}
-      {hint && <div className="mt-1 text-xs text-[#8a93ad]">{hint}</div>}
+      {hint && <div className="mt-1 text-xs text-[#9ba2b8]">{hint}</div>}
     </label>
   );
 }

@@ -53,7 +53,7 @@ function SortHeader({
         className="inline-flex items-center gap-1 hover:text-[#a9c0ff]"
       >
         {label}
-        <span className="text-[10px] text-[#6b7390]">
+        <span className="text-[10px] text-[#838aa4]">
           {active ? (activeDir === "asc" ? "▲" : "▼") : "↕"}
         </span>
       </Link>
@@ -213,7 +213,7 @@ export default async function CustomersPage({
       <header className="mb-6 flex items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">거래처</h1>
-          <p className="text-sm text-[#8a93ad] mt-1">
+          <p className="text-sm text-[#9ba2b8] mt-1">
             등록된 거래처 {rows.length}곳 · ID 등록된 곳은 클릭 한 번으로 원격 접속
           </p>
         </div>
@@ -333,7 +333,7 @@ export default async function CustomersPage({
                       </span>
                     )}
                     {c.address && (
-                      <div className="text-xs text-[#6b7390] mt-0.5">{c.address}</div>
+                      <div className="text-xs text-[#838aa4] mt-0.5">{c.address}</div>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -348,7 +348,7 @@ export default async function CustomersPage({
                         {c.assignedUserName}
                       </span>
                     ) : (
-                      <span className="text-[#6b7390] text-xs">미배정</span>
+                      <span className="text-[#838aa4] text-xs">미배정</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-[#abaebb] whitespace-nowrap">{c.contactName ?? "-"}</td>
@@ -366,7 +366,7 @@ export default async function CustomersPage({
                             className={`inline-block px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap ${
                               osIsWin7
                                 ? "bg-amber-500/12 text-amber-300 font-medium"
-                                : "bg-white/[0.06] text-[#8a93ad]"
+                                : "bg-white/[0.06] text-[#9ba2b8]"
                             }`}
                           >
                             {osBadgeText}
@@ -398,7 +398,7 @@ export default async function CustomersPage({
                         />
                       </div>
                     ) : (
-                      <span className="text-[#6b7390]">미등록</span>
+                      <span className="text-[#838aa4]">미등록</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs">
@@ -409,7 +409,7 @@ export default async function CustomersPage({
                       isInternal={c.isInternal}
                     />
                   </td>
-                  <td className="px-4 py-3 text-[#8a93ad] text-xs max-w-[16ch] truncate">
+                  <td className="px-4 py-3 text-[#9ba2b8] text-xs max-w-[16ch] truncate">
                     {c.notes ?? ""}
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -424,7 +424,7 @@ export default async function CustomersPage({
                     ) : (
                       <Link
                         href={`/customers/${c.id}/edit`}
-                        className="inline-flex items-center text-xs text-[#6b7390] hover:text-[#a9c0ff] px-3 py-1.5"
+                        className="inline-flex items-center text-xs text-[#838aa4] hover:text-[#a9c0ff] px-3 py-1.5"
                       >
                         ID 등록
                       </Link>
@@ -442,7 +442,7 @@ export default async function CustomersPage({
                     )}
                     <Link
                       href={`/customers/${c.id}/edit`}
-                      className="inline-flex items-center text-xs text-[#8a93ad] hover:text-white px-2 py-1.5 ml-1"
+                      className="inline-flex items-center text-xs text-[#9ba2b8] hover:text-white px-2 py-1.5 ml-1"
                     >
                       수정
                     </Link>
@@ -451,14 +451,14 @@ export default async function CustomersPage({
               );
             })}
             <tr id="cust-search-empty" style={{ display: "none" }}>
-              <td colSpan={8} className="px-4 py-12 text-center text-[#6b7390] text-sm">
+              <td colSpan={8} className="px-4 py-12 text-center text-[#838aa4] text-sm">
                 검색 결과가 없습니다.
               </td>
             </tr>
           </tbody>
         </table>
         {rows.length === 0 && (
-          <div className="px-4 py-12 text-center text-[#6b7390] text-sm">
+          <div className="px-4 py-12 text-center text-[#838aa4] text-sm">
             아직 등록된 거래처가 없습니다.
             <Link href="/customers/new" className="text-[#a9c0ff] hover:underline ml-2">
               첫 거래처 추가하기

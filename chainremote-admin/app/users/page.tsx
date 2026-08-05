@@ -77,7 +77,7 @@ export default async function UsersPage() {
       <div className="max-w-5xl px-8 py-6">
         <header className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
-          <p className="mt-1 text-sm text-[#8a93ad]">
+          <p className="mt-1 text-sm text-[#9ba2b8]">
             {allUsers.length}명 · 회사별로 묶어 표시. 회사를 클릭하면 그 회사의
             아이디가 펼쳐집니다. (거래처 사람들은 등록 안 함)
           </p>
@@ -111,9 +111,9 @@ export default async function UsersPage() {
     <div className="px-8 py-6 max-w-5xl">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
-        <p className="text-sm text-[#8a93ad] mt-1">
+        <p className="text-sm text-[#9ba2b8] mt-1">
           {rows.length}명 · 좌석{" "}
-          <span className={seatFull ? "font-semibold text-amber-300" : "font-semibold text-[#c7c9d1]"}>
+          <span className={seatFull ? "font-semibold text-amber-300" : "font-semibold text-[#d6d8de]"}>
             {usedSeats} / {maxSeats}
           </span>{" "}
           사용 · 우리 회사 직원 (거래처 사람들은 여기 등록 안 함)
@@ -121,7 +121,7 @@ export default async function UsersPage() {
       </header>
 
       <section className="mb-8 panel-card p-5">
-        <h2 className="mb-4 text-sm font-semibold text-[#c7c9d1]">직원 추가</h2>
+        <h2 className="mb-4 text-sm font-semibold text-[#d6d8de]">직원 추가</h2>
         {seatFull ? (
           <div className="rounded-lg banner banner-warn">
             <p>

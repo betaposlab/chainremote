@@ -64,7 +64,7 @@ export function AgentDownloadCard({
       <h2 className="text-base font-semibold text-white">설치파일</h2>
 
       <div className="mt-3 flex items-center justify-between gap-4">
-        <p className="text-sm text-[#c7c9d1]">
+        <p className="text-sm text-[#d6d8de]">
           <span className="font-medium text-white">가맹점(거래처)용</span> —
           가맹점 PC 에 설치할 우리 회사 전용 원격지원 에이전트입니다. 설치하면
           자동으로 거래처 목록에 등록됩니다.
@@ -76,8 +76,8 @@ export function AgentDownloadCard({
 
       {/* HQ 는 오버레이가 없어 링크 한 줄이면 된다 — 라우트가 latest.json 을 보고 최신으로
           넘긴다(버전을 여기 박으면 릴리즈 때마다 손봐야 하고, 빠뜨리면 굳는다). */}
-      <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#1e2b48] pt-4">
-        <p className="text-sm text-[#c7c9d1]">
+      <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#354268] pt-4">
+        <p className="text-sm text-[#d6d8de]">
           <span className="font-medium text-white">본사 직원용 (HQ)</span> —
           직원 PC 에 설치하는 원격지원 앱입니다. 설치 후 본인 계정으로 로그인하면
           우리 회사 거래처가 보입니다. 항상 최신 버전이 받아집니다.
