@@ -65,7 +65,13 @@ MinVersion=6.1
 ; 자동 업데이트 호환성 — 기존 ChainRemote 프로세스 자동 종료/재시작
 CloseApplications=yes
 RestartApplications=yes
-UninstallDisplayIcon={app}\chainremote.ico
+; ★언인스톨러를 {app} 밖으로 (2026-08-05 테스트1 실검증에서 발견) — 코어 --silent-install 은
+;   설치 전에 rd /s /q 로 {app}(= 자기 설치 폴더)을 통째로 민다(windows.rs get_uninstall).
+;   unins000.exe 가 거기 있으면 매 자동업데이트마다 증발 → 제어판 [제거]가 "이미 제거되었을 수
+;   있습니다"로 즉사하고 아이콘도 깨진다. 코어가 안 건드리는 ProgramData 로 옮긴다.
+;   기존 설치본도 다음 업데이트(Inno 업그레이드) 때 새 위치에 언인스톨러가 재생성돼 자가치유된다.
+UninstallFilesDir={commonappdata}\ChainRemote\installer
+UninstallDisplayIcon={commonappdata}\ChainRemote\chainremote.ico
 UninstallDisplayName={#APP_NAME}
 SetupIconFile=chainremote.ico
 
@@ -99,8 +105,10 @@ Source: "..\custom-agent.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custo
 ;   overlay 없으면 번들 custom.txt 그대로 = 기존(자동업뎃 포함) 동작 무변경.
 Source: "extract-enroll-overlay.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
 
-; ChainRemote 단축아이콘에 쓸 .ico (Program Files 안에 영구 보관)
-Source: "chainremote.ico"; DestDir: "{app}"; Flags: ignoreversion
+; ChainRemote 단축아이콘·제어판 아이콘용 .ico — ProgramData 에 둔다.
+;   {app} 은 코어 silent-install 이 매 업데이트마다 rd /s /q 로 밀어서 영구 보관이 안 된다
+;   (여태 "영구 보관"이라 적혀 있었지만 실제론 업데이트마다 지워지고 있었다).
+Source: "chainremote.ico"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignoreversion
 
 ; 서비스 watchdog (PS2-safe — Win7/Win10 공용). 공백 없는 ProgramData 경로 = schtasks /TR 중첩인용 회피.
 Source: "watchdog.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignoreversion
@@ -170,7 +178,7 @@ Filename: "{cmd}"; Parameters: "/c rmdir /S /Q ""%PROGRAMDATA%\Microsoft\Windows
 Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\CurrentVersion\Run"" /v RustDesk /f 2>nul"; Flags: runhidden
 
 ; 8. 단축아이콘 IconLocation 을 ChainRemote .ico 로 갱신
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{app}\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{commonappdata}\ChainRemote\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
 
 ; 8.3. 거래처가 바꾼 아이콘 이름 존중 (2026-08-05 Chang 결정) — 현장은 영어를 못 읽는
 ;    사장님을 위해 바탕화면 아이콘 이름을 한글("포스원격" 등)로 바꿔 쓴다(코이노 시절부터의
