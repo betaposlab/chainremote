@@ -33,21 +33,23 @@ export default async function RootLayout({
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full flex bg-[#313c58] text-white">
         <aside className="w-60 shrink-0 border-r border-[#566999] bg-[#2b364f] flex flex-col sticky top-0 h-screen">
-          <div className="px-5 py-5 border-b border-[#566999]">
+          <div className="px-4 py-4 border-b border-[#566999]">
             {/* 로고 클릭 = 소개 랜딩 페이지(새 탭). 홈(대시보드)은 아래 메뉴로 간다. */}
             <a
               href="https://betaposlab.com/chainremote"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center"
+              className="block"
               title="ChainRemote 소개 페이지 열기"
             >
-              {/* 우리 로고 워드마크(랜딩 헤더와 동일). next/image 대신 정적 <img> — 브랜드 자산. */}
+              {/* 우리 로고 워드마크(랜딩 헤더와 동일). next/image 대신 정적 <img> — 브랜드 자산.
+                  w-full 로 사이드바 폭을 꽉 채운다 (538x180 = 3:1 이라 높이는 비율로 따라온다).
+                  종전 h-9 고정은 가용 폭의 절반만 써서 좌우가 휑했다. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/chainremote-logo.png"
                 alt="ChainRemote"
-                className="h-9 w-auto"
+                className="block w-full h-auto"
               />
             </a>
           </div>
