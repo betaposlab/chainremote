@@ -19,7 +19,11 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PANEL_BASE="https://sepani.synology.me:3443"
+# ★프로덕션 패널. 종전엔 NAS 패널(sepani:3443)을 봤는데, 클라우드 전환 뒤 남은 낡은 값이었다.
+#   지금은 두 DB 의 enroll secret 이 같아(클라우드가 NAS 에서 이관됨) 결과가 우연히 맞았을 뿐이고,
+#   NAS 패널을 끄는 순간 조용히 깨진다. 아래 agent-push.json 의 sepani 는 설치파일 호스팅이라
+#   NAS 역할이 계속 유효 — 그건 그대로 둔다.
+PANEL_BASE="https://626.kr"
 PANEL_USER="chang"
 BETAPOSLAB_TENANT_ID="9a1d5fe4-e616-42c0-9e23-87b1bbd69b1f"
 
