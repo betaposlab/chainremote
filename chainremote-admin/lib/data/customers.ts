@@ -349,6 +349,25 @@ export async function getFirewallControl(remoteId: string): Promise<boolean> {
   return row?.on ?? false;
 }
 
+/** heartbeat 응답용 — 이 거래처를 관리하는 대리점의 상호(거래처 수락창에 뜰 이름).
+ *  support_display_name 이 비면 계정 표시명으로 폴백한다. 설치본이 아니라 이 경로로
+ *  내려보내는 이유: 설치본(custom.txt)은 자동 업데이트 때 번들 파일로 덮여 사라지고,
+ *  대리점이 상호를 바꿔도 이미 깔린 곳에 반영할 길이 없다. */
+export async function getSupportName(remoteId: string): Promise<string | null> {
+  const [row] = await db
+    .select({
+      support: tenants.supportDisplayName,
+      display: tenants.displayName,
+    })
+    .from(customers)
+    .innerJoin(tenants, eq(customers.tenantId, tenants.id))
+    .where(eq(customers.remoteId, remoteId))
+    .limit(1);
+  if (!row) return null;
+  const name = (row.support ?? "").trim() || (row.display ?? "").trim();
+  return name || null;
+}
+
 /** HQ 우클릭 "방화벽 설정" — 이 거래처의 방화벽 자동 해제 on/off. 자기 tenant 거래처만. */
 export async function setFirewallControl(
   remoteId: string,

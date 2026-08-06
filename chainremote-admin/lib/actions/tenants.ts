@@ -192,6 +192,8 @@ export async function updateTenantFromForm(id: string, formData: FormData) {
 
   const patch: Partial<TenantFields> = {
     displayName,
+    // 비우면 null — getSupportName 이 displayName 으로 폴백한다(마이그 029).
+    supportDisplayName: str("supportDisplayName") || null,
     businessNo: str("businessNo") || null,
     representativeName: str("representativeName") || null,
     businessAddress: str("businessAddress") || null,

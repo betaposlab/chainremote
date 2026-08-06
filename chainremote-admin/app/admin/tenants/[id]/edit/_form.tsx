@@ -9,6 +9,7 @@ import { FormattedInput } from "../../_formatted-input";
 type TenantData = {
   id: string;
   displayName: string;
+  supportDisplayName: string | null;
   businessNo: string | null;
   representativeName: string | null;
   businessAddress: string | null;
@@ -54,6 +55,14 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
       <Section title="회사 정보 (사업자등록증)">
         <Field label="회사명" required>
           <input name="displayName" required defaultValue={tenant.displayName} className={inp} />
+        </Field>
+        <Field label="거래처에 보일 상호" hint="가맹점 수락창에 뜨는 이름. 비우면 회사명 사용">
+          <input
+            name="supportDisplayName"
+            placeholder={tenant.displayName}
+            defaultValue={v(tenant.supportDisplayName)}
+            className={inp}
+          />
         </Field>
         <Field label="사업자등록번호" hint="숫자만 입력하면 자동 하이픈">
           <FormattedInput type="businessNo" name="businessNo" defaultValue={v(tenant.businessNo)} className={inp} />

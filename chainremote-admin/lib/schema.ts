@@ -52,6 +52,11 @@ export const tenants = pgTable("tenants", {
   //   상한 조정은 super_admin 만. "1 아이디 = 동시 1세션"(마이그 010)과 짝을 이뤄 과금을 막는다.
   maxSeats: integer("max_seats").notNull().default(1),
 
+  // 거래처 수락창에 보일 상호(마이그 029). 비면 displayName 폴백.
+  //   패널 로그인용 회사명과 거래처에 내세우는 영업 상호가 다를 수 있어 따로 둔다 —
+  //   우리가 그 사례다(계정 베타포스랩 / 거래처엔 대전문성텔레콤).
+  supportDisplayName: text("support_display_name"),
+
   // 사업자 정보 (사업자등록증 기준)
   businessNo: text("business_no"),                   // 사업자등록번호
   representativeName: text("representative_name"),   // 대표자명

@@ -13,7 +13,9 @@ import { encryptSecret, decryptSecret } from "@/lib/secret-crypto";
 // 회사 생성 때 함께 받는 사업자/연락처/구독 정보. 모두 옵셔널 — 필수 검증은 폼이
 // 하고 DB 는 nullable. monthly_fee_krw 는 공급가액(부가세 별도).
 export interface TenantFields {
-  displayName: string;                            // 회사명
+  displayName: string;
+  /** 거래처 수락창에 보일 상호(마이그 029). 비면 displayName 폴백. */
+  supportDisplayName?: string | null;                            // 회사명
   slug: string;                                   // URL slug (영문, unique)
   businessNo?: string | null;
   representativeName?: string | null;

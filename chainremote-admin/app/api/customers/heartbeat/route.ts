@@ -82,10 +82,15 @@ export async function POST(req: Request) {
     const cleanup = await data.getCleanupRequest(remoteId);
     // 방화벽 자동 해제 대상이면 에이전트가 로컬 감시를 켠다(매 heartbeat 에 플래그 전달, 멱등).
     const firewallControl = await data.getFirewallControl(remoteId);
+    // 거래처 수락창에 띄울 대리점 상호(마이그 029). 에이전트가 캐시해 두고 카드에 쓴다.
+    //   여기로 내려보내는 이유는 설치본에 박으면 자동 업데이트가 덮어버리고 상호 변경도
+    //   반영이 안 되기 때문(getSupportName 주석 참조).
+    const supportName = await data.getSupportName(remoteId);
     return Response.json({
       ok: true,
       ...(cleanup ? { cleanup } : {}),
       firewallControl,
+      ...(supportName ? { supportName } : {}),
     });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });

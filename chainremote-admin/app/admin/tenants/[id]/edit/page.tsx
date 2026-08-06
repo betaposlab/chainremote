@@ -49,6 +49,7 @@ export default async function EditTenantPage({
         tenant={{
           id: t.id,
           displayName: t.displayName,
+          supportDisplayName: t.supportDisplayName,
           businessNo: t.businessNo,
           representativeName: t.representativeName,
           businessAddress: t.businessAddress,
