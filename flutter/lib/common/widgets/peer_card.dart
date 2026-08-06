@@ -28,19 +28,19 @@ typedef PopupMenuEntryBuilder = Future<List<mod_menu.PopupMenuEntry<String>>>
 
 // ── 디스크 배지 (마이그024) — 보고만 있으면 항상 표시(2026-07-16 Chang: HQ 가 주 화면).
 //   정상=회색, 주의(<8GB)=호박, 위험(<5GB)=빨강. 미보고(구버전 에이전트)만 생략.
-Widget? crDiskBadge(Peer peer) {
+Widget? crDiskBadge(BuildContext context, Peer peer) {
   final info = crDiskInfo(peer);
   if (info == null) return null;
   final bg = info.level == 2
-      ? MyTheme.crDangerBg
+      ? CrColors.of(context).dangerBg
       : info.level == 1
-          ? MyTheme.crWarnBg
-          : MyTheme.crChipBg;
+          ? CrColors.of(context).warnBg
+          : CrColors.of(context).chipBg;
   final fg = info.level == 2
-      ? MyTheme.crDangerFg
+      ? CrColors.of(context).dangerFg
       : info.level == 1
-          ? MyTheme.crWarnFg
-          : MyTheme.crTextSubtle;
+          ? CrColors.of(context).warnFg
+          : CrColors.of(context).textSubtle;
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
     decoration: BoxDecoration(
@@ -88,14 +88,14 @@ bool crOsBadgeIsWin7(Peer peer) => peer.os.contains('Windows 7');
 
 // OS 배지 위젯 — crOsBadgeText 를 카드/목록 공용 배지로. Win7=호박, 그 외=회색.
 //   (종전엔 카드·목록에 같은 Container 가 인라인 중복이었다. 목록 2줄화하며 헬퍼로 통일.)
-Widget? crOsBadge(Peer peer) {
+Widget? crOsBadge(BuildContext context, Peer peer) {
   final text = crOsBadgeText(peer);
   if (text == null) return null;
   final win7 = crOsBadgeIsWin7(peer);
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
     decoration: BoxDecoration(
-      color: win7 ? MyTheme.crWarnBg : MyTheme.crChipBg,
+      color: win7 ? CrColors.of(context).warnBg : CrColors.of(context).chipBg,
       borderRadius: BorderRadius.circular(4),
     ),
     child: Text(
@@ -103,7 +103,7 @@ Widget? crOsBadge(Peer peer) {
       style: TextStyle(
         fontSize: 9,
         fontWeight: FontWeight.w600,
-        color: win7 ? MyTheme.crWarnFg : MyTheme.crTextSubtle,
+        color: win7 ? CrColors.of(context).warnFg : CrColors.of(context).textSubtle,
       ),
     ),
   );
@@ -116,7 +116,7 @@ final peerCardUiType = PeerUiType.grid.obs;
 bool? hideUsernameOnCard;
 
 // 플랫폼별 브랜드 색 배경. 해시 기반 색상은 거래처 구분에 혼란을 줘서 폐기했다.
-Color _platformBgColor(String platform) {
+Color _platformBgColor(BuildContext context, String platform) {
   switch (platform) {
     case kPeerPlatformWindows:
       return const Color(0xFF0078D4); // Windows 공식 블루
@@ -127,7 +127,7 @@ Color _platformBgColor(String platform) {
     case kPeerPlatformAndroid:
       return const Color(0xFF3DDC84); // Android 그린
     default:
-      return MyTheme.crTextMuted; // 알 수 없음 = 중성 회색
+      return CrColors.of(context).textMuted; // 알 수 없음 = 중성 회색
   }
 }
 
@@ -302,8 +302,8 @@ class _PeerCardState extends State<_PeerCard>
                       ]).marginOnly(top: isPortrait ? 0 : 2),
                       if (name.isNotEmpty ||
                           showNote ||
-                          crOsBadge(peer) != null ||
-                          crDiskBadge(peer) != null)
+                          crOsBadge(context, peer) != null ||
+                          crDiskBadge(context, peer) != null)
                       Row(
                         children: [
                           if (name.isNotEmpty) ...[
@@ -327,12 +327,12 @@ class _PeerCardState extends State<_PeerCard>
                           // OS·여유 배지를 이름 아래 줄(부제)로 내려, 목록에서 이름을 밀지 않게 한다(2줄화).
                           //   종전엔 오른쪽 상태 pill 옆에 있어 좁은 목록 폭에서 이름 Expanded 를 0 으로
                           //   찌부러뜨렸다(정보 보고한 거래처만 이름 증발, 미보고만 이름 노출 → 불일치).
-                          if (crOsBadge(peer) != null) ...[
-                            crOsBadge(peer)!,
+                          if (crOsBadge(context, peer) != null) ...[
+                            crOsBadge(context, peer)!,
                             const SizedBox(width: 6),
                           ],
-                          if (crDiskBadge(peer) != null) ...[
-                            crDiskBadge(peer)!,
+                          if (crDiskBadge(context, peer) != null) ...[
+                            crDiskBadge(context, peer)!,
                             const SizedBox(width: 6),
                           ],
                           if (showNote)
@@ -441,7 +441,7 @@ class _PeerCardState extends State<_PeerCard>
             borderRadius:
                 BorderRadius.circular(_cardRadius - _borderWidth),
             border: Border.all(
-                color: MyTheme.crBorder, width: 1),
+                color: CrColors.of(context).border, width: 1),
           ),
           child: ClipRRect(
             borderRadius:
@@ -469,10 +469,10 @@ class _PeerCardState extends State<_PeerCard>
                                 displayName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
-                                  color: MyTheme.crTextStrong,
+                                  color: CrColors.of(context).textStrong,
                                 ),
                               ),
                             ),
@@ -482,9 +482,9 @@ class _PeerCardState extends State<_PeerCard>
                                 subtitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
-                                  color: MyTheme.crTextMuted,
+                                  color: CrColors.of(context).textMuted,
                                   letterSpacing: 0.3,
                                 ),
                               ),
@@ -508,8 +508,8 @@ class _PeerCardState extends State<_PeerCard>
                           style: TextStyle(
                             fontSize: 11,
                             color: peer.online
-                                ? MyTheme.crOkDot
-                                : MyTheme.crTextDim,
+                                ? CrColors.of(context).okDot
+                                : CrColors.of(context).textDim,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -522,8 +522,8 @@ class _PeerCardState extends State<_PeerCard>
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                             color: crOsBadgeIsWin7(peer)
-                                ? MyTheme.crWarnBg
-                                : MyTheme.crChipBg,
+                                ? CrColors.of(context).warnBg
+                                : CrColors.of(context).chipBg,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -532,16 +532,16 @@ class _PeerCardState extends State<_PeerCard>
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
                               color: crOsBadgeIsWin7(peer)
-                                  ? MyTheme.crWarnFg
-                                  : MyTheme.crTextSubtle,
+                                  ? CrColors.of(context).warnFg
+                                  : CrColors.of(context).textSubtle,
                             ),
                           ),
                         ),
                         const SizedBox(width: 6),
                       ],
                       // 디스크 배지(마이그024) — 여유공간 위험/주의만.
-                      if (crDiskBadge(peer) != null) ...[
-                        crDiskBadge(peer)!,
+                      if (crDiskBadge(context, peer) != null) ...[
+                        crDiskBadge(context, peer)!,
                         const SizedBox(width: 6),
                       ],
                       checkBoxOrActionMoreLandscape(peer, isTile: false),
@@ -693,7 +693,7 @@ class _PeerCardState extends State<_PeerCard>
             ],
           ),
           child:
-              const Icon(Icons.more_vert, size: 18, color: MyTheme.crTextFaint),
+              Icon(Icons.more_vert, size: 18, color: CrColors.of(context).textFaint),
         ),
       );
 
@@ -1139,8 +1139,8 @@ abstract class BasePeerCard extends StatelessWidget {
         }
 
         return CustomAlertDialog(
-          title: Row(children: const [
-            Icon(Icons.folder_outlined, color: MyTheme.crAccent, size: 22),
+          title: Row(children: [
+            Icon(Icons.folder_outlined, color: CrColors.of(context).accent, size: 22),
             SizedBox(width: 8),
             Text('폴더로 이동'),
           ]),
@@ -1152,11 +1152,11 @@ abstract class BasePeerCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (folders.isEmpty)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(bottom: 8),
                       child: Text('아직 폴더가 없습니다. 아래에서 새로 만드세요.',
                           style: TextStyle(
-                              fontSize: 12, color: MyTheme.crTextMuted)),
+                              fontSize: 12, color: CrColors.of(context).textMuted)),
                     ),
                   ...folders.map((f) => ListTile(
                         dense: true,
@@ -1562,12 +1562,12 @@ class AllCustomersPeerCard extends BasePeerCard {
     // 미확정(pending) 후보 확정. 버튼은 마스터(owner)에게만 노출하고, 서버도 owner 를 강제한다 (이중 게이트).
     if (peer.enrollStatus == 'pending' && ChainRemoteAuth.isMaster()) {
       menuItems.add(MenuEntryDivider());
-      menuItems.add(_confirmCustomerAction(peer.id));
+      menuItems.add(_confirmCustomerAction(context, peer.id));
     }
     return menuItems;
   }
 
-  MenuEntryBase<String> _confirmCustomerAction(String id) {
+  MenuEntryBase<String> _confirmCustomerAction(BuildContext context, String id) {
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Row(
         children: [
@@ -1580,7 +1580,7 @@ class AllCustomersPeerCard extends BasePeerCard {
             alignment: Alignment.centerRight,
             child: Transform.scale(
               scale: 0.8,
-              child: Icon(Icons.verified, color: MyTheme.crAccent),
+              child: Icon(Icons.verified, color: CrColors.of(context).accent),
             ),
           ).marginOnly(right: 4)),
         ],

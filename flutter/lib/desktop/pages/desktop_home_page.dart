@@ -36,7 +36,6 @@ class DesktopHomePage extends StatefulWidget {
   State<DesktopHomePage> createState() => _DesktopHomePageState();
 }
 
-const borderColor = MyTheme.crAccentBorder;
 
 class _DesktopHomePageState extends State<DesktopHomePage>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
@@ -233,14 +232,14 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               },
             ),
             const SizedBox(height: 6),
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 14, bottom: 4, top: 4),
               child: Text('설정',
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.4,
-                      color: MyTheme.crTextMuted)),
+                      color: CrColors.of(context).textMuted)),
             ),
             for (final k in DesktopSettingPage.tabKeys)
               _sidebarItem(
@@ -332,7 +331,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     bool compact = false,
   }) {
     // 뉴모 사이드바 항목. 선택되면 솟은 표면 + 남색, 아니면 투명.
-    final fg = selected ? MyTheme.neuBlueInk : MyTheme.crTabIdle;
+    final fg = selected ? MyTheme.neuBlueInk : CrColors.of(context).tabIdle;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
@@ -454,11 +453,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     final isAgent = bind.isIncomingOnly();
     final label = isAgent ? '거래처용 (Agent)' : '본사용 (HQ)';
     final bgColor = isAgent
-        ? MyTheme.crDangerSoftBg // 거래처용 = 옅은 빨강
-        : MyTheme.crInfoBg; // 본사용 = 옅은 파랑
+        ? CrColors.of(context).dangerSoftBg // 거래처용 = 옅은 빨강
+        : CrColors.of(context).infoBg; // 본사용 = 옅은 파랑
     final fgColor = isAgent
-        ? MyTheme.crDangerDeepFg // 거래처용 진한 빨강
-        : MyTheme.crInfoFg; // 본사용 진한 파랑
+        ? CrColors.of(context).dangerDeepFg // 거래처용 진한 빨강
+        : CrColors.of(context).infoFg; // 본사용 진한 파랑
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -485,16 +484,16 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: MyTheme.crNoticeBg, // light orange bg
+        color: CrColors.of(context).noticeBg, // light orange bg
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: MyTheme.crNoticeBorder, width: 1),
+        border: Border.all(color: CrColors.of(context).noticeBorder, width: 1),
       ),
-      child: const Text(
+      child: Text(
         'ChainGo',
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: MyTheme.crNoticeFg, // deep orange text
+          color: CrColors.of(context).noticeFg, // deep orange text
           letterSpacing: 0.3,
         ),
       ),
@@ -527,11 +526,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 const Text('내 ID ',
                     style: TextStyle(fontSize: 12, color: Colors.black54)),
                 Text(id,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
-                        color: MyTheme.crInfoInk)),
+                        color: CrColors.of(context).infoInk)),
                 const SizedBox(width: 6),
                 const Icon(Icons.copy, size: 14, color: Colors.black45),
               ],
@@ -846,7 +845,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                                   Icons.refresh,
                                   color: refreshHover.value
                                       ? textColor
-                                      : MyTheme.crDivider,
+                                      : CrColors.of(context).divider,
                                   size: 22,
                                 ))),
                           ),
@@ -861,7 +860,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                                 Icons.edit,
                                 color: editHover.value
                                     ? textColor
-                                    : MyTheme.crDivider,
+                                    : CrColors.of(context).divider,
                                 size: 22,
                               ).marginOnly(right: 8, top: 4),
                             ),
@@ -1575,11 +1574,11 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
                           e.name,
                           style: TextStyle(
                               color: checked
-                                  ? MyTheme.crOkFg
+                                  ? CrColors.of(context).okFg
                                   : Color.fromARGB(255, 198, 86, 157)),
                         ),
                         backgroundColor: checked
-                            ? MyTheme.crOkBg
+                            ? CrColors.of(context).okBg
                             : Color.fromARGB(255, 247, 205, 232));
                   }).toList(),
                 ))

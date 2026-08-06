@@ -144,6 +144,144 @@ class IconFont {
   static const IconData more = IconData(0xe609, fontFamily: _family5);
 }
 
+// ChainRemote 화면 색 — 역할 이름으로 모아둔 한 곳 (2026-08-06).
+//
+// 종전엔 홈·거래처카드·탭에만 하드코딩 색이 49군데 흩어져 있어, 톤을 바꾸려면 그걸 전부
+// 찾아다녀야 했고 반드시 몇 개를 놓쳤다(놓친 자리는 밝은 채로 남아 얼룩이 된다).
+//
+// ★상류의 ColorThemeExtension 에 필드를 밀어 넣지 않고 별도 확장으로 둔다 — 그쪽은
+//   RustDesk 코드라 업스트림 머지 때마다 충돌한다. 우리 것은 우리 클래스에.
+//
+// dark 값은 관리 패널과 같은 팔레트다(chainremote-admin/app/globals.css
+//   void #2b364f / abyss #313c58 / deep #3d4e7a / cobalt #3b5291 / edge #566999).
+//   Chang 이 밝기 조정을 네 번 거쳐 확정한 값이라 가독성이 이미 검증돼 있다.
+//
+// ※ OS 브랜드 색(Windows #0078D4 / macOS #1D1D1F / Ubuntu #E95420 / Android #3DDC84)은
+//   여기 없다. 테마가 아니라 상표라 어느 테마에서도 그대로여야 한다.
+class CrColors extends ThemeExtension<CrColors> {
+  const CrColors({
+    required this.textStrong,
+    required this.textMuted,
+    required this.textSubtle,
+    required this.textFaint,
+    required this.textDim,
+    required this.tabIdle,
+    required this.chipBg,
+    required this.border,
+    required this.divider,
+    required this.accentBorder,
+    required this.accent,
+    required this.okFg,
+    required this.okBg,
+    required this.okDot,
+    required this.warnFg,
+    required this.warnBg,
+    required this.warnBannerFg,
+    required this.warnBannerBg,
+    required this.warnBannerBorder,
+    required this.dangerFg,
+    required this.dangerBg,
+    required this.dangerBorder,
+    required this.dangerDeepFg,
+    required this.dangerSoftBg,
+    required this.infoFg,
+    required this.infoBg,
+    required this.infoInk,
+    required this.noticeFg,
+    required this.noticeBg,
+    required this.noticeBorder,
+  });
+
+  final Color textStrong, textMuted, textSubtle, textFaint, textDim, tabIdle;
+  final Color chipBg, border, divider, accentBorder, accent;
+  final Color okFg, okBg, okDot;
+  final Color warnFg, warnBg, warnBannerFg, warnBannerBg, warnBannerBorder;
+  final Color dangerFg, dangerBg, dangerBorder, dangerDeepFg, dangerSoftBg;
+  final Color infoFg, infoBg, infoInk;
+  final Color noticeFg, noticeBg, noticeBorder;
+
+  /// 지금까지 쓰던 값 그대로 — 라이트 테마에서는 화면이 하나도 안 바뀐다.
+  static const light = CrColors(
+    textStrong: Color(0xFF111827),
+    textMuted: Color(0xFF6B7280),
+    textSubtle: Color(0xFF64748B),
+    textFaint: Color(0xFF7C8794),
+    textDim: Color(0xFF9CA3AF),
+    tabIdle: Color(0xFF56606E),
+    chipBg: Color(0xFFF1F5F9),
+    border: Color(0xFFE5E7EB),
+    divider: Color(0xFFDDDDDD),
+    accentBorder: Color(0xFF2F65BA),
+    accent: Color(0xFF00A0E5),
+    okFg: Color(0xFF0A9471),
+    okBg: Color(0xFFD0F7ED),
+    okDot: Color(0xFF16A34A),
+    warnFg: Color(0xFFB45309),
+    warnBg: Color(0xFFFEF3C7),
+    warnBannerFg: Color(0xFF92400E),
+    warnBannerBg: Color(0xFFFFFBEB),
+    warnBannerBorder: Color(0xFFFDE68A),
+    dangerFg: Color(0xFFBE123C),
+    dangerBg: Color(0xFFFFE4E6),
+    dangerBorder: Color(0xFFFECDD3),
+    dangerDeepFg: Color(0xFFB91C1C),
+    dangerSoftBg: Color(0xFFFFE4E1),
+    infoFg: Color(0xFF0369A1),
+    infoBg: Color(0xFFE0F2FE),
+    infoInk: Color(0xFF1E40AF),
+    noticeFg: Color(0xFFC2410C),
+    noticeBg: Color(0xFFFFEDD5),
+    noticeBorder: Color(0xFFEA580C),
+  );
+
+  /// 관리 패널과 같은 톤. 상태색(초록·호박·장미·파랑)은 어두운 표면 위에서 읽히도록
+  /// 배경은 반투명으로 깔고 글자는 밝은 쪽을 쓴다 — 패널 globals.css 와 같은 방식.
+  static final dark = CrColors(
+    textStrong: const Color(0xFFFFFFFF),           // --ink
+    textMuted: const Color(0xFFCBD1E0),            // --ash
+    textSubtle: const Color(0xFFCCD2E3),           // --faint
+    textFaint: const Color(0xFFCCD2E3),
+    textDim: const Color(0xFFCBD1E0),
+    tabIdle: const Color(0xFFCBD1E0),
+    chipBg: const Color(0xFF3D4E7A),               // --deep
+    border: const Color(0xFF566999),               // --edge
+    divider: const Color(0xFF51638F),              // --inkline
+    accentBorder: const Color(0xFF4C7DFF),         // --accent
+    accent: const Color(0xFF4C7DFF),
+    okFg: const Color(0xFF3DDC84),                 // --ok
+    okBg: const Color(0x1A3DDC84),
+    okDot: const Color(0xFF3DDC84),
+    warnFg: const Color(0xFFFFB020),               // --warn
+    warnBg: const Color(0x1AFFB020),
+    warnBannerFg: const Color(0xFFFFB020),
+    warnBannerBg: const Color(0x1AFFB020),
+    warnBannerBorder: const Color(0x47FFB020),
+    dangerFg: const Color(0xFFFF6B6F),             // --danger
+    dangerBg: const Color(0x1FFF5A5F),
+    dangerBorder: const Color(0x47FF5A5F),
+    dangerDeepFg: const Color(0xFFFF6B6F),
+    dangerSoftBg: const Color(0x1FFF5A5F),
+    infoFg: const Color(0xFFC3D3FF),               // --accent-soft-text
+    infoBg: const Color(0x1F4C7DFF),               // --accent-soft-bg
+    infoInk: const Color(0xFFC3D3FF),
+    noticeFg: const Color(0xFFFFB020),
+    noticeBg: const Color(0x1AFFB020),
+    noticeBorder: const Color(0x47FFB020),
+  );
+
+  /// 화면 어디서나 `CrColors.of(context).textMuted` 로 꺼내 쓴다.
+  /// 확장이 등록 안 된 테마(테스트 등)에서도 죽지 않게 light 로 떨어진다.
+  static CrColors of(BuildContext context) =>
+      Theme.of(context).extension<CrColors>() ?? light;
+
+  @override
+  CrColors copyWith() => this;
+
+  @override
+  CrColors lerp(ThemeExtension<CrColors>? other, double t) =>
+      (other is CrColors && t >= 0.5) ? other : this;
+}
+
 class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
   const ColorThemeExtension({
     required this.border,
@@ -252,62 +390,6 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
 
 class MyTheme {
   MyTheme._();
-
-  // ── ChainRemote 시맨틱 토큰 (2026-08-06) ──────────────────────────────────
-  // 화면 톤을 바꿀 때 고칠 곳은 여기 한 곳이다. 종전엔 홈·거래처카드·탭에만 하드코딩
-  // 색이 49군데 흩어져 있어, 톤 하나 바꾸려면 그걸 전부 찾아다녀야 했고 반드시 몇 개를
-  // 놓쳤다(놓친 자리는 밝은 채로 남아 "얼룩"이 된다).
-  //
-  // ★값은 지금 화면과 같다 — 토큰화 자체는 순수 리팩터링이라 눈에 보이는 변화가 없다.
-  //   관리 패널 톤(다크)으로 넘기는 건 이 블록의 값만 갈아끼우는 별도 작업이다.
-  //   참고 팔레트: chainremote-admin/app/globals.css (void/abyss/deep/cobalt/edge).
-  //
-  // ※ OS 브랜드 색(Windows #0078D4 / macOS #1D1D1F / Ubuntu #E95420 / Android #3DDC84)은
-  //   일부러 여기 없다. 테마가 아니라 상표라 다크로 가도 그대로여야 한다.
-
-  // 글자 — 강함 → 흐림 순
-  static const Color crTextStrong = Color(0xFF111827);  // 거래처 이름 등 본문 제목
-  static const Color crTextMuted = Color(0xFF6B7280);   // 보조 설명
-  static const Color crTextSubtle = Color(0xFF64748B);  // 칩 안 보조 글자
-  static const Color crTextFaint = Color(0xFF7C8794);   // 더보기(⋮) 아이콘
-  static const Color crTextDim = Color(0xFF9CA3AF);     // 오프라인 표시
-  static const Color crTabIdle = Color(0xFF56606E);     // 선택 안 된 탭 라벨
-
-  // 표면과 선
-  static const Color crChipBg = Color(0xFFF1F5F9);      // 중립 칩 배경
-  static const Color crBorder = Color(0xFFE5E7EB);      // 카드 테두리
-  static const Color crDivider = Color(0xFFDDDDDD);     // 구분선
-  static const Color crAccentBorder = Color(0xFF2F65BA);// 강조 테두리
-  static const Color crAccent = Color(0xFF00A0E5);      // 폴더·인증 아이콘
-
-  // 상태 — 정상(초록)
-  static const Color crOkFg = Color(0xFF0A9471);
-  static const Color crOkBg = Color(0xFFD0F7ED);
-  static const Color crOkDot = Color(0xFF16A34A);       // 온라인 점
-
-  // 상태 — 주의(호박)
-  static const Color crWarnFg = Color(0xFFB45309);
-  static const Color crWarnBg = Color(0xFFFEF3C7);
-  static const Color crWarnBannerFg = Color(0xFF92400E);
-  static const Color crWarnBannerBg = Color(0xFFFFFBEB);
-  static const Color crWarnBannerBorder = Color(0xFFFDE68A);
-
-  // 상태 — 위험(장미/빨강)
-  static const Color crDangerFg = Color(0xFFBE123C);
-  static const Color crDangerBg = Color(0xFFFFE4E6);
-  static const Color crDangerBorder = Color(0xFFFECDD3);
-  static const Color crDangerDeepFg = Color(0xFFB91C1C); // 거래처용 배지 글자
-  static const Color crDangerSoftBg = Color(0xFFFFE4E1); // 거래처용 배지 배경
-
-  // 상태 — 정보(파랑)
-  static const Color crInfoFg = Color(0xFF0369A1);
-  static const Color crInfoBg = Color(0xFFE0F2FE);
-  static const Color crInfoInk = Color(0xFF1E40AF);
-
-  // 상태 — 알림(주황) : 업데이트 배너
-  static const Color crNoticeFg = Color(0xFFC2410C);
-  static const Color crNoticeBg = Color(0xFFFFEDD5);
-  static const Color crNoticeBorder = Color(0xFFEA580C);
 
   // ChainRemote brand palette (extracted from chainremote_logo.png).
   // chain = blue, remote = green, accent = orange (checkmark).
@@ -565,14 +647,19 @@ class MyTheme {
     extensions: <ThemeExtension<dynamic>>[
       ColorThemeExtension.light,
       TabbarTheme.light,
+      CrColors.light,
     ],
   );
   static ThemeData darkTheme = ThemeData(
+    // ★2026-08-06 표면을 관리 패널 팔레트로 조율했다(void/abyss/deep/cobalt).
+    //   상류 기본값은 거의 검정(#18191E/#24252B)이라 랜딩·패널·수락카드와 톤이 어긋난다.
+    //   테마 기계 자체는 상류 것을 그대로 쓴다 — 새로 만들면 업스트림 머지 때마다 싸운다.
+    //   역할별 색은 CrColors.dark 에 있다(이 파일 위쪽).
     useMaterial3: false,
     brightness: Brightness.dark,
-    hoverColor: Color.fromARGB(255, 45, 46, 53),
-    scaffoldBackgroundColor: Color(0xFF18191E),
-    dialogBackgroundColor: Color(0xFF18191E),
+    hoverColor: Color(0xFF3B5291),
+    scaffoldBackgroundColor: Color(0xFF2B364F),
+    dialogBackgroundColor: Color(0xFF313C58),
     appBarTheme: AppBarTheme(
       shadowColor: Colors.transparent,
     ),
@@ -582,14 +669,14 @@ class MyTheme {
         borderRadius: BorderRadius.circular(18.0),
         side: BorderSide(
           width: 1,
-          color: Color(0xFF24252B),
+          color: Color(0xFF3D4E7A),
         ),
       ),
     ),
     scrollbarTheme: scrollbarThemeDark,
     inputDecorationTheme: (isDesktop || isWebDesktop)
         ? InputDecorationTheme(
-            fillColor: Color(0xFF24252B),
+            fillColor: Color(0xFF3D4E7A),
             filled: true,
             isDense: true,
             border: OutlineInputBorder(
@@ -608,7 +695,7 @@ class MyTheme {
         color: accent80,
       ),
     ),
-    cardColor: Color(0xFF24252B),
+    cardColor: Color(0xFF3D4E7A),
     visualDensity: VisualDensity.adaptivePlatformDensity,
     tabBarTheme: const TabBarTheme(
       labelColor: Colors.white70,
@@ -642,7 +729,7 @@ class MyTheme {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        backgroundColor: Color(0xFF24252B),
+        backgroundColor: Color(0xFF3D4E7A),
         side: BorderSide(color: Colors.white12, width: 0.5),
         disabledForegroundColor: Colors.white70,
         foregroundColor: Colors.white70,
@@ -657,11 +744,11 @@ class MyTheme {
     listTileTheme: listTileTheme,
     menuBarTheme: MenuBarThemeData(
         style: MenuStyle(
-            backgroundColor: MaterialStatePropertyAll(Color(0xFF121212)))),
+            backgroundColor: MaterialStatePropertyAll(Color(0xFF2B364F)))),
     colorScheme: ColorScheme.dark(
-      primary: Colors.blue,
+      primary: Color(0xFF4C7DFF),
       secondary: accent,
-      background: Color(0xFF24252B),
+      background: Color(0xFF3D4E7A),
     ),
     popupMenuTheme: PopupMenuThemeData(
         shape: RoundedRectangleBorder(
@@ -672,6 +759,7 @@ class MyTheme {
     extensions: <ThemeExtension<dynamic>>[
       ColorThemeExtension.dark,
       TabbarTheme.dark,
+      CrColors.dark,
     ],
   );
 

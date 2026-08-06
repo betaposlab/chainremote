@@ -195,9 +195,9 @@ class _PeerTabPageState extends State<PeerTabPage>
           margin: const EdgeInsets.only(right: 12, bottom: 4),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: MyTheme.crWarnBannerBg,
+            color: CrColors.of(context).warnBannerBg,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: MyTheme.crWarnBannerBorder),
+            border: Border.all(color: CrColors.of(context).warnBannerBorder),
           ),
           child: Wrap(
             spacing: 6,
@@ -205,10 +205,10 @@ class _PeerTabPageState extends State<PeerTabPage>
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text('💾 디스크 주의 ${warns.length}곳',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: MyTheme.crWarnBannerFg)),
+                      color: CrColors.of(context).warnBannerFg)),
               ...warns.map((t) {
                 final p = t.$1;
                 final w = t.$2!;
@@ -218,16 +218,16 @@ class _PeerTabPageState extends State<PeerTabPage>
                     .replaceFirst('🆕 ', '')
                     .trim();
                 final label = name.isEmpty ? p.id : name;
-                final fg = w.red ? MyTheme.crDangerFg : MyTheme.crWarnFg;
+                final fg = w.red ? CrColors.of(context).dangerFg : CrColors.of(context).warnFg;
                 return Container(
                   padding: const EdgeInsets.only(left: 8, right: 4),
                   decoration: BoxDecoration(
-                    color: w.red ? MyTheme.crDangerBg : Colors.white,
+                    color: w.red ? CrColors.of(context).dangerBg : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                         color: w.red
-                            ? MyTheme.crDangerBorder
-                            : MyTheme.crWarnBannerBorder),
+                            ? CrColors.of(context).dangerBorder
+                            : CrColors.of(context).warnBannerBorder),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -300,7 +300,7 @@ class _PeerTabPageState extends State<PeerTabPage>
         mainAxisSize: MainAxisSize.min,
         children: model.visibleEnabledOrderedIndexs.map((t) {
           final selected = model.currentTab == t;
-          final fg = selected ? MyTheme.neuBlueInk : MyTheme.crTabIdle;
+          final fg = selected ? MyTheme.neuBlueInk : CrColors.of(context).tabIdle;
           return GestureDetector(
             key: ValueKey(t),
             behavior: HitTestBehavior.opaque,
