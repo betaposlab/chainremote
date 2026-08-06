@@ -10,6 +10,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common.dart' show CrColors;
 import 'package:flutter_hbb/common.dart' show chainRemoteVersion;
 import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
@@ -184,7 +185,7 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(),
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E5BFF)),
+                  backgroundColor: CrColors.of(context).accentFill),
               child: const Text('확인'),
             ),
           ],
@@ -219,7 +220,7 @@ class _ChainRemoteAuthGateState extends State<ChainRemoteAuthGate> {
             FilledButton(
               onPressed: () => Navigator.of(ctx).pop(),
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E5BFF)),
+                  backgroundColor: CrColors.of(context).accentFill),
               child: const Text('확인'),
             ),
           ],
@@ -386,7 +387,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: FilledButton.styleFrom(
-                backgroundColor: _brandPrimary),
+                backgroundColor: CrColors.of(context).accentFill),
             child: const Text('강제 종료하고 사용'),
           ),
         ],
@@ -418,8 +419,6 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
   }
 
   // 브랜드 액센트 (베타포스랩 톤).
-  static const _brandPrimary = Color(0xFF1E5BFF);
-  static const _brandDeep = Color(0xFF1E40AF);
 
   @override
   Widget build(BuildContext context) {
@@ -430,11 +429,11 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
         children: [
           // 베이스 배경. 위에서 아래로 옅은 회청색 그라데이션.
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFFE5ECF5), Color(0xFFEEF2F7)],
+                colors: [CrColors.of(context).authBgTop, CrColors.of(context).authBgBottom],
               ),
             ),
           ),
@@ -449,8 +448,8 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    _brandPrimary.withOpacity(0.18),
-                    _brandPrimary.withOpacity(0.0),
+                    CrColors.of(context).tileAccent.withOpacity(0.18),
+                    CrColors.of(context).tileAccent.withOpacity(0.0),
                   ],
                 ),
               ),
@@ -481,14 +480,14 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Material(
-                    color: Colors.white,
+                    color: CrColors.of(context).cardBg,
                     elevation: 0,
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: CrColors.of(context).cardBg,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE3E8F1)),
+                        border: Border.all(color: CrColors.of(context).border),
                         boxShadow: [
                           BoxShadow(
                             color: const Color(0xFF0A2540).withOpacity(0.08),
@@ -527,14 +526,14 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
                             const SizedBox(height: 12),
                             Row(
                               children: [
-                                const Icon(Icons.error_outline,
-                                    size: 16, color: Color(0xFFE53935)),
+                                Icon(Icons.error_outline,
+                                    size: 16, color: CrColors.of(context).dangerFg),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     _errorText!,
-                                    style: const TextStyle(
-                                        color: Color(0xFFE53935),
+                                    style: TextStyle(
+                                        color: CrColors.of(context).dangerFg,
                                         fontSize: 13),
                                   ),
                                 ),
@@ -560,9 +559,9 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
               child: Center(
                 child: Text(
                   'BetaPosLab · ChainRemote v$chainRemoteVersion',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF8A93A6),
+                    color: CrColors.of(context).textMuted,
                     letterSpacing: 0.2,
                   ),
                 ),
@@ -584,12 +583,12 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
           filterQuality: FilterQuality.high,
         ),
         const SizedBox(height: 14),
-        const Text(
+        Text(
           '대리점 로그인',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13,
-            color: Color(0xFF6B7280),
+            color: CrColors.of(context).textMuted,
             letterSpacing: 0.1,
           ),
         ),
@@ -618,26 +617,26 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFB0B7C3), fontSize: 13),
-        labelStyle: const TextStyle(color: Color(0xFF6B7280), fontSize: 13),
-        floatingLabelStyle: const TextStyle(
-            color: _brandPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+        hintStyle: TextStyle(color: CrColors.of(context).textDim, fontSize: 13),
+        labelStyle: TextStyle(color: CrColors.of(context).textMuted, fontSize: 13),
+        floatingLabelStyle: TextStyle(
+            color: CrColors.of(context).tileAccent, fontSize: 13, fontWeight: FontWeight.w600),
         isDense: true,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         filled: true,
-        fillColor: const Color(0xFFF7F9FC),
+        fillColor: CrColors.of(context).inputFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE3E8F1)),
+          borderSide: BorderSide(color: CrColors.of(context).border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE3E8F1)),
+          borderSide: BorderSide(color: CrColors.of(context).border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _brandPrimary, width: 1.5),
+          borderSide: BorderSide(color: CrColors.of(context).tileAccent, width: 1.5),
         ),
       ),
     );
@@ -667,7 +666,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
           child: Checkbox(
             value: value,
             onChanged: _busy ? null : (v) => onChanged(v ?? false),
-            activeColor: _brandPrimary,
+            activeColor: CrColors.of(context).tileAccent,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
           ),
@@ -677,7 +676,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
           onTap: _busy ? null : () => onChanged(!value),
           child: Text(
             label,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+            style: TextStyle(fontSize: 13, color: CrColors.of(context).textMuted),
           ),
         ),
       ],
@@ -690,8 +689,8 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
       child: FilledButton(
         onPressed: _busy ? null : _submit,
         style: FilledButton.styleFrom(
-          backgroundColor: _brandPrimary,
-          disabledBackgroundColor: _brandPrimary.withOpacity(0.5),
+          backgroundColor: CrColors.of(context).accentFill,
+          disabledBackgroundColor: CrColors.of(context).tileAccent.withOpacity(0.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),

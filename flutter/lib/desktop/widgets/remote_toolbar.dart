@@ -436,7 +436,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
               width: 1,
               height: 16,
               margin: const EdgeInsets.symmetric(horizontal: 6),
-              color: const Color(0xFFE5E8EB),
+              color: CrColors.of(context).border,
             ),
             ...toolbarItems,
           ],
@@ -494,11 +494,11 @@ class _MuteMenuState extends State<_MuteMenu> {
       icon: Icon(
         muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
         size: 19,
-        color: muted ? const Color(0xFFE53935) : const Color(0xFF6B7280),
+        color: muted ? CrColors.of(context).dangerFg : CrColors.of(context).textMuted,
       ),
       tooltip: muted ? 'Unmute' : 'Mute',
       color: Colors.transparent,
-      hoverColor: const Color(0xFFF1F5FB),
+      hoverColor: CrColors.of(context).chipBg,
       onPressed: () {
         bind.sessionToggleOption(sessionId: sessionId, value: 'disable-audio');
         setState(() {});
@@ -2408,7 +2408,7 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
     assert(widget.assetName != null || widget.icon != null);
     // 2026-05-27: label 이 있으면 아이콘 + 텍스트를 가로로 배치한다.
     final hasLabel = widget.label != null;
-    final iconColor = hasLabel ? const Color(0xFF3182F6) : Colors.white;
+    final iconColor = hasLabel ? CrColors.of(context).tileAccent : Colors.white;
     final iconSize = hasLabel ? 16.0 : _ToolbarTheme.buttonSize;
     final iconWidget = widget.icon ??
         SvgPicture.asset(
@@ -2418,7 +2418,7 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
           height: iconSize,
         );
     final bgColor = hasLabel
-        ? (hover ? const Color(0xFFF1F5FB) : Colors.transparent)
+        ? (hover ? CrColors.of(context).chipBg : Colors.transparent)
         : (hover ? widget.hoverColor : widget.color);
     final innerChild = hasLabel
         ? Padding(
@@ -2430,10 +2430,10 @@ class _IconMenuButtonState extends State<_IconMenuButton> {
                 const SizedBox(width: 5),
                 Text(
                   widget.label!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF191F28),
+                    color: CrColors.of(context).textStrong,
                   ),
                 ),
               ],
@@ -2524,7 +2524,7 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
     // 2026-05-27: 인라인 모드에서 label 이 있으면 아이콘 + 텍스트를 가로로 배치한다.
     final hasLabel = widget.label != null;
     final iconColor =
-        hasLabel ? const Color(0xFF3182F6) : Colors.white; // 인라인: 브랜드 컬러 아이콘
+        hasLabel ? CrColors.of(context).tileAccent : Colors.white; // 인라인: 브랜드 컬러 아이콘
     final iconSize = hasLabel ? 16.0 : _ToolbarTheme.buttonSize;
     final iconWidget = widget.icon ??
         SvgPicture.asset(
@@ -2534,7 +2534,7 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
           height: iconSize,
         );
     final bgColor = hasLabel
-        ? (hover ? const Color(0xFFF1F5FB) : Colors.transparent)
+        ? (hover ? CrColors.of(context).chipBg : Colors.transparent)
         : (hover ? widget.hoverColor : widget.color);
     final innerChild = hasLabel
         ? Padding(
@@ -2546,10 +2546,10 @@ class _IconSubmenuButtonState extends State<_IconSubmenuButton> {
                 const SizedBox(width: 5),
                 Text(
                   widget.label!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF191F28),
+                    color: CrColors.of(context).textStrong,
                   ),
                 ),
               ],

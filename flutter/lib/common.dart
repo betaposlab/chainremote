@@ -198,6 +198,11 @@ class CrColors extends ThemeExtension<CrColors> {
     required this.tileHoverBg,
     required this.onSurface,
     required this.onSurfaceStrong,
+    required this.authBgTop,
+    required this.authBgBottom,
+    required this.inputFill,
+    required this.segmentBg,
+    required this.accentFill,
     required this.neuBg,
     required this.neuSide,
     required this.neuSurface,
@@ -234,6 +239,13 @@ class CrColors extends ThemeExtension<CrColors> {
   final Color cardBg, tileBg;
   /// 폴더 타일 계열 + 옛 Colors.black54/87 을 대신하는 표면 위 글자색.
   final Color tileText, tileAccent, tileBorder, tileHoverBg, onSurface, onSurfaceStrong;
+  /// 로그인 화면 배경 그라디언트 + 입력칸 채움.
+  final Color authBgTop, authBgBottom, inputFill;
+  /// 세그먼트(알약) 버튼의 비선택 배경. 카드 위에 얹히므로 카드와 달라야 한다.
+  final Color segmentBg;
+  /// 채워진 버튼·선택된 알약의 배경. tileAccent 는 어두운 표면 위 글자/아이콘용이라
+  /// 밝은 파랑인데, 그걸 버튼 배경에 쓰면 흰 글자가 안 읽힌다. 역할을 갈라둔다.
+  final Color accentFill;
 
   // 셸(뉴모피즘 계열) — 사이드바·본문·카드·pill 처럼 화면의 큰 면적을 칠하는 색들.
   // 라이트는 2026-06-06 재스킨 값 그대로, 다크는 관리 패널 팔레트.
@@ -279,6 +291,11 @@ class CrColors extends ThemeExtension<CrColors> {
     tileHoverBg: Color(0xFFD6E4FF),
     onSurface: Color(0x8A000000),
     onSurfaceStrong: Color(0xDD000000),
+    authBgTop: Color(0xFFE5ECF5),
+    authBgBottom: Color(0xFFEEF2F7),
+    inputFill: Color(0xFFF7F9FC),
+    segmentBg: Color(0xFFFFFFFF),
+    accentFill: Color(0xFF1E5BFF),
     neuBg: Color(0xFFEAEEF4),
     neuSide: Color(0xFFF5F7FB),
     neuSurface: Color(0xFFECEFF5),
@@ -345,6 +362,11 @@ class CrColors extends ThemeExtension<CrColors> {
     tileHoverBg: const Color(0xFF3B5291),
     onSurface: const Color(0xFFCBD1E0),
     onSurfaceStrong: const Color(0xFFEEF1F7),
+    authBgTop: const Color(0xFF2B364F),
+    authBgBottom: const Color(0xFF313C58),
+    inputFill: const Color(0xFF2B364F),
+    segmentBg: const Color(0xFF2B364F),
+    accentFill: const Color(0xFF4C7DFF),   // --accent
     neuBg: const Color(0xFF313C58), // 메인 배경 → --abyss
     neuSide: const Color(0xFF2B364F), // 사이드바 → --void
     neuSurface: const Color(0xFF3D4E7A), // 솟은 표면(버튼·카드) → --deep

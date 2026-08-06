@@ -334,11 +334,11 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(28, 22, 28, 18),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1E5BFF), Color(0xFF00B894)],
+          colors: [CrColors.of(context).tileAccent, CrColors.of(context).okFg],
         ),
       ),
       child: Row(
@@ -399,7 +399,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
   Widget _topTabChip(_TabInfo tab) {
     return Obx(() {
       final selected = tab.key == selectedTab.value;
-      const brandBlue = Color(0xFF1E5BFF);
+      final brandBlue = CrColors.of(context).tileAccent;
       return Padding(
         padding: const EdgeInsets.only(right: 8),
         child: Material(
@@ -419,7 +419,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
               padding: const EdgeInsets.symmetric(
                   horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: selected ? brandBlue : const Color(0xFFEEF1F5),
+                color: selected ? brandBlue : CrColors.of(context).chipBg,
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: selected
                     ? [
@@ -437,13 +437,13 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
                   Icon(selected ? tab.selected : tab.unselected,
                       size: 17,
                       color:
-                          selected ? Colors.white : const Color(0xFF4A5568)),
+                          selected ? Colors.white : CrColors.of(context).textMuted),
                   const SizedBox(width: 8),
                   Text(
                     translate(tab.label),
                     style: TextStyle(
                       color:
-                          selected ? Colors.white : const Color(0xFF4A5568),
+                          selected ? Colors.white : CrColors.of(context).textMuted,
                       fontWeight:
                           selected ? FontWeight.w700 : FontWeight.w500,
                       fontSize: 13,
@@ -569,7 +569,7 @@ class _GeneralState extends State<_General> {
       children: [
         if (!isWeb) service(),
         theme(),
-        _Card(title: 'Language', children: [language()]),
+        _Card(context, title: 'Language', children: [language()]),
         if (!isWeb) hwcodec(),
         if (!isWeb) audio(context),
         if (!isWeb) record(context),
@@ -587,7 +587,7 @@ class _GeneralState extends State<_General> {
     }
 
     final isOptFixed = isOptionFixed(kCommConfKeyTheme);
-    return _Card(title: 'Theme', hint: '밝은 모드 권장 — 매장 환경 시인성이 좋습니다.', children: [
+    return _Card(context, title: 'Theme', hint: '밝은 모드 권장 — 매장 환경 시인성이 좋습니다.', children: [
       _Radio<String>(context,
           value: 'light',
           groupValue: current,
@@ -619,8 +619,8 @@ class _GeneralState extends State<_General> {
         return const Offstage();
       }
 
-      return _Card(title: 'Service', hint: '항상 켜둬야 본사에서 접속 가능합니다. 중지하면 원격 지원 불가.', children: [
-        _Button(serviceStop.value ? 'Start' : 'Stop', () {
+      return _Card(context, title: 'Service', hint: '항상 켜둬야 본사에서 접속 가능합니다. 중지하면 원격 지원 불가.', children: [
+        _Button(context, serviceStop.value ? 'Start' : 'Stop', () {
           () async {
             serviceBtnEnabled.value = false;
             await start_service(serviceStop.value);
@@ -724,7 +724,7 @@ class _GeneralState extends State<_General> {
         },
       ));
     }
-    return _Card(title: 'Other', children: children);
+    return _Card(context, title: 'Other', children: children);
   }
 
   Widget wallpaper() {
@@ -771,7 +771,7 @@ class _GeneralState extends State<_General> {
     final vram = bind.mainHasVram();
     return Offstage(
       offstage: !(hwcodec || vram),
-      child: _Card(title: 'Hardware Codec', children: [
+      child: _Card(context, title: 'Hardware Codec', children: [
         _OptionCheckBox(
           context,
           'Enable hardware codec',
@@ -801,7 +801,7 @@ class _GeneralState extends State<_General> {
           setState(() {});
         },
       ).marginOnly(left: _kContentHMargin);
-      return _Card(title: 'Audio Input Device', children: [child]);
+      return _Card(context, title: 'Audio Input Device', children: [child]);
     }
 
     return AudioInput(builder: builder, isCm: false, isVoiceCall: false);
@@ -828,7 +828,7 @@ class _GeneralState extends State<_General> {
       String root_dir = map['root_dir']!;
       bool root_dir_exists = map['root_dir_exists']!;
       bool user_dir_exists = map['user_dir_exists']!;
-      return _Card(title: 'Recording', hint: '거래처와 분쟁이 생기면 증거가 됩니다. 자동 저장 권장.', children: [
+      return _Card(context, title: 'Recording', hint: '거래처와 분쟁이 생기면 증거가 됩니다. 자동 저장 권장.', children: [
         if (!bind.isOutgoingOnly())
           _OptionCheckBox(context, 'Automatically record incoming sessions',
               kOptionAllowAutoRecordIncoming),
@@ -984,7 +984,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
   /// 등록해 다른 본사 PC 가 내 PC 를 원격으로 볼 수 있다. 기본값은 안전하게 OFF.
   /// 영구비번은 HQ 인스톨러가 박아두므로 사용자가 따로 설정할 필요 없다.
   Widget _chainremoteAllowIncomingCard() {
-    return _Card(
+    return _Card(context, 
       title: '외부 원격 접속 허용',
       hint:
           'ON 하면 다른 본사 직원이 내 PC 를 원격으로 볼 수 있습니다 (예: 내가 컴맹이라 동료 도움 필요한 경우).\n'
@@ -1155,7 +1155,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
     return ChangeNotifierProvider.value(
         value: gFFI.serverModel,
         child: Consumer<ServerModel>(builder: ((context, model, child) {
-          return _Button('Change ID', changeIdDialog,
+          return _Button(context, 'Change ID', changeIdDialog,
               enabled: !locked && model.connectStatus > 0);
         })));
   }
@@ -1190,7 +1190,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           break;
       }
 
-      return _Card(title: 'Permissions', hint: '본사가 거래처 PC 에 접속했을 때 무엇을 할 수 있는지. 거래처 운영은 "모든 권한 허용" 권장.', children: [
+      return _Card(context, title: 'Permissions', hint: '본사가 거래처 PC 에 접속했을 때 무엇을 할 수 있는지. 거래처 운영은 "모든 권한 허용" 권장.', children: [
         ComboBox(
             keys: [
               defaultOptionAccessMode,
@@ -1382,7 +1382,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           final usePassword = model.approveMode != 'click';
 
           final isApproveModeFixed = isOptionFixed(kOptionApproveMode);
-          return _Card(title: 'Password', hint: '원격 접속 수락 방식 — 기본 "클릭 수락". 본사가 접속하면 이 PC 화면에 뜨는 수락 버튼을 눌러야 연결됩니다. (영구 비밀번호 미사용)', children: [
+          return _Card(context, title: 'Password', hint: '원격 접속 수락 방식 — 기본 "클릭 수락". 본사가 접속하면 이 PC 화면에 뜨는 수락 버튼을 눌러야 연결됩니다. (영구 비밀번호 미사용)', children: [
             ComboBox(
               enabled: !locked && !isApproveModeFixed,
               keys: modeKeys,
@@ -1411,7 +1411,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
 
   Widget more(BuildContext context) {
     bool enabled = !locked;
-    return _Card(title: 'Security', hint: '거래처 운영 권장 = "내가 원격당하는 동안 내 화면 안 꺼짐" 만 ON, 나머지 OFF.', children: [
+    return _Card(context, title: 'Security', hint: '거래처 운영 권장 = "내가 원격당하는 동안 내 화면 안 꺼짐" 만 ON, 나머지 OFF.', children: [
       shareRdp(context, enabled),
       _OptionCheckBox(context, 'Deny LAN discovery', 'enable-lan-discovery',
           reverse: true, enabled: enabled),
@@ -1820,7 +1820,7 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
     final outgoingOnly = bind.isOutgoingOnly();
 
     final divider = const Divider(height: 1, indent: 16, endIndent: 16);
-    return _Card(
+    return _Card(context, 
       title: 'Network',
       hint: '⚠️ 본사 서버는 설치할 때 자동으로 박혀있습니다. 절대 손대지 마세요. 프록시·웹소켓 등은 특수 망 환경에서만 사용.',
       children: [
@@ -1930,7 +1930,7 @@ class _DisplayState extends State<_Display> {
     }
 
     final groupValue = bind.mainGetUserDefaultOption(key: kOptionViewStyle);
-    return _Card(title: 'Default View Style', hint: '권장: "본사 창 크기에 맞춤". 4K 거래처 PC 도 내 창 크기로 맞춤.', children: [
+    return _Card(context, title: 'Default View Style', hint: '권장: "본사 창 크기에 맞춤". 4K 거래처 PC 도 내 창 크기로 맞춤.', children: [
       _Radio(context,
           value: kRemoteViewStyleOriginal,
           groupValue: groupValue,
@@ -1960,7 +1960,7 @@ class _DisplayState extends State<_Display> {
       setState(() {});
     }
 
-    return _Card(title: 'Default Scroll Style', children: [
+    return _Card(context, title: 'Default Scroll Style', children: [
       _Radio(context,
           value: kRemoteScrollStyleAuto,
           groupValue: groupValue,
@@ -2000,7 +2000,7 @@ class _DisplayState extends State<_Display> {
 
     final isOptFixed = isOptionFixed(kOptionImageQuality);
     final groupValue = bind.mainGetUserDefaultOption(key: kOptionImageQuality);
-    return _Card(title: 'Default Image Quality', hint: '권장: "빠른 반응". 살짝 흐려도 끊김 없이 빠르게 — 매장 환경에서 답답함 적음.', children: [
+    return _Card(context, title: 'Default Image Quality', hint: '권장: "빠른 반응". 살짝 흐려도 끊김 없이 빠르게 — 매장 환경에서 답답함 적음.', children: [
       _Radio(context,
           value: kRemoteImageQualityBest,
           groupValue: groupValue,
@@ -2040,7 +2040,7 @@ class _DisplayState extends State<_Display> {
       // But it may also be ok to take effect in the next connection.
     }
 
-    return _Card(title: 'Default trackpad speed', children: [
+    return _Card(context, title: 'Default trackpad speed', children: [
       TrackpadSpeedWidget(
         value: curSpeed,
         onDebouncer: onDebouncer,
@@ -2080,7 +2080,7 @@ class _DisplayState extends State<_Display> {
     } catch (e) {
       debugPrint("failed to parse supported hwdecodings, err=$e");
     }
-    return _Card(title: 'Default Codec', hint: '자동 권장. 본사·거래처 환경에 따라 알아서 최선 선택.', children: [
+    return _Card(context, title: 'Default Codec', hint: '자동 권장. 본사·거래처 환경에 따라 알아서 최선 선택.', children: [
       _Radio(context,
           value: 'auto',
           groupValue: groupValue,
@@ -2128,7 +2128,7 @@ class _DisplayState extends State<_Display> {
     if (groupValue.isEmpty) {
       groupValue = bind.mainDefaultPrivacyModeImpl();
     }
-    return _Card(
+    return _Card(context, 
       title: 'Privacy mode',
       children: privacyModeImpls.map((impl) {
         final d = impl as List<dynamic>;
@@ -2171,7 +2171,7 @@ class _DisplayState extends State<_Display> {
   Widget other(BuildContext context) {
     final children =
         otherDefaultSettings().map((e) => otherRow(e.$1, e.$2)).toList();
-    return _Card(title: 'Other Default Options', children: children);
+    return _Card(context, title: 'Other Default Options', children: children);
   }
 }
 
@@ -2189,13 +2189,13 @@ class _AccountState extends State<_Account> {
     return ListView(
       controller: scrollController,
       children: [
-        _Card(title: 'Account', children: [accountAction(), useInfo()]),
+        _Card(context, title: 'Account', children: [accountAction(), useInfo()]),
       ],
     ).marginOnly(bottom: _kListViewBottomMargin);
   }
 
   Widget accountAction() {
-    return Obx(() => _Button(
+    return Obx(() => _Button(context, 
         gFFI.userModel.userName.value.isEmpty
             ? 'Login'
             : '${translate('Logout')} (${gFFI.userModel.accountLabelWithHandle})',
@@ -2352,7 +2352,7 @@ class _PluginState extends State<_Plugin> {
   }
 
   Widget accountAction() {
-    return Obx(() => _Button(
+    return Obx(() => _Button(context, 
         gFFI.userModel.userName.value.isEmpty
             ? 'Login'
             : '${translate('Logout')} (${gFFI.userModel.accountLabelWithHandle})',
@@ -2431,7 +2431,7 @@ class __PrinterState extends State<_Printer> {
                               .copyWith(color: Colors.red))
                       .marginOnly(bottom: 10.0)),
         ),
-        _Button('Install {$appName} Printer', () {
+        _Button(context, 'Install {$appName} Printer', () {
           failedMsg.value = '';
           bind.mainSetCommon(key: 'install-printer', value: '');
         })
@@ -2461,7 +2461,7 @@ class __PrinterState extends State<_Printer> {
         if (installed && isPrinterInstalled) tipReady()
       ]);
     }
-    return _Card(title: 'Outgoing Print Jobs', children: children);
+    return _Card(context, title: 'Outgoing Print Jobs', children: children);
   }
 
   Widget incoming(BuildContext context) {
@@ -2472,7 +2472,7 @@ class __PrinterState extends State<_Printer> {
     }
 
     PrinterOptions printerOptions = PrinterOptions.load();
-    return _Card(title: 'Incoming Print Jobs', children: [
+    return _Card(context, title: 'Incoming Print Jobs', children: [
       _Radio(context,
           value: kValuePrinterIncomingJobDismiss,
           groupValue: printerOptions.action,
@@ -2541,7 +2541,7 @@ class _AboutState extends State<_About> {
       final scrollController = ScrollController();
       return SingleChildScrollView(
         controller: scrollController,
-        child: _Card(title: 'ChainRemote 정보', children: [
+        child: _Card(context, title: 'ChainRemote 정보', children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2551,10 +2551,10 @@ class _AboutState extends State<_About> {
                 padding: const EdgeInsets.symmetric(
                     vertical: 20, horizontal: 20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF1E5BFF), Color(0xFF00B894)],
+                    colors: [CrColors.of(context).tileAccent, CrColors.of(context).okFg],
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -2651,7 +2651,7 @@ class _AboutState extends State<_About> {
                   child: Text(
                     'ChainRemote 소스 코드 (GitHub)',
                     style: linkStyle.copyWith(
-                        fontSize: 11, color: const Color(0xFF1E5BFF)),
+                        fontSize: 11, color: CrColors.of(context).tileAccent),
                   ).marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
@@ -2661,7 +2661,7 @@ class _AboutState extends State<_About> {
                   child: Text(
                     'ChainRemote 변경 내역 (RustDesk 대비)',
                     style: linkStyle.copyWith(
-                        fontSize: 11, color: const Color(0xFF1E5BFF)),
+                        fontSize: 11, color: CrColors.of(context).tileAccent),
                   ).marginSymmetric(vertical: 4.0)),
               InkWell(
                   onTap: () {
@@ -2715,12 +2715,12 @@ class _AboutState extends State<_About> {
 
 // ignore: non_constant_identifier_names
 // 카드. 좌측 브랜드 블루 강조선 + 옅은 헤더 + 옵션 힌트.
-Widget _Card(
+Widget _Card(BuildContext context,
     {required String title,
     required List<Widget> children,
     List<Widget>? title_suffix,
     String? hint}) {
-  const brandBlue = Color(0xFF1E5BFF);
+  final brandBlue = CrColors.of(context).tileAccent;
   return Row(
     children: [
       Flexible(
@@ -2729,15 +2729,15 @@ Widget _Card(
           child: Container(
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F4FA), // 배경보다 약간 밝게 → 카드가 뜸
+              color: CrColors.of(context).cardBg, // 배경보다 약간 밝게 → 카드가 뜸
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                    color: const Color(0x8F97A6C4), // 더 진한 그림자(확실히 솟게)
+                    color: CrColors.of(context).neuShadowDark, // 더 진한 그림자(확실히 솟게)
                     offset: const Offset(7, 7),
                     blurRadius: 18),
                 BoxShadow(
-                    color: Colors.white,
+                    color: CrColors.of(context).neuShadowLight,
                     offset: const Offset(-6, -6),
                     blurRadius: 14),
               ],
@@ -2751,7 +2751,7 @@ Widget _Card(
                     children: [
                       Container(
                         width: 4,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: brandBlue,
                           borderRadius: BorderRadius.only(
                             topLeft: Radius.circular(10),
@@ -2788,15 +2788,15 @@ Widget _Card(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.info_outline_rounded,
+                        Icon(Icons.info_outline_rounded,
                             size: 14, color: brandBlue),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             hint,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF4A5568),
+                              color: CrColors.of(context).textMuted,
                               height: 1.4,
                             ),
                           ),
@@ -2822,11 +2822,11 @@ Widget _Card(
 //   _Radio:          라디오를 알약 칩으로 (활성 = brand 채움, 비활성 = 보더만)
 // 함수 시그니처는 그대로라 호출부 30여 곳은 손 안 대고 시각만 바꿨다.
 
-const _kChainBrand = Color(0xFF3182F6);
-const _kChainTextPrimary = Color(0xFF191F28);
-const _kChainTextSecondary = Color(0xFF6B7684);
-const _kChainBorder = Color(0xFFE5E8EB);
-const _kChainTrackOff = Color(0xFFD1D6DB);
+
+
+
+
+
 
 Widget _OptionCheckBox(
   BuildContext context,
@@ -2875,8 +2875,8 @@ Widget _OptionCheckBox(
   return Obx(() {
     final on = ref.value;
     final textColor = canToggle
-        ? _kChainTextPrimary
-        : _kChainTextPrimary.withOpacity(0.4);
+        ? CrColors.of(context).textStrong
+        : CrColors.of(context).textStrong.withOpacity(0.4);
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: canToggle ? () => onChanged(!on) : null,
@@ -2925,8 +2925,10 @@ class _ChainSwitch extends StatelessWidget {
     const w = 40.0;
     const h = 24.0;
     final trackColor = value
-        ? (enabled ? _kChainBrand : _kChainBrand.withOpacity(0.4))
-        : (enabled ? _kChainTrackOff : _kChainTrackOff.withOpacity(0.5));
+        ? (enabled
+            ? CrColors.of(context).accentFill
+            : CrColors.of(context).accentFill.withOpacity(0.4))
+        : (enabled ? CrColors.of(context).border : CrColors.of(context).border.withOpacity(0.5));
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
@@ -2978,11 +2980,13 @@ Widget _Radio<T>(BuildContext context,
   final selected = value == groupValue;
   final canTap = onChanged != null;
   final bgColor = selected
-      ? (canTap ? _kChainBrand : _kChainBrand.withOpacity(0.4))
-      : Colors.white;
+      ? (canTap
+          ? CrColors.of(context).accentFill
+          : CrColors.of(context).accentFill.withOpacity(0.4))
+      : CrColors.of(context).segmentBg;
   final fgColor = selected
       ? Colors.white
-      : (canTap ? _kChainTextPrimary : _kChainTextPrimary.withOpacity(0.4));
+      : (canTap ? CrColors.of(context).textStrong : CrColors.of(context).textStrong.withOpacity(0.4));
   return Padding(
     padding: const EdgeInsets.only(left: _kRadioLeftMargin, right: 8, bottom: 6),
     child: Align(
@@ -2999,7 +3003,7 @@ Widget _Radio<T>(BuildContext context,
               color: bgColor,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: selected ? _kChainBrand : _kChainBorder,
+                color: selected ? CrColors.of(context).tileAccent : CrColors.of(context).border,
                 width: 1,
               ),
               boxShadow: selected
@@ -3100,7 +3104,7 @@ class _WaylandCardState extends State<WaylandCard> {
         ];
         return Offstage(
           offstage: children.isEmpty,
-          child: _Card(title: 'Wayland', children: children),
+          child: _Card(context, title: 'Wayland', children: children),
         );
       },
     );
@@ -3131,7 +3135,7 @@ class _WaylandCardState extends State<WaylandCard> {
                   onPressed: () => gFFI.dialogManager.dismissAll())
             ]);
 
-    return _Button(
+    return _Button(context, 
       'Clear Wayland screen selection',
       showConfirmMsgBox,
       tip: 'clear_Wayland_screen_selection_tip',
@@ -3174,7 +3178,7 @@ class _WaylandCardState extends State<WaylandCard> {
                             .copyWith(color: Colors.red))
                     .marginOnly(bottom: 10.0)),
       ),
-      _Button(
+      _Button(context, 
         'Reset keyboard shortcuts permission',
         showConfirmMsgBox,
         tip: 'clear-shortcuts-inhibitor-permission-tip',
@@ -3188,7 +3192,7 @@ class _WaylandCardState extends State<WaylandCard> {
 }
 
 // ignore: non_constant_identifier_names
-Widget _Button(String label, Function() onPressed,
+Widget _Button(BuildContext context, String label, Function() onPressed,
     {bool enabled = true, String? tip, ButtonStyle? style}) {
   var button = ElevatedButton(
     onPressed: enabled ? onPressed : null,
@@ -3209,7 +3213,7 @@ Widget _Button(String label, Function() onPressed,
 }
 
 // ignore: non_constant_identifier_names
-Widget _SubButton(String label, Function() onPressed, [bool enabled = true]) {
+Widget _SubButton(BuildContext context, String label, Function() onPressed, [bool enabled = true]) {
   return Row(
     children: [
       ElevatedButton(
