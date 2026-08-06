@@ -27,6 +27,8 @@ type TenantData = {
   subscriptionStartedAt: string | null; // YYYY-MM-DD
   notes: string | null;
   maxSeats: number;
+  unattendedAgent: boolean;
+  hqGreeting: string | null;
 };
 
 export function EditTenantForm({ tenant }: { tenant: TenantData }) {
@@ -160,6 +162,35 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
             name="notes"
             rows={2}
             defaultValue={v(tenant.notes)}
+            className={inp}
+          />
+        </Field>
+      </Section>
+
+      <Section title="특수 설정">
+        <Field
+          label="무인 접속 허용"
+          wide
+          hint="켜면 이 대리점의 [에이전트 다운로드] 설치본이 '수락 클릭 없이' 접속을 받는다(영구비번 필요). 가맹점에 설치할 대리점은 절대 켜지 말 것 — 사장님이 매번 수락하는 것이 우리 제품의 약속이다. 본인이 자기 PC 를 보는 전용 대리점에만 쓴다. 켜고 나서 새로 받은 설치본부터 적용된다."
+        >
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="unattendedAgent"
+              defaultChecked={tenant.unattendedAgent}
+              className="h-4 w-4 accent-[#4C7DFF]"
+            />
+            <span>이 대리점의 에이전트는 수락 클릭 없이 접속을 받는다</span>
+          </label>
+        </Field>
+        <Field
+          label="HQ 인사말"
+          wide
+          hint="이 대리점 계정으로 로그인한 HQ 의 설정 → 정보 화면에서 앱 아이콘을 일곱 번 누르면 뜬다. 비우면 아무 일도 일어나지 않는다."
+        >
+          <input
+            name="hqGreeting"
+            defaultValue={v(tenant.hqGreeting)}
             className={inp}
           />
         </Field>

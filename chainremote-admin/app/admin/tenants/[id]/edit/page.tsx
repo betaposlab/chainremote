@@ -73,6 +73,8 @@ export default async function EditTenantPage({
             : null,
           notes: t.notes,
           maxSeats: t.maxSeats,
+          unattendedAgent: t.unattendedAgent,
+          hqGreeting: t.hqGreeting,
         }}
       />
     </div>

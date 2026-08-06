@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/chainremote_update_check.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_home_page.dart';
@@ -2555,21 +2556,7 @@ class _AboutState extends State<_About> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // 심볼만 (체인 아이콘) — 흰 배경 원 안에.
-                      Container(
-                        width: 56,
-                        height: 56,
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Image.asset(
-                          'assets/chainremote_mark.png',
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) =>
-                              const SizedBox(width: 44, height: 44),
-                        ),
-                      ),
+                      const _BrandMark(),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
@@ -3322,6 +3309,114 @@ _LabeledTextField(
       ),
     ],
   ).marginOnly(bottom: 8);
+}
+
+/// 정보 화면 브랜드 헤더의 심볼. 일곱 번 누르면 그 대리점에 설정된 인사말이 뜬다.
+///
+/// 안드로이드 빌드번호 일곱 번 탭과 같은 제스처라 눌러 본 사람은 바로 알아챈다. 정보
+/// 화면은 평소 쓸 일이 없어 업무 중에 실수로 튀어나올 걱정도 없다.
+///
+/// 문구를 안 채운 대리점(대다수)에서는 몇 번을 눌러도 아무 일이 없다 — 기능이 있다는
+/// 티조차 안 난다. 문구는 코드가 아니라 패널 DB 에 있다(HQ 는 빌드가 한 벌이고 이
+/// 저장소는 AGPL 공개 소스라, 코드에 박으면 전 대리점과 인터넷에 다 보인다).
+class _BrandMark extends StatefulWidget {
+  const _BrandMark();
+
+  @override
+  State<_BrandMark> createState() => _BrandMarkState();
+}
+
+class _BrandMarkState extends State<_BrandMark> {
+  static const _tapsToReveal = 7;
+  // 마지막 탭에서 이 시간이 지나면 카운트를 버린다. 없으면 몇 달에 걸쳐 우연히 누른
+  // 탭들이 쌓여 엉뚱한 때 튀어나온다.
+  static const _window = Duration(seconds: 3);
+
+  int _taps = 0;
+  DateTime? _lastTap;
+
+  void _onTap() {
+    final greeting = ChainRemoteAuth.currentGreeting();
+    if (greeting.isEmpty) return; // 설정 안 한 대리점 — 아무 일도 없다.
+
+    final now = DateTime.now();
+    if (_lastTap == null || now.difference(_lastTap!) > _window) {
+      _taps = 0;
+    }
+    _lastTap = now;
+    _taps += 1;
+    if (_taps < _tapsToReveal) return;
+
+    _taps = 0;
+    _lastTap = null;
+    _showGreeting(greeting);
+  }
+
+  void _showGreeting(String greeting) {
+    gFFI.dialogManager.show((setState, close, context) {
+      return CustomAlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 64,
+              height: 64,
+              padding: const EdgeInsets.all(7),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Image.asset(
+                'assets/chainremote_mark.png',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const SizedBox(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: Text(
+                greeting,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 15,
+                  height: 1.6,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
+        ),
+        actions: [dialogButton('닫기', onPressed: close)],
+        onCancel: close,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      // SelectionArea 안이라 탭이 선택 제스처와 겹칠 수 있어 opaque 로 먼저 잡는다.
+      behavior: HitTestBehavior.opaque,
+      onTap: _onTap,
+      child: Container(
+        width: 56,
+        height: 56,
+        padding: const EdgeInsets.all(6),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Image.asset(
+          'assets/chainremote_mark.png',
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const SizedBox(width: 44, height: 44),
+        ),
+      ),
+    );
+  }
 }
 
 class _CountDownButton extends StatefulWidget {

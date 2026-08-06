@@ -57,6 +57,16 @@ export const tenants = pgTable("tenants", {
   //   우리가 그 사례다(계정 베타포스랩 / 거래처엔 대전문성텔레콤).
   supportDisplayName: text("support_display_name"),
 
+  // 무인접속 에이전트(마이그 030). 켜면 [에이전트 다운로드] 의 custom.txt 가
+  //   approve-mode=both 로 나간다 — 영구비번이 있을 때만 무클릭이고 없으면 수락창
+  //   폴백이라 잘못 켜도 열린 문이 되진 않는다. 거래처용 클릭수락 정책은 그대로다.
+  unattendedAgent: boolean("unattended_agent").notNull().default(false),
+
+  // HQ 정보 화면 이스터에그 문구(마이그 030). 비면 표시 안 함.
+  //   코드가 아니라 DB 에 두는 이유: HQ 는 빌드가 한 벌이라 코드에 박으면 전 대리점에
+  //   보이고, 이 저장소는 AGPL 공개 소스다.
+  hqGreeting: text("hq_greeting"),
+
   // 사업자 정보 (사업자등록증 기준)
   businessNo: text("business_no"),                   // 사업자등록번호
   representativeName: text("representative_name"),   // 대표자명

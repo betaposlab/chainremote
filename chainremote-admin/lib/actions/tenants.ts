@@ -212,6 +212,10 @@ export async function updateTenantFromForm(id: string, formData: FormData) {
       ? new Date(str("subscriptionStartedAt"))
       : null,
     notes: str("notes") || null,
+    // 체크박스는 꺼져 있으면 폼 데이터에 아예 안 실린다 — 없으면 false 로 확정해야
+    // "끄기" 가 동작한다(있으면 무조건 true 로 읽으면 영영 못 끈다).
+    unattendedAgent: formData.get("unattendedAgent") != null,
+    hqGreeting: str("hqGreeting") || null,
   };
 
   // 좌석 상한(판매한 동시 세션 수). 최소 1. 안 오거나 잘못되면 기존값 유지(patch 에서 제외).

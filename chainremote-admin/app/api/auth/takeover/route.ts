@@ -45,6 +45,7 @@ export async function POST(req: Request) {
         displayName: users.displayName,
         role: users.role,
         tenantId: users.tenantId,
+        greeting: tenants.hqGreeting,
         tenantActive: tenants.isActive,
         subscriptionStatus: tenants.subscriptionStatus,
       })
@@ -94,6 +95,9 @@ export async function POST(req: Request) {
         displayName: u.displayName,
         role: u.role,
         tenantId: u.tenantId,
+        // 로그인(/api/auth/token) 과 같은 모양이어야 한다 — takeover 로 들어온 세션만
+        // 인사말이 빠지면 "어제는 됐는데 오늘은 안 된다" 가 된다.
+        ...(u.greeting ? { greeting: u.greeting } : {}),
       },
     });
   } catch (e) {

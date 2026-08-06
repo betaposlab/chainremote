@@ -84,6 +84,22 @@ class ChainRemoteAuth {
     }
   }
 
+  /// 이 대리점에 설정된 인사말. 설정 → 정보 화면에서만 쓴다. 없으면 빈 문자열.
+  ///
+  /// 문구가 코드가 아니라 패널 DB 에 있는 이유는 두 가지다. HQ 는 빌드가 한 벌이라
+  /// 코드에 박으면 전 대리점에 다 보이고, 이 저장소는 AGPL 이라 소스가 공개다.
+  /// 서버는 값을 채운 대리점에만 이 키를 실어 보낸다.
+  static String currentGreeting() {
+    try {
+      final raw = bind.chainremoteGetUser();
+      if (raw.isEmpty) return '';
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      return ((m['greeting'] as String?) ?? '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
   /// 마스터 = 테넌트 owner(chang). '전체 거래처' 탭의 확정 버튼을 보일지 정하는 UX 게이트다.
   /// 실제 권한은 서버 confirm 엔드포인트(requireOwner)가 막으므로 이 체크는 화면용일 뿐.
   static bool isMaster() {

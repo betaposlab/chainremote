@@ -42,6 +42,12 @@ pub struct UserInfo {
     pub role: String,
     #[serde(rename = "tenantId")]
     pub tenant_id: String,
+    /// 설정 → 정보 화면의 이스터에그 문구. 대리점별로 패널 DB 에 있고, 안 채운 대리점
+    /// (대다수)은 서버가 아예 안 실어 보낸다 — 그러면 HQ 에서 그 기능이 없는 것처럼 된다.
+    /// 코드에 문구를 박지 않는 이유: HQ 는 빌드가 한 벌이라 전 대리점에 다 보이고,
+    /// 이 저장소는 AGPL 공개 소스다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub greeting: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

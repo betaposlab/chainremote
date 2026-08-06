@@ -34,6 +34,10 @@ export interface TenantFields {
   subscriptionStartedAt?: Date | null;
   notes?: string | null;
   maxSeats?: number;                              // 좌석 상한(동시 세션 = 아이디 수). 판매 좌석 수.
+  /** 켜면 이 대리점 에이전트가 approve-mode=both 로 나간다(마이그 030). 가맹점용은 늘 false. */
+  unattendedAgent?: boolean;
+  /** HQ 정보 화면 이스터에그 문구(마이그 030). 비면 표시 안 함. */
+  hqGreeting?: string | null;
 }
 
 // 신규 회사 + 그 회사 owner 1명을 한 트랜잭션으로 생성.

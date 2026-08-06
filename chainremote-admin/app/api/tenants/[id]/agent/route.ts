@@ -20,6 +20,7 @@ import { auth } from "@/auth";
 import { getTenant, getOrCreateEnrollKey } from "@/lib/data/tenants";
 import { fetchAgentPushMetaServer } from "@/lib/agent-push-meta";
 import { canWrite } from "@/lib/roles";
+import { buildAgentCustomTxt } from "@/lib/agent-custom-txt";
 
 export const dynamic = "force-dynamic";
 
@@ -55,13 +56,12 @@ export async function POST(_req: Request, ctx: Ctx) {
   // 1) enroll-key — 스테이블(암호화 평문 있으면 재사용, 없으면 발급). 재다운로드해도 같은 키.
   const enrollKey = await getOrCreateEnrollKey(id);
 
-  // 2) 그 대리점 전용 custom.txt (작동 중 betaposlab 에이전트와 동일 포맷).
-  const customTxt = JSON.stringify({
-    "conn-type": "incoming",
-    "tenant-slug": t.slug,
-    "enroll-key": enrollKey,
-    "default-settings": { "allow-remote-config-modification": "Y" },
-    "override-settings": { "approve-mode": "click" },
+  // 2) 그 대리점 전용 custom.txt. approve-mode 정책이 걸려 있어 순수 함수로 빼 두었다
+  //    (lib/agent-custom-txt.ts + 테스트). 기본은 click, unattended_agent 켠 곳만 both.
+  const customTxt = buildAgentCustomTxt({
+    tenantSlug: t.slug,
+    enrollKey,
+    unattendedAgent: t.unattendedAgent,
   });
 
   // 3) 발행된 최신 버전 조회 (agent-push.json — [최신 가져오기] 버튼과 동일 소스).
