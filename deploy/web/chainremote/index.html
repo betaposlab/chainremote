@@ -327,7 +327,10 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   border:1px solid var(--inkline);border-radius:9999px;padding:3px 10px;white-space:nowrap}
 .hdur{font-size:.76rem;color:#8a93ad;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:34px;text-align:right}
 @media(max-width:680px){.hdur,.hdate{display:none}
-  .hmemo{font-size:.82rem;white-space:normal;overflow:visible;line-height:1.5}}
+  #history .prow{flex-wrap:wrap;row-gap:7px}
+  #history .pname{min-width:0;flex:1 1 auto}
+  #history .hwho{margin-left:auto}
+  .hmemo{flex:1 1 100%;order:3;font-size:.82rem;white-space:normal;overflow:visible;line-height:1.55}}
 
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{animation:none !important;transition:none !important}
