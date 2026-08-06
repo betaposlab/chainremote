@@ -469,69 +469,126 @@ class ConnectionManagerState extends State<ConnectionManager>
   }
 
   // 본사 원격 요청. 거래처가 직접 [수락]/[거부]를 누른다.
-  // 카드 테두리를 은은하게 깜빡여 "눌러주세요" 를 시각적으로 어필한다(2026-07-07 Chang 요청).
+  //
+  // ★2026-08-06 재디자인 — Sciter(Win7) cm.css 와 같은 얼굴이다. 종전엔 흰 상자에 빨간
+  // 테두리 3px 이라 윈도우 오류창처럼 보였고, 본사 ID 9자리를 그대로 노출했다(사장님에게
+  // 숫자는 아무 의미가 없다). 밝은 포스 바탕화면 위에서는 어두운 카드가 저절로 눈에 띄어,
+  // 시선을 끌려고 넣었던 빨간 테두리 자체가 필요 없어진다. 맥동은 [수락] 버튼으로 옮겼다.
+  //
+  // 두 엔진이 같은 그림이 되도록 그림자·그라디언트를 쓰지 않는다 — Sciter 엔 없는 기능이라
+  // 여기서만 쓰면 Win7 과 Win10/11 이 다르게 보인다.
   Widget _buildAgentAcceptCard(ServerModel serverModel, Client client) {
-    final who = client.peerId.isNotEmpty ? client.peerId : client.name;
-    return _PulsingAcceptBorder(
-      child: Material(
-      color: const Color(0xFFF7F9FC),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    // 대리점 상호. heartbeat 가 받아 캐시해 둔 값이고, 아직 못 받았으면(구버전 서버 ·
+    // 첫 하트비트 전) "본사"로 대체한다. 키는 Rust 쪽 SUPPORT_NAME_KEY 와 같은 문자열.
+    String who = '';
+    try {
+      who = bind.mainGetLocalOption(key: 'chainremote-support-name').trim();
+    } catch (e) {
+      debugPrint('support name read failed: $e');
+    }
+    if (who.isEmpty) who = '본사';
+    return Material(
+      color: const Color(0xFF22242B),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFF3A3D47)),
+        ),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('원격지원 요청',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1F2937))),
-            const SizedBox(height: 6),
-            Text('본사($who)에서 이 PC 에 원격 접속을 요청했습니다.',
-                textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 13, color: Color(0xFF4B5563))),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () =>
-                        serverModel.sendLoginResponse(client, false),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF6B7280),
-                      side: const BorderSide(color: Color(0xFFD1D5DB)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+            // 좌측 컬러 기둥 + 모니터 글리프
+            Container(
+              width: 64,
+              color: const Color(0xFF1740C4),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white, width: 3),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
                     ),
-                    child: const Text('거부',
-                        style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () =>
-                        serverModel.sendLoginResponse(client, true),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E5BFF),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 14,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    child: const Text('수락',
-                        style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w700)),
-                  ),
+                  ],
                 ),
-              ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(17, 16, 17, 15),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('원격지원 요청',
+                        style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white)),
+                    const SizedBox(height: 5),
+                    // 상호만 흰색으로 올려 "누가" 를 먼저 읽게 한다.
+                    Text.rich(
+                      TextSpan(children: [
+                        TextSpan(
+                            text: who,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700)),
+                        const TextSpan(
+                            text: '에서 이 PC 에 원격 접속을 요청했습니다.'),
+                      ]),
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          height: 1.5,
+                          color: Color(0xFFADB2C0)),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () =>
+                                serverModel.sendLoginResponse(client, false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFB0B5C2),
+                              side: const BorderSide(color: Color(0xFF454955)),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(9)),
+                            ),
+                            child: const Text('거부',
+                                style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w700)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _PulsingAcceptButton(
+                            onPressed: () =>
+                                serverModel.sendLoginResponse(client, true),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
-      ),
       ),
     );
   }
@@ -1677,20 +1734,26 @@ class __FileTransferLogPageState extends State<_FileTransferLogPage> {
   }
 }
 
-// 수락 카드 테두리를 블링블링하게 맥동시켜 "눌러주세요" 를 어필한다(2026-07-07 Chang 요청).
-// CM 창이 카드와 정확히 같은 크기(360x200)라 바깥으로 번지는 글로우는 창 경계에서 잘린다.
-// 그래서 테두리를 안쪽으로 살짝 들여(inset) 그리고, 글로우(blur)가 '안으로' 번지게 해
-// 창 안에서 네온처럼 숨쉬는 테두리를 만든다. CustomPaint 오버레이라 창 크기·레이아웃을
-// 건드리지 않는다(깜빡임 회귀 위험 0). IgnorePointer 로 수락/거부 버튼 클릭은 그대로 통과.
-class _PulsingAcceptBorder extends StatefulWidget {
-  final Widget child;
-  const _PulsingAcceptBorder({required this.child});
+// [수락] 버튼을 숨쉬듯 맥동시켜 "눌러주세요" 를 어필한다.
+//
+// ★2026-08-06 카드 테두리에서 버튼으로 옮겼다. 종전엔 카드 테두리를 빨갛게 맥동시켰는데
+// (2026-07-07), 빨강은 윈도우 오류창의 문법이라 도와주러 온 요청에 "위험" 신호를 보냈다.
+// 시선은 어차피 눌러야 할 버튼으로 가야 하므로 신호를 거기로 모은다.
+//
+// ※ 2026-07-14 에 "파랑은 시각 효과가 약하다"고 빨강으로 바꾼 적이 있는데, 그건 흰 카드
+//    위의 얇은 테두리였다. 지금은 차콜 카드 위의 채워진 버튼이라 조건이 다르다.
+//
+// 색만 바꾼다(그림자·크기 고정) — Sciter(Win7) 에는 box-shadow 가 없어서 거기 맞춰야
+// 두 엔진이 같은 그림이 된다. cm.tis applyAcceptPulse 와 같은 색·주기.
+class _PulsingAcceptButton extends StatefulWidget {
+  final VoidCallback onPressed;
+  const _PulsingAcceptButton({required this.onPressed});
 
   @override
-  State<_PulsingAcceptBorder> createState() => _PulsingAcceptBorderState();
+  State<_PulsingAcceptButton> createState() => _PulsingAcceptButtonState();
 }
 
-class _PulsingAcceptBorderState extends State<_PulsingAcceptBorder>
+class _PulsingAcceptButtonState extends State<_PulsingAcceptButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -1711,58 +1774,25 @@ class _PulsingAcceptBorderState extends State<_PulsingAcceptBorder>
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        widget.child,
-        Positioned.fill(
-          child: IgnorePointer(
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                final t = Curves.easeInOut.transform(_controller.value);
-                return CustomPaint(painter: _GlowBorderPainter(t));
-              },
-            ),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        // 짙은 파랑 ↔ 밝은 파랑. Sciter 쪽 보간값과 동일.
+        final bg = Color.lerp(
+            const Color(0xFF1740C4), const Color(0xFF5A8CFF), t)!;
+        return FilledButton(
+          onPressed: widget.onPressed,
+          style: FilledButton.styleFrom(
+            backgroundColor: bg,
+            padding: const EdgeInsets.symmetric(vertical: 11),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(9)),
           ),
-        ),
-      ],
+          child: const Text('수락',
+              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
+        );
+      },
     );
   }
-}
-
-// 창 안쪽으로 빛나는 맥동 테두리. blur 로 글로우를 '안으로' 번지게 해 창 경계 잘림을 피한다.
-class _GlowBorderPainter extends CustomPainter {
-  final double t; // 0..1 맥동 위상
-  _GlowBorderPainter(this.t);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const inset = 3.5;
-    final rect = Offset(inset, inset) &
-        Size(size.width - inset * 2, size.height - inset * 2);
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(7));
-    // 짙은 빨강 ↔ 밝은 빨강 사이를 오간다 — 경고색이라 시선을 확실히 끈다
-    // (2026-07-14 Chang: 파랑은 시각 효과가 약해 빨강으로 교체).
-    final color =
-        Color.lerp(const Color(0xFFC62828), const Color(0xFFFF6E6E), t)!;
-    // 글로우(번짐) — 강도/굵기를 맥동. inset 이라 blur 가 안쪽으로 빛난다.
-    canvas.drawRRect(
-        rrect,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3.5
-          ..color = color.withOpacity(0.45 + 0.45 * t)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 2 + 7 * t));
-    // 선명한 심 라인 — 글로우 위에 또렷한 테두리.
-    canvas.drawRRect(
-        rrect,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5
-          ..color = color);
-  }
-
-  @override
-  bool shouldRepaint(_GlowBorderPainter old) => old.t != t;
 }

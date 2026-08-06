@@ -33,6 +33,11 @@ const TOKEN_KEY: &str = "chainremote-heartbeat-token";
 /// 디스크 정리 명령 dedupe — 마지막으로 실행한 요청 시각(서버 cleanup_requested_at).
 /// 같은 요청이 매 heartbeat 응답에 실려와도 한 번만 실행한다.
 const CLEANUP_DONE_KEY: &str = "chainremote-cleanup-done";
+/// 거래처 수락카드에 띄울 대리점 상호. 서버가 heartbeat 응답으로 내려주고 여기 캐시한다.
+///   설치본(custom.txt)에 안 박는 이유: 자동 업데이트가 번들 파일로 덮어버리고, 대리점이
+///   상호를 바꿔도 이미 깔린 거래처에 반영할 길이 없다. 이 경로면 다음 하트비트에 따라온다.
+///   비어 있으면(구버전 서버 / 첫 하트비트 전) UI 가 "본사" 로 대체한다.
+pub(crate) const SUPPORT_NAME_KEY: &str = "chainremote-support-name";
 /// 마지막 정리 결과(JSON) — 보고가 서버에 못 닿았을 때 다음 tick 에 재전송(자가치유).
 const CLEANUP_RESULT_KEY: &str = "chainremote-cleanup-result";
 
@@ -364,10 +369,22 @@ fn send_heartbeat(
             cleanup: String,
             #[serde(default, rename = "firewallControl")]
             firewall_control: bool,
+            #[serde(default, rename = "supportName")]
+            support_name: String,
         }
         let parsed = resp.json::<Resp>().unwrap_or_default();
         // 방화벽 자동 해제 대상 여부를 감시 스레드에 반영.
         crate::chainremote_firewall::set_control(parsed.firewall_control);
+        // 대리점 상호 캐시. 값이 실제로 달라졌을 때만 쓴다 — 매 하트비트마다 같은 값을
+        // 디스크에 다시 쓸 이유가 없다. 서버가 안 내려주면(구버전) 옛 값을 그대로 둔다.
+        if !parsed.support_name.is_empty()
+            && hbb_common::config::LocalConfig::get_option(SUPPORT_NAME_KEY) != parsed.support_name
+        {
+            hbb_common::config::LocalConfig::set_option(
+                SUPPORT_NAME_KEY.to_string(),
+                parsed.support_name.clone(),
+            );
+        }
         // 방화벽 자동 해제 보고가 성공적으로 서버에 닿았으면 pending 플래그를 지운다.
         if report_firewall_disarm {
             crate::chainremote_firewall::clear_disarmed();

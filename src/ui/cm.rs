@@ -161,6 +161,23 @@ impl SciterConnectionManager {
         crate::ui_interface::get_option(key)
     }
 
+    /// 수락카드에 띄울 대리점 상호 — heartbeat 가 LocalConfig 에 캐시해 둔 값.
+    /// Sciter 의 get_option 은 Config OPTIONS 맵을 보는 별개 저장소라 여기로 따로 낸다.
+    /// 비면 cm.tis 가 "본사" 로 대체한다(구버전 서버 / 첫 하트비트 전).
+    fn get_support_name(&self) -> String {
+        // heartbeat 모듈은 Agent(윈도우) 전용이라 다른 OS 빌드엔 없다 — 그쪽은 빈 값.
+        #[cfg(target_os = "windows")]
+        {
+            hbb_common::config::LocalConfig::get_option(
+                crate::chainremote_heartbeat::SUPPORT_NAME_KEY,
+            )
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            String::new()
+        }
+    }
+
     fn hide_cm(&self) -> bool {
         *crate::ui::cm::HIDE_CM.lock().unwrap()
     }
@@ -208,6 +225,7 @@ impl sciter::EventHandler for SciterConnectionManager {
         fn can_elevate();
         fn elevate_portable(i32);
         fn get_option(String);
+        fn get_support_name();
         fn hide_cm();
         fn set_banner_mode(bool);
         fn repaint_area(i32, i32, i32, i32);

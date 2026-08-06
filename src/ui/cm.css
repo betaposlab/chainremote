@@ -312,66 +312,90 @@ div.tab-arrows span:active {
     background-color: #ddd;
 }
 
-/* ChainRemote(Agent32): 대기 수락카드 — Flutter "원격지원 요청" 톤 통일 */
-/* 테두리는 "눌러주세요" 맥동(빨강)의 베이스 — 색은 cm.tis applyAcceptPulse 가 짙은↔밝은 빨강으로 보간.
-   Flutter 는 글로우+심 라인(server_page.dart _PulsingAcceptBorder)이지만 이 Sciter 버전엔
-   box-shadow/keyframes 가 없어 단색 테두리 색 맥동으로 같은 신호를 준다. */
+/* ChainRemote(Agent32): 대기 수락카드 — Flutter 와 같은 얼굴(차콜 + 파란 기둥).
+   ★2026-08-06 재디자인. 종전엔 흰 상자에 빨간 테두리 3px 이라 오류창처럼 보였고,
+   본사 ID 9자리를 그대로 노출했다. 밝은 포스 바탕화면 위에서는 어두운 카드가 저절로
+   눈에 띄어, 시선을 끌려고 넣었던 빨간 테두리 자체가 필요 없어진다.
+   맥동은 [수락] 버튼으로 옮겼다(cm.tis applyAcceptPulse).
+   이 Sciter 엔 box-shadow/gradient/keyframes 가 없어 평면 색·테두리·타이포만 쓴다 —
+   덕분에 Win7 과 Win10/11(Flutter) 이 같은 그림이 된다. */
 div.accept-card {
     size: *;
-    background: #F7F9FC;
-    border: 3px solid #C62828;
+    flow: horizontal;
+    background: #22242B;
+    border: 1px solid #3A3D47;
+}
+/* 좌측 컬러 기둥 + 모니터 글리프. :after 같은 의사요소에 기대지 않고 실제 노드로 그린다. */
+div.accept-card > .ac-rail {
+    width: 64px;
+    height: *;
+    background: #1740C4;
+    flow: vertical;
+}
+div.accept-card .ac-icon {
+    margin: * auto;
+    width: 34px;
+}
+div.accept-card .ac-mon {
+    width: 34px;
+    height: 30px;
+    border: 3px solid #FFFFFF;
+    border-radius: 6px;
+}
+div.accept-card .ac-monbase {
+    width: 14px;
+    height: 3px;
+    margin: 4px auto 0;
+    background: #FFFFFF;
+    border-radius: 2px;
 }
 div.accept-card > .ac-inner {
     margin: * 0;
-    padding: 0 22px;
+    padding: 0 17px;
     width: *;
 }
 div.accept-card .ac-title {
-    color: #1F2937;
-    font-size: 16px;
+    color: #FFFFFF;
+    font-size: 17px;
     font-weight: bold;
-    text-align: center;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
 }
 div.accept-card .ac-body {
-    color: #4B5563;
-    font-size: 13px;
-    text-align: center;
-    margin-bottom: 4px;
+    color: #ADB2C0;
+    font-size: 12.5px;
+    margin-bottom: 16px;
 }
-div.accept-card .ac-id {
-    color: #9AA3AF;
-    font-size: 12px;
-    text-align: center;
-    margin-bottom: 18px;
+/* 대리점 상호만 흰색으로 올려 "누가" 를 먼저 읽게 한다. */
+div.accept-card .ac-body > b {
+    color: #FFFFFF;
+    font-weight: bold;
 }
 div.accept-card .ac-buttons {
     flow: horizontal;
     width: *;
-    height: 46px;
+    height: 42px;
 }
 div.accept-card .ac-buttons > button {
     width: *;
-    height: 46px;
-    border-radius: 10px;
-    font-size: 15px;
+    height: 42px;
+    border-radius: 9px;
+    font-size: 14.5px;
     font-weight: bold;
     border: none;
 }
 div.accept-card .ac-deny {
-    color: #6B7280;
-    background: #FFFFFF;
-    border: 1px solid #D1D5DB;
-    margin-right: 6px;
+    color: #B0B5C2;
+    background: transparent;
+    border: 1px solid #454955;
+    margin-right: 4px;
 }
+/* 배경색은 applyAcceptPulse 가 매 프레임 덮어쓴다 — 여기 값은 타이머가 뜨기 전 한 틱용. */
 div.accept-card .ac-accept {
     color: #FFFFFF;
-    background: #1E5BFF;
-    margin-left: 6px;
-}
-div.accept-card .ac-accept:hover {
-    background: #1A4FE0;
+    background: #1740C4;
+    margin-left: 4px;
 }
 div.accept-card .ac-deny:hover {
-    background: #F3F4F6;
+    background: #2E313A;
+    color: #FFFFFF;
 }

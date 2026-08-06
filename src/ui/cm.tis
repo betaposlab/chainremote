@@ -57,12 +57,21 @@ class Body: Reactor.Component
         // ChainRemote(Agent32): 대기(미수락) 상태는 Flutter "원격지원 요청" 카드와 톤을 맞춘다.
         //   제목 + 안내문 + 본사 ID + [거부]/[수락]. 모지바케를 피하려 translate() 를 쓴다.
         if (!auth && !disconnected) {
-            var who = c.peer_id ? c.peer_id : c.name;
+            // 상호가 앞에 온다("대전문성텔레콤에서 이 PC 에 …"). 9자리 ID 는 사장님에게
+            //   아무 의미가 없어서 뺐다. 상호는 heartbeat 가 받아 캐시해 둔 값이고,
+            //   아직 못 받았으면(구버전 서버·첫 하트비트 전) "본사"로 대체한다.
+            var who = handler.get_support_name();
+            if (!who) who = translate('Headquarters');
             return <div .accept-card>
+                <div .ac-rail>
+                    <div .ac-icon>
+                        <div .ac-mon />
+                        <div .ac-monbase />
+                    </div>
+                </div>
                 <div .ac-inner>
                     <div .ac-title>{translate('Remote support request')}</div>
-                    <div .ac-body>{translate('A headquarters operator requested remote access to this PC.')}</div>
-                    <div .ac-id>({who})</div>
+                    <div .ac-body><b>{who}</b>{translate('requested remote access to this PC suffix')}</div>
                     <div .ac-buttons>
                         <button #dismiss .ac-deny>{translate('Dismiss')}</button>
                         <button #accept .ac-accept>{translate('Accept')}</button>
@@ -417,27 +426,29 @@ function applyCmBanner() {
     }
 }
 
-// ChainRemote(Agent32): 수락카드 빨간 맥동 테두리 — Flutter _PulsingAcceptBorder 와 신호 통일
-//   (짙은 빨강 #C62828 ↔ 밝은 빨강 #FF6E6E, 750ms 왕복, ease-in-out).
-//   이 Sciter 버전엔 CSS keyframes/box-shadow 가 없어 타이머로 border-color 를 직접 보간한다.
-//   카드가 DOM 에서 사라지면(수락/거부/끊김) 타이머가 스스로 멈추고, 다음 update() 가 다시 살린다.
+// ChainRemote(Agent32): [수락] 버튼 맥동 — Flutter _PulsingAcceptButton 과 신호 통일
+//   (짙은 파랑 #1740C4 ↔ 밝은 파랑 #5A8CFF, 750ms 왕복, ease-in-out).
+//   ★2026-08-06 카드 테두리(빨강)에서 버튼으로 옮겼다. 빨간 테두리는 오류창 문법이라
+//   도와주러 온 요청에 "위험" 신호를 보냈고, 시선은 어차피 눌러야 할 버튼으로 가야 한다.
+//   이 Sciter 버전엔 CSS keyframes/box-shadow 가 없어 타이머로 색을 직접 보간한다.
+//   버튼이 DOM 에서 사라지면(수락/거부/끊김) 타이머가 스스로 멈추고, 다음 update() 가 살린다.
 var cm_pulse_running = false;
 var cm_pulse_ms = 0;
 function applyAcceptPulse() {
     if (cm_pulse_running) return;
-    if (!$(div.accept-card)) return;
+    if (!$(button.ac-accept)) return;
     cm_pulse_running = true;
     cm_pulse_ms = 0;
     self.timer(66ms, function() {
-        var el = $(div.accept-card);
+        var el = $(button.ac-accept);
         if (!el) { cm_pulse_running = false; return false; }
         cm_pulse_ms = (cm_pulse_ms + 66) % 1500;
         var t = cm_pulse_ms < 750 ? cm_pulse_ms / 750.0 : (1500 - cm_pulse_ms) / 750.0;
         t = t * t * (3.0 - 2.0 * t);  // smoothstep ≈ Flutter Curves.easeInOut
-        var r = (0xC6 + 57 * t).toInteger();   // 0xC6→0xFF
-        var g = (0x28 + 70 * t).toInteger();   // 0x28→0x6E
-        var b = (0x28 + 70 * t).toInteger();
-        el.style.set { "border-color": String.printf("#%02X%02X%02X", r, g, b) };
+        var r = (0x17 + 67 * t).toInteger();   // 0x17→0x5A
+        var g = (0x40 + 76 * t).toInteger();   // 0x40→0x8C
+        var b = (0xC4 + 59 * t).toInteger();   // 0xC4→0xFF
+        el.style.set { "background": String.printf("#%02X%02X%02X", r, g, b) };
         return true;  // 타이머 유지
     });
 }

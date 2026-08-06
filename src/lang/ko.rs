@@ -182,6 +182,10 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         ("Remote support in progress", "원격지원 중"),
         ("Remote support request", "원격지원 요청"),
         ("A headquarters operator requested remote access to this PC.", "본사에서 이 PC에 원격 접속을 요청했습니다."),
+        // 수락카드: 앞에 대리점 상호가 붙는다("대전문성텔레콤" + 이 문구).
+        //   상호를 모르면(구버전 서버·첫 하트비트 전) 그 자리에 "본사"가 들어간다.
+        ("requested remote access to this PC suffix", "에서 이 PC 에 원격 접속을 요청했습니다."),
+        ("Headquarters", "본사"),
         ("Direct and encrypted connection", "직접 및 암호화된 연결"),
         ("Relayed and encrypted connection", "릴레이 및 암호화된 연결"),
         ("Direct and unencrypted connection", "직접 및 암호화되지 않은 연결"),
