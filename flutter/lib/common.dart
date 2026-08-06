@@ -253,6 +253,62 @@ class ColorThemeExtension extends ThemeExtension<ColorThemeExtension> {
 class MyTheme {
   MyTheme._();
 
+  // ── ChainRemote 시맨틱 토큰 (2026-08-06) ──────────────────────────────────
+  // 화면 톤을 바꿀 때 고칠 곳은 여기 한 곳이다. 종전엔 홈·거래처카드·탭에만 하드코딩
+  // 색이 49군데 흩어져 있어, 톤 하나 바꾸려면 그걸 전부 찾아다녀야 했고 반드시 몇 개를
+  // 놓쳤다(놓친 자리는 밝은 채로 남아 "얼룩"이 된다).
+  //
+  // ★값은 지금 화면과 같다 — 토큰화 자체는 순수 리팩터링이라 눈에 보이는 변화가 없다.
+  //   관리 패널 톤(다크)으로 넘기는 건 이 블록의 값만 갈아끼우는 별도 작업이다.
+  //   참고 팔레트: chainremote-admin/app/globals.css (void/abyss/deep/cobalt/edge).
+  //
+  // ※ OS 브랜드 색(Windows #0078D4 / macOS #1D1D1F / Ubuntu #E95420 / Android #3DDC84)은
+  //   일부러 여기 없다. 테마가 아니라 상표라 다크로 가도 그대로여야 한다.
+
+  // 글자 — 강함 → 흐림 순
+  static const Color crTextStrong = Color(0xFF111827);  // 거래처 이름 등 본문 제목
+  static const Color crTextMuted = Color(0xFF6B7280);   // 보조 설명
+  static const Color crTextSubtle = Color(0xFF64748B);  // 칩 안 보조 글자
+  static const Color crTextFaint = Color(0xFF7C8794);   // 더보기(⋮) 아이콘
+  static const Color crTextDim = Color(0xFF9CA3AF);     // 오프라인 표시
+  static const Color crTabIdle = Color(0xFF56606E);     // 선택 안 된 탭 라벨
+
+  // 표면과 선
+  static const Color crChipBg = Color(0xFFF1F5F9);      // 중립 칩 배경
+  static const Color crBorder = Color(0xFFE5E7EB);      // 카드 테두리
+  static const Color crDivider = Color(0xFFDDDDDD);     // 구분선
+  static const Color crAccentBorder = Color(0xFF2F65BA);// 강조 테두리
+  static const Color crAccent = Color(0xFF00A0E5);      // 폴더·인증 아이콘
+
+  // 상태 — 정상(초록)
+  static const Color crOkFg = Color(0xFF0A9471);
+  static const Color crOkBg = Color(0xFFD0F7ED);
+  static const Color crOkDot = Color(0xFF16A34A);       // 온라인 점
+
+  // 상태 — 주의(호박)
+  static const Color crWarnFg = Color(0xFFB45309);
+  static const Color crWarnBg = Color(0xFFFEF3C7);
+  static const Color crWarnBannerFg = Color(0xFF92400E);
+  static const Color crWarnBannerBg = Color(0xFFFFFBEB);
+  static const Color crWarnBannerBorder = Color(0xFFFDE68A);
+
+  // 상태 — 위험(장미/빨강)
+  static const Color crDangerFg = Color(0xFFBE123C);
+  static const Color crDangerBg = Color(0xFFFFE4E6);
+  static const Color crDangerBorder = Color(0xFFFECDD3);
+  static const Color crDangerDeepFg = Color(0xFFB91C1C); // 거래처용 배지 글자
+  static const Color crDangerSoftBg = Color(0xFFFFE4E1); // 거래처용 배지 배경
+
+  // 상태 — 정보(파랑)
+  static const Color crInfoFg = Color(0xFF0369A1);
+  static const Color crInfoBg = Color(0xFFE0F2FE);
+  static const Color crInfoInk = Color(0xFF1E40AF);
+
+  // 상태 — 알림(주황) : 업데이트 배너
+  static const Color crNoticeFg = Color(0xFFC2410C);
+  static const Color crNoticeBg = Color(0xFFFFEDD5);
+  static const Color crNoticeBorder = Color(0xFFEA580C);
+
   // ChainRemote brand palette (extracted from chainremote_logo.png).
   // chain = blue, remote = green, accent = orange (checkmark).
   static const Color brandBlue = Color(0xFF0044B0);

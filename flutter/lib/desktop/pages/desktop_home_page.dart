@@ -36,7 +36,7 @@ class DesktopHomePage extends StatefulWidget {
   State<DesktopHomePage> createState() => _DesktopHomePageState();
 }
 
-const borderColor = Color(0xFF2F65BA);
+const borderColor = MyTheme.crAccentBorder;
 
 class _DesktopHomePageState extends State<DesktopHomePage>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
@@ -240,7 +240,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.4,
-                      color: Color(0xFF6B7280))),
+                      color: MyTheme.crTextMuted)),
             ),
             for (final k in DesktopSettingPage.tabKeys)
               _sidebarItem(
@@ -332,7 +332,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     bool compact = false,
   }) {
     // 뉴모 사이드바 항목. 선택되면 솟은 표면 + 남색, 아니면 투명.
-    final fg = selected ? MyTheme.neuBlueInk : const Color(0xFF56606E);
+    final fg = selected ? MyTheme.neuBlueInk : MyTheme.crTabIdle;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
@@ -454,11 +454,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     final isAgent = bind.isIncomingOnly();
     final label = isAgent ? '거래처용 (Agent)' : '본사용 (HQ)';
     final bgColor = isAgent
-        ? const Color(0xFFFFE4E1) // 거래처용 = 옅은 빨강
-        : const Color(0xFFE0F2FE); // 본사용 = 옅은 파랑
+        ? MyTheme.crDangerSoftBg // 거래처용 = 옅은 빨강
+        : MyTheme.crInfoBg; // 본사용 = 옅은 파랑
     final fgColor = isAgent
-        ? const Color(0xFFB91C1C) // 거래처용 진한 빨강
-        : const Color(0xFF0369A1); // 본사용 진한 파랑
+        ? MyTheme.crDangerDeepFg // 거래처용 진한 빨강
+        : MyTheme.crInfoFg; // 본사용 진한 파랑
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -485,16 +485,16 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFEDD5), // light orange bg
+        color: MyTheme.crNoticeBg, // light orange bg
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFEA580C), width: 1),
+        border: Border.all(color: MyTheme.crNoticeBorder, width: 1),
       ),
       child: const Text(
         'ChainGo',
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: Color(0xFFC2410C), // deep orange text
+          color: MyTheme.crNoticeFg, // deep orange text
           letterSpacing: 0.3,
         ),
       ),
@@ -531,7 +531,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
-                        color: Color(0xFF1E40AF))),
+                        color: MyTheme.crInfoInk)),
                 const SizedBox(width: 6),
                 const Icon(Icons.copy, size: 14, color: Colors.black45),
               ],
@@ -846,7 +846,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                                   Icons.refresh,
                                   color: refreshHover.value
                                       ? textColor
-                                      : Color(0xFFDDDDDD),
+                                      : MyTheme.crDivider,
                                   size: 22,
                                 ))),
                           ),
@@ -861,7 +861,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                                 Icons.edit,
                                 color: editHover.value
                                     ? textColor
-                                    : Color(0xFFDDDDDD),
+                                    : MyTheme.crDivider,
                                 size: 22,
                               ).marginOnly(right: 8, top: 4),
                             ),
@@ -1575,11 +1575,11 @@ void setPasswordDialog({VoidCallback? notEmptyCallback}) async {
                           e.name,
                           style: TextStyle(
                               color: checked
-                                  ? const Color(0xFF0A9471)
+                                  ? MyTheme.crOkFg
                                   : Color.fromARGB(255, 198, 86, 157)),
                         ),
                         backgroundColor: checked
-                            ? const Color(0xFFD0F7ED)
+                            ? MyTheme.crOkBg
                             : Color.fromARGB(255, 247, 205, 232));
                   }).toList(),
                 ))

@@ -32,15 +32,15 @@ Widget? crDiskBadge(Peer peer) {
   final info = crDiskInfo(peer);
   if (info == null) return null;
   final bg = info.level == 2
-      ? const Color(0xFFFFE4E6)
+      ? MyTheme.crDangerBg
       : info.level == 1
-          ? const Color(0xFFFEF3C7)
-          : const Color(0xFFF1F5F9);
+          ? MyTheme.crWarnBg
+          : MyTheme.crChipBg;
   final fg = info.level == 2
-      ? const Color(0xFFBE123C)
+      ? MyTheme.crDangerFg
       : info.level == 1
-          ? const Color(0xFFB45309)
-          : const Color(0xFF64748B);
+          ? MyTheme.crWarnFg
+          : MyTheme.crTextSubtle;
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
     decoration: BoxDecoration(
@@ -95,7 +95,7 @@ Widget? crOsBadge(Peer peer) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
     decoration: BoxDecoration(
-      color: win7 ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
+      color: win7 ? MyTheme.crWarnBg : MyTheme.crChipBg,
       borderRadius: BorderRadius.circular(4),
     ),
     child: Text(
@@ -103,7 +103,7 @@ Widget? crOsBadge(Peer peer) {
       style: TextStyle(
         fontSize: 9,
         fontWeight: FontWeight.w600,
-        color: win7 ? const Color(0xFFB45309) : const Color(0xFF64748B),
+        color: win7 ? MyTheme.crWarnFg : MyTheme.crTextSubtle,
       ),
     ),
   );
@@ -127,7 +127,7 @@ Color _platformBgColor(String platform) {
     case kPeerPlatformAndroid:
       return const Color(0xFF3DDC84); // Android 그린
     default:
-      return const Color(0xFF6B7280); // 알 수 없음 = 중성 회색
+      return MyTheme.crTextMuted; // 알 수 없음 = 중성 회색
   }
 }
 
@@ -441,7 +441,7 @@ class _PeerCardState extends State<_PeerCard>
             borderRadius:
                 BorderRadius.circular(_cardRadius - _borderWidth),
             border: Border.all(
-                color: const Color(0xFFE5E7EB), width: 1),
+                color: MyTheme.crBorder, width: 1),
           ),
           child: ClipRRect(
             borderRadius:
@@ -472,7 +472,7 @@ class _PeerCardState extends State<_PeerCard>
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF111827),
+                                  color: MyTheme.crTextStrong,
                                 ),
                               ),
                             ),
@@ -484,7 +484,7 @@ class _PeerCardState extends State<_PeerCard>
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF6B7280),
+                                  color: MyTheme.crTextMuted,
                                   letterSpacing: 0.3,
                                 ),
                               ),
@@ -508,8 +508,8 @@ class _PeerCardState extends State<_PeerCard>
                           style: TextStyle(
                             fontSize: 11,
                             color: peer.online
-                                ? const Color(0xFF16A34A)
-                                : const Color(0xFF9CA3AF),
+                                ? MyTheme.crOkDot
+                                : MyTheme.crTextDim,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -522,8 +522,8 @@ class _PeerCardState extends State<_PeerCard>
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                             color: crOsBadgeIsWin7(peer)
-                                ? const Color(0xFFFEF3C7)
-                                : const Color(0xFFF1F5F9),
+                                ? MyTheme.crWarnBg
+                                : MyTheme.crChipBg,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -532,8 +532,8 @@ class _PeerCardState extends State<_PeerCard>
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
                               color: crOsBadgeIsWin7(peer)
-                                  ? const Color(0xFFB45309)
-                                  : const Color(0xFF64748B),
+                                  ? MyTheme.crWarnFg
+                                  : MyTheme.crTextSubtle,
                             ),
                           ),
                         ),
@@ -693,7 +693,7 @@ class _PeerCardState extends State<_PeerCard>
             ],
           ),
           child:
-              const Icon(Icons.more_vert, size: 18, color: Color(0xFF7C8794)),
+              const Icon(Icons.more_vert, size: 18, color: MyTheme.crTextFaint),
         ),
       );
 
@@ -1140,7 +1140,7 @@ abstract class BasePeerCard extends StatelessWidget {
 
         return CustomAlertDialog(
           title: Row(children: const [
-            Icon(Icons.folder_outlined, color: Color(0xFF00A0E5), size: 22),
+            Icon(Icons.folder_outlined, color: MyTheme.crAccent, size: 22),
             SizedBox(width: 8),
             Text('폴더로 이동'),
           ]),
@@ -1156,7 +1156,7 @@ abstract class BasePeerCard extends StatelessWidget {
                       padding: EdgeInsets.only(bottom: 8),
                       child: Text('아직 폴더가 없습니다. 아래에서 새로 만드세요.',
                           style: TextStyle(
-                              fontSize: 12, color: Color(0xFF6B7280))),
+                              fontSize: 12, color: MyTheme.crTextMuted)),
                     ),
                   ...folders.map((f) => ListTile(
                         dense: true,
@@ -1580,7 +1580,7 @@ class AllCustomersPeerCard extends BasePeerCard {
             alignment: Alignment.centerRight,
             child: Transform.scale(
               scale: 0.8,
-              child: Icon(Icons.verified, color: Color(0xFF00A0E5)),
+              child: Icon(Icons.verified, color: MyTheme.crAccent),
             ),
           ).marginOnly(right: 4)),
         ],
