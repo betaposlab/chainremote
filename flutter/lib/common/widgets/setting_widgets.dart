@@ -215,6 +215,9 @@ List<Widget> ServerConfigImportExportWidgets(
 
 List<(String, String)> otherDefaultSettings() {
   // 2026-05-27 정리: 거래처 운영에 안 쓰는 7개 항목 제거.
+  // 2026-08-06 추가 정리: Zoom cursor(특이 케이스), use all my displays(혼란만 준다).
+  //   ★커서 따라가기 둘(Follow remote cursor/window)은 남긴다 — 통화하며 사장님이 직접
+  //   마우스로 "여기가 이상해요" 하는 상황이 실제로 잦고, 그때 화면이 따라가야 한다.
   //   - View Mode: 보기 전용이라 조작이 목적인 우리 운영엔 무의미
   //   - Disable clipboard: 권한 탭에서 이미 제어, 중복
   //   - Privacy mode: RustDesk 유료 클라우드 기능
@@ -230,7 +233,6 @@ List<(String, String)> otherDefaultSettings() {
     ('Show remote cursor', kOptionShowRemoteCursor),
     ('Follow remote cursor', kOptionFollowRemoteCursor),
     ('Follow remote window focus', kOptionFollowRemoteWindow),
-    if ((isDesktop || isWebDesktop)) ('Zoom cursor', kOptionZoomCursor),
     ('Show quality monitor', kOptionShowQualityMonitor),
     ('Mute', kOptionDisableAudio),
     if (isDesktop) ('Enable file copy and paste', kOptionEnableFileCopyPaste),
@@ -239,11 +241,6 @@ List<(String, String)> otherDefaultSettings() {
       (
         'Show displays as individual windows',
         kKeyShowDisplaysAsIndividualWindows
-      ),
-    if (isDesktop)
-      (
-        'Use all my displays for the remote session',
-        kKeyUseAllMyDisplaysForTheRemoteSession
       ),
   ];
 

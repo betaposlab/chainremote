@@ -29,14 +29,13 @@ class ChainRemoteAuth {
 
   static final ValueNotifier<bool> authed = ValueNotifier<bool>(false);
 
-  /// 로그아웃. 메모리 자격증명(Rust static)과 저장된 자동완성 정보를 지우고 로그인 화면으로.
+  /// 로그아웃. 토큰만 지우고 로그인 화면으로. 저장된 아이디·비밀번호는 유지된다.
   static void logout() {
     bind.chainremoteLogout();
-    // 저장된 자동완성 정보도 같이 지운다 (Chang 결정: 로그아웃하면 저장정보 제거).
-    bind.mainSetLocalOption(key: kRememberId, value: '');
-    bind.mainSetLocalOption(key: kRememberPw, value: '');
-    bind.mainSetLocalOption(key: kSavedEmail, value: '');
-    bind.mainSetLocalOption(key: kSavedPassword, value: '');
+    // ★2026-08-06: 저장정보는 건드리지 않는다. 종전엔 로그아웃이 같이 지웠는데, 그러면
+    //   사용자가 [아이디 저장]·[비밀번호 저장] 을 켠 명시적 선택을 앱이 무시하는 셈이고
+    //   매번 다시 타이핑해야 했다. 저장할지 말지는 그 체크박스가 이미 정하고 있다
+    //   (기본 꺼짐 — 공용 PC 면 켜지 않으면 된다).
     authed.value = false;
   }
 

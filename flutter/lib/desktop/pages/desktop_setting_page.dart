@@ -76,9 +76,9 @@ class DesktopSettingPage extends StatefulWidget {
         !bind.isDisableSettings() &&
         bind.mainGetBuildinOption(key: kOptionHideSecuritySetting) != 'Y')
       SettingsTabKey.safety,
-    if (!bind.isDisableSettings() &&
-        bind.mainGetBuildinOption(key: kOptionHideNetworkSetting) != 'Y')
-      SettingsTabKey.network,
+    // 2026-08-06 제거: 네트워크 탭. 안에 든 셋 다 우리에겐 쓸 일이 없다 —
+    //   ID/릴레이 서버는 설치 때 자동으로 박히고 손대면 사고, Socks5 프록시·웹소켓은 미사용.
+    //   (탭만 감춘다. _Network 위젯은 상류 코드라 그대로 두어 머지 충돌을 만들지 않는다.)
     if (!bind.isIncomingOnly()) SettingsTabKey.display,
     SettingsTabKey.about,
   ];
@@ -587,7 +587,7 @@ class _GeneralState extends State<_General> {
     }
 
     final isOptFixed = isOptionFixed(kCommConfKeyTheme);
-    return _Card(context, title: 'Theme', hint: '밝은 모드 권장 — 매장 환경 시인성이 좋습니다.', children: [
+    return _Card(context, title: 'Theme', hint: '취향대로 고르세요. 밝은 사무실에서는 라이트 모드가 눈에 덜 피로합니다.', children: [
       _Radio<String>(context,
           value: 'light',
           groupValue: current,
@@ -828,7 +828,7 @@ class _GeneralState extends State<_General> {
       String root_dir = map['root_dir']!;
       bool root_dir_exists = map['root_dir_exists']!;
       bool user_dir_exists = map['user_dir_exists']!;
-      return _Card(context, title: 'Recording', hint: '거래처와 분쟁이 생기면 증거가 됩니다. 자동 저장 권장.', children: [
+      return _Card(context, title: 'Recording', hint: '원격 화면을 영상으로 남깁니다. 모든 세션을 자동 녹화하면 디스크가 빠르게 찹니다 — 평소엔 꺼두고, 남겨야 할 세션만 원격 중 툴바의 [녹화] 버튼으로 켜세요.', children: [
         if (!bind.isOutgoingOnly())
           _OptionCheckBox(context, 'Automatically record incoming sessions',
               kOptionAllowAutoRecordIncoming),
@@ -1190,7 +1190,7 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           break;
       }
 
-      return _Card(context, title: 'Permissions', hint: '본사가 거래처 PC 에 접속했을 때 무엇을 할 수 있는지. 거래처 운영은 "모든 권한 허용" 권장.', children: [
+      return _Card(context, title: 'Permissions', hint: '★거래처 PC 가 아니라 이 PC 기준입니다. 다른 본사 직원이 내 PC 를 원격으로 볼 때 무엇을 허용할지 정합니다. 아래 [외부 원격 접속 허용]이 꺼져 있으면 아무도 못 들어오니 무의미합니다.', children: [
         ComboBox(
             keys: [
               defaultOptionAccessMode,
@@ -1223,13 +1223,6 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                 context, 'Enable file transfer', kOptionEnableFileTransfer,
                 enabled: enabled, fakeValue: fakeValue),
             _OptionCheckBox(context, 'Enable audio', kOptionEnableAudio,
-                enabled: enabled, fakeValue: fakeValue),
-            _OptionCheckBox(context, 'Enable camera', kOptionEnableCamera,
-                enabled: enabled, fakeValue: fakeValue),
-            _OptionCheckBox(context, 'Enable terminal', kOptionEnableTerminal,
-                enabled: enabled, fakeValue: fakeValue),
-            _OptionCheckBox(
-                context, 'Enable TCP tunneling', kOptionEnableTunnel,
                 enabled: enabled, fakeValue: fakeValue),
             _OptionCheckBox(
                 context, 'Enable remote restart', kOptionEnableRemoteRestart,
@@ -1411,12 +1404,11 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
 
   Widget more(BuildContext context) {
     bool enabled = !locked;
-    return _Card(context, title: 'Security', hint: '거래처 운영 권장 = "내가 원격당하는 동안 내 화면 안 꺼짐" 만 ON, 나머지 OFF.', children: [
+    return _Card(context, title: 'Security', hint: '이것도 이 PC 기준입니다. 평소엔 "내가 원격당하는 동안 내 화면 안 꺼짐" 만 켜두면 됩니다.', children: [
       shareRdp(context, enabled),
-      _OptionCheckBox(context, 'Deny LAN discovery', 'enable-lan-discovery',
-          reverse: true, enabled: enabled),
-      ...directIp(context),
-      whitelist(),
+      // 2026-08-06 제거: LAN 검색 차단 / 직접 IP 액세스 / IP 화이트리스트.
+      //   우리는 모든 연결이 hbbs(rs.626.kr) 를 거친다. 직접 IP 는 쓸 일이 없고,
+      //   잘못 켜면 방화벽·포트 문제로 사고만 난다. LAN 검색도 ID 로만 접속하니 무의미.
       ...autoDisconnect(context),
       _OptionCheckBox(context, 'keep-awake-during-incoming-sessions-label',
           kOptionKeepAwakeDuringIncomingSessions,
@@ -2656,7 +2648,7 @@ class _AboutState extends State<_About> {
               InkWell(
                   onTap: () {
                     launchUrlString(
-                        'https://github.com/betaposlab/chainremote/blob/main/CHAINREMOTE_CHANGES.md');
+                        'https://github.com/betaposlab/chainremote/blob/master/CHAINREMOTE_CHANGES.md');
                   },
                   child: Text(
                     'ChainRemote 변경 내역 (RustDesk 대비)',

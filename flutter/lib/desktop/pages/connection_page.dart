@@ -221,16 +221,9 @@ class _ConnectionPageState extends State<ConnectionPage>
     super.initState();
     _allPeersLoader.init(setState);
     _idFocusNode.addListener(onFocusChanged);
-    if (_idController.text.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        final lastRemoteId = await bind.mainGetLastRemoteId();
-        if (lastRemoteId != _idController.id) {
-          setState(() {
-            _idController.id = lastRemoteId;
-          });
-        }
-      });
-    }
+    // ★2026-08-06: 마지막 접속 ID 자동 채움을 없앴다(상류 기본 동작). 우리는 거래처를
+    //   목록에서 눌러 접속하지 ID 를 치지 않는다. 남의 ID 가 늘 떠 있으면 보기에도 이상하고,
+    //   모르고 [원격 접속] 을 눌러 엉뚱한 곳에 붙을 수 있다. 빈 칸으로 둔다.
     Get.put<TextEditingController>(_idEditingController);
     Get.put<IDTextEditingController>(_idController);
     windowManager.addListener(this);
