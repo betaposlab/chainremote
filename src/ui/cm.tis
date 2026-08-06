@@ -60,7 +60,8 @@ class Body: Reactor.Component
             // 상호가 앞에 온다("대전문성텔레콤에서 이 PC 에 …"). 9자리 ID 는 사장님에게
             //   아무 의미가 없어서 뺐다. 상호는 heartbeat 가 받아 캐시해 둔 값이고,
             //   아직 못 받았으면(구버전 서버·첫 하트비트 전) "본사"로 대체한다.
-            var who = handler.get_support_name();
+            var who = "";
+            try { who = handler.get_support_name(); } catch (e) { }
             if (!who) who = translate('Headquarters');
             return <div .accept-card>
                 <div .ac-rail>
