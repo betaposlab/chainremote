@@ -119,6 +119,10 @@ Source: "watchdog.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignorever
 ;   (ASCII 전용 — PS 는 BOM 없는 .ps1 을 시스템 ANSI 로 읽어 한글이 들어가면 파서가 깨진다.)
 Source: "migrate-server-address.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
 
+; 바탕화면 바로가기 정리 — 거래처가 바꾼 이름을 살리고 영어 기본 아이콘 중복을 지운다.
+;   (ASCII 전용 — 위 migrate-server-address.ps1 과 같은 이유.)
+Source: "keep-custom-icon.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
+
 [Run]
 ; 0. Windows ephemeral port range 확장 (사업화 안전망 — 다른 원격 SW 의 socket 누수에 휘말리지 않게)
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
@@ -177,18 +181,23 @@ Filename: "{cmd}"; Parameters: "/c del /F /Q ""%USERPROFILE%\Desktop\RustDesk.ln
 Filename: "{cmd}"; Parameters: "/c rmdir /S /Q ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\RustDesk"" 2>nul"; Flags: runhidden
 Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\CurrentVersion\Run"" /v RustDesk /f 2>nul"; Flags: runhidden
 
-; 8. 단축아이콘 IconLocation 을 ChainRemote .ico 로 갱신
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{commonappdata}\ChainRemote\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() }} }}"""; Flags: runhidden waituntilterminated
-
-; 8.3. 거래처가 바꾼 아이콘 이름 존중 (2026-08-05 Chang 결정) — 현장은 영어를 못 읽는
-;    사장님을 위해 바탕화면 아이콘 이름을 한글("포스원격" 등)로 바꿔 쓴다(코이노 시절부터의
-;    관례). 코어 설치는 바로가기를 파일 이름(ChainRemote.lnk)으로만 알아봐서, 이름을 바꾸면
-;    업데이트마다 영어 기본 아이콘을 새로 만들어 중복이 쌓였다. 여기서는 이름이 아니라
-;    "어느 exe 를 가리키는가"로 판별한다: 같은 exe 를 가리키는 다른 이름의 바로가기가 이미
-;    있으면 방금 코어가 만든 기본 이름 쪽을 지운다 = 거래처가 붙인 이름이 유일본으로 유지.
-;    스캔은 공용 + 각 사용자 바탕화면(자동업뎃은 LocalSystem 이라 %USERPROFILE% 은 사용자를
-;    안 가리킨다). 실패하면 기본 lnk 가 남을 뿐(종전 동작 그대로) — 파괴적 경로 없음. ASCII 전용.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $pub=[Environment]::ExpandEnvironmentVariables('%PUBLIC%\Desktop\ChainRemote.lnk'); if(Test-Path $pub){{ $tgt=$wsh.CreateShortcut($pub).TargetPath; if($tgt){{ $cand=@(); $cand+=@(Get-ChildItem ([Environment]::ExpandEnvironmentVariables('%PUBLIC%\Desktop\*.lnk')) -ErrorAction SilentlyContinue); $cand+=@(Get-ChildItem 'C:\Users\*\Desktop\*.lnk' -ErrorAction SilentlyContinue); foreach($f in $cand){{ if(($f.Name -ne 'ChainRemote.lnk') -and ($wsh.CreateShortcut($f.FullName).TargetPath -eq $tgt)){{ Remove-Item $pub -Force -ErrorAction SilentlyContinue; $st=Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; Add-Content -Path 'C:\ProgramData\ChainRemote\updater.log' -Value ($st + ' installer: ICON custom shortcut kept [' + $f.Name + '] -> default lnk removed'); break }} }} }} }}"""; StatusMsg: "ChainRemote 바로가기 확인 중..."; Flags: runhidden waituntilterminated
+; 8. 바탕화면 바로가기 정리 — 거래처가 바꾼 아이콘 이름 존중 + 기본 아이콘 IconLocation 갱신.
+;    현장은 영어를 못 읽는 사장님을 위해 아이콘 이름을 한글("포스원격" 등)로 바꿔 쓴다(코이노
+;    시절부터의 관례). 코어 설치는 바로가기를 파일 이름으로만 알아봐 업데이트마다 영어 기본
+;    아이콘을 새로 만들었고, 중복이 쌓였다. 여기서는 이름이 아니라 "어느 exe 를 가리키는가"로
+;    판별해, 바뀐 이름이 이미 있으면 방금 만들어진 기본 이름 쪽을 지운다.
+;
+;    ★2026-08-06 재작성. 종전엔 [Run] 안에 PowerShell 한 줄로 박혀 있었는데 테스트1 실기기에서
+;    아무 일도 안 하고 조용히 지나갔다(짝이 같은 폴더에 같은 대상으로 멀쩡히 있었는데도).
+;    한 줄짜리는 실패해도 흔적이 안 남아 원인을 좁힐 수가 없다. 스크립트 파일로 빼고 —
+;      · 경로를 Inno 가 직접 박는다. 종전엔 PowerShell 안에서 %PUBLIC% 를 폈는데,
+;        ExpandEnvironmentVariables 는 변수가 없으면 입력을 그대로 돌려줘 게이트가 조용히
+;        열린 채 통과한다(= 무동작·무로그, 관찰된 증상과 일치).
+;      · 어느 갈래로 갔든 updater.log 에 한 줄 남긴다.
+;    옛 8.3 의 별도 IconLocation 단계도 여기 흡수했다 — 그 단계는 작은따옴표 안의 $env:PUBLIC 을
+;    ExpandEnvironmentVariables(=%VAR% 만 해석)에 넘기고 있어 처음부터 한 번도 안 걸렸다.
+;    실패해도 install 을 깨지 않는다(최악이 기본 아이콘이 남는 것 = 이 기능 생기기 전 동작).
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\keep-custom-icon.ps1"" -CommonDesktop ""{commondesktop}"" -UserDesktop ""{userdesktop}"" -StartMenuLnk ""{commonprograms}\ChainRemote\ChainRemote.lnk"" -AppExe ""{code:CRAgentDir}\ChainRemote.exe"" -IconFile ""{commonappdata}\ChainRemote\chainremote.ico"" -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 바로가기 확인 중..."; Flags: runhidden waituntilterminated
 
 ; 8.5. 인스톨 후 self-test 스모크 — Service/Process/Exe 3종 체크를 updater.log 에 PASS/FAIL 기록.
 ;     (경로는 CRAgentDir — 64비트 Win7 (x86) 설치까지 3개 조합 모두 정확. 종전 {commonpf} 는
@@ -249,6 +258,9 @@ Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\Microsoft\Windows\Current
 ; 바탕화면 바로가기 청소 — 이름이 아니라 "우리 exe 를 가리키는가"로 지운다. 종전엔 아무도
 ;   lnk 를 안 지워서(코어 --uninstall 을 안 타므로) 기본 이름조차 고아로 남았고, 거래처가
 ;   이름을 바꾼 바로가기는 더더욱 남았다. 대상 경로 비교라 어떤 이름이든 잡힌다.
+;   ★설치쪽 8번과 같은 %PUBLIC% 확장을 쓰지만 여긴 게이트가 없다 — 후보를 모아 순회할 뿐이고
+;   두 번째 글롭(C:\Users\*\Desktop)이 Public 까지 덮는다. 8번이 죽은 건 확장 실패가
+;   Test-Path 게이트를 조용히 닫았기 때문이라, 이 단계는 같은 패턴이어도 영향이 없다.
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $exe='{code:CRAgentDir}\ChainRemote.exe'; $cand=@(); $cand+=@(Get-ChildItem ([Environment]::ExpandEnvironmentVariables('%PUBLIC%\Desktop\*.lnk')) -ErrorAction SilentlyContinue); $cand+=@(Get-ChildItem 'C:\Users\*\Desktop\*.lnk' -ErrorAction SilentlyContinue); foreach($f in $cand){{ if($wsh.CreateShortcut($f.FullName).TargetPath -eq $exe){{ Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue }} }}"""; Flags: runhidden waituntilterminated; RunOnceId: "DelDesktopShortcuts"
 ; 시작 메뉴 폴더도 정리 (코어가 만들고 코어 --uninstall 을 안 타니 여기서 지워야 한다)
 Filename: "{cmd}"; Parameters: "/c rmdir /S /Q ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\ChainRemote"" 2>nul"; Flags: runhidden; RunOnceId: "DelStartMenuDir"
