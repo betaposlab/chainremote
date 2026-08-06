@@ -2951,18 +2951,12 @@ connect(BuildContext context, String id,
     String? connToken,
     bool? isSharedPassword}) async {
   if (id == '') return;
-  if (!isDesktop || desktopType == DesktopType.main) {
-    try {
-      if (Get.isRegistered<IDTextEditingController>()) {
-        final idController = Get.find<IDTextEditingController>();
-        idController.text = formatID(id);
-      }
-      if (Get.isRegistered<TextEditingController>()) {
-        final fieldTextEditingController = Get.find<TextEditingController>();
-        fieldTextEditingController.text = formatID(id);
-      }
-    } catch (_) {}
-  }
+  // ★2026-08-06: 접속할 때 그 ID 를 상단 입력칸에 써넣던 상류 동작을 없앴다.
+  //   목록에서 눌러 들어가도 칸에 9자리가 박혔고, 세션이 끝나도 그대로 남았다.
+  //   그 숫자만 보고는 어느 거래처인지 알 수 없는데(수십 곳이다), 모르는 채로
+  //   [원격 접속] 을 누르면 엉뚱한 곳에 붙는다 — 실제로 헷갈린 사례가 있었다.
+  //   "방금 어디를 원격했나" 는 [최근 세션] 탭이 이름으로 보여주니 그쪽이 맞는 자리다.
+  //   이 칸은 목록에 없는 곳에 ID 를 쳐서 들어가는 용도라 늘 비어 있어야 한다.
   id = id.replaceAll(' ', '');
   final oldId = id;
   id = await bind.mainHandleRelayId(id: id);
