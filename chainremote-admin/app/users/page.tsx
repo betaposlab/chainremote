@@ -37,7 +37,7 @@ export default async function UsersPage() {
   if (!session?.user) redirect("/login");
   if (!canManageAccounts(session.user.role)) {
     return (
-      <div className="px-8 py-6">
+      <div className="px-4 py-5 md:px-8 md:py-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
         <p className="mt-2 text-sm text-[#ff9a9e]">
           대표자·관리자만 직원 계정을 관리할 수 있습니다.
@@ -74,7 +74,7 @@ export default async function UsersPage() {
       users: byTenant.get(c.id) ?? [],
     }));
     return (
-      <div className="max-w-5xl px-8 py-6">
+      <div className="max-w-5xl px-4 py-5 md:px-8 md:py-6">
         <header className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
           <p className="mt-1 text-sm text-[#b9bfd2]">
@@ -108,7 +108,7 @@ export default async function UsersPage() {
   const seatFull = usedSeats >= maxSeats;
 
   return (
-    <div className="px-8 py-6 max-w-5xl">
+    <div className="px-4 py-5 md:px-8 md:py-6 max-w-5xl">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
         <p className="text-sm text-[#b9bfd2] mt-1">

@@ -63,7 +63,7 @@ export function AgentDownloadCard({
     <section className="panel-card-spotlight mb-8 px-5 py-4">
       <h2 className="text-base font-semibold text-white">설치파일</h2>
 
-      <div className="mt-3 flex items-center justify-between gap-4">
+      <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <p className="text-sm text-[#eef1f7]">
           <span className="font-medium text-white">가맹점(거래처)용</span> —
           가맹점 PC 에 설치할 우리 회사 전용 원격지원 에이전트입니다. 설치하면
@@ -76,7 +76,7 @@ export function AgentDownloadCard({
 
       {/* HQ 는 오버레이가 없어 링크 한 줄이면 된다 — 라우트가 latest.json 을 보고 최신으로
           넘긴다(버전을 여기 박으면 릴리즈 때마다 손봐야 하고, 빠뜨리면 굳는다). */}
-      <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#56699c] pt-4">
+      <div className="mt-4 flex flex-col items-start gap-3 border-t border-[#56699c] pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <p className="text-sm text-[#eef1f7]">
           <span className="font-medium text-white">본사 직원용 (HQ)</span> —
           직원 PC 에 설치하는 원격지원 앱입니다. 설치 후 본인 계정으로 로그인하면
@@ -90,7 +90,7 @@ export function AgentDownloadCard({
       {/* ChainGo — 설치형 HQ 와 같은 앱의 무설치 판. 종전엔 이 카드에서 빠져 있어
           대리점이 존재 자체를 몰랐다(의도된 누락이 아니라 그냥 안 넣은 것, 2026-08-06).
           HQ 와 같은 릴리즈·같은 버전이라 라우트가 latest.json hq 버전으로 넘긴다. */}
-      <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#56699c] pt-4">
+      <div className="mt-4 flex flex-col items-start gap-3 border-t border-[#56699c] pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <p className="text-sm text-[#eef1f7]">
           <span className="font-medium text-white">ChainGo (무설치)</span> —
           설치 없이 실행만 하면 되는 HQ 입니다. 출장 중이거나 남의 PC·PC방에서 급히

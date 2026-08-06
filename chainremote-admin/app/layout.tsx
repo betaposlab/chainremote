@@ -3,6 +3,7 @@ import Link from "next/link";
 import "./globals.css";
 import { auth, signOut } from "@/auth";
 import { roleLabel, canManageAccounts } from "@/lib/roles";
+import { Shell } from "./_shell";
 
 export const metadata: Metadata = {
   title: "ChainRemote 관리 패널",
@@ -31,9 +32,12 @@ export default async function RootLayout({
   // 매일 쓰는 도구라 오로라·모션은 빼고 4층 표면(Void/Abyss/DeepSea/Cobalt)만 가져왔다.
   return (
     <html lang="ko" className="h-full antialiased">
-      <body className="min-h-full flex bg-[#313c58] text-white">
-        <aside className="w-60 shrink-0 border-r border-[#566999] bg-[#2b364f] flex flex-col sticky top-0 h-screen">
-          <div className="px-4 py-4 border-b border-[#566999]">
+      <body className="min-h-full bg-[#313c58] text-white">
+        <Shell
+          sidebar={
+            <>
+          {/* pr-10 = 모바일 서랍의 닫기 버튼이 로고를 덮지 않게 자리를 비운다 */}
+          <div className="px-4 py-4 pr-10 border-b border-[#566999] md:pr-4">
             {/* 로고 클릭 = 소개 랜딩 페이지(새 탭). 홈(대시보드)은 아래 메뉴로 간다. */}
             <a
               href="https://betaposlab.com/chainremote"
@@ -113,12 +117,13 @@ export default async function RootLayout({
               </button>
             </form>
           </div>
-        </aside>
-        <main className="flex-1 min-w-0 flex flex-col">
+            </>
+          }
+        >
           <div className="flex-1">{children}</div>
           {/* 운영사 푸터 — 모든 인증 화면 하단 공통. 대리점(tenant) 사용자에게도
               보이는 화면이라, 표기는 개별 회사가 아니라 플랫폼 운영사(베타포스랩)다. */}
-          <footer className="border-t border-[#51638f] px-8 py-4 text-xs text-[#ccd2e3]">
+          <footer className="border-t border-[#51638f] px-4 py-4 text-xs text-[#ccd2e3] md:px-8">
             <span>© 2026 베타포스랩 (BetaPosLab) · ChainRemote 플랫폼 운영</span>
             <span className="mx-2">·</span>
             <a
@@ -132,7 +137,7 @@ export default async function RootLayout({
             <span className="mx-2">·</span>
             <span>RustDesk 기반 오픈소스 (AGPL-3.0)</span>
           </footer>
-        </main>
+        </Shell>
       </body>
     </html>
   );

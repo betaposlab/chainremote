@@ -39,6 +39,12 @@ export default auth((req) => {
 // /api/* 는 전부 제외 — 데스크톱 앱이 Bearer 토큰으로 호출 (lib/api-auth.ts).
 //   - /api/auth/*  : NextAuth 핸들러 + 우리 /api/auth/token
 //   - /api/customers, /api/me/*, /api/sessions : requireApiAuth 로 자체 보호
+// chainremote-logo.png 예외: 로그인 화면이 이 로고를 쓰는데, matcher 에 걸려 이미지
+// 요청조차 /login 으로 307 되돌려져 **로그인 화면의 로고가 늘 깨져 있었다**(favicon 은
+// 예외라 멀쩡했다). 랜딩에도 공개돼 있는 브랜드 워드마크라 가릴 이유가 없다.
+// 확장자 일반 패턴(\..*) 대신 파일명 하나만 뺀다 — 넓게 열면 점이 든 경로가 딸려 풀린다.
 export const config = {
-  matcher: ["/((?!api|login|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!api|login|_next/static|_next/image|favicon.ico|chainremote-logo\\.png).*)",
+  ],
 };

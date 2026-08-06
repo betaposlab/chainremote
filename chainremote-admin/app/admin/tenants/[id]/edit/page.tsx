@@ -18,7 +18,7 @@ export default async function EditTenantPage({
   if (!session?.user) redirect("/login");
   if (session.user.role !== "super_admin") {
     return (
-      <div className="px-8 py-6">
+      <div className="px-4 py-5 md:px-8 md:py-6">
         <p className="text-sm text-[#ff9a9e]">super_admin 권한 필요</p>
       </div>
     );
@@ -29,7 +29,7 @@ export default async function EditTenantPage({
   if (!t) notFound();
 
   return (
-    <div className="px-8 py-6 max-w-3xl">
+    <div className="px-4 py-5 md:px-8 md:py-6 max-w-3xl">
       <div className="mb-6">
         <Link
           href="/admin/tenants"

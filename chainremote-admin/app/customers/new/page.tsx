@@ -14,7 +14,7 @@ export default async function NewCustomerPage() {
   const folderNames = (await listFolders(session.user.tenantId)).map((f) => f.name);
 
   return (
-    <div className="px-8 py-6 max-w-2xl">
+    <div className="px-4 py-5 md:px-8 md:py-6 max-w-2xl">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">거래처 추가</h1>
         <p className="text-sm text-[#b9bfd2] mt-1">

@@ -15,7 +15,7 @@ export default async function TenantsPage() {
   if (!session?.user) redirect("/login");
   if (session.user.role !== "super_admin") {
     return (
-      <div className="px-8 py-6">
+      <div className="px-4 py-5 md:px-8 md:py-6">
         <h1 className="text-2xl font-bold tracking-tight">회사 관리</h1>
         <p className="mt-2 text-sm text-[#ff9a9e]">
           super_admin 권한이 있어야 이 페이지에 접근할 수 있습니다.
@@ -28,8 +28,8 @@ export default async function TenantsPage() {
   const userCounts = await tenantUserCounts();
 
   return (
-    <div className="px-8 py-6">
-      <div className="flex items-center justify-between">
+    <div className="px-4 py-5 md:px-8 md:py-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">회사 관리</h1>
           <p className="mt-1 text-sm text-[#b9bfd2]">

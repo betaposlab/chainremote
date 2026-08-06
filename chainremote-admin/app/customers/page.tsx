@@ -208,16 +208,16 @@ export default async function CustomersPage({
   const pendingEnroll = rows.filter((c) => c.enrollStatus === "pending");
 
   return (
-    <div className="px-8 py-6 max-w-7xl">
+    <div className="px-4 py-5 md:px-8 md:py-6 max-w-7xl">
       <AutoRefresh />
-      <header className="mb-6 flex items-end justify-between gap-4">
+      <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">거래처</h1>
           <p className="text-sm text-[#b9bfd2] mt-1">
             등록된 거래처 {rows.length}곳 · ID 등록된 곳은 클릭 한 번으로 원격 접속
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <CustomerSearch />
           <BulkPushButton />
           <Link

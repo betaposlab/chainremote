@@ -57,7 +57,7 @@ export function CustomerForm({
           className="input"
         />
       </Field>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="담당자">
           <input
             name="contactName"

@@ -92,7 +92,7 @@ export default async function SessionsPage({
   }));
 
   return (
-    <div className="px-8 py-6 max-w-7xl">
+    <div className="px-4 py-5 md:px-8 md:py-6 max-w-7xl">
       <header className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">지원기록</h1>
@@ -100,7 +100,7 @@ export default async function SessionsPage({
         </div>
       </header>
 
-      <form className="mb-4 flex items-center gap-2 text-sm">
+      <form className="mb-4 flex flex-wrap items-center gap-2 text-sm">
         <select
           name="period"
           defaultValue={period}

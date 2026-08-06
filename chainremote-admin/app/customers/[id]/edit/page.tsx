@@ -44,7 +44,7 @@ export default async function EditCustomerPage({
   const update = updateCustomer.bind(null, id);
 
   return (
-    <div className="px-8 py-6 max-w-2xl">
+    <div className="px-4 py-5 md:px-8 md:py-6 max-w-2xl">
       <header className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">거래처 수정</h1>

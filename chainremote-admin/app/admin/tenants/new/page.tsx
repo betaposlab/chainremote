@@ -12,7 +12,7 @@ export default async function NewTenantPage() {
   if (!session?.user) redirect("/login");
   if (session.user.role !== "super_admin") {
     return (
-      <div className="px-8 py-6">
+      <div className="px-4 py-5 md:px-8 md:py-6">
         <h1 className="text-2xl font-bold tracking-tight">신규 회사 등록</h1>
         <p className="mt-2 text-sm text-[#ff9a9e]">
           super_admin 권한이 있어야 이 페이지에 접근할 수 있습니다.
@@ -22,7 +22,7 @@ export default async function NewTenantPage() {
   }
 
   return (
-    <div className="px-8 py-6 max-w-3xl">
+    <div className="px-4 py-5 md:px-8 md:py-6 max-w-3xl">
       <div className="mb-6">
         <Link
           href="/admin/tenants"

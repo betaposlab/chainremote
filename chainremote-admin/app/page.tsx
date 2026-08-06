@@ -45,7 +45,7 @@ export default async function Home() {
     );
 
   return (
-    <div className="px-8 py-6 max-w-6xl">
+    <div className="px-4 py-5 md:px-8 md:py-6 max-w-6xl">
       <header className="mb-8">
         <h1 className="text-2xl font-bold tracking-tight text-white">대시보드</h1>
         <p className="text-sm text-[#b9bfd2] mt-1">
@@ -53,7 +53,7 @@ export default async function Home() {
         </p>
       </header>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-3">
         <Card label="등록 거래처" value={customerCount} suffix="곳" href="/customers" />
         <Card label="누적 지원기록" value={sessionCount} suffix="건" href="/sessions?period=all" />
         <Card
