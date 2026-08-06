@@ -91,6 +91,16 @@ h = re.sub(r'ChainRemote_HQ_Setup_v[0-9.]+\.exe', f'ChainRemote_HQ_Setup_v{ver}.
 h = re.sub(r'ChainGo_v[0-9.]+\.exe', f'ChainGo_v{ver}.exe', h)
 h = re.sub(r'본사 직원용 · v[0-9.]+', f'본사 직원용 · v{ver}', h)
 h = re.sub(r'포터블 · 무흔적 · v[0-9.]+', f'포터블 · 무흔적 · v{ver}', h)
+h = re.sub(r'(class="hqver">)v[0-9.]+', rf'\1v{ver}', h)
+
+# ★잔여 버전 가드 — 위 패턴 목록은 표기 자리가 늘어날 때마다 낡는다. 실제로 히어로 목업의
+#   hqver 배지가 이 목록 밖에 있어 랜딩에만 옛 버전이 굳어 있었다. 사람이 목록을 갱신하길
+#   기대하는 대신, 치환 결과에 우리 버전 표기가 하나라도 남아 있으면 발행을 멈춘다.
+#   @v1.3.9 같은 외부 CDN 핀은 우리 것이 아니라 제외한다.
+stale = sorted(set(re.findall(r'(?<!@)v[0-9]+\.[0-9]+\.[0-9]+', h)) - {f'v{ver}'})
+if stale:
+    sys.exit(f"✗ 랜딩에 갱신 안 된 버전 표기가 남았습니다: {', '.join(stale)} (기대 v{ver})\n"
+             f"  publish-landing.sh 의 치환 패턴에 그 자리를 추가하세요.")
 open(dst, 'w', encoding='utf-8').write(h)
 PY
 

@@ -161,8 +161,9 @@ impl SciterConnectionManager {
         crate::ui_interface::get_option(key)
     }
 
-    /// 수락카드에 띄울 대리점 상호 — heartbeat 가 LocalConfig 에 캐시해 둔 값.
-    /// Sciter 의 get_option 은 Config OPTIONS 맵을 보는 별개 저장소라 여기로 따로 낸다.
+    /// 수락카드에 띄울 대리점 상호 — heartbeat 가 ProgramData 에 캐시해 둔 값.
+    /// LocalConfig 를 쓰면 안 된다: heartbeat 는 서비스, 이 창은 사용자 세션이라
+    /// 서로 다른 파일을 본다(그래서 한동안 전부 "본사"로만 떴다).
     /// 비면 cm.tis 가 "본사" 로 대체한다(구버전 서버 / 첫 하트비트 전).
     fn get_support_name(&self) -> String {
         // heartbeat 모듈은 Agent(윈도우) 전용이라 다른 OS 빌드엔 없다 — 그쪽은 빈 값.
