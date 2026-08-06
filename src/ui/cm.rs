@@ -168,9 +168,7 @@ impl SciterConnectionManager {
         // heartbeat 모듈은 Agent(윈도우) 전용이라 다른 OS 빌드엔 없다 — 그쪽은 빈 값.
         #[cfg(target_os = "windows")]
         {
-            hbb_common::config::LocalConfig::get_option(
-                crate::chainremote_heartbeat::SUPPORT_NAME_KEY,
-            )
+            crate::chainremote_heartbeat::read_support_name()
         }
         #[cfg(not(target_os = "windows"))]
         {

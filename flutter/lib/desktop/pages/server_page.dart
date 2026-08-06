@@ -479,10 +479,15 @@ class ConnectionManagerState extends State<ConnectionManager>
   // 여기서만 쓰면 Win7 과 Win10/11 이 다르게 보인다.
   Widget _buildAgentAcceptCard(ServerModel serverModel, Client client) {
     // 대리점 상호. heartbeat 가 받아 캐시해 둔 값이고, 아직 못 받았으면(구버전 서버 ·
-    // 첫 하트비트 전) "본사"로 대체한다. 키는 Rust 쪽 SUPPORT_NAME_KEY 와 같은 문자열.
+    // 첫 하트비트 전) "본사"로 대체한다.
+    //
+    // ★LocalConfig 로 읽으면 안 된다. heartbeat 는 서비스(LocalSystem)에서 돌고 이 카드는
+    // 사용자 세션에서 뜨는데, LocalConfig 는 그 둘이 서로 다른 파일이다 — 서비스가 캐시한
+    // 값이 여기 절대 안 보여서 모든 거래처가 "본사"로만 떴다. 지금은 양쪽이 같이 읽는
+    // ProgramData 파일을 본다(Rust chainremote_heartbeat::read_support_name).
     String who = '';
     try {
-      who = bind.mainGetLocalOption(key: 'chainremote-support-name').trim();
+      who = bind.mainGetCommonSync(key: 'chainremote-support-name').trim();
     } catch (e) {
       debugPrint('support name read failed: $e');
     }
@@ -491,7 +496,9 @@ class ConnectionManagerState extends State<ConnectionManager>
       color: const Color(0xFF22242B),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFF3A3D47)),
+          // 굵은 파랑 테두리. 포스 모니터 베젤이 검은 게 대부분이라 옅은 회색 1px 로는
+          // 어두운 카드의 윗변이 베젤에 묻혀 "창이 잘렸다"고 읽힌다. Sciter 와 같은 값.
+          border: Border.all(color: const Color(0xFF5A8CFF), width: 3),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,

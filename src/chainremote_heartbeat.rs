@@ -37,7 +37,38 @@ const CLEANUP_DONE_KEY: &str = "chainremote-cleanup-done";
 ///   설치본(custom.txt)에 안 박는 이유: 자동 업데이트가 번들 파일로 덮어버리고, 대리점이
 ///   상호를 바꿔도 이미 깔린 거래처에 반영할 길이 없다. 이 경로면 다음 하트비트에 따라온다.
 ///   비어 있으면(구버전 서버 / 첫 하트비트 전) UI 가 "본사" 로 대체한다.
-pub(crate) const SUPPORT_NAME_KEY: &str = "chainremote-support-name";
+///
+/// ★2026-08-06 LocalConfig → ProgramData 파일로 옮겼다. heartbeat 는 서비스(LocalSystem)에서
+///   돌고 수락카드는 사용자 세션에서 뜨는데, LocalConfig 는 그 둘이 서로 다른 파일이라
+///   (서비스 프로필에만 ChainRemote_local.toml 이 생긴다) 캐시해도 카드가 절대 못 읽었다.
+///   그래서 모든 거래처에서 "본사" 로만 떴다. ProgramData 는 양쪽이 같이 읽는다
+///   (updater.log·watchdog.ps1 이 이미 쓰는 검증된 자리).
+///
+/// 수락카드가 거래처(Windows)에만 있으니 캐시도 Windows 에서만 한다. 맥 HQ 도 옵션 B+ 면
+/// 하트비트를 돌리는데, 거기서 이 경로를 만들면 "C:\ProgramData\..." 라는 이름의 폴더가
+/// 통째로 생긴다 (유닉스는 역슬래시가 그냥 파일명 글자다).
+#[cfg(windows)]
+pub(crate) fn support_name_path() -> std::path::PathBuf {
+    std::path::PathBuf::from(
+        std::env::var("ProgramData").unwrap_or_else(|_| "C:\\ProgramData".to_string()),
+    )
+    .join("ChainRemote")
+    .join("support-name.txt")
+}
+
+/// 캐시된 상호를 읽는다. 없거나 못 읽으면 빈 문자열 — UI 가 "본사" 로 대체한다.
+#[cfg(windows)]
+pub(crate) fn read_support_name() -> String {
+    std::fs::read_to_string(support_name_path())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
+}
+
+#[cfg(not(windows))]
+pub(crate) fn read_support_name() -> String {
+    String::new()
+}
+
 /// 마지막 정리 결과(JSON) — 보고가 서버에 못 닿았을 때 다음 tick 에 재전송(자가치유).
 const CLEANUP_RESULT_KEY: &str = "chainremote-cleanup-result";
 
@@ -377,13 +408,19 @@ fn send_heartbeat(
         crate::chainremote_firewall::set_control(parsed.firewall_control);
         // 대리점 상호 캐시. 값이 실제로 달라졌을 때만 쓴다 — 매 하트비트마다 같은 값을
         // 디스크에 다시 쓸 이유가 없다. 서버가 안 내려주면(구버전) 옛 값을 그대로 둔다.
-        if !parsed.support_name.is_empty()
-            && hbb_common::config::LocalConfig::get_option(SUPPORT_NAME_KEY) != parsed.support_name
-        {
-            hbb_common::config::LocalConfig::set_option(
-                SUPPORT_NAME_KEY.to_string(),
-                parsed.support_name.clone(),
-            );
+        #[cfg(windows)]
+        if !parsed.support_name.is_empty() && read_support_name() != parsed.support_name {
+            let path = support_name_path();
+            if let Some(dir) = path.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
+            match std::fs::write(&path, parsed.support_name.as_bytes()) {
+                Ok(_) => log::info!(
+                    "[chainremote_heartbeat] support name cached -> {}",
+                    parsed.support_name
+                ),
+                Err(e) => log::warn!("[chainremote_heartbeat] support name write failed: {}", e),
+            }
         }
         // 방화벽 자동 해제 보고가 성공적으로 서버에 닿았으면 pending 플래그를 지운다.
         if report_firewall_disarm {

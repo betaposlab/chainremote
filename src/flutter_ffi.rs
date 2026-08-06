@@ -3013,6 +3013,13 @@ pub fn main_get_common(key: String) -> String {
         return crate::platform::is_win_10_or_greater().to_string();
         #[cfg(not(target_os = "windows"))]
         return false.to_string();
+    } else if key == "chainremote-support-name" {
+        // 수락카드에 띄울 대리점 상호. heartbeat(서비스)가 ProgramData 에 캐시한 값을
+        // CM(사용자 세션)이 읽는다 — LocalConfig 는 두 컨텍스트가 다른 파일이라 못 쓴다.
+        #[cfg(target_os = "windows")]
+        return crate::chainremote_heartbeat::read_support_name();
+        #[cfg(not(target_os = "windows"))]
+        return String::new();
     } else if key == "transfer-job-id" {
         return hbb_common::fs::get_next_job_id().to_string();
     } else if key == "is-remote-modify-enabled-by-control-permissions" {

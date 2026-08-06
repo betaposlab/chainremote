@@ -318,12 +318,16 @@ div.tab-arrows span:active {
    눈에 띄어, 시선을 끌려고 넣었던 빨간 테두리 자체가 필요 없어진다.
    맥동은 [수락] 버튼으로 옮겼다(cm.tis applyAcceptPulse).
    이 Sciter 엔 box-shadow/gradient/keyframes 가 없어 평면 색·테두리·타이포만 쓴다 —
-   덕분에 Win7 과 Win10/11(Flutter) 이 같은 그림이 된다. */
+   덕분에 Win7 과 Win10/11(Flutter) 이 같은 그림이 된다.
+
+   ★테두리는 굵은 파랑이어야 한다. 포스 모니터는 베젤이 검은 게 대부분이라, 어두운 카드가
+   화면 위쪽에 뜨면 옅은 회색 1px 로는 카드 윗변이 베젤에 묻혀 "창이 잘렸다"고 읽힌다
+   (실제로 그렇게 보고받았다). 창 크기는 멀쩡했고, 눈이 경계를 못 찾은 것이다. */
 div.accept-card {
     size: *;
     flow: horizontal;
     background: #22242B;
-    border: 1px solid #3A3D47;
+    border: 3px solid #5A8CFF;
 }
 /* 좌측 컬러 기둥 + 모니터 글리프. :after 같은 의사요소에 기대지 않고 실제 노드로 그린다. */
 div.accept-card > .ac-rail {
