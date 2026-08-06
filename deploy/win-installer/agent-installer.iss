@@ -123,6 +123,11 @@ Source: "migrate-server-address.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstal
 ;   (ASCII 전용 — 위 migrate-server-address.ps1 과 같은 이유.)
 Source: "keep-custom-icon.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
 
+; 제거 로직 — Inno 가 모르는 것들(코어가 XCOPY 한 설치폴더·서비스·바로가기·watchdog)을 지운다.
+;   ★{tmp} 가 아니라 ProgramData — 제거 시점엔 {tmp} 가 이미 사라지고 없다.
+;   (ASCII 전용 — 위와 같은 이유.)
+Source: "uninstall-core.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignoreversion
+
 [Run]
 ; 0. Windows ephemeral port range 확장 (사업화 안전망 — 다른 원격 SW 의 socket 누수에 휘말리지 않게)
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
@@ -245,25 +250,26 @@ Root: HKLM; Subkey: "SOFTWARE\Policies\Microsoft\Windows Defender Security Cente
   Flags: uninsdeletevalue
 
 [UninstallRun]
-; ★코어까지 완전 제거 (2026-07-31) — 8.7 에서 코어 항목을 숨겼으므로 제어판에 보이는 제거
-;   항목은 이것 하나뿐이다. 따라서 이 제거가 서비스·프로세스·설치폴더까지 전부 지워야 한다.
-;   (종전엔 Inno 가 자기 파일만 지우고 코어가 XCOPY 로 복사한 본체는 남겨, "지웠는데 서비스가
-;    계속 도는" 상태가 될 수 있었다.)
-;   코어의 --uninstall 은 임시 배치를 띄우는 비동기 방식이라 Inno 의 파일 삭제와 경합한다 →
-;   여기선 같은 일을 결정적인 순서로 직접 한다. 실패해도 제거를 막지 않는다(전부 SilentlyContinue).
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; sc.exe delete ChainRemote >$null 2>&1; taskkill /F /IM ChainRemote.exe /T >$null 2>&1; Start-Sleep -Seconds 2; Remove-Item '{code:CRAgentDir}' -Recurse -Force -ErrorAction SilentlyContinue"""; Flags: runhidden waituntilterminated; RunOnceId: "CoreUninstall"
+; ★Inno 가 모르는 것 전부 제거 — 설치폴더는 코어가 XCOPY 로 깔아서 Inno 의 파일 목록에
+;   없고, 서비스·바로가기·watchdog 예약작업도 마찬가지다. 그냥 두면 "제어판에서 지웠는데
+;   서비스가 계속 도는" 상태가 된다.
+;
+;   ★2026-08-06 스크립트로 분리. 종전엔 [Run] 처럼 한 줄짜리 PowerShell 두 개였는데,
+;   테스트1 실기기에서 제거가 목록의 항목만 없애고 실체는 하나도 안 지웠다(서비스·프로세스·
+;   53개 파일·바로가기 2개 전부 생존). 전부 runhidden 이라 왜 그랬는지 흔적이 없어 원인을
+;   좁힐 수가 없었다 — 같은 날 아이콘 건과 똑같은 실패다. 그래서 매 단계를 기록한다.
+;
+;   순서와 대기가 중요하다:
+;     · watchdog 예약작업을 맨 먼저 지운다. 그건 "누가 sc delete 한 서비스를 되살리는"
+;       장치라(watchdog.ps1), 제거 도중 살아 있으면 방금 지운 걸 되돌린다.
+;     · 서비스 정지는 Stop-Service(무제한 대기) 대신 폴링 + 30초 데드라인. 원격 세션을
+;       물고 있는 서비스는 STOP_PENDING 에 머물 수 있는데, 이 항목은 waituntilterminated
+;       라 여기서 멈추면 뒤 단계가 통째로 실행되지 않는다.
+;   실패해도 제거를 막지 않는다(전부 SilentlyContinue + exit 0).
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{commonappdata}\ChainRemote\uninstall-core.ps1"" -AppDir ""{code:CRAgentDir}"" -Log ""{commonappdata}\ChainRemote\updater.log"""; Flags: runhidden waituntilterminated; RunOnceId: "CoreUninstall2"
 ; 숨겨둔 코어 제거 항목도 정리 (고아 레지스트리 방지). 32/64 view 둘 다.
 Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ChainRemote /f /reg:64"; Flags: runhidden; RunOnceId: "DelCoreArp64"
 Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ChainRemote /f /reg:32"; Flags: runhidden; RunOnceId: "DelCoreArp32"
-; 바탕화면 바로가기 청소 — 이름이 아니라 "우리 exe 를 가리키는가"로 지운다. 종전엔 아무도
-;   lnk 를 안 지워서(코어 --uninstall 을 안 타므로) 기본 이름조차 고아로 남았고, 거래처가
-;   이름을 바꾼 바로가기는 더더욱 남았다. 대상 경로 비교라 어떤 이름이든 잡힌다.
-;   ★설치쪽 8번과 같은 %PUBLIC% 확장을 쓰지만 여긴 게이트가 없다 — 후보를 모아 순회할 뿐이고
-;   두 번째 글롭(C:\Users\*\Desktop)이 Public 까지 덮는다. 8번이 죽은 건 확장 실패가
-;   Test-Path 게이트를 조용히 닫았기 때문이라, 이 단계는 같은 패턴이어도 영향이 없다.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $exe='{code:CRAgentDir}\ChainRemote.exe'; $cand=@(); $cand+=@(Get-ChildItem ([Environment]::ExpandEnvironmentVariables('%PUBLIC%\Desktop\*.lnk')) -ErrorAction SilentlyContinue); $cand+=@(Get-ChildItem 'C:\Users\*\Desktop\*.lnk' -ErrorAction SilentlyContinue); foreach($f in $cand){{ if($wsh.CreateShortcut($f.FullName).TargetPath -eq $exe){{ Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue }} }}"""; Flags: runhidden waituntilterminated; RunOnceId: "DelDesktopShortcuts"
-; 시작 메뉴 폴더도 정리 (코어가 만들고 코어 --uninstall 을 안 타니 여기서 지워야 한다)
-Filename: "{cmd}"; Parameters: "/c rmdir /S /Q ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\ChainRemote"" 2>nul"; Flags: runhidden; RunOnceId: "DelStartMenuDir"
 ; 제거 시 watchdog SYSTEM 예약작업도 정리 (고아 작업 방지)
 Filename: "schtasks.exe"; Parameters: "/Delete /TN ChainRemoteServiceWatchdog /F"; Flags: runhidden; RunOnceId: "DelWatchdogTask"
 ; 상호 레지스트리 청소 (2026-07-14) — 기기를 다른 거래처로 재사용할 때 옛 상호("태조산 메인")가
