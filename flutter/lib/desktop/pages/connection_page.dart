@@ -460,11 +460,11 @@ class _ConnectionPageState extends State<ConnectionPage>
                           enableSuggestions: false,
                           keyboardType: TextInputType.visiblePassword,
                           focusNode: fieldFocusNode,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontFamily: 'WorkSans',
                             fontSize: 18,
                             height: 1.4,
-                            color: MyTheme.neuInk,
+                            color: CrColors.of(context).neuInk,
                             letterSpacing: 1,
                           ),
                           maxLines: 1,
@@ -472,7 +472,7 @@ class _ConnectionPageState extends State<ConnectionPage>
                               Theme.of(context).textTheme.titleLarge?.color,
                           decoration: InputDecoration(
                               filled: true,
-                              fillColor: MyTheme.neuInset,
+                              fillColor: CrColors.of(context).neuInset,
                               counterText: '',
                               hintText: _idInputFocused.value
                                   ? null
@@ -582,10 +582,10 @@ class _ConnectionPageState extends State<ConnectionPage>
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(13),
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [MyTheme.neuBtnTop, MyTheme.neuBtnBottom],
+                          colors: [CrColors.of(context).neuBtnTop, CrColors.of(context).neuBtnBottom],
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -593,7 +593,7 @@ class _ConnectionPageState extends State<ConnectionPage>
                               offset: const Offset(6, 6),
                               blurRadius: 13),
                           BoxShadow(
-                              color: MyTheme.neuShadowLight,
+                              color: CrColors.of(context).neuShadowLight,
                               offset: const Offset(-5, -5),
                               blurRadius: 11),
                         ],
@@ -611,15 +611,15 @@ class _ConnectionPageState extends State<ConnectionPage>
                   height: 50.0,
                   width: 44.0,
                   decoration: BoxDecoration(
-                    color: MyTheme.neuSurface,
+                    color: CrColors.of(context).neuSurface,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                          color: MyTheme.neuShadowDark,
+                          color: CrColors.of(context).neuShadowDark,
                           offset: const Offset(4, 4),
                           blurRadius: 9),
                       BoxShadow(
-                          color: MyTheme.neuShadowLight,
+                          color: CrColors.of(context).neuShadowLight,
                           offset: const Offset(-4, -4),
                           blurRadius: 8),
                     ],
@@ -723,7 +723,7 @@ class _FadeSectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const brandBlue = Color(0xFF1E5BFF);
+    final brandBlue = CrColors.of(context).tileAccent;
     final lineSolid = brandBlue.withOpacity(0.45);
     final lineFade = brandBlue.withOpacity(0.05);
     return Padding(
@@ -756,7 +756,7 @@ class _FadeSectionDivider extends StatelessWidget {
               ),
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: brandBlue,

@@ -222,7 +222,9 @@ class _PeerTabPageState extends State<PeerTabPage>
                 return Container(
                   padding: const EdgeInsets.only(left: 8, right: 4),
                   decoration: BoxDecoration(
-                    color: w.red ? CrColors.of(context).dangerBg : Colors.white,
+                    color: w.red
+                        ? CrColors.of(context).dangerBg
+                        : CrColors.of(context).warnBannerBg,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                         color: w.red
@@ -293,14 +295,14 @@ class _PeerTabPageState extends State<PeerTabPage>
       margin: const EdgeInsets.only(right: 8),
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: MyTheme.neuInset,
+        color: CrColors.of(context).neuInset,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: model.visibleEnabledOrderedIndexs.map((t) {
           final selected = model.currentTab == t;
-          final fg = selected ? MyTheme.neuBlueInk : CrColors.of(context).tabIdle;
+          final fg = selected ? CrColors.of(context).neuBlueInk : CrColors.of(context).tabIdle;
           return GestureDetector(
             key: ValueKey(t),
             behavior: HitTestBehavior.opaque,
@@ -316,16 +318,16 @@ class _PeerTabPageState extends State<PeerTabPage>
               padding: EdgeInsets.symmetric(
                   horizontal: tight ? 9 : 15, vertical: 8),
               decoration: BoxDecoration(
-                color: selected ? MyTheme.neuSurface : Colors.transparent,
+                color: selected ? CrColors.of(context).neuSurface : Colors.transparent,
                 borderRadius: BorderRadius.circular(9),
                 boxShadow: selected
                     ? [
                         BoxShadow(
-                            color: MyTheme.neuShadowDark,
+                            color: CrColors.of(context).neuShadowDark,
                             offset: const Offset(3, 3),
                             blurRadius: 7),
                         BoxShadow(
-                            color: MyTheme.neuShadowLight,
+                            color: CrColors.of(context).neuShadowLight,
                             offset: const Offset(-3, -3),
                             blurRadius: 6),
                       ]

@@ -266,6 +266,7 @@ class _PeerCardState extends State<_PeerCard>
             child: Stack(
               children: [
                 getChainRemoteAvatar(
+                  context,
                         peer.alias.isEmpty ? peer.id : peer.alias,
                         size: isPortrait ? 38 : 30)
                     .paddingAll(6),
@@ -437,7 +438,7 @@ class _PeerCardState extends State<_PeerCard>
         () => Container(
           foregroundDecoration: deco.value,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: CrColors.of(context).cardBg,
             borderRadius:
                 BorderRadius.circular(_cardRadius - _borderWidth),
             border: Border.all(
@@ -455,7 +456,7 @@ class _PeerCardState extends State<_PeerCard>
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      getChainRemoteAvatar(displayName, size: 44),
+                      getChainRemoteAvatar(context, displayName, size: 44),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -679,15 +680,15 @@ class _PeerCardState extends State<_PeerCard>
           height: 34,
           margin: const EdgeInsets.only(right: 4),
           decoration: BoxDecoration(
-            color: MyTheme.neuSurface,
+            color: CrColors.of(context).neuSurface,
             borderRadius: BorderRadius.circular(10),
             boxShadow: [
               BoxShadow(
-                  color: MyTheme.neuShadowDark,
+                  color: CrColors.of(context).neuShadowDark,
                   offset: const Offset(3, 3),
                   blurRadius: 7),
               BoxShadow(
-                  color: MyTheme.neuShadowLight,
+                  color: CrColors.of(context).neuShadowLight,
                   offset: const Offset(-3, -3),
                   blurRadius: 6),
             ],
@@ -701,7 +702,7 @@ class _PeerCardState extends State<_PeerCard>
   Widget _statusPill(bool online) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: online ? MyTheme.neuOnBg : MyTheme.neuOffBg,
+          color: online ? CrColors.of(context).neuOnBg : CrColors.of(context).neuOffBg,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
@@ -712,7 +713,7 @@ class _PeerCardState extends State<_PeerCard>
               height: 6,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: online ? MyTheme.neuOnDot : MyTheme.neuOffDot,
+                color: online ? CrColors.of(context).neuOnDot : CrColors.of(context).neuOffDot,
               ),
             ),
             const SizedBox(width: 5),
@@ -721,7 +722,7 @@ class _PeerCardState extends State<_PeerCard>
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w800,
-                color: online ? MyTheme.neuOnText : MyTheme.neuOffText,
+                color: online ? CrColors.of(context).neuOnText : CrColors.of(context).neuOffText,
               ),
             ),
           ],

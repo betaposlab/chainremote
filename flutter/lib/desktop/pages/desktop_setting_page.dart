@@ -303,7 +303,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
     super.build(context);
     final embedded = widget.embedded;
     return Scaffold(
-      backgroundColor: MyTheme.neuBg,
+      backgroundColor: CrColors.of(context).neuBg,
       body: _buildBlock(
         children: <Widget>[
           Expanded(
@@ -313,7 +313,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
                 if (!embedded) _topTabStrip(context),
                 Expanded(
                   child: Container(
-                    color: MyTheme.neuBg,
+                    color: CrColors.of(context).neuBg,
                     child: PageView(
                       controller: controller,
                       physics: NeverScrollableScrollPhysics(),

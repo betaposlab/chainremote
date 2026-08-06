@@ -81,11 +81,11 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             buildChainRemoteSidebar(context),
-            const VerticalDivider(
-                width: 2, thickness: 2, color: MyTheme.neuLineStrong),
+            VerticalDivider(
+                width: 2, thickness: 2, color: CrColors.of(context).neuLineStrong),
             Expanded(
               child: Container(
-                color: MyTheme.neuBg,
+                color: CrColors.of(context).neuBg,
                 child: _inSettings
                     ? DesktopSettingPage(
                         key: ValueKey('chainremote-embedded-settings'),
@@ -151,7 +151,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
         (Platform.environment['CHAINREMOTE_PORTABLE_DIR'] ?? '').isNotEmpty;
     return Container(
       width: 240,
-      color: MyTheme.neuSide,
+      color: CrColors.of(context).neuSide,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -273,14 +273,14 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.account_circle_outlined,
-                            size: 18, color: Colors.black54),
+                        Icon(Icons.account_circle_outlined,
+                            size: 18, color: CrColors.of(context).onSurface),
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(name,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 13, color: Colors.black87)),
+                              style: TextStyle(
+                                  fontSize: 13, color: CrColors.of(context).onSurfaceStrong)),
                         ),
                       ],
                     ),
@@ -331,20 +331,20 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     bool compact = false,
   }) {
     // 뉴모 사이드바 항목. 선택되면 솟은 표면 + 남색, 아니면 투명.
-    final fg = selected ? MyTheme.neuBlueInk : CrColors.of(context).tabIdle;
+    final fg = selected ? CrColors.of(context).neuBlueInk : CrColors.of(context).tabIdle;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
-        color: selected ? MyTheme.neuSurface : Colors.transparent,
+        color: selected ? CrColors.of(context).neuSurface : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         boxShadow: selected
             ? [
                 BoxShadow(
-                    color: MyTheme.neuShadowDark,
+                    color: CrColors.of(context).neuShadowDark,
                     offset: const Offset(4, 4),
                     blurRadius: 9),
                 BoxShadow(
-                    color: MyTheme.neuShadowLight,
+                    color: CrColors.of(context).neuShadowLight,
                     offset: const Offset(-4, -4),
                     blurRadius: 8),
               ]
@@ -412,12 +412,12 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.account_circle_outlined,
-                      size: 20, color: Colors.black54),
+                  Icon(Icons.account_circle_outlined,
+                      size: 20, color: CrColors.of(context).onSurface),
                   const SizedBox(width: 6),
                   Text(name,
-                      style: const TextStyle(
-                          fontSize: 13, color: Colors.black87)),
+                      style: TextStyle(
+                          fontSize: 13, color: CrColors.of(context).onSurfaceStrong)),
                 ],
               ),
             );
@@ -517,14 +517,14 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: MyTheme.neuInset,
+              color: CrColors.of(context).neuInset,
               borderRadius: BorderRadius.circular(11),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('내 ID ',
-                    style: TextStyle(fontSize: 12, color: Colors.black54)),
+                Text('내 ID ',
+                    style: TextStyle(fontSize: 12, color: CrColors.of(context).onSurface)),
                 Text(id,
                     style: TextStyle(
                         fontSize: 15,
@@ -532,7 +532,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                         letterSpacing: 0.5,
                         color: CrColors.of(context).infoInk)),
                 const SizedBox(width: 6),
-                const Icon(Icons.copy, size: 14, color: Colors.black45),
+                Icon(Icons.copy, size: 14, color: CrColors.of(context).onSurface),
               ],
             ),
           ),

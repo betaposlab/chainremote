@@ -190,6 +190,37 @@ class CrColors extends ThemeExtension<CrColors> {
     required this.noticeFg,
     required this.noticeBg,
     required this.noticeBorder,
+    required this.cardBg,
+    required this.tileBg,
+    required this.tileText,
+    required this.tileAccent,
+    required this.tileBorder,
+    required this.tileHoverBg,
+    required this.onSurface,
+    required this.onSurfaceStrong,
+    required this.neuBg,
+    required this.neuSide,
+    required this.neuSurface,
+    required this.neuInset,
+    required this.neuLine,
+    required this.neuLineStrong,
+    required this.neuInk,
+    required this.neuSub,
+    required this.neuBlue,
+    required this.neuBlueInk,
+    required this.neuAvatarTop,
+    required this.neuAvatarBottom,
+    required this.neuAvatarLetter,
+    required this.neuBtnTop,
+    required this.neuBtnBottom,
+    required this.neuOnBg,
+    required this.neuOnText,
+    required this.neuOnDot,
+    required this.neuOffBg,
+    required this.neuOffText,
+    required this.neuOffDot,
+    required this.neuShadowDark,
+    required this.neuShadowLight,
   });
 
   final Color textStrong, textMuted, textSubtle, textFaint, textDim, tabIdle;
@@ -199,6 +230,14 @@ class CrColors extends ThemeExtension<CrColors> {
   final Color dangerFg, dangerBg, dangerBorder, dangerDeepFg, dangerSoftBg;
   final Color infoFg, infoBg, infoInk;
   final Color noticeFg, noticeBg, noticeBorder;
+  /// 거래처 카드의 면, 폴더 타일의 면. 라이트는 흰색/연한 파랑, 다크는 패널 표면.
+  final Color cardBg, tileBg;
+  /// 폴더 타일 계열 + 옛 Colors.black54/87 을 대신하는 표면 위 글자색.
+  final Color tileText, tileAccent, tileBorder, tileHoverBg, onSurface, onSurfaceStrong;
+
+  // 셸(뉴모피즘 계열) — 사이드바·본문·카드·pill 처럼 화면의 큰 면적을 칠하는 색들.
+  // 라이트는 2026-06-06 재스킨 값 그대로, 다크는 관리 패널 팔레트.
+  final Color neuBg, neuSide, neuSurface, neuInset, neuLine, neuLineStrong, neuInk, neuSub, neuBlue, neuBlueInk, neuAvatarTop, neuAvatarBottom, neuAvatarLetter, neuBtnTop, neuBtnBottom, neuOnBg, neuOnText, neuOnDot, neuOffBg, neuOffText, neuOffDot, neuShadowDark, neuShadowLight;
 
   /// 지금까지 쓰던 값 그대로 — 라이트 테마에서는 화면이 하나도 안 바뀐다.
   static const light = CrColors(
@@ -232,6 +271,37 @@ class CrColors extends ThemeExtension<CrColors> {
     noticeFg: Color(0xFFC2410C),
     noticeBg: Color(0xFFFFEDD5),
     noticeBorder: Color(0xFFEA580C),
+    cardBg: Color(0xFFFFFFFF),
+    tileBg: Color(0xFFEFF3FF),
+    tileText: Color(0xFF1E2B45),
+    tileAccent: Color(0xFF1E5BFF),
+    tileBorder: Color(0xFFBBD0FF),
+    tileHoverBg: Color(0xFFD6E4FF),
+    onSurface: Color(0x8A000000),
+    onSurfaceStrong: Color(0xDD000000),
+    neuBg: Color(0xFFEAEEF4),
+    neuSide: Color(0xFFF5F7FB),
+    neuSurface: Color(0xFFECEFF5),
+    neuInset: Color(0xFFE5E9F0),
+    neuLine: Color(0xFFD7DDE6),
+    neuLineStrong: Color(0xFFC6CFDA),
+    neuInk: Color(0xFF1E2530),
+    neuSub: Color(0xFF76828F),
+    neuBlue: Color(0xFF3D7BF7),
+    neuBlueInk: Color(0xFF1B5FD9),
+    neuAvatarTop: Color(0xFFF7F1FF),
+    neuAvatarBottom: Color(0xFFB6A0DB),
+    neuAvatarLetter: Color(0xFF3D7BF7),
+    neuBtnTop: Color(0xFF8FBAFF),
+    neuBtnBottom: Color(0xFF1D54C6),
+    neuOnBg: Color(0xFFE2F6EB),
+    neuOnText: Color(0xFF138A53),
+    neuOnDot: Color(0xFF19B36B),
+    neuOffBg: Color(0xFFEEF1F5),
+    neuOffText: Color(0xFF8B96A2),
+    neuOffDot: Color(0xFFBAC3CD),
+    neuShadowDark: Color(0x809DAAC3),
+    neuShadowLight: Color(0xF2FFFFFF),
   );
 
   /// 관리 패널과 같은 톤. 상태색(초록·호박·장미·파랑)은 어두운 표면 위에서 읽히도록
@@ -267,6 +337,37 @@ class CrColors extends ThemeExtension<CrColors> {
     noticeFg: const Color(0xFFFFB020),
     noticeBg: const Color(0x1AFFB020),
     noticeBorder: const Color(0x47FFB020),
+    cardBg: const Color(0xFF3D4E7A),   // --deep
+    tileBg: const Color(0xFF3D4E7A),   // --deep (타일은 표면, 강조는 hover 에)
+    tileText: const Color(0xFFFFFFFF),
+    tileAccent: const Color(0xFFC3D3FF),
+    tileBorder: const Color(0xFF566999),
+    tileHoverBg: const Color(0xFF3B5291),
+    onSurface: const Color(0xFFCBD1E0),
+    onSurfaceStrong: const Color(0xFFEEF1F7),
+    neuBg: const Color(0xFF313C58), // 메인 배경 → --abyss
+    neuSide: const Color(0xFF2B364F), // 사이드바 → --void
+    neuSurface: const Color(0xFF3D4E7A), // 솟은 표면(버튼·카드) → --deep
+    neuInset: const Color(0xFF2B364F), // 들어간 표면(입력·탭 트랙) → --void
+    neuLine: const Color(0xFF51638F), // → --inkline
+    neuLineStrong: const Color(0xFF566999), // → --edge
+    neuInk: const Color(0xFFFFFFFF), // 본문 글자 → --ink
+    neuSub: const Color(0xFFCBD1E0), // 보조 글자 → --ash
+    neuBlue: const Color(0xFF4C7DFF), // → --accent
+    neuBlueInk: const Color(0xFF6B93FF), // → --accent-hover (어두운 바탕에선 더 밝아야 읽힌다)
+    neuAvatarTop: const Color(0xFF3B5291), // 아바타 → --cobalt 단색
+    neuAvatarBottom: const Color(0xFF3B5291),
+    neuAvatarLetter: const Color(0xFFC3D3FF), // → --accent-soft-text
+    neuBtnTop: const Color(0xFF4C7DFF), // 원격접속 버튼 → --accent 단색
+    neuBtnBottom: const Color(0xFF4C7DFF),
+    neuOnBg: const Color(0x1A3DDC84), // 온라인 pill → --ok 반투명
+    neuOnText: const Color(0xFF3DDC84),
+    neuOnDot: const Color(0xFF3DDC84),
+    neuOffBg: const Color(0x143D4E7A), // 오프라인 pill
+    neuOffText: const Color(0xFFCBD1E0),
+    neuOffDot: const Color(0xFF8FA0C8),
+    neuShadowDark: const Color(0x00000000),
+    neuShadowLight: const Color(0x00000000),
   );
 
   /// 화면 어디서나 `CrColors.of(context).textMuted` 로 꺼내 쓴다.
@@ -1851,7 +1952,8 @@ Future<bool> matchPeer(
 // 뉴모피즘 아바타 (2026-06-06 재스킨).
 // 라벤더 그라데이션 + 강하게 솟은 그림자 + 한글 펜 손글씨(파란 글자).
 // 디자인 원본: design-mockup/main-pretty.html .av
-Widget getChainRemoteAvatar(String displayName, {double size = 50}) {
+Widget getChainRemoteAvatar(BuildContext context, String displayName,
+    {double size = 50}) {
   final s = displayName.trim();
   final ch = s.isEmpty ? '?' : String.fromCharCode(s.runes.first);
   final k = size / 27.0; // 디자인 기준 27px 대비 그림자 스케일 배율
@@ -1861,10 +1963,10 @@ Widget getChainRemoteAvatar(String displayName, {double size = 50}) {
     alignment: Alignment.center,
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(size * 0.34),
-      gradient: const LinearGradient(
+      gradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [MyTheme.neuAvatarTop, MyTheme.neuAvatarBottom],
+        colors: [CrColors.of(context).neuAvatarTop, CrColors.of(context).neuAvatarBottom],
       ),
       border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
       boxShadow: [
@@ -1885,7 +1987,7 @@ Widget getChainRemoteAvatar(String displayName, {double size = 50}) {
       style: TextStyle(
         fontFamily: MyTheme.penFont,
         fontSize: size * 0.82,
-        color: MyTheme.neuAvatarLetter,
+        color: CrColors.of(context).neuAvatarLetter,
         height: 1.0,
       ),
     ),

@@ -329,28 +329,28 @@ class _PeersViewState extends State<_PeersView>
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: hovering
-                      ? const Color(0xFFD6E4FF)
-                      : const Color(0xFFEFF3FF),
+                      ? CrColors.of(context).tileHoverBg
+                      : CrColors.of(context).tileBg,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                       color: hovering
-                          ? const Color(0xFF1E5BFF)
-                          : const Color(0xFFBBD0FF),
+                          ? CrColors.of(context).tileAccent
+                          : CrColors.of(context).tileBorder,
                       width: hovering ? 2 : 1),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.folder_rounded,
-                        size: 26, color: Color(0xFF1E5BFF)),
+                    Icon(Icons.folder_rounded,
+                        size: 26, color: CrColors.of(context).tileAccent),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         name,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E2B45),
+                          color: CrColors.of(context).tileText,
                         ),
                       ),
                     ),
@@ -358,15 +358,15 @@ class _PeersViewState extends State<_PeersView>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E5BFF).withOpacity(0.12),
+                        color: CrColors.of(context).tileAccent.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         '$count대',
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF1E5BFF)),
+                            color: CrColors.of(context).tileAccent),
                       ),
                     ),
                   ],
@@ -432,9 +432,9 @@ class _PeersViewState extends State<_PeersView>
         PopupMenuItem<String>(
           value: 'new',
           height: 38,
-          child: Row(children: const [
+          child: Row(children: [
             Icon(Icons.create_new_folder_outlined,
-                size: 18, color: Color(0xFF1E5BFF)),
+                size: 18, color: CrColors.of(context).tileAccent),
             SizedBox(width: 8),
             Text('새 폴더'),
           ]),
@@ -460,9 +460,9 @@ class _PeersViewState extends State<_PeersView>
         PopupMenuItem<String>(
           value: 'open',
           height: 38,
-          child: Row(children: const [
+          child: Row(children: [
             Icon(Icons.folder_open_outlined,
-                size: 18, color: Color(0xFF1E5BFF)),
+                size: 18, color: CrColors.of(context).tileAccent),
             SizedBox(width: 8),
             Text('열기'),
           ]),
@@ -609,27 +609,27 @@ class _PeersViewState extends State<_PeersView>
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFFF1F4F8),
+            color: CrColors.of(context).tileBg,
             borderRadius: BorderRadius.circular(8),
-            border: const Border(
-                left: BorderSide(color: Color(0xFF1E5BFF), width: 3)),
+            border: Border(
+                left: BorderSide(color: CrColors.of(context).tileAccent, width: 3)),
           ),
           child: Row(
             children: [
-              const Icon(Icons.arrow_back_rounded,
-                  size: 20, color: Color(0xFF1E5BFF)),
+              Icon(Icons.arrow_back_rounded,
+                  size: 20, color: CrColors.of(context).tileAccent),
               const SizedBox(width: 6),
-              const Icon(Icons.folder_open_rounded,
-                  size: 18, color: Color(0xFF1E5BFF)),
+              Icon(Icons.folder_open_rounded,
+                  size: 18, color: CrColors.of(context).tileAccent),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   '$name  —  전체로 나가기',
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1E2B45),
+                    color: CrColors.of(context).tileText,
                   ),
                 ),
               ),
@@ -679,14 +679,14 @@ class _PeersViewState extends State<_PeersView>
       child: Container(
         padding: const EdgeInsets.only(left: 12, right: 2),
         decoration: BoxDecoration(
-          color: const Color(0xFFEFF3FF),
+          color: CrColors.of(context).tileBg,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF1E5BFF), width: 1.5),
+          border: Border.all(color: CrColors.of(context).tileAccent, width: 1.5),
         ),
         child: Row(
           children: [
-            const Icon(Icons.create_new_folder_rounded,
-                size: 26, color: Color(0xFF1E5BFF)),
+            Icon(Icons.create_new_folder_rounded,
+                size: 26, color: CrColors.of(context).tileAccent),
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
@@ -705,8 +705,8 @@ class _PeersViewState extends State<_PeersView>
             ),
             IconButton(
               tooltip: '만들기',
-              icon: const Icon(Icons.check_rounded,
-                  size: 20, color: Color(0xFF1E5BFF)),
+              icon: Icon(Icons.check_rounded,
+                  size: 20, color: CrColors.of(context).tileAccent),
               onPressed: submit,
             ),
             IconButton(
