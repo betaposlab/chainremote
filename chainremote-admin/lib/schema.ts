@@ -407,11 +407,36 @@ export const feedback = pgTable(
     status: text("status").notNull().default("open"),
     reply: text("reply"),
     repliedAt: timestamp("replied_at", { withTimezone: true }),
+    // 첨부가 있었는지. 90일 정리로 파일이 사라져도 "있었음"을 화면에 표시하려고 남긴다.
+    hadImages: boolean("had_images").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     tenantCreatedIdx: index("idx_feedback_tenant_created").on(t.tenantId, t.createdAt),
     statusCreatedIdx: index("idx_feedback_status_created").on(t.status, t.createdAt),
+  }),
+);
+
+// 문의 첨부 이미지 (마이그 032). 파일은 디스크(bind mount), 여기엔 경로·메타만.
+//   ★서빙은 반드시 인증 라우트로 — 공개 정적 경로에 두면 URL 만 알면 남의 대리점
+//   스크린샷이 열린다. POS 화면에는 매출·고객정보가 찍혀 있을 수 있다.
+export const feedbackImages = pgTable(
+  "feedback_images",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    // 마이그의 FK(ON DELETE CASCADE)가 실제 제약이다. drizzle 쪽은 타입만 맞춘다.
+    feedbackId: bigint("feedback_id", { mode: "number" }).notNull(),
+    // 서빙 라우트가 조인 없이 격리를 확인하려는 중복 보관.
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    storedName: text("stored_name").notNull().unique(),
+    originalName: text("original_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    byteSize: integer("byte_size").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    feedbackIdx: index("idx_feedback_images_feedback").on(t.feedbackId),
+    createdIdx: index("idx_feedback_images_created").on(t.createdAt),
   }),
 );

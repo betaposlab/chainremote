@@ -3,13 +3,63 @@
 // 문의 작성 폼. 평소엔 접혀 있고 버튼으로 편다 — 목록을 보러 온 사람이 대부분이라
 //   폼이 항상 펼쳐져 있으면 정작 답변 확인이 아래로 밀린다.
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { submitFeedbackAction } from "@/lib/actions/feedback";
+
+const MAX_IMAGES = 3;
+const MAX_BYTES = 5 * 1024 * 1024;
+const ACCEPT = ["image/png", "image/jpeg", "image/webp"];
 
 export function FeedbackForm() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // 첨부는 폼 필드가 아니라 상태로 들고 있다가 제출 때 FormData 에 넣는다.
+  //   붙여넣기로 들어온 이미지는 <input type=file> 에 채울 방법이 마땅치 않아서다.
+  const [images, setImages] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // objectURL 은 명시적으로 풀어 줘야 메모리에 남지 않는다.
+  useEffect(() => {
+    const urls = images.map((f) => URL.createObjectURL(f));
+    setPreviews(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [images]);
+
+  const addFiles = (incoming: File[]) => {
+    setError(null);
+    const picked: File[] = [];
+    for (const f of incoming) {
+      if (!ACCEPT.includes(f.type)) {
+        setError("PNG·JPG·WEBP 이미지만 첨부할 수 있습니다.");
+        continue;
+      }
+      if (f.size > MAX_BYTES) {
+        setError(`"${f.name || "이미지"}" 는 5MB 를 넘습니다.`);
+        continue;
+      }
+      picked.push(f);
+    }
+    if (picked.length === 0) return;
+    setImages((prev) => {
+      const merged = [...prev, ...picked];
+      if (merged.length > MAX_IMAGES) {
+        setError(`이미지는 최대 ${MAX_IMAGES}장까지입니다.`);
+      }
+      return merged.slice(0, MAX_IMAGES);
+    });
+  };
+
+  // 스크린샷을 찍고 바로 붙여넣는 게 "파일 선택 → 폴더 찾기" 보다 훨씬 빠르다.
+  //   신고를 끝까지 마치느냐가 여기서 갈린다.
+  const onPaste = (e: React.ClipboardEvent) => {
+    const files = Array.from(e.clipboardData.files);
+    if (files.length > 0) {
+      e.preventDefault();
+      addFiles(files);
+    }
+  };
 
   if (!open) {
     return (
@@ -22,12 +72,17 @@ export function FeedbackForm() {
   return (
     <form
       className="panel-card p-4 space-y-3"
+      onPaste={onPaste}
       action={(fd) => {
         setError(null);
+        // 상태로 들고 있던 첨부를 여기서 실어 보낸다(붙여넣기分 포함).
+        fd.delete("images");
+        images.forEach((f) => fd.append("images", f, f.name || "screenshot.png"));
         startTransition(async () => {
           try {
             await submitFeedbackAction(fd);
             setOpen(false);
+            setImages([]);
           } catch (e) {
             setError(e instanceof Error ? e.message : "전송에 실패했습니다.");
           }
@@ -59,6 +114,62 @@ export function FeedbackForm() {
         maxLength={4000}
         required
       />
+
+      {/* 첨부 */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            onClick={() => fileRef.current?.click()}
+            disabled={images.length >= MAX_IMAGES}
+          >
+            이미지 첨부
+          </button>
+          <span className="text-xs text-[#cbd1e0]">
+            {images.length}/{MAX_IMAGES} · 장당 5MB · PNG·JPG·WEBP ·{" "}
+            <b className="text-[#c3d3ff]">스크린샷은 Ctrl+V 로 바로 붙여넣기</b>
+          </span>
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept={ACCEPT.join(",")}
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            addFiles(Array.from(e.target.files ?? []));
+            // 같은 파일을 다시 고를 수 있게 비운다.
+            e.target.value = "";
+          }}
+        />
+        {images.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {images.map((f, i) => (
+              <div
+                key={`${f.name}-${i}`}
+                className="relative h-24 w-24 overflow-hidden rounded-lg border border-[#566999]"
+              >
+                {/* 미리보기는 로컬 objectURL — next/image 로 감쌀 이득이 없다. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previews[i]}
+                  alt={f.name || "첨부 이미지"}
+                  className="h-full w-full object-cover"
+                />
+                <button
+                  type="button"
+                  className="absolute right-1 top-1 rounded bg-black/60 px-1.5 text-xs text-white"
+                  onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
+                  aria-label="첨부 제거"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {error && <div className="banner banner-danger">{error}</div>}
 

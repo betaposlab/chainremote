@@ -5,9 +5,10 @@
 //   거래처/세션 쪽에서 "전체 조회 함수를 실수로 대리점 화면에 쓰는" 사고를 막으려고
 //   쓰던 방식과 같다.
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { feedback, tenants, users } from "@/lib/schema";
+import { feedback, feedbackImages, tenants, users } from "@/lib/schema";
+import type { StoredImage } from "@/lib/feedback-upload";
 import {
   FEEDBACK_KINDS,
   FEEDBACK_STATUSES,
@@ -29,6 +30,7 @@ export async function createFeedback(input: {
   kind: string;
   title: string;
   body: string;
+  images?: StoredImage[];
 }) {
   const kind = (FEEDBACK_KINDS as readonly string[]).includes(input.kind)
     ? (input.kind as FeedbackKind)
@@ -38,18 +40,102 @@ export async function createFeedback(input: {
   if (!title) throw new Error("제목을 입력하세요.");
   if (!body) throw new Error("내용을 입력하세요.");
 
-  const [row] = await db
-    .insert(feedback)
-    .values({
-      tenantId: input.tenantId,
-      userId: input.userId,
-      authorName: input.authorName.trim() || "(이름 없음)",
-      kind,
-      title,
-      body,
+  // 이미지는 이미 디스크에 쓰인 뒤 넘어온다. 문의 행과 함께 한 트랜잭션으로 넣어
+  //   "글은 없는데 첨부만 남는" 상태를 막는다(고아 파일은 정리 작업이 걷어낸다).
+  const images = input.images ?? [];
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(feedback)
+      .values({
+        tenantId: input.tenantId,
+        userId: input.userId,
+        authorName: input.authorName.trim() || "(이름 없음)",
+        kind,
+        title,
+        body,
+        hadImages: images.length > 0,
+      })
+      .returning({ id: feedback.id });
+
+    if (images.length > 0) {
+      await tx.insert(feedbackImages).values(
+        images.map((im) => ({
+          feedbackId: row.id,
+          tenantId: input.tenantId,
+          storedName: im.storedName,
+          originalName: im.originalName,
+          mimeType: im.mimeType,
+          byteSize: im.byteSize,
+        })),
+      );
+    }
+    return row;
+  });
+}
+
+/** 문의 id 들에 달린 이미지를 한 번에 가져온다(N+1 회피). */
+export async function listImagesFor(feedbackIds: number[]) {
+  if (feedbackIds.length === 0) return [];
+  return db
+    .select({
+      id: feedbackImages.id,
+      feedbackId: feedbackImages.feedbackId,
+      originalName: feedbackImages.originalName,
     })
-    .returning({ id: feedback.id });
-  return row;
+    .from(feedbackImages)
+    .where(inArray(feedbackImages.feedbackId, feedbackIds))
+    .orderBy(feedbackImages.id);
+}
+
+/**
+ * 서빙 라우트용 단건 조회. ★격리는 여기서 끝난다 —
+ * super_admin 이 아니면 자기 대리점 것만 돌려준다.
+ */
+export async function getImageForServe(
+  id: number,
+  scope: { tenantId: string } | { platform: true },
+) {
+  const where =
+    "platform" in scope
+      ? eq(feedbackImages.id, id)
+      : and(eq(feedbackImages.id, id), eq(feedbackImages.tenantId, scope.tenantId));
+
+  const [row] = await db
+    .select({
+      storedName: feedbackImages.storedName,
+      mimeType: feedbackImages.mimeType,
+      originalName: feedbackImages.originalName,
+    })
+    .from(feedbackImages)
+    .where(where)
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * 보관 기간이 지난 첨부를 찾는다 — 닫힌(done·declined) 문의에 달렸고 올린 지 N일 지난 것.
+ * 글과 답변은 건드리지 않는다. 파일 삭제는 호출부가 하고, 여기서는 DB 행만 지운다.
+ */
+export async function purgeExpiredImages(olderThanDays: number) {
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+  const doomed = await db
+    .select({ id: feedbackImages.id, storedName: feedbackImages.storedName })
+    .from(feedbackImages)
+    .innerJoin(feedback, eq(feedbackImages.feedbackId, feedback.id))
+    .where(
+      and(
+        lt(feedbackImages.createdAt, cutoff),
+        inArray(feedback.status, ["done", "declined"]),
+      ),
+    );
+  if (doomed.length === 0) return [];
+  await db.delete(feedbackImages).where(
+    inArray(
+      feedbackImages.id,
+      doomed.map((d) => d.id),
+    ),
+  );
+  return doomed;
 }
 
 /** 대리점 화면 — 자기 회사 것만. */
@@ -64,6 +150,7 @@ export async function listFeedbackForTenant(tenantId: string) {
       reply: feedback.reply,
       repliedAt: feedback.repliedAt,
       authorName: feedback.authorName,
+      hadImages: feedback.hadImages,
       createdAt: feedback.createdAt,
     })
     .from(feedback)
@@ -83,6 +170,7 @@ export async function listFeedbackForPlatform() {
       reply: feedback.reply,
       repliedAt: feedback.repliedAt,
       authorName: feedback.authorName,
+      hadImages: feedback.hadImages,
       createdAt: feedback.createdAt,
       tenantName: tenants.displayName,
       authorEmail: users.email,

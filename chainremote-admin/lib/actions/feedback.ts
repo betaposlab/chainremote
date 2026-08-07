@@ -9,6 +9,12 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { writeAudit } from "@/lib/data/audit";
 import * as data from "@/lib/data/feedback";
+import {
+  MAX_IMAGES_PER_FEEDBACK,
+  removeStoredImage,
+  storeImage,
+  type StoredImage,
+} from "@/lib/feedback-upload";
 
 async function requireSession() {
   const session = await auth();
@@ -24,14 +30,33 @@ async function requireSuperAdmin() {
 
 export async function submitFeedbackAction(form: FormData): Promise<void> {
   const me = await requireSession();
-  await data.createFeedback({
-    tenantId: me.tenantId,
-    userId: me.id,
-    authorName: me.displayName || me.email || "",
-    kind: String(form.get("kind") ?? "suggestion"),
-    title: String(form.get("title") ?? ""),
-    body: String(form.get("body") ?? ""),
-  });
+
+  const files = form
+    .getAll("images")
+    .filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length > MAX_IMAGES_PER_FEEDBACK) {
+    throw new Error(`이미지는 최대 ${MAX_IMAGES_PER_FEEDBACK}장까지 첨부할 수 있습니다.`);
+  }
+
+  // 파일을 먼저 디스크에 쓰고 그 결과를 문의 행과 한 트랜잭션으로 넣는다.
+  //   중간에 실패하면 이미 쓴 파일을 되감는다 — 안 그러면 아무 문의에도 안 걸린
+  //   고아 파일이 남는다.
+  const stored: StoredImage[] = [];
+  try {
+    for (const f of files) stored.push(await storeImage(f));
+    await data.createFeedback({
+      tenantId: me.tenantId,
+      userId: me.id,
+      authorName: me.displayName || me.email || "",
+      kind: String(form.get("kind") ?? "suggestion"),
+      title: String(form.get("title") ?? ""),
+      body: String(form.get("body") ?? ""),
+      images: stored,
+    });
+  } catch (e) {
+    await Promise.all(stored.map((s) => removeStoredImage(s.storedName)));
+    throw e;
+  }
   revalidatePath("/feedback");
 }
 

@@ -4,7 +4,11 @@
 //   이유가 없고, 상호·업무 사정이 그대로 드러난다는 것이다.
 
 import { auth } from "@/auth";
-import { listFeedbackForPlatform, listFeedbackForTenant } from "@/lib/data/feedback";
+import {
+  listFeedbackForPlatform,
+  listFeedbackForTenant,
+  listImagesFor,
+} from "@/lib/data/feedback";
 import {
   KIND_LABEL,
   STATUS_LABEL,
@@ -47,6 +51,16 @@ export default async function FeedbackPage() {
   const rows = isPlatform
     ? await listFeedbackForPlatform()
     : await listFeedbackForTenant(me.tenantId);
+
+  // 첨부는 한 번에 모아 온다(N+1 회피). 보관 기간이 지나 파일이 정리된 건은 여기 안 잡히고,
+  //   그 사실은 hadImages 로 구분해 "삭제됨"을 표시한다.
+  const images = await listImagesFor(rows.map((r) => r.id));
+  const imagesByFeedback = new Map<number, typeof images>();
+  for (const im of images) {
+    const list = imagesByFeedback.get(im.feedbackId) ?? [];
+    list.push(im);
+    imagesByFeedback.set(im.feedbackId, list);
+  }
 
   return (
     <div className="px-4 py-5 md:px-8 md:py-6 max-w-5xl">
@@ -91,6 +105,44 @@ export default async function FeedbackPage() {
               </div>
 
               <p className="mt-3 whitespace-pre-wrap text-sm text-[#eef1f7]">{r.body}</p>
+
+              {(() => {
+                const atts = imagesByFeedback.get(r.id) ?? [];
+                if (atts.length > 0) {
+                  return (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {atts.map((im) => (
+                        <a
+                          key={im.id}
+                          href={`/api/feedback/image/${im.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block h-28 w-28 overflow-hidden rounded-lg border border-[#566999]"
+                          title={`${im.originalName} — 새 탭에서 크게 보기`}
+                        >
+                          {/* 인증 라우트라 next/image 최적화 대상이 아니다. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={`/api/feedback/image/${im.id}`}
+                            alt={im.originalName}
+                            className="h-full w-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  );
+                }
+                // 첨부가 있었는데 지금 없다 = 보관 기간(90일)이 지나 정리된 것.
+                //   원래 없던 것과 구분되게 알린다.
+                if (r.hadImages) {
+                  return (
+                    <div className="mt-3 text-xs text-[#cbd1e0]">
+                      첨부 이미지는 보관 기간이 지나 삭제되었습니다. (글과 답변은 그대로 보관됩니다)
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {r.reply && (
                 <div className="mt-3 rounded-lg border border-[#4c7dff]/40 bg-[#4c7dff]/10 p-3">
