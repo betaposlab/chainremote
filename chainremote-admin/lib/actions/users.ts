@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/schema";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { writeAudit } from "@/lib/data/audit";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
@@ -62,13 +63,24 @@ export async function createUser(formData: FormData) {
   await assertEmailAvailable(email); // 전역 email 중복 사전검사 (최종 방어는 마이그 012 유니크)
   await assertSeatAvailable(me.tenantId); // ★좌석 상한 — 아이디 무제한 생성 = 과금 회피 차단
   const passwordHash = bcrypt.hashSync(password, BCRYPT_COST);
-  await db.insert(users).values({
+  const [created] = await db
+    .insert(users)
+    .values({
+      tenantId: me.tenantId,
+      email,
+      displayName,
+      passwordHash,
+      role,
+      isActive: true,
+    })
+    .returning({ id: users.id });
+  await writeAudit({
+    action: "user.create",
     tenantId: me.tenantId,
-    email,
-    displayName,
-    passwordHash,
-    role,
-    isActive: true,
+    userId: me.id,
+    targetType: "user",
+    targetId: created?.id ?? null,
+    metadata: { email, role },
   });
   revalidatePath("/users");
   redirect("/users");
@@ -102,10 +114,31 @@ export async function updateUser(id: string, formData: FormData) {
   // 비활성→활성 전환도 좌석을 차지하므로 상한 검사(이 아이디 제외한 활성 수 기준).
   if (isActive) await assertSeatAvailable(me.tenantId, id);
 
+  // 바뀌기 전 값을 먼저 읽는다 — 감사로그에 "무엇에서 무엇으로"가 없으면 반쪽이다.
+  const [before] = await db
+    .select({ role: users.role, isActive: users.isActive })
+    .from(users)
+    .where(and(eq(users.id, id), eq(users.tenantId, me.tenantId)))
+    .limit(1);
+
   await db
     .update(users)
     .set({ displayName, role, isActive, updatedAt: new Date() })
     .where(and(eq(users.id, id), eq(users.tenantId, me.tenantId)));
+  // 이름만 고친 저장은 남기지 않는다 — 권한·활성 상태가 실제로 달라졌을 때만.
+  if (before && (before.role !== role || before.isActive !== isActive)) {
+    await writeAudit({
+      action: "user.role_change",
+      tenantId: me.tenantId,
+      userId: me.id,
+      targetType: "user",
+      targetId: id,
+      metadata: {
+        from: { role: before.role, isActive: before.isActive },
+        to: { role, isActive },
+      },
+    });
+  }
   revalidatePath("/users");
 }
 
@@ -119,6 +152,14 @@ export async function resetPassword(id: string, formData: FormData) {
     .update(users)
     .set({ passwordHash, updatedAt: new Date() })
     .where(and(eq(users.id, id), eq(users.tenantId, me.tenantId)));
+  // 비번 자체는 절대 안 남긴다 — 누가 누구 것을 언제 리셋했는지만.
+  await writeAudit({
+    action: "user.password_reset",
+    tenantId: me.tenantId,
+    userId: me.id,
+    targetType: "user",
+    targetId: id,
+  });
   revalidatePath("/users");
 }
 
@@ -130,5 +171,12 @@ export async function deleteUser(id: string) {
   await db
     .delete(users)
     .where(and(eq(users.id, id), eq(users.tenantId, me.tenantId)));
+  await writeAudit({
+    action: "user.delete",
+    tenantId: me.tenantId,
+    userId: me.id,
+    targetType: "user",
+    targetId: id,
+  });
   revalidatePath("/users");
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { writeAudit } from "@/lib/data/audit";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import * as data from "@/lib/data/customers";
@@ -90,7 +91,19 @@ export async function updateCustomer(id: string, formData: FormData) {
 
 export async function deleteCustomer(id: string) {
   const session = await requireSession();
-  await data.deleteCustomer(id, { tenantId: session.tenantId });
+  // 지우기 전에 상호·ID 를 확보한다 — 지운 뒤엔 남는 게 uuid 뿐이라 나중에 봐도 모른다.
+  const target = await data.getCustomer(id, session.tenantId);
+  const ok = await data.deleteCustomer(id, { tenantId: session.tenantId });
+  if (ok) {
+    await writeAudit({
+      action: "customer.delete",
+      tenantId: session.tenantId,
+      userId: session.id,
+      targetType: "customer",
+      targetId: id,
+      metadata: { name: target?.name ?? null, remoteId: target?.remoteId ?? null },
+    });
+  }
   revalidatePath("/customers");
 }
 

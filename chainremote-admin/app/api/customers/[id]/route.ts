@@ -11,6 +11,7 @@ import {
   ApiAuthError,
 } from "@/lib/api-auth";
 import * as data from "@/lib/data/customers";
+import { writeAudit } from "@/lib/data/audit";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -59,8 +60,23 @@ export async function DELETE(req: Request, ctx: Ctx) {
     const me = await requireApiAuth(req);
     requireNotViewer(me);
     const { id } = await ctx.params;
+    // 패널 화면과 같은 이유로 지우기 전에 상호를 확보한다. HQ 에서 지운 것도 똑같이 남아야
+    // "패널로 지우면 남고 HQ 로 지우면 안 남는" 반쪽 이력이 안 생긴다.
+    const target = await data.getCustomer(id, me.tenantId);
     const ok = await data.deleteCustomer(id, { tenantId: me.tenantId });
     if (!ok) throw new ApiAuthError(404, "not found");
+    await writeAudit({
+      action: "customer.delete",
+      tenantId: me.tenantId,
+      userId: me.uid, // JWT 클레임은 uid — 세션 객체의 id 와 이름이 다르다.
+      targetType: "customer",
+      targetId: id,
+      metadata: {
+        name: target?.name ?? null,
+        remoteId: target?.remoteId ?? null,
+        via: "hq",
+      },
+    });
     return Response.json({ ok: true });
   } catch (e) {
     return jsonError(e);

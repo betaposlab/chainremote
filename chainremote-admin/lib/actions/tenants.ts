@@ -6,6 +6,7 @@
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { writeAudit } from "@/lib/data/audit";
 import { auth } from "@/auth";
 import {
   createTenantWithOwner,
@@ -169,6 +170,15 @@ export async function deleteTenant(
   const t = await getTenant(id);
   if (!t) return { ok: false, error: "이미 삭제된 회사입니다." };
   const { deletedCustomers } = await deleteTenantCascade(id);
+  // tenant_id 는 이 시점에 사라진 회사를 가리키므로(FK set null) 남는 건 metadata 뿐이다.
+  // 그래서 상호·slug·딸려 지워진 거래처 수를 여기에 박아둔다.
+  await writeAudit({
+    action: "tenant.delete",
+    userId: me.id,
+    targetType: "tenant",
+    targetId: id,
+    metadata: { slug: t.slug, displayName: t.displayName, deletedCustomers },
+  });
   revalidatePath("/admin/tenants");
   revalidatePath("/users");
   return { ok: true, deletedCustomers };
@@ -222,7 +232,23 @@ export async function updateTenantFromForm(id: string, formData: FormData) {
   const seats = num("maxSeats");
   if (seats && seats >= 1) patch.maxSeats = Math.floor(seats);
 
+  // 무인접속은 보안 설정이라 켜고 끈 이력이 남아야 한다. 회사 정보 수정은 일상 동작이라
+  // 나머지 항목은 안 남긴다 — 이 값이 실제로 달라졌을 때만.
+  const before = await getTenant(id);
   await updateTenant(id, patch);
+  if (before && before.unattendedAgent !== patch.unattendedAgent) {
+    await writeAudit({
+      action: "tenant.unattended_change",
+      tenantId: id,
+      targetType: "tenant",
+      targetId: id,
+      metadata: {
+        slug: before.slug,
+        from: before.unattendedAgent,
+        to: patch.unattendedAgent,
+      },
+    });
+  }
   revalidatePath("/admin/tenants");
 }
 
