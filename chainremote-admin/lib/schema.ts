@@ -409,6 +409,8 @@ export const feedback = pgTable(
     repliedAt: timestamp("replied_at", { withTimezone: true }),
     // 첨부가 있었는지. 90일 정리로 파일이 사라져도 "있었음"을 화면에 표시하려고 남긴다.
     hadImages: boolean("had_images").notNull().default(false),
+    // 대리점이 답변을 확인한 시각(마이그 034). replied_at 보다 이르거나 없으면 "새 답변".
+    replySeenAt: timestamp("reply_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

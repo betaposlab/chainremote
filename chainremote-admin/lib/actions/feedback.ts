@@ -57,7 +57,9 @@ export async function submitFeedbackAction(form: FormData): Promise<void> {
     await Promise.all(stored.map((s) => removeStoredImage(s.storedName)));
     throw e;
   }
-  revalidatePath("/feedback");
+  // 배지가 루트 layout 에 있어 페이지만 재검증하면 숫자가 안 줄어든다 —
+  //   처리했는데 그대로 남은 것처럼 보인다. layout 을 재검증하면 하위 페이지도 같이 갱신된다.
+  revalidatePath("/", "layout");
 }
 
 export async function deleteFeedbackAction(form: FormData): Promise<void> {
@@ -81,7 +83,9 @@ export async function deleteFeedbackAction(form: FormData): Promise<void> {
     targetType: "feedback",
     metadata: { id, title: row.title, byPlatform: me.role === "super_admin" },
   });
-  revalidatePath("/feedback");
+  // 배지가 루트 layout 에 있어 페이지만 재검증하면 숫자가 안 줄어든다 —
+  //   처리했는데 그대로 남은 것처럼 보인다. layout 을 재검증하면 하위 페이지도 같이 갱신된다.
+  revalidatePath("/", "layout");
 }
 
 export async function updateFeedbackAction(form: FormData): Promise<void> {
@@ -110,5 +114,7 @@ export async function updateFeedbackAction(form: FormData): Promise<void> {
       ...(reply !== null ? { replied: String(reply).trim().length > 0 } : {}),
     },
   });
-  revalidatePath("/feedback");
+  // 배지가 루트 layout 에 있어 페이지만 재검증하면 숫자가 안 줄어든다 —
+  //   처리했는데 그대로 남은 것처럼 보인다. layout 을 재검증하면 하위 페이지도 같이 갱신된다.
+  revalidatePath("/", "layout");
 }

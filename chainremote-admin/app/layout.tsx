@@ -4,6 +4,7 @@ import "./globals.css";
 import { auth, signOut } from "@/auth";
 import { roleLabel, canManageAccounts } from "@/lib/roles";
 import { Shell } from "./_shell";
+import { countFeedbackBadge } from "@/lib/data/feedback";
 
 export const metadata: Metadata = {
   title: "ChainRemote 관리 패널",
@@ -17,6 +18,20 @@ export default async function RootLayout({
 }>) {
   const session = await auth();
   const user = session?.user;
+
+  // 사이드바 배지. 미인증이면 아예 안 물어본다(아래에서 early return).
+  //   레이아웃은 모든 페이지에 렌더되므로 쿼리 하나가 매 요청에 얹힌다 — count 한 번이고
+  //   인덱스를 타므로 감수한다. 실패해도 화면은 떠야 하니 0 으로 떨어뜨린다.
+  let feedbackBadge = 0;
+  if (user) {
+    try {
+      feedbackBadge = await countFeedbackBadge(
+        user.role === "super_admin" ? { platform: true } : { tenantId: user.tenantId },
+      );
+    } catch {
+      feedbackBadge = 0;
+    }
+  }
 
   // 미인증 (예: /login 페이지) — 사이드바 없이 children 만
   if (!user) {
@@ -61,8 +76,9 @@ export default async function RootLayout({
             <NavItem href="/">대시보드</NavItem>
             <NavItem href="/customers">거래처</NavItem>
             <NavItem href="/sessions">지원기록</NavItem>
-            {/* 대리점에는 "문의하기", 우리에게는 "문의함" — 같은 화면이 역할에 따라 갈린다. */}
-            <NavItem href="/feedback">
+            {/* 대리점에는 "문의하기", 우리에게는 "문의함" — 같은 화면이 역할에 따라 갈린다.
+                배지 숫자도 역할마다 뜻이 다르다: 운영자는 미처리 건수, 대리점은 새 답변 수. */}
+            <NavItem href="/feedback" badge={feedbackBadge}>
               {user.role === "super_admin" ? "문의함" : "문의하기"}
             </NavItem>
             {user.role !== "super_admin" && canManageAccounts(user.role) && (
@@ -147,13 +163,27 @@ export default async function RootLayout({
   );
 }
 
-function NavItem({ href, children }: { href: string; children: React.ReactNode }) {
+function NavItem({
+  href,
+  children,
+  badge,
+}: {
+  href: string;
+  children: React.ReactNode;
+  /** 0 이면 아예 안 그린다 — "0" 배지는 없는 것만 못하다. */
+  badge?: number;
+}) {
   return (
     <Link
       href={href}
-      className="block px-3 py-2 rounded-md text-[#cbd1e0] hover:bg-white/[0.05] hover:text-white transition-colors"
+      className="flex items-center justify-between gap-2 px-3 py-2 rounded-md text-[#cbd1e0] hover:bg-white/[0.05] hover:text-white transition-colors"
     >
-      {children}
+      <span>{children}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="min-w-[1.25rem] rounded-full bg-[#4c7dff] px-1.5 py-0.5 text-center text-[0.68rem] font-semibold leading-none text-white">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }

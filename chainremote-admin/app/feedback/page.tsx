@@ -2,36 +2,20 @@
 //
 // 게시판이 아닌 이유는 마이그 031 주석에 적어 뒀다. 요지는 대리점끼리 서로의 글을 볼
 //   이유가 없고, 상호·업무 사정이 그대로 드러난다는 것이다.
+//
+// 목록은 접힌 한 줄이 기본이다(_row.tsx). 카드로 다 펼쳐 두면 몇 건만 쌓여도 훑을 수 없다.
 
 import { auth } from "@/auth";
 import {
   listFeedbackForPlatform,
   listFeedbackForTenant,
   listImagesFor,
+  markRepliesSeen,
 } from "@/lib/data/feedback";
-import {
-  KIND_LABEL,
-  STATUS_LABEL,
-  type FeedbackKind,
-  type FeedbackStatus,
-} from "@/lib/feedback-constants";
 import { FeedbackForm } from "./_form";
-import { AdminRowControls } from "./_admin-row";
-import { DeleteFeedbackButton } from "./_delete-button";
+import { FeedbackRow, type FeedbackRowData } from "./_row";
 
 export const dynamic = "force-dynamic";
-
-function statusChip(status: string) {
-  const cls =
-    status === "done"
-      ? "chip chip-ok"
-      : status === "declined"
-        ? "chip chip-neutral"
-        : status === "reviewing"
-          ? "chip chip-accent"
-          : "chip chip-warn";
-  return <span className={cls}>{STATUS_LABEL[status as FeedbackStatus] ?? status}</span>;
-}
 
 function fmt(d: Date | null) {
   if (!d) return "";
@@ -52,15 +36,40 @@ export default async function FeedbackPage() {
     ? await listFeedbackForPlatform()
     : await listFeedbackForTenant(me.tenantId);
 
-  // 첨부는 한 번에 모아 온다(N+1 회피). 보관 기간이 지나 파일이 정리된 건은 여기 안 잡히고,
+  // 첨부는 한 번에 모아 온다(N+1 회피). 보관 기간이 지나 정리된 건은 여기 안 잡히고,
   //   그 사실은 hadImages 로 구분해 "삭제됨"을 표시한다.
   const images = await listImagesFor(rows.map((r) => r.id));
-  const imagesByFeedback = new Map<number, typeof images>();
+  const imagesByFeedback = new Map<number, { id: number; originalName: string }[]>();
   for (const im of images) {
     const list = imagesByFeedback.get(im.feedbackId) ?? [];
-    list.push(im);
+    list.push({ id: im.id, originalName: im.originalName });
     imagesByFeedback.set(im.feedbackId, list);
   }
+
+  // 대리점이 이 화면을 열면 새 답변 배지를 내린다. ★조회 뒤에 호출해야 이번 렌더에는
+  //   "새 답변" 상태가 그대로 보이고, 다음 이동부터 배지가 사라진다.
+  if (!isPlatform) {
+    await markRepliesSeen(me.tenantId);
+  }
+
+  // Date 는 클라이언트 컴포넌트로 그대로 넘기지 않고 여기서 문자열로 굳힌다 —
+  //   서버·브라우저 시간대가 달라 같은 값이 다르게 찍히는 것을 막는다(Asia/Seoul 고정).
+  const data: FeedbackRowData[] = rows.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    title: r.title,
+    body: r.body,
+    status: r.status,
+    reply: r.reply,
+    repliedAt: r.repliedAt ? fmt(r.repliedAt) : null,
+    authorName: r.authorName,
+    hadImages: r.hadImages,
+    createdAt: fmt(r.createdAt),
+    // 운영자 목록에만 있는 필드다. 두 조회의 반환 타입이 달라 in 검사만으로는
+    //   unknown 으로 남으므로 여기서 좁혀 준다.
+    tenantName: "tenantName" in r ? ((r.tenantName as string | null) ?? null) : null,
+    images: imagesByFeedback.get(r.id) ?? [],
+  }));
 
   return (
     <div className="px-4 py-5 md:px-8 md:py-6 max-w-5xl">
@@ -70,7 +79,7 @@ export default async function FeedbackPage() {
         </h1>
         <p className="mt-1 text-sm text-[#cbd1e0]">
           {isPlatform
-            ? "대리점이 보낸 건의·버그 신고입니다. 미처리 건이 위로 옵니다."
+            ? "대리점이 보낸 건의·버그 신고입니다. 미처리 건이 위로 옵니다. 줄을 누르면 펼쳐집니다."
             : "ChainRemote 에 바라는 점이나 이상한 동작을 알려 주세요. 답변은 이 화면에 표시됩니다."}
         </p>
       </header>
@@ -81,96 +90,21 @@ export default async function FeedbackPage() {
         </div>
       )}
 
-      {rows.length === 0 ? (
+      {data.length === 0 ? (
         <div className="panel-card p-8 text-center text-sm text-[#cbd1e0]">
           {isPlatform
             ? "아직 들어온 문의가 없습니다."
             : "아직 보낸 문의가 없습니다. 위 버튼으로 첫 문의를 남겨 보세요."}
         </div>
       ) : (
-        <div className="space-y-3">
-          {rows.map((r) => (
-            <article key={r.id} className="panel-card p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="chip chip-neutral">
-                  {KIND_LABEL[r.kind as FeedbackKind] ?? r.kind}
-                </span>
-                {statusChip(r.status)}
-                <h2 className="font-semibold text-white">{r.title}</h2>
-              </div>
-
-              <div className="mt-1 text-xs text-[#cbd1e0]">
-                {"tenantName" in r && r.tenantName ? `${r.tenantName} · ` : ""}
-                {r.authorName} · {fmt(r.createdAt)}
-              </div>
-
-              <p className="mt-3 whitespace-pre-wrap text-sm text-[#eef1f7]">{r.body}</p>
-
-              {(() => {
-                const atts = imagesByFeedback.get(r.id) ?? [];
-                if (atts.length > 0) {
-                  return (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {atts.map((im) => (
-                        <a
-                          key={im.id}
-                          href={`/api/feedback/image/${im.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block h-28 w-28 overflow-hidden rounded-lg border border-[#566999]"
-                          title={`${im.originalName} — 새 탭에서 크게 보기`}
-                        >
-                          {/* 인증 라우트라 next/image 최적화 대상이 아니다. */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={`/api/feedback/image/${im.id}`}
-                            alt={im.originalName}
-                            className="h-full w-full object-cover"
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  );
-                }
-                // 첨부가 있었는데 지금 없다 = 보관 기간(90일)이 지나 정리된 것.
-                //   원래 없던 것과 구분되게 알린다.
-                if (r.hadImages) {
-                  return (
-                    <div className="mt-3 text-xs text-[#cbd1e0]">
-                      첨부 이미지는 보관 기간이 지나 삭제되었습니다. (글과 답변은 그대로 보관됩니다)
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-
-              {r.reply && (
-                <div className="mt-3 rounded-lg border border-[#4c7dff]/40 bg-[#4c7dff]/10 p-3">
-                  <div className="text-xs font-semibold text-[#c3d3ff]">
-                    베타포스랩 답변 {r.repliedAt ? `· ${fmt(r.repliedAt)}` : ""}
-                  </div>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-[#eef1f7]">{r.reply}</p>
-                </div>
-              )}
-
-              {isPlatform ? (
-                <>
-                  <AdminRowControls id={r.id} status={r.status} reply={r.reply} />
-                  <div className="mt-2">
-                    <DeleteFeedbackButton id={r.id} />
-                  </div>
-                </>
-              ) : (
-                // 대리점은 아직 답이 안 나간 자기 글만 거둘 수 있다. 조건이 안 맞으면
-                //   버튼 자체를 숨긴다 — 눌러 봐야 서버가 막을 걸 보여줄 이유가 없다.
-                r.status === "open" &&
-                !r.reply && (
-                  <div className="mt-3 border-t border-[#51638f] pt-2">
-                    <DeleteFeedbackButton id={r.id} />
-                  </div>
-                )
-              )}
-            </article>
+        <div className="space-y-2">
+          {data.map((r) => (
+            <FeedbackRow
+              key={r.id}
+              row={r}
+              isPlatform={isPlatform}
+              canDelete={r.status === "open" && !r.reply}
+            />
           ))}
         </div>
       )}

@@ -243,13 +243,43 @@ export async function deleteFeedback(
   return row;
 }
 
-/** 미처리 건수 — 사이드바 배지용. super_admin 은 전체, 그 외는 자기 회사. */
-export async function countOpenFeedback(tenantId: string | null) {
-  const base = db
+/**
+ * 사이드바 배지 숫자. ★역할마다 세는 대상이 다르다.
+ *   운영자 → 아직 손 안 댄 문의(status='open')
+ *   대리점 → 답변이 왔는데 아직 확인 안 한 것
+ * 대리점의 관심사는 우리 처리 상태가 아니라 "답이 왔나" 이므로 status 로는 표현할 수 없다.
+ */
+export async function countFeedbackBadge(scope: { tenantId: string } | { platform: true }) {
+  const where =
+    "platform" in scope
+      ? eq(feedback.status, "open")
+      : and(
+          eq(feedback.tenantId, scope.tenantId),
+          sql`${feedback.reply} IS NOT NULL`,
+          sql`(${feedback.replySeenAt} IS NULL OR ${feedback.replySeenAt} < ${feedback.repliedAt})`,
+        );
+
+  const rows = await db
     .select({ n: sql<number>`count(*)::int` })
-    .from(feedback);
-  const rows = tenantId
-    ? await base.where(and(eq(feedback.tenantId, tenantId), eq(feedback.status, "open")))
-    : await base.where(eq(feedback.status, "open"));
+    .from(feedback)
+    .where(where);
   return rows[0]?.n ?? 0;
+}
+
+/**
+ * 대리점이 문의함을 열면 자기 회사의 답변을 확인 처리한다.
+ * 목록만 훑고 닫아도 확인으로 잡히지만, 배지가 영영 안 사라지는 것보단 낫다 —
+ * 목록 줄에 답변 여부가 같이 보이므로 놓칠 여지는 작다.
+ */
+export async function markRepliesSeen(tenantId: string) {
+  await db
+    .update(feedback)
+    .set({ replySeenAt: new Date() })
+    .where(
+      and(
+        eq(feedback.tenantId, tenantId),
+        sql`${feedback.reply} IS NOT NULL`,
+        sql`(${feedback.replySeenAt} IS NULL OR ${feedback.replySeenAt} < ${feedback.repliedAt})`,
+      ),
+    );
 }
