@@ -384,3 +384,34 @@ export const customerAlerts = pgTable(
     tenantOpenIdx: index("idx_customer_alerts_tenant_open").on(t.tenantId, t.createdAt),
   }),
 );
+
+// 대리점 문의함 — 건의·버그 신고 (마이그 031, 2026-08-07).
+//   게시판이 아니라 문의함이다: 대리점은 자기가 낸 것만 보고, 전체를 보는 건 super_admin
+//   뿐이다. 목록 조회가 tenant_id 로 잘려 격리가 공짜로 따라온다. 게시판으로 키우려면
+//   나중에 공개 플래그를 더하면 되지만, 반대 방향은 이미 쓰인 글의 노출 범위를 바꿔야 해서
+//   훨씬 비싸다.
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    tenantId: uuid("tenant_id").notNull().references(() => tenants.id, { onDelete: "cascade" }),
+    // 낸 사람이 퇴사해 계정이 지워져도 문의는 남는다 — 누가 냈는지보다 무엇을 요청했는지가
+    //   우리에게 남아야 할 정보다. 이름은 아래 authorName 스냅샷으로 살린다.
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    authorName: text("author_name").notNull(),
+    // bug | suggestion
+    kind: text("kind").notNull().default("suggestion"),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    // open | reviewing | done | declined — super_admin 만 바꾼다.
+    status: text("status").notNull().default("open"),
+    reply: text("reply"),
+    repliedAt: timestamp("replied_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantCreatedIdx: index("idx_feedback_tenant_created").on(t.tenantId, t.createdAt),
+    statusCreatedIdx: index("idx_feedback_status_created").on(t.status, t.createdAt),
+  }),
+);

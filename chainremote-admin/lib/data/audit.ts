@@ -23,7 +23,9 @@ export type AuditAction =
   | "user.role_change"
   | "user.password_reset"
   | "push.bulk"
-  | "tenant.unattended_change";
+  | "tenant.unattended_change"
+  // 대리점에 답이 나가는 행위 — 누가 무엇을 보류로 돌렸는지가 나중에 문제가 된다.
+  | "feedback.update";
 
 export interface AuditEntry {
   action: AuditAction;

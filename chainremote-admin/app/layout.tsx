@@ -61,6 +61,10 @@ export default async function RootLayout({
             <NavItem href="/">대시보드</NavItem>
             <NavItem href="/customers">거래처</NavItem>
             <NavItem href="/sessions">지원기록</NavItem>
+            {/* 대리점에는 "문의하기", 우리에게는 "문의함" — 같은 화면이 역할에 따라 갈린다. */}
+            <NavItem href="/feedback">
+              {user.role === "super_admin" ? "문의함" : "문의하기"}
+            </NavItem>
             {user.role !== "super_admin" && canManageAccounts(user.role) && (
               <NavItem href="/users">사용자</NavItem>
             )}
