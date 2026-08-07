@@ -84,6 +84,30 @@ describe("에이전트 custom.txt — approve-mode 정책", () => {
     expect(cfg["override-settings"]["approve-mode"]).toBe("both");
   });
 
+  it("★안 켠 대리점의 설치본엔 unattended 키가 아예 없어야 한다", () => {
+    // 에이전트가 무인접속을 여는 진짜 스위치는 이 최상위 키다(approve-mode 가 아니다).
+    // 키가 존재하기만 해도 안 되고, 없어야 한다 — 있으면 값 검사에 기대게 된다.
+    const raw = buildAgentCustomTxt({ tenantSlug: "s", enrollKey: "k" });
+    expect(raw).not.toContain("unattended");
+    expect(JSON.parse(raw)).not.toHaveProperty("unattended");
+
+    const raw2 = buildAgentCustomTxt({
+      tenantSlug: "s",
+      enrollKey: "k",
+      unattendedAgent: false,
+    });
+    expect(JSON.parse(raw2)).not.toHaveProperty("unattended");
+  });
+
+  it("켠 대리점만 최상위 unattended=Y 를 받는다 — 대소문자까지 정확히", () => {
+    // 에이전트는 "Y" 하나만 인정한다(hbb_common::config::is_unattended_agent).
+    // "y"/"true" 로 바뀌면 조용히 안 열리고, 원인 찾기가 아주 어렵다.
+    const cfg = JSON.parse(
+      buildAgentCustomTxt({ tenantSlug: "s", enrollKey: "k", unattendedAgent: true }),
+    );
+    expect(cfg.unattended).toBe("Y");
+  });
+
   it("approve-mode 는 override-settings 에 있어야 한다 — default 로 내려가면 설치 후 UI 에서 바뀐다", () => {
     const cfg = JSON.parse(buildAgentCustomTxt({ tenantSlug: "s", enrollKey: "k" }));
     expect(cfg["default-settings"]["approve-mode"]).toBeUndefined();

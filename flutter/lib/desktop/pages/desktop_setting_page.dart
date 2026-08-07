@@ -1260,6 +1260,10 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
             translate('Use permanent password'),
             translate('Use both passwords'),
           ];
+          // 무인접속 전용 빌드인가. Rust 가 custom.txt 최상위 unattended=Y 로 판정한
+          // 값을 그대로 받는다(hbb_common::config::is_unattended_agent).
+          final isUnattendedAgent =
+              bind.mainGetCommonSync(key: 'chainremote-unattended') == 'true';
           bool tmpEnabled = model.verificationMethod != kUsePermanentPassword;
           bool permEnabled = model.verificationMethod != kUseTemporaryPassword;
           String currentValue =
@@ -1396,9 +1400,18 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                   ),
                   enabled: tmpEnabled && !locked),
             if (usePassword) numericOneTimePassword,
-            // 영구 비밀번호 옵션 영구 제거 (2026-06-06 Chang 지시. 무인 영구비번 0클릭을
-            // 전면 폐기하고 무조건 클릭 수락). radios[1]=영구 사용, Set permanent password
-            // 버튼, radios[2]=둘 다 모두 삭제. 비번 모드에선 일회용(temp)만 남는다.
+            // 영구 비밀번호는 기본적으로 없는 기능이다 (2026-06-06 Chang 지시 — 무인
+            // 영구비번 0클릭 전면 폐기, 무조건 클릭 수락). 거래처 설치본에서는 radios[1]
+            // (영구 사용) · 설정 버튼 · radios[2](둘 다) 가 전부 안 보인다.
+            //
+            // ★단 하나의 예외: 무인접속 전용 빌드(custom.txt 최상위 unattended=Y). 그
+            //   빌드는 수락을 눌러 줄 사람이 없는 자기 PC 라 영구비번이 유일한 수단이다.
+            //   판별을 Rust 의 is_unattended_agent() 에 그대로 위임한다 — 화면과 접속
+            //   판정이 서로 다른 근거를 보면 "설정은 됐는데 안 붙는다" 가 된다.
+            if (isUnattendedAgent) radios[1],
+            if (isUnattendedAgent)
+              _SubButton(context, 'Set permanent password',
+                  () => setPasswordDialog(), permEnabled && !locked),
           ]);
         })));
   }

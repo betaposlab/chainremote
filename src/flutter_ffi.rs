@@ -3013,6 +3013,10 @@ pub fn main_get_common(key: String) -> String {
         return crate::platform::is_win_10_or_greater().to_string();
         #[cfg(not(target_os = "windows"))]
         return false.to_string();
+    } else if key == "chainremote-unattended" {
+        // 무인접속 전용 에이전트 빌드인가(custom.txt 최상위 unattended=Y). 설정 화면이
+        // 영구 비밀번호 항목을 보일지 정하는 데만 쓴다 — 거래처 설치본엔 안 보인다.
+        return hbb_common::config::is_unattended_agent().to_string();
     } else if key == "chainremote-support-name" {
         // 수락카드에 띄울 대리점 상호. heartbeat(서비스)가 ProgramData 에 캐시한 값을
         // CM(사용자 세션)이 읽는다 — LocalConfig 는 두 컨텍스트가 다른 파일이라 못 쓴다.

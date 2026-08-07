@@ -21,10 +21,19 @@ export function buildAgentCustomTxt(input: AgentCustomTxtInput): string {
     "conn-type": "incoming",
     "tenant-slug": input.tenantSlug,
     "enroll-key": input.enrollKey,
+    // ★무인접속의 실제 스위치는 이 최상위 키다. approve-mode 가 아니다.
+    //   에이전트는 conn-type=incoming 이면 코드에서 무조건 클릭 수락으로 강제하고
+    //   (password_security.rs::approve_mode), 그 강제를 푸는 건 오직 이 키 하나다.
+    //   conn-type 과 같은 HARD_SETTINGS 급이라 옵션 누락으로 조용히 생기지 않는다.
+    //   켠 대리점에만 넣는다 — 안 켠 곳의 설치본엔 키 자체가 없어야 한다.
+    ...(input.unattendedAgent ? { unattended: "Y" } : {}),
     "default-settings": { "allow-remote-config-modification": "Y" },
     // override-settings 라 설치 후 UI 에서 못 바꾼다 — 설치본이 곧 정책이 된다.
     //   both 는 영구비번이 설정돼 있을 때만 무클릭이고, 없거나 틀리면 수락창으로
     //   폴백한다(src/server/connection.rs) — 실수로 켜도 열린 문이 되지는 않는다.
+    // approve-mode 는 두 경우 모두 명시해 둔다. 무인접속 빌드에서 위 최상위 키가
+    // 어떤 이유로든 안 읽히면 여기 both 가 남아도 코드가 Click 으로 강제한다 —
+    // 즉 이 값 단독으로는 절대 문이 열리지 않는다(이중 방어).
     "override-settings": {
       "approve-mode": input.unattendedAgent ? "both" : "click",
     },
