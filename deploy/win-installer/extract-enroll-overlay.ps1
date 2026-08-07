@@ -4,10 +4,21 @@
 #   [ UTF-8 custom.txt JSON ][ int32 LE length ][ 8-byte ASCII magic "CRENROL1" ]
 # 이 스크립트는 실행 중인 setup .exe 의 그 blob 을 읽어 유효하면 스테이징 custom.txt 에 써넣는다
 # → [Run] 1.5 가 그 per-tenant 설정을 설치한다.
-# overlay 가 없으면(베이스 그대로/자동업뎃) 번들 custom.txt 를 안 건드린다 = 기존 동작 무변경.
+# overlay 가 없으면(베이스 그대로/자동업뎃) 기존 설치본의 대리점 설정을 이어받는다 — 아래 -Existing.
 #
 # PS 2.0 안전(Win7), ASCII only (CP949 ParserError 회피).
-param([string]$Setup, [string]$Stage)
+#
+# -Existing: path to the custom.txt of the CURRENTLY INSTALLED agent (optional).
+#   An automatic update runs the plain base .exe, which carries no overlay, and step 1.5
+#   then stamps the bundled custom.txt over the installed one - wiping the tenant's
+#   enroll-key and, on unattended agents, the "unattended" flag that is the only switch
+#   turning off click-to-accept. That silently reverted three of the friend-tenant PCs to
+#   the accept card on 2026-08-07, hours after they were installed.
+#   So when there is no overlay we carry the tenant-specific file forward instead.
+#   Guard: only files that actually carry tenant data are preserved (a non-empty
+#   enroll-key, or unattended=Y). The bundle ships an empty key, so ordinary agents keep
+#   taking the fresh bundled settings exactly as before.
+param([string]$Setup, [string]$Stage, [string]$Existing)
 $ErrorActionPreference = 'SilentlyContinue'
 $log = 'C:\ProgramData\ChainRemote\updater.log'
 function Log($m) {
@@ -18,20 +29,35 @@ function Log($m) {
     Add-Content -Path $log -Value ($d + ' overlay: ' + $m)
   } catch {}
 }
+# No overlay in this .exe - keep the installed tenant config instead of the bundle.
+function Preserve {
+  if (-not $Existing) { Log 'no overlay -> bundled (no -Existing given)'; return }
+  if (-not (Test-Path $Existing)) { Log 'no overlay, nothing installed -> bundled'; return }
+  $old = ''
+  try { $old = [System.IO.File]::ReadAllText($Existing) } catch {}
+  if (-not $old) { Log 'no overlay, existing unreadable -> bundled'; return }
+  if ($old -notmatch '"conn-type"') { Log 'no overlay, existing not a custom.txt -> bundled'; return }
+  $hasKey = ($old -match '"enroll-key"\s*:\s*"[^"]+"')
+  $hasUnattended = ($old -match '"unattended"\s*:\s*"Y"')
+  if (-not ($hasKey -or $hasUnattended)) { Log 'no overlay, existing has no tenant data -> bundled'; return }
+  $e = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($Stage, $old, $e)
+  Log ('no overlay -> preserved installed custom.txt (key=' + $hasKey + ' unattended=' + $hasUnattended + ')')
+}
 $fs = $null
 try {
   $fs = [System.IO.File]::OpenRead($Setup)
   $total = $fs.Length
-  if ($total -le 12) { Log 'no overlay (file too small)'; return }
+  if ($total -le 12) { Log 'no overlay (file too small)'; Preserve; return }
   $fs.Position = $total - 8
   $magic = New-Object byte[] 8
   [void]$fs.Read($magic, 0, 8)
-  if ([System.Text.Encoding]::ASCII.GetString($magic) -ne 'CRENROL1') { Log 'no overlay marker -> bundled'; return }
+  if ([System.Text.Encoding]::ASCII.GetString($magic) -ne 'CRENROL1') { Log 'no overlay marker -> bundled'; Preserve; return }
   $fs.Position = $total - 12
   $lb = New-Object byte[] 4
   [void]$fs.Read($lb, 0, 4)
   $clen = [System.BitConverter]::ToInt32($lb, 0)
-  if (($clen -le 0) -or ($clen -ge ($total - 12))) { Log ('bad overlay length ' + $clen); return }
+  if (($clen -le 0) -or ($clen -ge ($total - 12))) { Log ('bad overlay length ' + $clen); Preserve; return }
   $fs.Position = $total - 12 - $clen
   $cb = New-Object byte[] $clen
   $read = 0
@@ -41,12 +67,13 @@ try {
     $read += $n
   }
   $cfg = [System.Text.Encoding]::UTF8.GetString($cb, 0, $read)
-  if (($cfg -notmatch 'tenant-slug') -or ($cfg -notmatch 'enroll-key')) { Log 'overlay config missing fields -> bundled'; return }
+  if (($cfg -notmatch 'tenant-slug') -or ($cfg -notmatch 'enroll-key')) { Log 'overlay config missing fields -> bundled'; Preserve; return }
   $enc = New-Object System.Text.UTF8Encoding($false)
   [System.IO.File]::WriteAllText($Stage, $cfg, $enc)
   Log ('overlay applied -> ' + $Stage + ' (' + $read + ' bytes)')
 } catch {
   Log 'overlay extract exception -> bundled'
+  Preserve
 } finally {
   if ($fs -ne $null) { try { $fs.Close() } catch {} }
 }

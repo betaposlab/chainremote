@@ -25,7 +25,7 @@
 ;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일했다 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.90"
+#define APP_VERSION    "1.4.91"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; x64: 윈컴 Flutter 빌드 출력 (build-all.ps1)
@@ -102,7 +102,8 @@ Source: "RustDesk_default.toml"; DestDir: "{tmp}\chainremote_config"; DestName: 
 Source: "..\custom-agent.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.txt"; Flags: deleteafterinstall ignoreversion
 
 ; per-tenant overlay 추출기 — 패널이 베이스 .exe 끝에 덧붙인 대리점 설정을 custom.txt 로 적용.
-;   overlay 없으면 번들 custom.txt 그대로 = 기존(자동업뎃 포함) 동작 무변경.
+;   overlay 가 없으면(=자동업뎃은 늘 베이스다) 기존 설치본의 대리점 설정을 이어받는다.
+;   그러지 않으면 업데이트 한 번에 enroll-key 와 unattended 가 번들 기본값으로 지워진다.
 Source: "extract-enroll-overlay.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
 
 ; ChainRemote 단축아이콘·제어판 아이콘용 .ico — ProgramData 에 둔다.
@@ -150,8 +151,10 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 ;    여기서 키를 심어야 서비스가 "키를 든 채" 시작해 첫 실행에 바로 enroll 된다 (재부팅 불필요).
 ;    (예전엔 1.4/1.5 에서 서비스 시작 '後' 적용 → 첫 실행은 키 없이 떠서 재부팅 전까진 자동등록이 안 됐다.
 ;     GN50840785 Win7 실설치에서 재부팅 후에야 등록된 게 이 순서 버그였다.)
-;    overlay 없으면(베이스/자동업뎃) 스크립트가 파일을 안 건드려 기존 동작 그대로.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\extract-enroll-overlay.ps1"" -Setup ""{srcexe}"" -Stage ""{tmp}\chainremote_payload\custom.txt"""; StatusMsg: "ChainRemote 거래처 식별 설정 적용 중..."; Flags: runhidden waituntilterminated
+;    overlay 없으면(베이스/자동업뎃) -Existing 의 기존 설치본 custom.txt 를 이어받는다.
+;    ★이 단계가 silent-install '前'이라는 점이 -Existing 이 성립하는 근거다 — 코어가 {app} 을
+;      rd /s /q 로 밀기 전이라 옛 custom.txt 가 아직 살아 있다. (1.4 단계는 그 뒤라 못 읽는다.)
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\extract-enroll-overlay.ps1"" -Setup ""{srcexe}"" -Stage ""{tmp}\chainremote_payload\custom.txt"" -Existing ""{code:CRAgentDir}\custom.txt"""; StatusMsg: "ChainRemote 거래처 식별 설정 적용 중..."; Flags: runhidden waituntilterminated
 
 ; 1. ChainRemote 코어 사일런트 설치 — install_me() 가 페이로드 폴더 전체를 Program Files 로 복사
 ;    + ChainRemote Service 등록 + 서비스 시작 + ChainRemote.lnk 단축아이콘 자동 생성.
@@ -159,9 +162,11 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Fil
 Filename: "{tmp}\chainremote_payload\ChainRemote.exe"; Parameters: "--silent-install"; StatusMsg: "ChainRemote 코어 설치 중..."; Flags: runhidden waituntilterminated
 
 ; 1.4. per-tenant overlay 적용 — setup .exe 끝의 대리점 설정 blob 을 읽어 스테이징 custom.txt 를 덮어쓴다.
-;    overlay 없으면(베이스/자동업뎃) custom_payload\custom.txt 를 안 건드려 아래 1.5 가 번들 그대로 박는다 = 무변경.
 ;    (인터랙티브/사일런트 무관하게 동작 — 패널이 만든 per-tenant .exe 면 어느 경로든 그 대리점으로 enroll.)
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\extract-enroll-overlay.ps1"" -Setup ""{srcexe}"" -Stage ""{tmp}\custom_payload\custom.txt"""; StatusMsg: "ChainRemote 거래처 식별 설정 확인 중..."; Flags: runhidden waituntilterminated
+;    ★-Existing 이 설치폴더가 아니라 0.7 이 이미 손본 페이로드를 가리키는 게 핵심이다: 이 시점엔
+;      코어가 {app} 을 밀어버려 옛 파일이 없다. 0.7 이 보존해 둔 결과를 그대로 이어받아야 1.5 가
+;      대리점 설정을 도로 덮어쓰지 않는다.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\extract-enroll-overlay.ps1"" -Setup ""{srcexe}"" -Stage ""{tmp}\custom_payload\custom.txt"" -Existing ""{tmp}\chainremote_payload\custom.txt"""; StatusMsg: "ChainRemote 거래처 식별 설정 확인 중..."; Flags: runhidden waituntilterminated
 
 ; 1.5. custom.txt 절대 경로 박기 (silent-install 후) — load_custom_client() 는 설치된 exe 옆만 읽는다.
 ;    옛 Inno AppId 잔재로 {app} 이 다른 폴더를 가리켜도 안전하도록 절대 경로로 강제 (2026-05-26 fix).
