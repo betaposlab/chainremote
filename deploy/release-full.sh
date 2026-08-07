@@ -67,6 +67,21 @@ if [[ "$LOCAL_HEAD" != "$REMOTE_HEAD" ]]; then
   echo "  윈컴은 origin/develop 기준으로 빌드합니다. 'git push origin develop' 먼저 실행하세요." >&2
   exit 1
 fi
+# ★2026-08-07 실측 사고: hbb_common 은 서브모듈이라 부모에서 `git add -A` 를 해도
+#   그 안의 파일 변경은 안 담긴다. 그런데 아래 HEAD 대조는 커밋된 것만 보므로,
+#   "고쳤고 부모도 push 했는데" 윈컴은 옛 서브모듈로 빌드하다 컴파일 에러로 죽는다.
+#   HEAD 가 같아도 작업트리가 더러우면 여기서 끊는다 — 20분 빌드 후에야 아는 낭비를 막는다.
+for DIRTY_PATH in "$REPO" "$REPO/libs/hbb_common"; do
+  [[ -d "$DIRTY_PATH" ]] || continue
+  if [[ -n "$(git -C "$DIRTY_PATH" status --porcelain)" ]]; then
+    echo "✗ ERROR — 커밋 안 된 변경이 있습니다: $DIRTY_PATH" >&2
+    git -C "$DIRTY_PATH" status --short >&2
+    echo "  윈컴은 커밋된 것만 받아 갑니다. 커밋+push 후 다시 실행하세요." >&2
+    echo "  (서브모듈이면 그 안에서 먼저 커밋·push 하고, 부모에서 포인터를 커밋해야 합니다.)" >&2
+    exit 1
+  fi
+done
+
 SUBMODULE_PATH="$REPO/libs/hbb_common"
 if [[ -d "$SUBMODULE_PATH" ]]; then
   SUB_LOCAL=$(git -C "$SUBMODULE_PATH" rev-parse HEAD)
