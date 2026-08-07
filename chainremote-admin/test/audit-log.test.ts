@@ -8,6 +8,8 @@
 // 잠근다. 전자는 사고, 후자는 노이즈에 묻혀 못 찾게 되는 문제다.
 
 import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { eq } from "drizzle-orm";
 import { testDb } from "./helpers/db";
 import { tenants, customers, auditLogs } from "@/lib/schema";
@@ -31,6 +33,36 @@ async function makeCustomer(tenantId: string, name: string, remoteId: string) {
     .returning({ id: customers.id });
   return c.id;
 }
+
+// 소스 전수 검사. "누가" 없는 감사로그는 반쪽이라 기록 지점이 늘어날 때마다 빠뜨리기 쉽다
+// (실제로 무인접속 토글에서 한 번 빠졌고, 라이브에서 실행자가 null 로 찍혀서야 알았다).
+describe("감사 로그 호출부 — 전수", () => {
+  function sources(dir: string): string[] {
+    const out: string[] = [];
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) out.push(...sources(full));
+      else if (e.name.endsWith(".ts") && !e.name.endsWith(".test.ts")) out.push(full);
+    }
+    return out;
+  }
+
+  it("모든 writeAudit 호출이 실행자(userId)를 남긴다", () => {
+    const root = path.resolve(__dirname, "..");
+    const files = [...sources(path.join(root, "lib")), ...sources(path.join(root, "app"))];
+    const missing: string[] = [];
+    for (const f of files) {
+      const src = fs.readFileSync(f, "utf8");
+      for (const m of src.matchAll(/writeAudit\(\{(.*?)\}\);/gs)) {
+        const block = m[1];
+        if (block.includes("userId:")) continue;
+        const action = /action:\s*"([^"]+)"/.exec(block)?.[1] ?? "?";
+        missing.push(`${path.basename(f)} → ${action}`);
+      }
+    }
+    expect(missing, `실행자 없는 감사 기록: ${missing.join(", ")}`).toEqual([]);
+  });
+});
 
 describe("감사 로그 쓰기", () => {
   it("기록이 실제로 행으로 남는다", async () => {

@@ -187,7 +187,7 @@ export async function deleteTenant(
 // 회사 정보 수정 — formData 형태 (수정 폼에서 호출).
 // slug 와 관리자 계정은 수정 불가(URL break + 별도 사용자 관리 페이지).
 export async function updateTenantFromForm(id: string, formData: FormData) {
-  await requireSuperAdmin();
+  const me = await requireSuperAdmin();
 
   const str = (k: string) => String(formData.get(k) ?? "").trim();
   const num = (k: string): number | null => {
@@ -240,6 +240,7 @@ export async function updateTenantFromForm(id: string, formData: FormData) {
     await writeAudit({
       action: "tenant.unattended_change",
       tenantId: id,
+      userId: me.id,
       targetType: "tenant",
       targetId: id,
       metadata: {
