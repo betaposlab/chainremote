@@ -934,8 +934,18 @@ class MyTheme {
         return ThemeMode.light;
       case "dark":
         return ThemeMode.dark;
-      default:
+      case "system":
         return ThemeMode.system;
+      default:
+        // 저장된 값이 없을 때 — 사용자가 테마를 한 번도 건드리지 않은 상태다.
+        //   HQ 는 다크로 시작한다: 랜딩·관리 패널이 이미 다크고, 하루 종일 켜 두는
+        //   도구라 어두운 쪽이 오래 봐도 편하다.
+        //   ★거래처(incoming) 빌드는 예외다. 그쪽 화면은 수락카드와 배너뿐인데 둘 다
+        //   Theme.of(context) 를 그대로 받아 쓰기 때문에, 기본을 바꾸면 거래처가 매일
+        //   보는 카드 색이 통째로 뒤집힌다. 1.4.88 에서 막 손본 화면이라 건드리지 않는다.
+        //   명시 선택('system')은 위 case 로 빠지므로 여기 안 온다 — isCustomClient 라
+        //   "시스템 따름"이 빈 문자열이 아니라 'system' 으로 저장되는 덕이다.
+        return bind.isIncomingOnly() ? ThemeMode.system : ThemeMode.dark;
     }
   }
 }
