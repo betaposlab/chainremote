@@ -5,7 +5,9 @@
 //   브라우저 번들에 끌려간다(Module not found: 'dns'). tsc 는 모듈 경계를 안 보므로 통과하고
 //   next build 에서만 터진다. 클라이언트와 서버가 같이 쓰는 값은 여기 둔다.
 
-export const FEEDBACK_KINDS = ["bug", "suggestion"] as const;
+// 'other' 는 마이그 033. 분류가 애매한 문의(계정·요금·사용법)를 억지로 버그나 건의로
+//   밀어넣게 하면 분류 자체가 신뢰를 잃는다.
+export const FEEDBACK_KINDS = ["bug", "suggestion", "other"] as const;
 export const FEEDBACK_STATUSES = ["open", "reviewing", "done", "declined"] as const;
 
 export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];
@@ -14,6 +16,7 @@ export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];
 export const KIND_LABEL: Record<FeedbackKind, string> = {
   bug: "버그 신고",
   suggestion: "건의",
+  other: "기타",
 };
 
 export const STATUS_LABEL: Record<FeedbackStatus, string> = {

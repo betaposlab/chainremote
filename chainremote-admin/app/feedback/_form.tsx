@@ -8,6 +8,9 @@ import { submitFeedbackAction } from "@/lib/actions/feedback";
 
 const MAX_IMAGES = 3;
 const MAX_BYTES = 5 * 1024 * 1024;
+// next.config 의 serverActions.bodySizeLimit(16mb)보다 낮게 잡는다. 그 한도에 걸리면
+//   요청이 서버 코드에 닿기도 전에 끊겨 안내를 띄울 수가 없다.
+const TOTAL_LIMIT = 14 * 1024 * 1024;
 const ACCEPT = ["image/png", "image/jpeg", "image/webp"];
 
 export function FeedbackForm() {
@@ -19,6 +22,12 @@ export function FeedbackForm() {
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 제목·내용을 상태로 든다. 서버 액션이 실패하면 React 가 폼을 리셋해서, 길게 쓴 내용이
+  //   에러 한 번에 통째로 사라진다(2026-08-07 실제로 겪음). 그 상황이야말로 내용이
+  //   남아야 하는 순간이다.
+  const [kind, setKind] = useState("suggestion");
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
 
   // objectURL 은 명시적으로 풀어 줘야 메모리에 남지 않는다.
   useEffect(() => {
@@ -78,11 +87,23 @@ export function FeedbackForm() {
         // 상태로 들고 있던 첨부를 여기서 실어 보낸다(붙여넣기分 포함).
         fd.delete("images");
         images.forEach((f) => fd.append("images", f, f.name || "screenshot.png"));
+        // 서버 액션 본문 한도(next.config: 16mb)에 걸리면 서버가 어떤 안내도 못 준다.
+        //   가기 전에 여기서 막아야 사용자가 이유를 안다.
+        const total = images.reduce((n, f) => n + f.size, 0);
+        if (total > TOTAL_LIMIT) {
+          setError(
+            `첨부 용량 합계가 너무 큽니다 (${(total / 1024 / 1024).toFixed(1)}MB). 장수를 줄여 주세요.`,
+          );
+          return;
+        }
         startTransition(async () => {
           try {
             await submitFeedbackAction(fd);
             setOpen(false);
             setImages([]);
+            setTitle("");
+            setBody("");
+            setKind("suggestion");
           } catch (e) {
             setError(e instanceof Error ? e.message : "전송에 실패했습니다.");
           }
@@ -91,9 +112,15 @@ export function FeedbackForm() {
     >
       <div className="flex flex-wrap items-center gap-3">
         <label className="text-sm text-[#cbd1e0]">유형</label>
-        <select name="kind" className="input w-40" defaultValue="suggestion">
+        <select
+          name="kind"
+          className="input w-40"
+          value={kind}
+          onChange={(e) => setKind(e.target.value)}
+        >
           <option value="suggestion">건의</option>
           <option value="bug">버그 신고</option>
+          <option value="other">기타</option>
         </select>
       </div>
 
@@ -103,6 +130,8 @@ export function FeedbackForm() {
         placeholder="제목 — 한 줄로 요약해 주세요"
         maxLength={120}
         required
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
       />
       <textarea
         name="body"
@@ -113,6 +142,8 @@ export function FeedbackForm() {
         }
         maxLength={4000}
         required
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
       />
 
       {/* 첨부 */}
