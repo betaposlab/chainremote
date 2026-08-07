@@ -78,13 +78,15 @@ export function FeedbackForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // 맥은 Cmd, 그 외는 Ctrl. 안내 문구가 플랫폼과 다르면 "안 되는 기능" 으로 읽힌다.
-  const [pasteKey, setPasteKey] = useState("Ctrl+V");
+  // 안내 문구가 쓰는 OS 와 다르면 "안 되는 기능" 으로 읽힌다. 쓰는 사람은 대리점 직원이고
+  //   거의 윈도우라, 기본값을 윈도우로 두고 맥일 때만 바꾼다.
+  const [isMac, setIsMac] = useState(false);
   useEffect(() => {
     if (typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)) {
-      setPasteKey("⌘V");
+      setIsMac(true);
     }
   }, []);
+  const pasteKey = isMac ? "⌘V" : "Ctrl+V";
 
   if (!open) {
     return (
@@ -196,8 +198,18 @@ export function FeedbackForm() {
             </span>
           </div>
           <div className="mt-1 text-[0.68rem] text-[#cbd1e0]">
-            맥에서 화면을 찍어 바로 붙여넣으려면 <b>⌘⌃⇧4</b> (클립보드로 복사). 그냥 ⌘⇧4 로
-            찍으면 바탕화면에 파일로 저장되니 그 파일을 끌어다 놓으시면 됩니다.
+            {isMac ? (
+              <>
+                화면을 찍어 바로 붙여넣으려면 <b>⌘⌃⇧4</b> (클립보드로 복사). 그냥 ⌘⇧4 로
+                찍으면 바탕화면에 파일로 저장되니 그 파일을 끌어다 놓으시면 됩니다.
+              </>
+            ) : (
+              <>
+                화면을 찍으려면 <b>Windows 로고 + Shift + S</b> — 원하는 영역을 끌어서
+                고르면 클립보드에 담깁니다. 그대로 <b>Ctrl+V</b> 로 붙여넣으세요.
+                (전체 화면은 <b>PrtSc</b>, 현재 창만은 <b>Alt + PrtSc</b>)
+              </>
+            )}
           </div>
         </div>
         <input
