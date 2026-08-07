@@ -122,6 +122,10 @@ class FfiModel with ChangeNotifier {
   var _reconnects = 1;
   // 거래처 PC 재시작 후 자동 재접속 중인지 여부. offline 재시도 창을 부팅 대기에 맞게 연장한다.
   var _isRestartReconnect = false;
+  // 상대 프로세스가 통째로 죽어(업데이트 인스톨러의 taskkill) 끊긴 세션인지 여부.
+  //   첫 끊김만 'Reset by the peer' 로 오고 이후 재시도는 'Remote desktop is offline' 이
+  //   되므로, 창 길이를 세션 플래그로 들고 있어야 두 번째 시도부터 30초로 주저앉지 않는다.
+  var _isPeerResetReconnect = false;
   DateTime? _offlineReconnectStartTime;
   bool _viewOnly = false;
   bool _showMyCursor = false;
@@ -954,36 +958,50 @@ class FfiModel with ChangeNotifier {
     }
   }
 
-  /// Auto-retry check for "Remote desktop is offline" error.
+  /// Auto-retry check for a connection that dropped without the peer saying goodbye.
   /// returns true to auto-retry, false otherwise.
   bool shouldAutoRetryOnOffline(
     String type,
     String title,
     String text,
   ) {
-    if (type == 'error' &&
-        title == 'Connection Error' &&
-        text == 'Remote desktop is offline' &&
-        _pi.isSet.isTrue) {
-      // Auto retry for ~30s (server's peer offline threshold) when controlled peer's account changes
-      // (e.g., signout, switch user, login into OS) causes temporary offline via websocket/tcp connection.
-      // The actual wait may exceed 30s (e.g., 20s elapsed + 16s next retry = 36s), which is acceptable
-      // since the controlled side reconnects quickly after account changes.
-      // Uses time-based check instead of _reconnects count because user can manually retry.
-      // https://github.com/rustdesk/rustdesk/discussions/14048
-      if (_offlineReconnectStartTime == null) {
-        // First offline, record time and start retry
-        _offlineReconnectStartTime = DateTime.now();
-        return true;
-      } else {
-        final elapsed =
-            DateTime.now().difference(_offlineReconnectStartTime!).inSeconds;
-        if (elapsed < (_isRestartReconnect ? 120 : 30)) {
-          return true;
-        }
-      }
+    if (type != 'error' || title != 'Connection Error' || _pi.isSet.isFalse) {
+      return false;
     }
-    return false;
+
+    // 'Remote desktop is offline' — 상대 계정이 바뀌는 동안의 짧은 공백(upstream).
+    //   Auto retry for ~30s (server's peer offline threshold) when controlled peer's account
+    //   changes (e.g., signout, switch user, login into OS) causes temporary offline via
+    //   websocket/tcp connection. The actual wait may exceed 30s (e.g., 20s elapsed + 16s next
+    //   retry = 36s), which is acceptable since the controlled side reconnects quickly after
+    //   account changes. Uses time-based check instead of _reconnects count because user can
+    //   manually retry. https://github.com/rustdesk/rustdesk/discussions/14048
+    // 'Reset by the peer' — 상대 프로세스가 통째로 죽은 것. 업데이트 인스톨러가 서비스를
+    //   taskkill 하는 경우가 거의 전부다(io_loop.rs 의 else 분기). 거래처가 배너에서 '종료'를
+    //   누른 정상 종료는 close_reason 을 실어 보내(connection.rs send_close_reason_no_retry)
+    //   여기까지 오지 않으므로, 이 분기를 열어도 거래처 통제권은 그대로다.
+    if (text == 'Reset by the peer') {
+      _isPeerResetReconnect = true;
+    } else if (text != 'Remote desktop is offline') {
+      return false;
+    }
+
+    // 사일런트 설치는 파일 복사 + 서비스 재시작 + self-test 를 거쳐 30초를 곧잘 넘긴다.
+    // 에이전트가 다시 뜨기 전에 뷰어가 포기하면 인스톨러가 깔아둔 재접속 grace 도 무용지물이다.
+    final int windowSec = _isRestartReconnect
+        ? 120
+        : _isPeerResetReconnect
+            ? 90
+            : 30;
+
+    if (_offlineReconnectStartTime == null) {
+      // First offline, record time and start retry
+      _offlineReconnectStartTime = DateTime.now();
+      return true;
+    }
+    final elapsed =
+        DateTime.now().difference(_offlineReconnectStartTime!).inSeconds;
+    return elapsed < windowSec;
   }
 
   handleToast(Map<String, dynamic> evt, SessionID sessionId, String peerId) {
@@ -1381,6 +1399,7 @@ class FfiModel with ChangeNotifier {
         _reconnects = 1;
         _offlineReconnectStartTime = null;
         _isRestartReconnect = false; // 재접속 성공. 재시작 자동재접속 플래그 해제.
+        _isPeerResetReconnect = false;
         waitForFirstImage.value = true;
         isRefreshing = false;
       }

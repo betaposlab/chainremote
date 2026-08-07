@@ -25,7 +25,7 @@
 ;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일했다 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.89"
+#define APP_VERSION    "1.4.90"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; x64: 윈컴 Flutter 빌드 출력 (build-all.ps1)
@@ -128,10 +128,19 @@ Source: "keep-custom-icon.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall igno
 ;   (ASCII 전용 — 위와 같은 이유.)
 Source: "uninstall-core.ps1"; DestDir: "{commonappdata}\ChainRemote"; Flags: ignoreversion
 
+; 원격 지원 중 업데이트를 깔면 바로 아래 0.5 가 그 세션을 끊는다. 끊기기 전에 재접속 grace 를
+;   깔아 거래처가 수락을 다시 누르지 않아도 본사가 돌아올 수 있게 한다.
+;   (ASCII 전용 — 위와 같은 이유.)
+Source: "set-update-grace.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
+
 [Run]
 ; 0. Windows ephemeral port range 확장 (사업화 안전망 — 다른 원격 SW 의 socket 누수에 휘말리지 않게)
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
 Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
+
+; 0.4. 원격 세션이 붙어 있으면 재접속 grace 를 깐다 — 반드시 0.5(프로세스 종료) '前'.
+;   세션이 없으면 스크립트가 알아서 건너뛴다(무인 롤아웃에 무수락 창을 남기지 않기 위해).
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\set-update-grace.ps1"" -GraceFile ""{commonappdata}\ChainRemote\restart-grace"" -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 재접속 준비 중..."; Flags: runhidden waituntilterminated
 
 ; 0.5. silent-install 직전 옛 ChainRemote 강제 종료 (파일 잠금 해제 + 옛/새 프로세스 공존 방지)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue }} catch {{}}; taskkill /F /IM ChainRemote.exe /T >$null 2>&1; Start-Sleep -Seconds 2"""; StatusMsg: "옛 ChainRemote 프로세스 정리 중..."; Flags: runhidden waituntilterminated

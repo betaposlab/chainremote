@@ -10,7 +10,7 @@
 ; 사용처: 재성이 윈도우 본사 PC (jaesung 계정 로그인).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.89"
+#define APP_VERSION    "1.4.90"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; 윈컴에서 빌드한 ChainRemote.exe 가 들어있는 폴더 (agent 와 공유)
@@ -80,12 +80,20 @@ Source: "..\custom-hq.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custom.t
 ;   (ASCII 전용 — PS 는 BOM 없는 .ps1 을 시스템 ANSI 로 읽어 한글이 들어가면 파서가 깨진다.)
 Source: "migrate-server-address.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
 
+; 재접속 grace — 에이전트와 같은 스크립트를 공유한다. HQ 도 옵션 B+ 토글을 켜면 원격 대상이
+;   되므로(사무실 Mac → 집 윈컴) 업데이트 설치로 끊긴 세션에 같은 구제가 필요하다.
+;   (ASCII 전용 — 위와 같은 이유.)
+Source: "set-update-grace.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
+
 [Run]
 ; 0. Windows ephemeral port range 확장 (2026-05-25 사업화 안전망).
 ;    HQ 인스톨러도 같은 이유로 적용 — Chang/재성이 PC 에 다른 SW(코이노 등)가 깔려있을 때
 ;    그쪽 SW 의 누수 영향에서 ChainRemote 를 보호. 자세히는 agent-installer.iss 참조.
 Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num=55000"; StatusMsg: "Windows ephemeral port 확장 적용..."; Flags: runhidden waituntilterminated
 Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
+
+; 0.4. 원격 세션이 붙어 있으면 재접속 grace 를 깐다 — 반드시 0.5(프로세스 종료) '前'.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\set-update-grace.ps1"" -GraceFile ""{commonappdata}\ChainRemote\restart-grace"" -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 재접속 준비 중..."; Flags: runhidden waituntilterminated
 
 ; 0.5. silent-install 직전 옛 ChainRemote.exe 강제 종료 (v1.3.6 신규, 2026-05-29).
 ;     v1.3.4 → v1.3.5 마이그레이션 후 남던 트레이 아이콘 2개 잔재 해소. 자세히는 agent-installer.iss.
