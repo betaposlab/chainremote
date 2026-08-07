@@ -4,14 +4,13 @@
 //   이유가 없고, 상호·업무 사정이 그대로 드러난다는 것이다.
 
 import { auth } from "@/auth";
+import { listFeedbackForPlatform, listFeedbackForTenant } from "@/lib/data/feedback";
 import {
   KIND_LABEL,
   STATUS_LABEL,
-  listFeedbackForPlatform,
-  listFeedbackForTenant,
   type FeedbackKind,
   type FeedbackStatus,
-} from "@/lib/data/feedback";
+} from "@/lib/feedback-constants";
 import { FeedbackForm } from "./_form";
 import { AdminRowControls } from "./_admin-row";
 

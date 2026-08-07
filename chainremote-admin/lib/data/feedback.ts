@@ -8,24 +8,14 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { feedback, tenants, users } from "@/lib/schema";
+import {
+  FEEDBACK_KINDS,
+  FEEDBACK_STATUSES,
+  type FeedbackKind,
+} from "@/lib/feedback-constants";
 
-export const FEEDBACK_KINDS = ["bug", "suggestion"] as const;
-export const FEEDBACK_STATUSES = ["open", "reviewing", "done", "declined"] as const;
-
-export type FeedbackKind = (typeof FEEDBACK_KINDS)[number];
-export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];
-
-export const KIND_LABEL: Record<FeedbackKind, string> = {
-  bug: "버그 신고",
-  suggestion: "건의",
-};
-
-export const STATUS_LABEL: Record<FeedbackStatus, string> = {
-  open: "접수",
-  reviewing: "검토중",
-  done: "반영",
-  declined: "보류",
-};
+// 상수·라벨은 @/lib/feedback-constants 에 있다 — 이 파일은 @/lib/db 를 물고 있어서
+//   클라이언트 컴포넌트가 여기서 뭘 가져가면 pg 가 브라우저 번들로 끌려간다.
 
 const MAX_TITLE = 120;
 const MAX_BODY = 4000;

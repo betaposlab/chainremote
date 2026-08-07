@@ -6,7 +6,7 @@
 
 import { useState, useTransition } from "react";
 import { updateFeedbackAction } from "@/lib/actions/feedback";
-import { STATUS_LABEL, type FeedbackStatus } from "@/lib/data/feedback";
+import { STATUS_LABEL, type FeedbackStatus } from "@/lib/feedback-constants";
 
 const STATUSES: FeedbackStatus[] = ["open", "reviewing", "done", "declined"];
 
