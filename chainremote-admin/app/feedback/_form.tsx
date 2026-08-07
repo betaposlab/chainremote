@@ -22,6 +22,7 @@ export function FeedbackForm() {
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
   // 제목·내용을 상태로 든다. 서버 액션이 실패하면 React 가 폼을 리셋해서, 길게 쓴 내용이
   //   에러 한 번에 통째로 사라진다(2026-08-07 실제로 겪음). 그 상황이야말로 내용이
   //   남아야 하는 순간이다.
@@ -60,15 +61,30 @@ export function FeedbackForm() {
     });
   };
 
-  // 스크린샷을 찍고 바로 붙여넣는 게 "파일 선택 → 폴더 찾기" 보다 훨씬 빠르다.
-  //   신고를 끝까지 마치느냐가 여기서 갈린다.
-  const onPaste = (e: React.ClipboardEvent) => {
-    const files = Array.from(e.clipboardData.files);
-    if (files.length > 0) {
-      e.preventDefault();
-      addFiles(files);
+  // 붙여넣기는 window 에서 듣는다. 폼 요소에만 걸면 입력칸 밖을 클릭한 상태에서 안 먹는데,
+  //   사용자는 그걸 "붙여넣기가 안 된다" 로 받아들인다.
+  useEffect(() => {
+    if (!open) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.files ?? []);
+      if (files.length > 0) {
+        e.preventDefault();
+        addFiles(files);
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+    // addFiles 는 setState 만 쓰므로 재구독이 필요 없다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // 맥은 Cmd, 그 외는 Ctrl. 안내 문구가 플랫폼과 다르면 "안 되는 기능" 으로 읽힌다.
+  const [pasteKey, setPasteKey] = useState("Ctrl+V");
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)) {
+      setPasteKey("⌘V");
     }
-  };
+  }, []);
 
   if (!open) {
     return (
@@ -81,7 +97,6 @@ export function FeedbackForm() {
   return (
     <form
       className="panel-card p-4 space-y-3"
-      onPaste={onPaste}
       action={(fd) => {
         setError(null);
         // 상태로 들고 있던 첨부를 여기서 실어 보낸다(붙여넣기分 포함).
@@ -146,21 +161,44 @@ export function FeedbackForm() {
         onChange={(e) => setBody(e.target.value)}
       />
 
-      {/* 첨부 */}
+      {/* 첨부 — 세 경로를 다 연다: 끌어놓기 / 붙여넣기 / 파일 선택 */}
       <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="btn btn-sm btn-ghost"
-            onClick={() => fileRef.current?.click()}
-            disabled={images.length >= MAX_IMAGES}
-          >
-            이미지 첨부
-          </button>
-          <span className="text-xs text-[#cbd1e0]">
-            {images.length}/{MAX_IMAGES} · 장당 5MB · PNG·JPG·WEBP ·{" "}
-            <b className="text-[#c3d3ff]">스크린샷은 Ctrl+V 로 바로 붙여넣기</b>
-          </span>
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (!dragging) setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            addFiles(Array.from(e.dataTransfer.files));
+          }}
+          className={`rounded-lg border border-dashed p-3 transition-colors ${
+            dragging
+              ? "border-[#4c7dff] bg-[#4c7dff]/10"
+              : "border-[#566999] bg-[#3b5291]/20"
+          }`}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              onClick={() => fileRef.current?.click()}
+              disabled={images.length >= MAX_IMAGES}
+            >
+              이미지 첨부
+            </button>
+            <span className="text-xs text-[#cbd1e0]">
+              <b className="text-[#c3d3ff]">여기로 끌어다 놓거나 {pasteKey} 로 붙여넣기</b>
+              {" · "}
+              {images.length}/{MAX_IMAGES} · 장당 5MB · PNG·JPG·WEBP
+            </span>
+          </div>
+          <div className="mt-1 text-[0.68rem] text-[#cbd1e0]">
+            맥에서 화면을 찍어 바로 붙여넣으려면 <b>⌘⌃⇧4</b> (클립보드로 복사). 그냥 ⌘⇧4 로
+            찍으면 바탕화면에 파일로 저장되니 그 파일을 끌어다 놓으시면 됩니다.
+          </div>
         </div>
         <input
           ref={fileRef}
