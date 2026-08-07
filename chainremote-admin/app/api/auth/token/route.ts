@@ -51,6 +51,7 @@ export async function POST(req: Request) {
         role: users.role,
         tenantId: users.tenantId,
         greeting: tenants.hqGreeting,
+        tenantName: tenants.displayName,
         tenantActive: tenants.isActive,
         subscriptionStatus: tenants.subscriptionStatus,
         maxSeats: tenants.maxSeats,
@@ -137,6 +138,9 @@ export async function POST(req: Request) {
         displayName: u.displayName,
         role: u.role,
         tenantId: u.tenantId,
+        // 대리점 상호. HQ 사이드바가 "본사용 (HQ)" 대신 이걸 띄운다 — 직원이 여럿인
+        // 대리점에서 내가 어느 회사로 붙어 있는지가 앱 안에 전혀 없었다.
+        ...(u.tenantName ? { tenantName: u.tenantName } : {}),
         // HQ 정보 화면 이스터에그 문구(마이그 030). 비운 대리점(대부분)은 아예 안 실린다
         // → HQ 에서 그 기능이 없는 것처럼 동작한다.
         ...(u.greeting ? { greeting: u.greeting } : {}),

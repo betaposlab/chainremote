@@ -100,6 +100,21 @@ class ChainRemoteAuth {
     }
   }
 
+  /// 로그인한 사용자가 속한 대리점 상호. 없으면 빈 문자열.
+  ///
+  /// 사이드바 배지가 이걸 쓴다 — 종전 "본사용 (HQ)" 는 빌드 종류만 알려줄 뿐 내가 어느
+  /// 회사로 붙어 있는지는 앱 어디에도 없었다. 직원이 여럿인 대리점일수록 필요하다.
+  static String currentTenantName() {
+    try {
+      final raw = bind.chainremoteGetUser();
+      if (raw.isEmpty) return '';
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      return ((m['tenantName'] as String?) ?? '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
   /// 마스터 = 테넌트 owner(chang). '전체 거래처' 탭의 확정 버튼을 보일지 정하는 UX 게이트다.
   /// 실제 권한은 서버 confirm 엔드포인트(requireOwner)가 막으므로 이 체크는 화면용일 뿐.
   static bool isMaster() {

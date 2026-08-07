@@ -205,6 +205,20 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               selected: true,
               onTap: () {},
             ),
+            // 거래처 추가·수정·지원기록은 관리 패널에서만 된다. 그때마다 브라우저를 따로
+            //   열고 주소를 치던 것을 한 번에 잇는다. 주소는 로그인에 쓰는 API base 를
+            //   그대로 쓴다 — 자체 호스팅 대리점이 주소를 바꿔도 알아서 따라간다.
+            if (!bind.isIncomingOnly())
+              _sidebarItem(
+                context,
+                icon: Icons.dashboard_outlined,
+                label: '관리 패널',
+                selected: false,
+                onTap: () {
+                  final base = bind.chainremoteGetApiBase().trim();
+                  if (base.isNotEmpty) launchUrl(Uri.parse(base));
+                },
+              ),
             _sidebarItem(
               context,
               icon: Icons.settings_outlined,
@@ -451,7 +465,13 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   // 같은 PC 에 다른 빌드가 잔재로 남을 수 있어 명시가 필요하다.
   Widget _buildBuildKindBadge() {
     final isAgent = bind.isIncomingOnly();
-    final label = isAgent ? '거래처용 (Agent)' : '본사용 (HQ)';
+    // HQ 는 대리점 상호를 우선한다 — 빌드 종류(본사용/거래처용)는 같은 PC 에 두 빌드가
+    //   섞였을 때나 쓸모 있는 정보고, 평소에 알아야 할 건 "내가 어느 회사로 붙어 있나"다.
+    //   서버가 상호를 안 실어 보낸 옛 세션은 종전 문구로 되돌아간다.
+    final tenantName = isAgent ? '' : ChainRemoteAuth.currentTenantName();
+    final label = isAgent
+        ? '거래처용 (Agent)'
+        : (tenantName.isNotEmpty ? tenantName : '본사용 (HQ)');
     final bgColor = isAgent
         ? CrColors.of(context).dangerSoftBg // 거래처용 = 옅은 빨강
         : CrColors.of(context).infoBg; // 본사용 = 옅은 파랑
