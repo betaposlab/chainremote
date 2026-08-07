@@ -78,15 +78,9 @@ export function FeedbackForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // 안내 문구가 쓰는 OS 와 다르면 "안 되는 기능" 으로 읽힌다. 쓰는 사람은 대리점 직원이고
-  //   거의 윈도우라, 기본값을 윈도우로 두고 맥일 때만 바꾼다.
-  const [isMac, setIsMac] = useState(false);
-  useEffect(() => {
-    if (typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform)) {
-      setIsMac(true);
-    }
-  }, []);
-  const pasteKey = isMac ? "⌘V" : "Ctrl+V";
+  // OS 감지는 일부러 안 한다. 한 줄에 둘 다 적으면 감지 코드도, 하이드레이션 불일치도,
+  //   navigator.platform(deprecated) 의존도 없어진다. 무엇보다 본사 직원이 맥에서
+  //   윈도우 쓰는 대리점을 원격 지원하며 안내할 때, 자기 OS 것만 보이면 오히려 불편하다.
 
   if (!open) {
     return (
@@ -192,24 +186,18 @@ export function FeedbackForm() {
               이미지 첨부
             </button>
             <span className="text-xs text-[#cbd1e0]">
-              <b className="text-[#c3d3ff]">여기로 끌어다 놓거나 {pasteKey} 로 붙여넣기</b>
+              <b className="text-[#c3d3ff]">
+                여기로 끌어다 놓거나 Ctrl+V (맥 ⌘V) 로 붙여넣기
+              </b>
               {" · "}
               {images.length}/{MAX_IMAGES} · 장당 5MB · PNG·JPG·WEBP
             </span>
           </div>
-          <div className="mt-1 text-[0.68rem] text-[#cbd1e0]">
-            {isMac ? (
-              <>
-                화면을 찍어 바로 붙여넣으려면 <b>⌘⌃⇧4</b> (클립보드로 복사). 그냥 ⌘⇧4 로
-                찍으면 바탕화면에 파일로 저장되니 그 파일을 끌어다 놓으시면 됩니다.
-              </>
-            ) : (
-              <>
-                화면을 찍으려면 <b>Windows 로고 + Shift + S</b> — 원하는 영역을 끌어서
-                고르면 클립보드에 담깁니다. 그대로 <b>Ctrl+V</b> 로 붙여넣으세요.
-                (전체 화면은 <b>PrtSc</b>, 현재 창만은 <b>Alt + PrtSc</b>)
-              </>
-            )}
+          <div className="mt-1 text-[0.68rem] leading-relaxed text-[#cbd1e0]">
+            화면을 찍어 바로 붙여넣으려면 — 윈도우는 <b>Windows 로고 + Shift + S</b>
+            (영역을 끌어서 고르면 클립보드로), 맥은 <b>⌘⌃⇧4</b>.
+            <br />
+            파일로 저장된 스크린샷은 위 영역으로 끌어다 놓으셔도 됩니다.
           </div>
         </div>
         <input
