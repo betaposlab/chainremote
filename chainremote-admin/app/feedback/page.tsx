@@ -13,7 +13,8 @@ import {
   markRepliesSeen,
 } from "@/lib/data/feedback";
 import { FeedbackForm } from "./_form";
-import { FeedbackRow, type FeedbackRowData } from "./_row";
+import { FeedbackList } from "./_list";
+import type { FeedbackRowData } from "./_row";
 
 export const dynamic = "force-dynamic";
 
@@ -90,24 +91,9 @@ export default async function FeedbackPage() {
         </div>
       )}
 
-      {data.length === 0 ? (
-        <div className="panel-card p-8 text-center text-sm text-[#cbd1e0]">
-          {isPlatform
-            ? "아직 들어온 문의가 없습니다."
-            : "아직 보낸 문의가 없습니다. 위 버튼으로 첫 문의를 남겨 보세요."}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {data.map((r) => (
-            <FeedbackRow
-              key={r.id}
-              row={r}
-              isPlatform={isPlatform}
-              canDelete={r.status === "open" && !r.reply}
-            />
-          ))}
-        </div>
-      )}
+      {/* 검색·필터·목록은 클라이언트에서 — 빈 목록 안내도 거기서 상황에 맞게 갈린다
+          ("아직 없음" vs "조건에 맞는 게 없음"). */}
+      <FeedbackList data={data} isPlatform={isPlatform} />
     </div>
   );
 }

@@ -43,13 +43,16 @@ export function FeedbackRow({
   row,
   isPlatform,
   canDelete,
+  defaultOpen = false,
 }: {
   row: FeedbackRowData;
   isPlatform: boolean;
   /** 대리점은 아직 답이 안 나간 자기 글만 지울 수 있다. 판정은 서버가 다시 한다. */
   canDelete: boolean;
+  /** 검색이 본문에 걸렸을 때 펼친 채로 그린다 — 왜 걸렸는지 보이지 않으면 소용이 없다. */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <article className="panel-card overflow-hidden">
