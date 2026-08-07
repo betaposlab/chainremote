@@ -126,6 +126,35 @@ export async function updateFeedbackStatus(
   return row;
 }
 
+/**
+ * 삭제. 대리점은 "아직 답이 안 나간 자기 글"만, 운영자는 무엇이든.
+ *
+ * 대리점에 조건을 건 이유: 이미 답변이 달렸거나 검토에 들어간 건을 지우면 우리가 무엇에
+ *   답했는지가 사라진다. 반대로 잘못 올린 글조차 못 지우면 그건 그것대로 답답하다 —
+ *   그 사이를 "답이 나가기 전까지는 본인이 거둘 수 있다"로 그었다.
+ * tenantId 를 WHERE 에 같이 넣어 남의 대리점 글은 id 를 알아도 못 지운다.
+ */
+export async function deleteFeedback(
+  id: number,
+  scope: { tenantId: string } | { platform: true },
+) {
+  const where =
+    "platform" in scope
+      ? eq(feedback.id, id)
+      : and(
+          eq(feedback.id, id),
+          eq(feedback.tenantId, scope.tenantId),
+          eq(feedback.status, "open"),
+          sql`${feedback.reply} IS NULL`,
+        );
+
+  const [row] = await db
+    .delete(feedback)
+    .where(where)
+    .returning({ id: feedback.id, tenantId: feedback.tenantId, title: feedback.title });
+  return row;
+}
+
 /** 미처리 건수 — 사이드바 배지용. super_admin 은 전체, 그 외는 자기 회사. */
 export async function countOpenFeedback(tenantId: string | null) {
   const base = db

@@ -35,6 +35,30 @@ export async function submitFeedbackAction(form: FormData): Promise<void> {
   revalidatePath("/feedback");
 }
 
+export async function deleteFeedbackAction(form: FormData): Promise<void> {
+  const me = await requireSession();
+  const id = Number(form.get("id"));
+  if (!Number.isFinite(id)) throw new Error("잘못된 요청입니다");
+
+  const row = await data.deleteFeedback(
+    id,
+    me.role === "super_admin" ? { platform: true } : { tenantId: me.tenantId },
+  );
+  // 데이터 레이어의 WHERE 가 권한·상태를 함께 막으므로, 못 지웠다는 건 조건에 걸렸다는 뜻이다.
+  if (!row) {
+    throw new Error("이미 답변이 달렸거나 검토 중인 문의는 지울 수 없습니다.");
+  }
+
+  await writeAudit({
+    tenantId: row.tenantId,
+    userId: me.id,
+    action: "feedback.delete",
+    targetType: "feedback",
+    metadata: { id, title: row.title, byPlatform: me.role === "super_admin" },
+  });
+  revalidatePath("/feedback");
+}
+
 export async function updateFeedbackAction(form: FormData): Promise<void> {
   const me = await requireSuperAdmin();
   const id = Number(form.get("id"));

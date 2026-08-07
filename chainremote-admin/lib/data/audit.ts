@@ -25,7 +25,9 @@ export type AuditAction =
   | "push.bulk"
   | "tenant.unattended_change"
   // 대리점에 답이 나가는 행위 — 누가 무엇을 보류로 돌렸는지가 나중에 문제가 된다.
-  | "feedback.update";
+  | "feedback.update"
+  // 지워진 문의는 복구할 수 없다. 제목만이라도 남겨야 "그런 요청 받은 적 없다"를 막는다.
+  | "feedback.delete";
 
 export interface AuditEntry {
   action: AuditAction;

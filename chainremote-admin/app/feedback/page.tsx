@@ -13,6 +13,7 @@ import {
 } from "@/lib/feedback-constants";
 import { FeedbackForm } from "./_form";
 import { AdminRowControls } from "./_admin-row";
+import { DeleteFeedbackButton } from "./_delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -100,8 +101,22 @@ export default async function FeedbackPage() {
                 </div>
               )}
 
-              {isPlatform && (
-                <AdminRowControls id={r.id} status={r.status} reply={r.reply} />
+              {isPlatform ? (
+                <>
+                  <AdminRowControls id={r.id} status={r.status} reply={r.reply} />
+                  <div className="mt-2">
+                    <DeleteFeedbackButton id={r.id} />
+                  </div>
+                </>
+              ) : (
+                // 대리점은 아직 답이 안 나간 자기 글만 거둘 수 있다. 조건이 안 맞으면
+                //   버튼 자체를 숨긴다 — 눌러 봐야 서버가 막을 걸 보여줄 이유가 없다.
+                r.status === "open" &&
+                !r.reply && (
+                  <div className="mt-3 border-t border-[#51638f] pt-2">
+                    <DeleteFeedbackButton id={r.id} />
+                  </div>
+                )
               )}
             </article>
           ))}
