@@ -37,7 +37,7 @@ const DOCS = [
 
 export default function HelpIndexPage() {
   return (
-    <div className="px-4 py-5 md:px-8 md:py-6 max-w-3xl">
+    <div className="print-doc px-4 py-5 md:px-8 md:py-6 max-w-3xl">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-white">도움말</h1>
         <p className="mt-1 text-sm text-[#cbd1e0]">

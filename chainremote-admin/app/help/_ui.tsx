@@ -5,6 +5,7 @@
 //   외부 기고가 생기면 그때 옮기면 된다.
 
 import Link from "next/link";
+import { PrintButton } from "./_print-button";
 
 export function DocHeader({
   title,
@@ -17,12 +18,18 @@ export function DocHeader({
 }) {
   return (
     <header className="mb-8">
-      <Link href="/help" className="text-xs text-[#c3d3ff] hover:underline">
-        ← 도움말 목차
-      </Link>
+      <div className="flex items-start justify-between gap-3">
+        <Link href="/help" className="text-xs text-[#c3d3ff] hover:underline no-print">
+          ← 도움말 목차
+        </Link>
+        <PrintButton />
+      </div>
       <h1 className="mt-2 text-2xl font-bold tracking-tight text-white">{title}</h1>
       <p className="mt-2 text-sm leading-relaxed text-[#cbd1e0]">{lead}</p>
-      <p className="mt-2 text-xs text-[#ccd2e3]">최종 수정 {updated}</p>
+      {/* 종이로 돌아다니는 문서는 언제 것인지가 특히 중요하다 — 인쇄본에도 남긴다 */}
+      <p className="mt-2 text-xs text-[#ccd2e3]">
+        최종 수정 {updated} · ChainRemote 관리 패널 (626.kr)
+      </p>
     </header>
   );
 }

@@ -370,3 +370,70 @@ select.input option {
     animation: none;
   }
 }
+
+/* ── 인쇄 / PDF 저장 ────────────────────────────────────────────────────────
+   매뉴얼을 종이나 PDF 로 뽑을 때 쓴다. 화면은 다크지만 인쇄는 흰 바탕이어야 한다 —
+   지금 배경을 그대로 인쇄하면 토너를 통째로 쓰고, 그렇게 뽑은 종이는 아무도 안 읽는다.
+
+   범위를 .print-doc 안으로 한정한다. 전역으로 뒤집으면 거래처 표 같은 다른 화면 인쇄가
+   같이 망가진다.                                                                        */
+@media print {
+  /* 사이드바·버튼 등 종이에 남을 이유가 없는 것들 */
+  .no-print,
+  nav,
+  footer,
+  button {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .print-doc,
+  .print-doc * {
+    background: transparent !important;
+    color: #111 !important;
+    /* 배경색을 없애므로 테두리로 구조를 남긴다 */
+    box-shadow: none !important;
+  }
+
+  .print-doc .panel-card,
+  .print-doc figure,
+  .print-doc .banner {
+    border: 1px solid #999 !important;
+    /* 카드가 페이지 경계에서 잘리면 읽는 흐름이 끊긴다 */
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* 경고/주의는 흑백에서도 구분돼야 한다 — 색 대신 왼쪽 굵은 선으로 */
+  .print-doc .banner {
+    border-left: 4px solid #333 !important;
+  }
+
+  .print-doc h1,
+  .print-doc h2,
+  .print-doc h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .print-doc img {
+    max-width: 100% !important;
+    break-inside: avoid;
+  }
+
+  /* 링크 주소를 본문에 펼쳐 준다. 종이에서는 누를 수가 없다. */
+  .print-doc a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: #555 !important;
+  }
+
+  @page {
+    margin: 15mm;
+  }
+}

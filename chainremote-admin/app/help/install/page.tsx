@@ -38,7 +38,7 @@ function Step({
 
 export default function InstallGuidePage() {
   return (
-    <div className="px-4 py-5 md:px-8 md:py-6 max-w-3xl">
+    <div className="print-doc px-4 py-5 md:px-8 md:py-6 max-w-3xl">
       <DocHeader
         title="설치 매뉴얼"
         lead="처음 설치하는 분이 화면을 보며 그대로 따라갈 수 있게 썼습니다. 설치할 프로그램은 두 가지입니다 — 본사 직원 PC에 까는 HQ 앱, 그리고 거래처 POS에 까는 에이전트."
