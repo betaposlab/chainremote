@@ -81,6 +81,7 @@ export default async function RootLayout({
             <NavItem href="/feedback" badge={feedbackBadge}>
               {user.role === "super_admin" ? "문의함" : "문의하기"}
             </NavItem>
+            <NavItem href="/help">도움말</NavItem>
             {user.role !== "super_admin" && canManageAccounts(user.role) && (
               <NavItem href="/users">사용자</NavItem>
             )}
