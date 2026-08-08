@@ -155,6 +155,58 @@ select.input option {
   vertical-align: middle;
 }
 
+/* ── 폰에서는 표를 카드처럼 ─────────────────────────────────────────────────
+   열을 접는 것만으로는 부족했다. 375px 에는 3열도 안 들어가 버튼이 잘리고 상태 글자가
+   "19/시/간/전" 으로 쪼개졌다(2026-08-08 실물 확인). 가로 스크롤로 볼 수는 있었지만
+   옆으로 밀어야 나머지가 보이니 목록을 훑는 것 자체가 안 됐다.
+
+   표를 카드 JSX 로 따로 만들지 않고 CSS 로 눕히는 이유:
+     - 같은 데이터를 두 벌 렌더하지 않는다.
+     - 클라이언트 검색이 tr[data-search] 단위라 그대로 산다(카드로 갈면 장치를 또 붙여야 한다).
+     - 거래처/지원기록/사용자/회사 관리 네 화면에 한 번에 적용된다.
+
+   접힌 열(hidden md:table-cell)은 그대로 접힌 채다 - 각 화면에서 폰에 남길 것만 골라 뒀고,
+   접은 정보는 상호/이름 셀 아래 요약이나 펼침 상세에 이미 있다.                        */
+@media (max-width: 767px) {
+  .panel-table-wrap {
+    /* 카드가 되면 가로로 넘칠 것이 없다. 스크롤이 남아 있으면 손가락이 자꾸 걸린다. */
+    overflow-x: visible;
+  }
+  .panel-table thead {
+    display: none;
+  }
+  .panel-table,
+  .panel-table tbody,
+  .panel-table tr,
+  .panel-table td {
+    display: block;
+    width: 100%;
+  }
+  .panel-table tbody tr {
+    padding: 0.85rem 1rem;
+    border-top: 1px solid var(--inkline);
+  }
+  .panel-table tbody td {
+    padding: 0.15rem 0;
+    /* 표에서 쓰던 nowrap 이 카드에서는 오히려 잘림을 만든다. */
+    white-space: normal;
+    max-width: none;
+  }
+  /* 작업 버튼은 줄바꿈해 다음 줄로 흐르게 - 잘리는 대신 접힌다. */
+  .panel-table tbody td:last-child {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: flex-start;
+    padding-top: 0.6rem;
+    text-align: left !important;
+  }
+  /* 펼침 상세 행(colSpan)은 카드 안에서 여백만 정리한다. */
+  .panel-table tbody td[colspan] {
+    padding: 0.5rem 0 0;
+  }
+}
+
 /* ── 배지/칩 — 의미색은 accent(파랑)와 분리 ── */
 .chip {
   display: inline-flex;
