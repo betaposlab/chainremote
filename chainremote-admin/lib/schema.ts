@@ -442,3 +442,21 @@ export const feedbackImages = pgTable(
     createdIdx: index("idx_feedback_images_created").on(t.createdAt),
   }),
 );
+
+// 릴리즈 노트(체인지로그) — 마이그 035. release-full.sh 가 발행 직후 자동 기록한다.
+//   사람이 "발행하고 나서 적기"를 기억해야 하는 구조면 반드시 빠진다.
+export const releases = pgTable(
+  "releases",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    // agent(거래처) | hq(본사 앱) | chaingo(무설치)
+    kind: text("kind").notNull(),
+    version: text("version").notNull(),
+    // 대리점이 읽을 문장. 커밋 메시지를 그대로 옮기지 않는다.
+    notes: text("notes"),
+    releasedAt: timestamp("released_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    releasedIdx: index("idx_releases_released").on(t.releasedAt),
+  }),
+);

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { customers, supportSessions, tenants } from "@/lib/schema";
 import { and, count, eq, gte, sql } from "drizzle-orm";
 import { AgentDownloadCard } from "./_agent-download-card";
+import { ReleaseCard } from "./_release-card";
 import { canWrite } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
@@ -68,6 +69,10 @@ export default async function Home() {
       {canWrite(session.user.role) && (
         <AgentDownloadCard tenantId={tenant.id} displayName={tenant.displayName} />
       )}
+
+      {/* 최신 버전 + 이번에 달라진 것. 대리점이 "내 거래처가 최신인가"를 스스로 판단하려면
+          최신 버전이 몇인지부터 알아야 한다 — 종전엔 일괄푸시 화면에서만 확인됐다. */}
+      <ReleaseCard />
 
       <section>
         <h2 className="text-lg font-semibold mb-3 text-white">시작하기</h2>

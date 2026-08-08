@@ -173,6 +173,28 @@ else
   fi
 fi
 
+# ── [4.5/5] 릴리즈 노트 기록 (패널 체인지로그) ───────────────────────────────
+# 대리점이 "이번 업데이트로 뭐가 달라졌는지"를 패널에서 본다(마이그 035).
+#
+# ★여기서 자동으로 넣는 이유: 사람이 "발행하고 나서 패널에 적기"를 기억해야 하는 구조면
+#   반드시 빠진다. 하루에 다섯 번 발행한 날도 있었다.
+#
+# 노트에 따옴표·줄바꿈이 섞여도 안전하도록 dollar-quoting($crnote$)을 쓴다. 셸에서 SQL 을
+#   조립할 때 이스케이프로 깨지는 게 이런 자리의 단골 사고다.
+# 실패해도 발행 자체는 유효하므로 경고만 하고 넘어간다 — 나중에 패널에서 손으로 넣으면 된다.
+echo "[4.5/5] 릴리즈 노트 기록..."
+CLOUD_SSH="root@115.68.192.153"
+if printf '%s' "INSERT INTO releases (kind, version, notes) VALUES ('$KIND', '$VERSION', \$crnote\$$NOTES\$crnote\$) ON CONFLICT (kind, version) DO UPDATE SET notes = EXCLUDED.notes;" \
+   | ssh $SSH_OPTS "$CLOUD_SSH" "docker exec -i chainremote-postgres psql -U chainremote -d chainremote -q -v ON_ERROR_STOP=1" 2>/dev/null; then
+  if [[ -n "$NOTES" ]]; then
+    echo "    ✓ 기록됨 — 626.kr 대시보드/업데이트 내역에 표시"
+  else
+    echo "    ✓ 기록됨 (노트 없음 — 목록에는 안 보이고 버전만 남습니다)"
+  fi
+else
+  echo "⚠ 릴리즈 노트 기록 실패 — 발행은 정상. 패널 DB releases 에 수동 입력 필요." >&2
+fi
+
 # ── [5/5] 마지막 안내 — 절대 놓치면 안 되는 사람 몫 ──────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════"
