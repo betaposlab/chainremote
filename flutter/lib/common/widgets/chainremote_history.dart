@@ -135,6 +135,8 @@ Widget _labelRow(String label, Widget value) {
       children: [
         SizedBox(
           width: 62,
+          // 라벨은 보조 정보다. 이 회색은 밝은 배경에서도 어두운 배경에서도 값보다
+          //   한 단계 물러나 보이므로 양쪽에서 그대로 쓴다.
           child: Text(label,
               style: const TextStyle(fontSize: 11, color: Color(0xFF9CA3AF))),
         ),
@@ -144,10 +146,20 @@ Widget _labelRow(String label, Widget value) {
   );
 }
 
-Widget _labelTextRow(String label, String text) => _labelRow(
-    label,
-    Text(text,
-        style: const TextStyle(fontSize: 12, color: Color(0xFF374151))));
+/// 라벨 + 값 한 줄.
+///
+/// ★값 색을 테마에 따라 가른다. 종전엔 밝은 배경 기준 진회색(#374151)이 박혀 있어,
+///   다크에서 카드 배경(#262D38)과 거의 같은 밝기가 됐다 — 라벨은 보이는데 정작 읽어야 할
+///   값이 묻혀 주·보조가 뒤집혔다. 특히 '내용'이 가장 안 읽혔다(2026-08-08 Chang 지적).
+Widget _labelTextRow(BuildContext context, String label, String text) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return _labelRow(
+      label,
+      Text(text,
+          style: TextStyle(
+              fontSize: 12,
+              color: isDark ? const Color(0xFFEEF1F7) : const Color(0xFF374151))));
+}
 
 Widget _sessionTile(BuildContext context, CrSession s,
     {required bool showCustomer}) {
@@ -162,8 +174,12 @@ Widget _sessionTile(BuildContext context, CrSession s,
         color: const Color(0xFF00A0E5).withOpacity(0.12),
         borderRadius: BorderRadius.circular(4),
       ),
+      // 브랜드 하늘색 계열이되 배경 밝기에 맞춰 고른다. 진한 쪽(#0284C7)은 어두운 카드
+      //   위에서 대비가 떨어져 칩이 뭉개진다 — 값 색과 같은 갈래의 문제다.
       child: Text(label,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF0284C7))),
+          style: TextStyle(
+              fontSize: 11,
+              color: isDark ? const Color(0xFF7DD3FC) : const Color(0xFF0284C7))),
     ));
   }
 
@@ -214,10 +230,12 @@ Widget _sessionTile(BuildContext context, CrSession s,
                   shape: BoxShape.circle,
                 ),
                 child: Text(initial,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0284C7))),
+                        color: isDark
+                            ? const Color(0xFF7DD3FC)
+                            : const Color(0xFF0284C7))),
               ),
               const SizedBox(width: 8),
             ],
@@ -247,14 +265,14 @@ Widget _sessionTile(BuildContext context, CrSession s,
         ),
         const SizedBox(height: 3),
         if (showCustomer && s.customerName.isNotEmpty)
-          _labelTextRow('일시', _fmtDateTime(s.startedAt)),
+          _labelTextRow(context, '일시', _fmtDateTime(s.startedAt)),
         if (_fmtDuration(s.durationSec).isNotEmpty)
-          _labelTextRow('원격 시간', _fmtDuration(s.durationSec)),
+          _labelTextRow(context, '원격 시간', _fmtDuration(s.durationSec)),
         if (chips.isNotEmpty)
           _labelRow('A/S 종류', Wrap(spacing: 4, runSpacing: 4, children: chips)),
-        if (s.description.isNotEmpty) _labelTextRow('내용', s.description),
-        if (s.contactName.isNotEmpty) _labelTextRow('응대자', s.contactName),
-        if (s.operatorName.isNotEmpty) _labelTextRow('담당', s.operatorName),
+        if (s.description.isNotEmpty) _labelTextRow(context, '내용', s.description),
+        if (s.contactName.isNotEmpty) _labelTextRow(context, '응대자', s.contactName),
+        if (s.operatorName.isNotEmpty) _labelTextRow(context, '담당', s.operatorName),
       ],
     ),
   );
