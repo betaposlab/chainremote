@@ -148,11 +148,11 @@ export default async function UsersPage() {
           <thead>
             <tr>
               <th className="text-left px-4 py-3 font-medium">이름</th>
-              <th className="text-left px-4 py-3 font-medium">아이디</th>
+              <th className="text-left px-4 py-3 font-medium hidden md:table-cell">아이디</th>
               <th className="text-left px-4 py-3 font-medium">역할</th>
-              <th className="text-left px-4 py-3 font-medium">활성</th>
-              <th className="text-left px-4 py-3 font-medium">최종 로그인</th>
-              <th className="text-left px-4 py-3 font-medium">HQ 상태</th>
+              <th className="text-left px-4 py-3 font-medium hidden md:table-cell">활성</th>
+              <th className="text-left px-4 py-3 font-medium hidden md:table-cell">최종 로그인</th>
+              <th className="text-left px-4 py-3 font-medium hidden md:table-cell">HQ 상태</th>
               <th className="text-right px-4 py-3 font-medium">작업</th>
             </tr>
           </thead>

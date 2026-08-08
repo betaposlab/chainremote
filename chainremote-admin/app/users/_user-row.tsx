@@ -35,10 +35,16 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               본인
             </span>
           )}
+          {/* 좁은 화면에서는 아이디·활성 열을 접으므로 여기 요약한다. 이름은 겹칠 수 있어
+              계정을 가르는 건 결국 아이디다. 비활성 계정은 그 사실이 더 중요하니 같이 붙인다. */}
+          <div className="mt-0.5 text-xs text-[#b9bfd2] md:hidden">
+            @{user.email}
+            {!user.isActive && <span className="ml-1 text-[#ff6b6f]">· 비활성</span>}
+          </div>
         </td>
-        <td className="px-4 py-3 text-[#cbd1e0]">@{user.email}</td>
+        <td className="px-4 py-3 text-[#cbd1e0] hidden md:table-cell">@{user.email}</td>
         <td className="px-4 py-3">{roleLabel(user.role)}</td>
-        <td className="px-4 py-3">
+        <td className="px-4 py-3 hidden md:table-cell">
           {user.isActive ? (
             <span className="inline-block rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
               활성
@@ -49,12 +55,12 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
             </span>
           )}
         </td>
-        <td className="px-4 py-3 text-xs text-[#b9bfd2]">
+        <td className="px-4 py-3 text-xs text-[#b9bfd2] hidden md:table-cell">
           {user.lastLoginAt
             ? new Date(user.lastLoginAt).toLocaleString("ko-KR")
             : "—"}
         </td>
-        <td className="px-4 py-3 text-xs">
+        <td className="px-4 py-3 text-xs hidden md:table-cell">
           <HqStatus
             lastVersion={user.lastVersion}
             lastHeartbeatAt={user.lastHeartbeatAt}

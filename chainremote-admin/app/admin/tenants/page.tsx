@@ -52,14 +52,14 @@ export default async function TenantsPage() {
           <thead className="bg-white/[0.025] text-left text-xs uppercase tracking-wider text-[#b9bfd2]">
             <tr>
               <th className="px-4 py-3">회사명</th>
-              <th className="px-4 py-3">아이디</th>
-              <th className="px-4 py-3">대표자</th>
-              <th className="px-4 py-3">담당자 연락처</th>
-              <th className="px-4 py-3">월정액 (VAT별도)</th>
-              <th className="px-4 py-3">결제일</th>
-              <th className="px-4 py-3">결제방식</th>
+              <th className="px-4 py-3 hidden md:table-cell">아이디</th>
+              <th className="px-4 py-3 hidden md:table-cell">대표자</th>
+              <th className="px-4 py-3 hidden md:table-cell">담당자 연락처</th>
+              <th className="px-4 py-3 hidden md:table-cell">월정액 (VAT별도)</th>
+              <th className="px-4 py-3 hidden md:table-cell">결제일</th>
+              <th className="px-4 py-3 hidden md:table-cell">결제방식</th>
               <th className="px-4 py-3">상태</th>
-              <th className="px-4 py-3">가입일</th>
+              <th className="px-4 py-3 hidden md:table-cell">가입일</th>
               <th className="px-4 py-3 text-right">관리</th>
             </tr>
           </thead>
@@ -97,7 +97,7 @@ export default async function TenantsPage() {
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3">
+                <td className="hidden md:table-cell px-4 py-3">
                   <Link
                     href="/users"
                     title="사용자 관리에서 회사별로 보기"
@@ -106,27 +106,27 @@ export default async function TenantsPage() {
                     {userCounts[t.id] ?? 0}개
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-[#eef1f7]">
+                <td className="hidden md:table-cell px-4 py-3 text-[#eef1f7]">
                   {t.representativeName ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-[#eef1f7]">
+                <td className="hidden md:table-cell px-4 py-3 text-[#eef1f7]">
                   {t.contactPhone ?? "—"}
                 </td>
-                <td className="px-4 py-3 text-[#eef1f7]">
+                <td className="hidden md:table-cell px-4 py-3 text-[#eef1f7]">
                   {t.monthlyFeeKrw != null
                     ? `${t.monthlyFeeKrw.toLocaleString()}원`
                     : "—"}
                 </td>
-                <td className="px-4 py-3 text-[#eef1f7]">
+                <td className="hidden md:table-cell px-4 py-3 text-[#eef1f7]">
                   {t.paymentDay != null ? `${t.paymentDay}일` : "—"}
                 </td>
-                <td className="px-4 py-3 text-[#eef1f7]">
+                <td className="hidden md:table-cell px-4 py-3 text-[#eef1f7]">
                   {paymentMethodLabel(t.paymentMethod)}
                 </td>
                 <td className="px-4 py-3">
                   <StatusBadge status={t.subscriptionStatus} />
                 </td>
-                <td className="px-4 py-3 text-[#b9bfd2]">
+                <td className="hidden md:table-cell px-4 py-3 text-[#b9bfd2]">
                   {t.subscriptionStartedAt
                     ? new Date(t.subscriptionStartedAt).toLocaleDateString("ko-KR")
                     : new Date(t.createdAt).toLocaleDateString("ko-KR")}
