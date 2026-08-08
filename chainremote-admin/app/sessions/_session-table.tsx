@@ -39,11 +39,11 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
           <tr>
             <th className="text-left px-4 py-3 font-medium">거래처</th>
             <th className="text-left px-4 py-3 font-medium">시작</th>
-            <th className="text-left px-4 py-3 font-medium">소요</th>
-            <th className="text-left px-4 py-3 font-medium">담당</th>
-            <th className="text-left px-4 py-3 font-medium">장애 유형</th>
+            <th className="text-left px-4 py-3 font-medium hidden md:table-cell">소요</th>
+            <th className="text-left px-4 py-3 font-medium hidden md:table-cell">담당</th>
+            <th className="text-left px-4 py-3 font-medium hidden md:table-cell">장애 유형</th>
             <th className="text-left px-4 py-3 font-medium">해결</th>
-            <th className="text-left px-4 py-3 font-medium">내용</th>
+            <th className="text-left px-4 py-3 font-medium hidden md:table-cell">내용</th>
           </tr>
         </thead>
         <tbody>
@@ -79,7 +79,7 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                   <td className="px-4 py-3 text-[#cbd1e0] whitespace-nowrap">
                     {formatDate(r.startedAt)}
                   </td>
-                  <td className="px-4 py-3 text-[#cbd1e0] tabular-nums">
+                  <td className="px-4 py-3 text-[#cbd1e0] tabular-nums hidden md:table-cell">
                     {ongoing ? (
                       <span className="inline-block chip chip-danger animate-pulse">
                         진행 중
@@ -88,10 +88,10 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                       formatDuration(r.durationSec)
                     )}
                   </td>
-                  <td className="px-4 py-3 text-[#cbd1e0] whitespace-nowrap">
+                  <td className="px-4 py-3 text-[#cbd1e0] whitespace-nowrap hidden md:table-cell">
                     {r.operatorName ?? <span className="text-[#7d84a0]">-</span>}
                   </td>
-                  <td className="px-4 py-3 text-[#cbd1e0]">
+                  <td className="px-4 py-3 text-[#cbd1e0] hidden md:table-cell">
                     {r.issueType ? ISSUE_TYPE_LABELS[r.issueType] : "-"}
                   </td>
                   <td className="px-4 py-3 text-[#cbd1e0]">
@@ -112,7 +112,7 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                     )}
                   </td>
                   {/* 두 줄까지 보여주고, 그래도 길면 펼쳐서 읽는다. */}
-                  <td className="px-4 py-3 text-[#b9bfd2] text-xs max-w-[52ch]">
+                  <td className="px-4 py-3 text-[#b9bfd2] text-xs max-w-[52ch] hidden md:table-cell">
                     {unlogged ? (
                       <span className="inline-block bg-white/[0.06] text-[#ccd2e3] px-2 py-0.5 rounded">
                         미기록

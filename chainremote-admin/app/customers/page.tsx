@@ -38,16 +38,19 @@ function SortHeader({
   col,
   activeSort,
   activeDir,
+  className,
 }: {
   label: string;
   col: SortKey;
   activeSort: SortKey | null;
   activeDir: "asc" | "desc";
+  /** 좁은 화면에서 접을 열에 "hidden md:table-cell" 을 넘긴다. */
+  className?: string;
 }) {
   const active = activeSort === col;
   const nextDir = active && activeDir === "asc" ? "desc" : "asc";
   return (
-    <th className="text-left px-4 py-3 font-medium whitespace-nowrap">
+    <th className={`text-left px-4 py-3 font-medium whitespace-nowrap ${className ?? ""}`}>
       <Link
         href={`/customers?sort=${col}&dir=${nextDir}`}
         className="inline-flex items-center gap-1 hover:text-[#c3d3ff]"
@@ -264,12 +267,12 @@ export default async function CustomersPage({
           <thead>
             <tr>
               <SortHeader label="상호" col="name" activeSort={sortKey} activeDir={sortDir} />
-              <SortHeader label="직원" col="assigned" activeSort={sortKey} activeDir={sortDir} />
-              <SortHeader label="거래처 담당자" col="contact" activeSort={sortKey} activeDir={sortDir} />
-              <SortHeader label="연락처" col="phone" activeSort={sortKey} activeDir={sortDir} />
-              <SortHeader label="원격 ID" col="remoteId" activeSort={sortKey} activeDir={sortDir} />
+              <SortHeader label="직원" col="assigned" activeSort={sortKey} activeDir={sortDir} className="hidden md:table-cell" />
+              <SortHeader label="거래처 담당자" col="contact" activeSort={sortKey} activeDir={sortDir} className="hidden md:table-cell" />
+              <SortHeader label="연락처" col="phone" activeSort={sortKey} activeDir={sortDir} className="hidden md:table-cell" />
+              <SortHeader label="원격 ID" col="remoteId" activeSort={sortKey} activeDir={sortDir} className="hidden md:table-cell" />
               <SortHeader label="상태" col="status" activeSort={sortKey} activeDir={sortDir} />
-              <th className="text-left px-4 py-3 font-medium">메모</th>
+              <th className="text-left px-4 py-3 font-medium hidden md:table-cell">메모</th>
               <th className="text-right px-4 py-3 font-medium">작업</th>
             </tr>
           </thead>
@@ -335,8 +338,15 @@ export default async function CustomersPage({
                     {c.address && (
                       <div className="text-xs text-[#ccd2e3] mt-0.5">{c.address}</div>
                     )}
+                    {/* 좁은 화면에서는 원격 ID 열을 접으므로 여기 요약해 둔다.
+                        폰에서 이 화면은 "확인"이 주 용도라 ID 만 있으면 대개 충분하다. */}
+                    {c.remoteId && (
+                      <div className="mt-0.5 font-mono text-[0.68rem] text-[#b9bfd2] md:hidden">
+                        {c.remoteId}
+                      </div>
+                    )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 hidden md:table-cell">
                     {c.assignedUserName ? (
                       <span
                         className={
@@ -351,9 +361,9 @@ export default async function CustomersPage({
                       <span className="text-[#ccd2e3] text-xs">미배정</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-[#cbd1e0] whitespace-nowrap">{c.contactName ?? "-"}</td>
-                  <td className="px-4 py-3 text-[#cbd1e0] tabular-nums whitespace-nowrap">{c.phone ?? "-"}</td>
-                  <td className="px-4 py-3 font-mono text-xs">
+                  <td className="px-4 py-3 text-[#cbd1e0] whitespace-nowrap hidden md:table-cell">{c.contactName ?? "-"}</td>
+                  <td className="px-4 py-3 text-[#cbd1e0] tabular-nums whitespace-nowrap hidden md:table-cell">{c.phone ?? "-"}</td>
+                  <td className="px-4 py-3 font-mono text-xs hidden md:table-cell">
                     {c.remoteId ? (
                       <div className="flex flex-col items-start gap-1">
                         <span className="inline-block bg-[#4c7dff]/15 text-[#c3d3ff] px-2 py-0.5 rounded whitespace-nowrap">
@@ -409,7 +419,7 @@ export default async function CustomersPage({
                       isInternal={c.isInternal}
                     />
                   </td>
-                  <td className="px-4 py-3 text-[#b9bfd2] text-xs max-w-[16ch] truncate">
+                  <td className="px-4 py-3 text-[#b9bfd2] text-xs max-w-[16ch] truncate hidden md:table-cell">
                     {c.notes ?? ""}
                   </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
