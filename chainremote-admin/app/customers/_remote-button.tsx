@@ -62,6 +62,25 @@ export function RemoteButton({
     ) {
       return;
     }
+    // 폰·태블릿에서는 먼저 사정을 알린다.
+    //   이 버튼은 rustdesk:// 딥링크로 PC 의 ChainRemote 앱을 띄우는 것뿐이라, 앱이 없는
+    //   기기에서는 눌러도 아무 일이 안 일어난다 — 사용자에겐 "버튼이 고장 났다"로 읽힌다.
+    //   모바일 HQ 는 아직 배포 경로가 없으므로 그 사실을 그대로 말한다.
+    //   확인을 누르면 시도는 한다 — 앱을 따로 깔아 둔 기기에서는 실제로 열리기 때문이다.
+    //   기준을 화면 폭으로 잡은 건 표를 카드로 눕히는 CSS 와 같은 경계를 쓰기 위해서다.
+    const isNarrow =
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches;
+    if (
+      isNarrow &&
+      !confirm(
+        "원격 접속은 PC 에 설치된 ChainRemote 앱으로 연결됩니다.\n" +
+          "휴대폰에는 앱이 없어 아무 일도 일어나지 않을 수 있습니다.\n\n" +
+          "그래도 시도할까요?",
+      )
+    ) {
+      return;
+    }
     // 기록은 HQ 가 남긴다 — 패널은 rustdesk 딥링크로 앱만 띄운다.
     window.location.href = `rustdesk://${remoteId}`;
   };
