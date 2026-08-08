@@ -163,6 +163,17 @@ Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
   ValueData: """{app}\ChainRemote.exe"" --tray"; \
   Flags: uninsdeletevalue
 
+[UninstallDelete]
+; HQ 도 ProgramData 를 쓴다(로그·아이콘·재접속 grace). 제거 후 폴더가 남으면 "지웠는데
+;   남아 있다"가 되는 건 에이전트와 똑같다. 자세한 근거는 agent-installer.iss 의 같은 섹션.
+;   ★자동 업데이트는 여기 안 걸린다 — Inno 는 같은 AppId 위 설치를 업그레이드로 처리하고,
+;   업그레이드에서는 이 섹션이 실행되지 않는다.
+Type: files; Name: "{commonappdata}\ChainRemote\*.log"
+Type: files; Name: "{commonappdata}\ChainRemote\*.ico"
+Type: filesandordirs; Name: "{commonappdata}\ChainRemote\pending"
+Type: files; Name: "{commonappdata}\ChainRemote\restart-grace"
+Type: dirifempty; Name: "{commonappdata}\ChainRemote"
+
 [Code]
 // ── 다운그레이드 가드 (2026-06-06) ────────────────────────────────
 // 설치된 버전이 이 인스톨러보다 높으면 설치 거부. updater(is_newer)는 자동업뎃 경로만

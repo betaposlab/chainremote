@@ -292,6 +292,29 @@ Filename: "schtasks.exe"; Parameters: "/Delete /TN ChainRemoteServiceWatchdog /F
 Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\ChainRemote /v CustomerName /f /reg:64"; Flags: runhidden; RunOnceId: "DelCustomerName64"
 Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\ChainRemote /v CustomerName /f /reg:32"; Flags: runhidden; RunOnceId: "DelCustomerName32"
 
+[UninstallDelete]
+; ProgramData 잔재 정리. 위 [UninstallRun] 이 다 끝난 뒤에 Inno 가 처리하므로, 거기서
+;   실행 중이던 uninstall-core.ps1 자신도 여기서는 지울 수 있다 — 스크립트가 자기 폴더를
+;   지우려 하면 실행 중 파일이라 실패한다. 그래서 여태 폴더째 남아 있었다.
+;
+; 제거는 사용자가 명시적으로 원한 행위라 로그까지 같이 지운다. "제어판에서 지웠는데 폴더가
+;   남아 있다"는 완전 제거 기대를 배신한다.
+;   ★자동 업데이트는 여기 안 걸린다. Inno 는 같은 AppId 위에 설치하면 업그레이드로 처리하고,
+;   업그레이드는 [UninstallRun]/[UninstallDelete] 를 실행하지 않는다. 업데이트마다 로그가
+;   날아갈 걱정은 없다는 뜻이다.
+Type: files; Name: "{commonappdata}\ChainRemote\*.log"
+Type: files; Name: "{commonappdata}\ChainRemote\*.ps1"
+Type: files; Name: "{commonappdata}\ChainRemote\*.ico"
+; 자동 업데이트가 받아 둔 설치파일 — 수십 MB 라 남으면 제일 눈에 띈다.
+Type: filesandordirs; Name: "{commonappdata}\ChainRemote\pending"
+; 재접속 grace(원격 중 업데이트용)와 수락카드에 띄우는 상호.
+Type: files; Name: "{commonappdata}\ChainRemote\restart-grace"
+Type: files; Name: "{commonappdata}\ChainRemote\support-name.txt"
+; 마지막에 빈 폴더만 정리. 언인스톨러가 든 installer 하위는 Inno 가 자기 순서에 지우므로
+;   이 시점엔 아직 남아 있을 수 있고, 그러면 이 줄은 조용히 넘어간다(무해).
+Type: dirifempty; Name: "{commonappdata}\ChainRemote\installer"
+Type: dirifempty; Name: "{commonappdata}\ChainRemote"
+
 [Code]
 var
   EnrollPage: TInputQueryWizardPage;  // auto-enroll 거래처 상호 입력 페이지
