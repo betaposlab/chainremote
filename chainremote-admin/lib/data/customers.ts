@@ -290,19 +290,26 @@ export async function recordHeartbeat(
     firewallSet.firewallLastDisarmAt = new Date();
   }
   // VAN 데몬 상태 반영 — 현재 정상 여부 + 이번에 되살렸으면 카운트/시각 갱신.
+  //   ★관제를 켠 거래처에서만 반영한다. 에이전트는 heartbeat 응답을 받아야 관제가 꺼진 걸
+  //   알기 때문에, 끄기 직전에 출발한 마지막 보고가 뒤늦게 도착한다. 그걸 그대로 저장하면
+  //   방금 지운 '복구 실패'가 되살아나 관제를 껐는데도 빨간 줄이 남는다(2026-08-10 삼성공판장
+  //   실측). 그 한 번의 시차는 서버가 막아야 한다 — van_watch 가 비었으면 뭐가 오든 비운다.
+  const watched = sql`${customers.vanWatch} IS NOT NULL`;
   const vanSet: Record<string, unknown> = {};
+  // ::boolean 캐스트가 필요하다 — CASE 안의 바인딩 파라미터는 타입이 정해지지 않아
+  //   Postgres 가 42804(datatype mismatch)로 거절한다.
   if (typeof extras?.vanOk === "boolean") {
-    vanSet.vanOk = extras.vanOk;
+    vanSet.vanOk = sql`CASE WHEN ${watched} THEN ${extras.vanOk}::boolean ELSE NULL::boolean END`;
   }
   if (typeof extras?.vanGaveUp === "boolean") {
-    vanSet.vanGaveUp = extras.vanGaveUp;
+    vanSet.vanGaveUp = sql`CASE WHEN ${watched} THEN ${extras.vanGaveUp}::boolean ELSE false END`;
   }
   if (typeof extras?.vanMissing === "boolean") {
-    vanSet.vanMissing = extras.vanMissing;
+    vanSet.vanMissing = sql`CASE WHEN ${watched} THEN ${extras.vanMissing}::boolean ELSE false END`;
   }
   if (extras?.vanRestarted) {
-    vanSet.vanRestartCount = sql`${customers.vanRestartCount} + 1`;
-    vanSet.vanLastRestartAt = new Date();
+    vanSet.vanRestartCount = sql`CASE WHEN ${watched} THEN ${customers.vanRestartCount} + 1 ELSE ${customers.vanRestartCount} END`;
+    vanSet.vanLastRestartAt = sql`CASE WHEN ${watched} THEN now() ELSE ${customers.vanLastRestartAt} END`;
   }
   const [row] = await db
     .update(customers)

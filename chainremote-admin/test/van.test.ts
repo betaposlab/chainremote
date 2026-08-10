@@ -70,7 +70,10 @@ describe("VAN 카드결제 데몬 관제 (마이그 036)", () => {
   });
 
   it("heartbeat 가 vanOk / vanGaveUp 을 저장한다(표시용)", async () => {
-    const { token } = await seed("van-c", "주방포스", "VN11110003");
+    // 보고는 관제를 켠 거래처에서만 반영된다 — 에이전트도 관제가 꺼져 있으면 안 보낸다.
+    const s = await seed("van-c", "주방포스", "VN11110003");
+    const token = s.token;
+    await setVanWatch("VN11110003", "ksnet", s.tenantId);
     await beat("VN11110003", token, { vanOk: true, vanGaveUp: false });
     let r = await row("VN11110003");
     expect(r.vanOk).toBe(true);
@@ -84,7 +87,9 @@ describe("VAN 카드결제 데몬 관제 (마이그 036)", () => {
   });
 
   it("vanRestarted=true 인 heartbeat 만 카운트를 올리고 마지막 시각을 찍는다", async () => {
-    const { token } = await seed("van-d", "홀포스", "VN11110004");
+    const s = await seed("van-d", "홀포스", "VN11110004");
+    const token = s.token;
+    await setVanWatch("VN11110004", "ksnet", s.tenantId);
     // 평범한 heartbeat — 카운트 0 유지
     await beat("VN11110004", token, { vanOk: true });
     let r = await row("VN11110004");
@@ -141,6 +146,31 @@ describe("VAN 카드결제 데몬 관제 (마이그 036)", () => {
     r = await row("VN11110007");
     expect(r.vanMissing).toBe(false);
     expect(r.vanGaveUp).toBe(false);
+  });
+
+  it("관제를 끈 뒤 뒤늦게 도착한 보고는 상태를 되살리지 않는다", async () => {
+    // 에이전트는 heartbeat 응답을 받아야 관제가 꺼진 걸 안다. 끄기 직전에 출발한 마지막
+    // 보고가 그 뒤에 도착하는데, 그걸 저장하면 방금 지운 '복구 실패'가 되살아나 껐는데도
+    // 빨간 줄이 남는다(2026-08-10 삼성공판장 — 관제 off 인데 van_gave_up=true 로 굳었다).
+    const s = await seed("van-h", "포스4", "VN11110008");
+    await setVanWatch("VN11110008", "ksnet", s.tenantId);
+    await beat("VN11110008", s.token, { vanOk: false, vanGaveUp: true });
+    expect((await row("VN11110008")).vanGaveUp).toBe(true);
+
+    await setVanWatch("VN11110008", "", s.tenantId); // 사람이 관제를 끔
+    // 에이전트가 아직 모른 채 보낸 마지막 보고
+    await beat("VN11110008", s.token, {
+      vanOk: false,
+      vanGaveUp: true,
+      vanMissing: true,
+      vanRestarted: true,
+    });
+
+    const r = await row("VN11110008");
+    expect(r.vanGaveUp).toBe(false);
+    expect(r.vanMissing).toBe(false);
+    expect(r.vanOk).toBeNull();
+    expect(r.vanRestartCount).toBe(0);
   });
 
   it("VAN 을 바꾸면 이전 VAN 의 누적·포기 상태를 물려받지 않는다", async () => {
