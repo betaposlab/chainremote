@@ -1035,14 +1035,35 @@ abstract class BasePeerCard extends StatelessWidget {
     );
   }
 
+  // 관제 메뉴 한 줄 — 파란 글자 + 오른쪽 아이콘.
+  //   메뉴의 다른 항목은 전부 "지금 한 번 하는 동작"(접속·전송·이름 변경·디스크 정리)인데
+  //   방화벽과 카드결제 데몬만 "켜 두면 계속 도는 설정"이다. 성격이 다른데 같은 무채색으로
+  //   섞여 있으면 그냥 지나친다(2026-08-10 Chang 지적). 제거의 빨강과 같은 결로 묶되,
+  //   파괴적 동작이 아니라 보호 장치라는 뜻에서 파랑을 쓴다.
+  Widget _watchMenuRow(String label, IconData icon, TextStyle? style) {
+    const color = Color(0xFF3B9EFF); // 다크·라이트 메뉴 배경 양쪽에서 읽히는 중간 톤
+    return Row(
+      children: [
+        Text(label, style: style?.copyWith(color: color)),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Transform.scale(
+              scale: 0.8,
+              child: Icon(icon, color: color),
+            ),
+          ).marginOnly(right: 4),
+        ),
+      ],
+    );
+  }
+
   // 우클릭 "방화벽 설정" — 거래처별 방화벽 자동 해제 on/off. 메인+오더 POS 구성에서
   //   업데이트가 방화벽을 되살려 주문 전달·프린터 공유가 끊기는 걸 막는다. 기본 off.
   MenuEntryBase<String> _firewallAction(String id) {
     return MenuEntryButton<String>(
-      childBuilder: (TextStyle? style) => Text(
-        '방화벽 설정',
-        style: style,
-      ),
+      childBuilder: (TextStyle? style) =>
+          _watchMenuRow('방화벽 설정', Icons.shield_outlined, style),
       proc: () {
         showCrFirewallDialog(peer);
       },
@@ -1055,10 +1076,8 @@ abstract class BasePeerCard extends StatelessWidget {
   //   데몬이 죽어도 화면엔 표시가 없어 손님이 카드를 내밀 때 발견되는 고장을 덮는다. 기본 off.
   MenuEntryBase<String> _vanAction(String id) {
     return MenuEntryButton<String>(
-      childBuilder: (TextStyle? style) => Text(
-        '카드결제 데몬 관제',
-        style: style,
-      ),
+      childBuilder: (TextStyle? style) =>
+          _watchMenuRow('카드결제 데몬 관제', Icons.credit_card, style),
       proc: () {
         showCrVanDialog(peer);
       },

@@ -349,6 +349,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   <symbol id="i-click" viewBox="0 0 24 24"><path d="M9 3.5v3M3.5 9h3M5 5l2 2M14 22l-4-11 11 4-4.5 2.5z"/></symbol>
   <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4.5 13.5H11L9.5 22 19 10h-6.5z"/></symbol>
   <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5l7.5 3v6c0 5-3.2 8.4-7.5 10-4.3-1.6-7.5-5-7.5-10v-6z"/><path d="M8.8 12l2.3 2.3 4.2-4.6"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.8h19M6 14.5h4"/></symbol>
   <symbol id="i-infinity" viewBox="0 0 24 24"><path d="M7 15.5c-2 0-3.5-1.6-3.5-3.5S5 8.5 7 8.5c3.5 0 6.5 7 10 7 2 0 3.5-1.6 3.5-3.5S19 8.5 17 8.5c-3.5 0-6.5 7-10 7z"/></symbol>
   <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 18a9 9 0 1 1 16 0"/><path d="M12 13.5L15.5 9"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5L22 20H2z"/><path d="M12 9.5v5M12 17.4v.2"/></symbol>
@@ -373,6 +374,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
       <a href="#features">특징</a>
       <a href="#disk">디스크 관제</a>
       <a href="#firewall">방화벽 관제</a>
+      <a href="#van">카드결제 관제</a>
       <a href="#history">지원기록</a>
       <a href="#how">사용방법</a>
       <a href="#pricing">요금</a>
@@ -465,6 +467,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
     <span><svg class="chk"><use href="#i-check"/></svg> 자동 업데이트</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 디스크 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 방화벽 자동 관제</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 카드결제 데몬 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 지원 이력 자동 기록</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 구형 포스(Win7·32비트) 지원</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 가맹점 무제한</span>
@@ -474,6 +477,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
     <span><svg class="chk"><use href="#i-check"/></svg> 자동 업데이트</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 디스크 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 방화벽 자동 관제</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 카드결제 데몬 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 지원 이력 자동 기록</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 구형 포스(Win7·32비트) 지원</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 가맹점 무제한</span>
@@ -593,6 +597,43 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
           <li><svg class="chk"><use href="#i-check"/></svg> 그래도 켜지면 90초 안에 원래대로 — 사람이 몰라도 스스로 복구</li>
           <li><svg class="chk"><use href="#i-check"/></svg> 필요한 매장에만 — 거래처별로 켜고 끄는 관제</li>
         </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="van">
+  <div class="controlbg">
+    <div class="glow g-blue" style="left:auto;right:-220px;top:-140px;width:580px;height:440px"></div>
+  </div>
+  <div class="wrap" style="position:relative">
+    <div class="grid g2">
+      <div class="reveal">
+        <div class="tag">Only ChainRemote</div>
+        <h2 class="h2">카드가 안 긁히는데,<br>화면엔 아무 표시가 없습니다</h2>
+        <p class="body" style="margin-top:14px">포스의 카드 결제는 VAN 사가 준 데몬 프로그램이
+        떠 있어야 성립합니다. 이게 멈추면 <b style="color:#fff;font-weight:500">결제만 안 됩니다.
+        화면은 멀쩡하고, 경고도 뜨지 않습니다.</b></p>
+        <p class="body" style="margin-top:12px">그래서 발견되는 시점이 늘 같습니다 — 손님이 카드를
+        내민 다음, 계산대 앞에서. 사장님은 원인도 모른 채 전화부터 겁니다.</p>
+        <p class="body" style="margin-top:12px">눈으로는 구분도 안 됩니다. 트레이 아이콘이 남아
+        있는데 마우스를 대면 사라지기도 하고, 프로그램은 멀쩡히 떠 있는데 데몬만 멈춰 있기도
+        합니다. 겉모습만 봐서는 어느 쪽인지 알 수 없습니다.</p>
+        <ul class="plist" style="margin-top:22px">
+          <li><svg class="chk"><use href="#i-check"/></svg> 에이전트가 30초마다 데몬이 살아 있는지 확인</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 멈췄으면 30초 안에 되살립니다 — 사람이 몰라도 스스로 복구</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 결제가 오가는 중에는 건드리지 않습니다</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 되살려도 안 낫는 고장은 무한 재시도 대신 패널로 알립니다</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> VAN 사는 매장마다 다릅니다 — 거래처별로 켜고 끄는 관제</li>
+        </ul>
+      </div>
+      <div class="panelmock reveal" id="vanmock">
+        <div class="phead"><svg class="ic" style="width:18px;height:18px"><use href="#i-card"/></svg> 카드결제 데몬 관제 · 관리 패널</div>
+        <div class="prow"><span class="pname">행복마트 본점</span><span class="fnote">포스 3대</span><span class="fs fs-ok">데몬 정상</span></div>
+        <div class="prow"><span class="pname">큰집설렁탕</span><span class="fnote">포스 2대</span><span class="fs fs-ok">데몬 정상</span></div>
+        <div class="prow"><span class="pname">달빛카페</span><span class="fnote">포스 2대</span><span class="fwswap"><span class="s1 fs-warn">⚠ 데몬 멈춤 감지</span><span class="s2 fs-ok">되살림 완료</span></span></div>
+        <div class="prow"><span class="pname">스마일분식 2호점</span><span class="fnote">포스 1대</span><span class="fs fs-off">관제 꺼짐 · 기본값</span></div>
+        <div class="prow" style="justify-content:flex-end"><span class="fsub"><i class="fdot"></i> 30초마다 감시 · 거래처별로 켜고 끕니다</span></div>
       </div>
     </div>
   </div>
