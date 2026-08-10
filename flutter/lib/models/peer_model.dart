@@ -43,6 +43,7 @@ class Peer {
   String vanWatch;
   String vanOk;
   String vanGaveUp;
+  String vanMissing;
 
   String getId() {
     if (alias != '') {
@@ -77,7 +78,8 @@ class Peer {
         firewallControl = json['firewallControl'] ?? '',
         vanWatch = json['vanWatch'] ?? '',
         vanOk = json['vanOk'] ?? '',
-        vanGaveUp = json['vanGaveUp'] ?? '';
+        vanGaveUp = json['vanGaveUp'] ?? '',
+        vanMissing = json['vanMissing'] ?? '';
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -107,6 +109,7 @@ class Peer {
       'vanWatch': vanWatch,
       'vanOk': vanOk,
       'vanGaveUp': vanGaveUp,
+      'vanMissing': vanMissing,
     };
   }
 
@@ -163,6 +166,7 @@ class Peer {
     this.vanWatch = '',
     this.vanOk = '',
     this.vanGaveUp = '',
+    this.vanMissing = '',
   });
 
   Peer.loading()

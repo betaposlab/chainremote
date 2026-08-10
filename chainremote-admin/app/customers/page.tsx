@@ -116,6 +116,7 @@ export default async function CustomersPage({
       vanWatch: customers.vanWatch,
       vanOk: customers.vanOk,
       vanGaveUp: customers.vanGaveUp,
+      vanMissing: customers.vanMissing,
       vanRestartCount: customers.vanRestartCount,
       vanLastRestartAt: customers.vanLastRestartAt,
     })
@@ -417,6 +418,7 @@ export default async function CustomersPage({
                           kind={c.vanWatch}
                           ok={c.vanOk}
                           gaveUp={c.vanGaveUp}
+                          missing={c.vanMissing}
                           restartCount={c.vanRestartCount}
                           lastRestartAt={
                             c.vanLastRestartAt

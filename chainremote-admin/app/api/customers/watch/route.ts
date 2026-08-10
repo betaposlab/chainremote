@@ -24,6 +24,7 @@ export async function GET(req: Request) {
       // null = 아직 보고 전(방금 켰거나 기기가 꺼져 있음). false 와 구분해야 한다.
       vanOk: row.vanOk,
       vanGaveUp: row.vanGaveUp,
+      vanMissing: row.vanMissing,
       vanRestartCount: row.vanRestartCount,
     });
   } catch (e) {

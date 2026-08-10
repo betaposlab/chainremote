@@ -214,6 +214,8 @@ export interface HeartbeatExtras {
   vanOk?: boolean;
   vanRestarted?: boolean;
   vanGaveUp?: boolean;
+  // 데몬이 그 기기에 아예 없음(037) — 다른 VAN 거래처에 잘못 켠 경우. 조치가 달라 따로 받는다.
+  vanMissing?: boolean;
 }
 
 export async function recordHeartbeat(
@@ -294,6 +296,9 @@ export async function recordHeartbeat(
   }
   if (typeof extras?.vanGaveUp === "boolean") {
     vanSet.vanGaveUp = extras.vanGaveUp;
+  }
+  if (typeof extras?.vanMissing === "boolean") {
+    vanSet.vanMissing = extras.vanMissing;
   }
   if (extras?.vanRestarted) {
     vanSet.vanRestartCount = sql`${customers.vanRestartCount} + 1`;
@@ -377,6 +382,7 @@ export async function getWatchState(remoteId: string, tenantId: string) {
       vanWatch: customers.vanWatch,
       vanOk: customers.vanOk,
       vanGaveUp: customers.vanGaveUp,
+      vanMissing: customers.vanMissing,
       vanRestartCount: customers.vanRestartCount,
     })
     .from(customers)
@@ -443,6 +449,7 @@ export async function setVanWatch(
       vanWatch: k || null,
       vanOk: null,
       vanGaveUp: false,
+      vanMissing: false,
       vanRestartCount: 0,
       vanLastRestartAt: null,
     })

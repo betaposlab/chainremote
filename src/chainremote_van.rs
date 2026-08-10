@@ -63,6 +63,10 @@ static RESTARTED_PENDING: AtomicBool = AtomicBool::new(false);
 static LAST_OK: AtomicBool = AtomicBool::new(false);
 /// 복구를 포기한 상태 — 재실행으로 안 낫는 고장이라는 뜻. 패널이 이걸 사람에게 알린다.
 static GAVE_UP: AtomicBool = AtomicBool::new(false);
+/// 이 기기에 데몬 자체가 없다 = 다른 VAN 을 쓰는 거래처에 관제를 잘못 켰다는 뜻.
+///   같은 '복구 실패'라도 해야 할 일이 정반대다 — 리더기 고장은 사람이 가야 하고, 이쪽은
+///   관제만 끄면 끝난다. 구분해서 보고하지 않으면 헛걸음을 부른다.
+static NOT_INSTALLED: AtomicBool = AtomicBool::new(false);
 /// 연속 복구 실패 횟수. 정상으로 돌아오면 0.
 static FAILURES: AtomicU32 = AtomicU32::new(0);
 /// 이 시각까지는 복구를 시도하지 않는다(포기 후 휴지, 재실행 직후 유예).
@@ -91,7 +95,9 @@ pub fn set_kind(kind: &str) {
             *k = kind.to_string();
             // 관제 대상이 바뀌었다 = 사람이 패널에서 껐다 켰다는 뜻. 포기 상태를 턴다 —
             // 안 그러면 다시 켜도 여전히 손을 놓고 있어 "켰는데 아무것도 안 한다"가 된다.
+            // VAN 을 바꿔 켰다면 찾을 프로그램도 달라지므로 '설치 안 됨'도 같이 턴다.
             GAVE_UP.store(false, Ordering::Relaxed);
+            NOT_INSTALLED.store(false, Ordering::Relaxed);
             FAILURES.store(0, Ordering::Relaxed);
         }
     }
@@ -109,6 +115,11 @@ pub fn current_ok() -> Option<bool> {
 /// 복구를 포기한 상태인가(패널 경고용).
 pub fn gave_up() -> bool {
     GAVE_UP.load(Ordering::Relaxed)
+}
+
+/// 이 기기에 데몬 자체가 없나 — 관제를 잘못 켠 경우. gave_up 과 함께 참이 된다.
+pub fn not_installed() -> bool {
+    NOT_INSTALLED.load(Ordering::Relaxed)
 }
 
 /// 지난 보고 후 되살린 적이 있나(전송 성공 후 clear_restarted 로 지운다).
@@ -158,6 +169,7 @@ fn tick(d: &'static Daemon) {
         }
         FAILURES.store(0, Ordering::Relaxed);
         GAVE_UP.store(false, Ordering::Relaxed);
+        NOT_INSTALLED.store(false, Ordering::Relaxed);
         cache_path_if_missing(d);
         return;
     }
@@ -187,7 +199,24 @@ fn tick(d: &'static Daemon) {
 
 /// 재실행 시도. 프로세스가 남아 있으면(데몬만 멈춘 B 상태) 먼저 정리하고 띄운다.
 fn recover(d: &'static Daemon) {
-    if let Some(pid) = find_pid(d.process) {
+    let pid = find_pid(d.process);
+    let path = daemon_path(d);
+
+    // 프로세스도 없고 설치 경로에도 없다 = 이 기기는 애초에 이 VAN 을 안 쓴다.
+    //   되살릴 대상이 없으니 세 번 두드려 볼 이유도 없다. 곧장 '설치 안 됨'으로 알리고
+    //   시도를 접는다 — 그래야 화면에서 리더기 고장과 구분되어 헛걸음을 안 한다.
+    if pid.is_none() && path.is_none() {
+        if !NOT_INSTALLED.swap(true, Ordering::Relaxed) {
+            log::warn!(
+                "[chainremote_van] {} is not installed here — wrong VAN for this site?",
+                d.process
+            );
+        }
+        GAVE_UP.store(true, Ordering::Relaxed);
+        return;
+    }
+
+    if let Some(pid) = pid {
         log::info!("[chainremote_van] {} alive (pid {}) but port {} closed → restarting", d.process, pid, d.port);
         if !kill(pid) {
             log::warn!("[chainremote_van] taskkill pid {} failed", pid);
@@ -198,7 +227,9 @@ fn recover(d: &'static Daemon) {
         log::info!("[chainremote_van] {} not running → starting", d.process);
     }
 
-    let Some(path) = daemon_path(d) else {
+    // 프로세스는 떠 있었는데 실행 파일 위치를 못 찾은 경우(캐시도 후보 경로도 빗나감).
+    //   드물지만 여기선 '설치 안 됨'이 아니라 평범한 복구 실패로 센다.
+    let Some(path) = path else {
         log::warn!("[chainremote_van] {} path unknown — cannot start", d.process);
         note_failure();
         return;

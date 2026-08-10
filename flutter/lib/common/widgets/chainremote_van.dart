@@ -29,12 +29,15 @@ class CrWatchState {
   final String vanWatch; // '' = 관제 off
   final bool? vanOk; // null = 아직 보고 전
   final bool vanGaveUp;
+  /// 데몬이 그 기기에 아예 없음 — 고장이 아니라 VAN 을 잘못 고른 것이다.
+  final bool vanMissing;
   final int vanRestartCount;
   const CrWatchState({
     required this.firewallControl,
     required this.vanWatch,
     required this.vanOk,
     required this.vanGaveUp,
+    required this.vanMissing,
     required this.vanRestartCount,
   });
 }
@@ -56,6 +59,7 @@ Future<CrWatchState?> crFetchWatchState(String remoteId) async {
       vanWatch: (j['vanWatch'] as String?) ?? '',
       vanOk: j['vanOk'] is bool ? j['vanOk'] as bool : null,
       vanGaveUp: j['vanGaveUp'] == true,
+      vanMissing: j['vanMissing'] == true,
       vanRestartCount:
           j['vanRestartCount'] is int ? j['vanRestartCount'] as int : 0,
     );
@@ -129,6 +133,11 @@ Widget _crVanStateRow(CrWatchState s) {
     }
   }
   final tail = s.vanRestartCount > 0 ? ' · 되살림 ${s.vanRestartCount}회' : '';
+  // 데몬이 없는 건 고장이 아니라 설정 실수 — 사람을 부르지 말고 관제를 끄라고 말해야 한다.
+  if (s.vanMissing) {
+    return crStateBanner(const Color(0xFFFFB020), Icons.report_problem_outlined,
+        '이 기기에 $vanName 데몬이 없습니다 — 다른 VAN 을 쓰는 거래처 같습니다');
+  }
   if (s.vanGaveUp) {
     return crStateBanner(const Color(0xFFE5484D), Icons.error_outline,
         '지금: $vanName 관제 켜짐 — 자동 복구 실패(사람 확인 필요)$tail');

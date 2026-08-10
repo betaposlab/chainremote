@@ -390,6 +390,9 @@ fn send_heartbeat(
         if let Some(ok) = crate::chainremote_van::current_ok() {
             body["vanOk"] = ok.into();
             body["vanGaveUp"] = crate::chainremote_van::gave_up().into();
+            // 데몬 자체가 없는 경우(다른 VAN 거래처에 잘못 켬)는 리더기 고장과 조치가 달라
+            // 따로 싣는다 — 패널이 "관제를 끄세요"라고 안내할 수 있게.
+            body["vanMissing"] = crate::chainremote_van::not_installed().into();
         }
         let restarted = crate::chainremote_van::peek_restarted();
         if restarted {

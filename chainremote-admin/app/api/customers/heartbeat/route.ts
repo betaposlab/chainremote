@@ -34,6 +34,7 @@ export async function POST(req: Request) {
       vanOk?: unknown;
       vanRestarted?: unknown;
       vanGaveUp?: unknown;
+      vanMissing?: unknown;
     };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
         vanOk: typeof body.vanOk === "boolean" ? body.vanOk : undefined,
         vanRestarted: body.vanRestarted === true,
         vanGaveUp: typeof body.vanGaveUp === "boolean" ? body.vanGaveUp : undefined,
+        vanMissing: typeof body.vanMissing === "boolean" ? body.vanMissing : undefined,
       },
     );
     if (!ok) {

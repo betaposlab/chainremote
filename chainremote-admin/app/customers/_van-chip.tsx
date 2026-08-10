@@ -16,12 +16,15 @@ export function VanChip({
   kind,
   ok,
   gaveUp,
+  missing,
   restartCount,
   lastRestartAt,
 }: {
   kind: string | null;
   ok: boolean | null;
   gaveUp: boolean;
+  /** 데몬이 그 기기에 아예 없음(037) — 다른 VAN 거래처에 잘못 켠 경우. */
+  missing: boolean;
   restartCount: number;
   lastRestartAt: string | null; // ISO (serialize 경계)
 }) {
@@ -32,6 +35,19 @@ export function VanChip({
     restartCount > 0
       ? `되살림 ${restartCount}회${lastRestartAt ? ` (마지막 ${fmtDate(lastRestartAt)})` : ""}`
       : "되살린 이력 없음";
+
+  // 데몬이 아예 없는 건 고장이 아니라 설정 실수다. 사람을 부르는 대신 "관제를 끄세요"라고
+  // 말해야 한다 — 같은 빨강으로 묶으면 있지도 않은 고장을 고치러 나간다.
+  if (missing) {
+    return (
+      <span
+        className="inline-block px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap bg-amber-500/15 text-amber-300 font-medium"
+        title={`이 기기에 ${name} 데몬(프로그램)이 없습니다. 다른 VAN 사를 쓰는 거래처로 보입니다 — 관제를 끄거나 맞는 VAN 으로 바꾸세요.`}
+      >
+        💳 {name} 없음 · 설정 확인
+      </span>
+    );
+  }
 
   // 손 뗀 상태가 가장 급하다 — 자동 복구가 안 되는 고장이라 사람이 안 가면 계속 결제 불가다.
   if (gaveUp) {

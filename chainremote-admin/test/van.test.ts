@@ -120,6 +120,29 @@ describe("VAN 카드결제 데몬 관제 (마이그 036)", () => {
     expect(await getWatchState("VN11110006", other.id)).toBeNull();
   });
 
+  it("vanMissing 은 복구 실패와 따로 저장된다(조치가 반대라 화면에서 갈라야 한다)", async () => {
+    // 다른 VAN 을 쓰는 거래처에 관제를 잘못 켠 경우. 리더기 고장은 사람이 가야 하지만
+    // 이쪽은 관제만 끄면 끝나므로, 같은 '복구 실패'로 뭉뚱그리면 헛걸음을 부른다.
+    const s = await seed("van-g", "포스3", "VN11110007");
+    await setVanWatch("VN11110007", "ksnet", s.tenantId);
+    await beat("VN11110007", s.token, {
+      vanOk: false,
+      vanGaveUp: true,
+      vanMissing: true,
+    });
+    let r = await row("VN11110007");
+    expect(r.vanGaveUp).toBe(true);
+    expect(r.vanMissing).toBe(true);
+    // 되살리기를 시도조차 안 하므로 카운트는 오르지 않는다.
+    expect(r.vanRestartCount).toBe(0);
+
+    // 관제를 끄면 깨끗해진다 — 사람이 할 조치가 이것뿐이다.
+    await setVanWatch("VN11110007", "", s.tenantId);
+    r = await row("VN11110007");
+    expect(r.vanMissing).toBe(false);
+    expect(r.vanGaveUp).toBe(false);
+  });
+
   it("VAN 을 바꾸면 이전 VAN 의 누적·포기 상태를 물려받지 않는다", async () => {
     const s = await seed("van-e", "포스1", "VN11110005");
     await setVanWatch("VN11110005", "ksnet", s.tenantId);

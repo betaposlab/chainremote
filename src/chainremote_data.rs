@@ -57,6 +57,8 @@ struct CustomerRow {
     van_ok: Option<bool>,
     #[serde(rename = "vanGaveUp")]
     van_gave_up: Option<bool>,
+    #[serde(rename = "vanMissing")]
+    van_missing: Option<bool>,
     // 폴더(마이그 026) — 패널이 folder join 으로 준다(folderName). HQ 가 device_group_name 으로
     //   받아 같은 매장 여러 POS 를 폴더로 묶는다(peers_view 그룹 헤더). 미배정이면 None.
     #[serde(rename = "folderName")]
@@ -204,6 +206,8 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
             None => "",
         },
         "vanGaveUp": if c.van_gave_up.unwrap_or(false) { "Y" } else { "" },
+        // 데몬이 그 기기에 없음(037) — 같은 빨강으로 묶으면 없는 고장을 고치러 나간다.
+        "vanMissing": if c.van_missing.unwrap_or(false) { "Y" } else { "" },
     }))
 }
 

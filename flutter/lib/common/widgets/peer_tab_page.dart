@@ -172,9 +172,96 @@ class _PeerTabPageState extends State<PeerTabPage>
               ),
             ).paddingOnly(right: stateGlobal.isPortrait.isTrue ? 0 : 12)),
         _crVanAlertStrip(),
+        _crVanMissingStrip(),
         _crDiskAlertStrip(),
         _createPeersView(),
       ],
+    );
+  }
+
+  // VAN 을 잘못 켠 거래처 스트립 — 그 기기에 데몬 프로그램 자체가 없다.
+  // 복구 실패와 나눠 두는 이유: 저쪽은 사람이 거래처에 가야 하고, 이쪽은 관제만 끄면 끝난다.
+  // 같은 빨강으로 묶으면 있지도 않은 고장을 고치러 나간다. 색도 경고(노랑)로 낮춘다 —
+  // 결제가 안 되는 상황이 아니라 우리 설정이 어긋난 것뿐이다.
+  Widget _crVanMissingStrip() {
+    return ListenableBuilder(
+      listenable: gFFI.allCustomersPeersModel,
+      builder: (context, _) {
+        final missing = gFFI.allCustomersPeersModel.peers
+            .where((p) => p.vanMissing == 'Y')
+            .toList();
+        if (missing.isEmpty) return const SizedBox.shrink();
+        final fg = CrColors.of(context).warnFg;
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(right: 12, bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: CrColors.of(context).warnBannerBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: CrColors.of(context).warnBannerBorder),
+          ),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('💳 VAN 설정 확인 ${missing.length}곳 — 그 기기에 데몬이 없습니다',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: CrColors.of(context).warnBannerFg)),
+              ...missing.map((p) {
+                final name = p.alias
+                    .replaceFirst('⏳ ', '')
+                    .replaceFirst('🆕 ', '')
+                    .trim();
+                final label = name.isEmpty ? p.id : name;
+                return Container(
+                  padding: const EdgeInsets.only(left: 8, right: 4),
+                  decoration: BoxDecoration(
+                    color: CrColors.of(context).warnBannerBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: CrColors.of(context).warnBannerBorder),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          gFFI.peerTabModel
+                              .setCurrentTab(PeerTabIndex.customers.index);
+                          peerSearchBarOpen.value = true;
+                          peerSearchTextController.text = label;
+                          peerSearchText.value = label;
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Text(label,
+                              style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: fg)),
+                        ),
+                      ),
+                      // 바로 관제 창을 열어 끄거나 맞는 VAN 으로 바꾸게 한다.
+                      InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => showCrVanDialog(p),
+                        child: Padding(
+                          padding: const EdgeInsets.all(3),
+                          child: Icon(Icons.tune, size: 13, color: fg),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -187,8 +274,11 @@ class _PeerTabPageState extends State<PeerTabPage>
     return ListenableBuilder(
       listenable: gFFI.allCustomersPeersModel,
       builder: (context, _) {
+        // 데몬이 아예 없는 기기(관제를 잘못 켠 것)는 여기서 뺀다 — 고장이 아니라 설정
+        // 실수라서 아래 별도 스트립이 "관제를 끄세요"로 안내한다. 같은 빨강으로 묶으면
+        // 있지도 않은 고장을 고치러 나간다(2026-08-10 Chang: KOVAN 거래처에 켜면?).
         final failed = gFFI.allCustomersPeersModel.peers
-            .where((p) => p.vanGaveUp == 'Y')
+            .where((p) => p.vanGaveUp == 'Y' && p.vanMissing != 'Y')
             .toList();
         if (failed.isEmpty) return const SizedBox.shrink();
         final fg = CrColors.of(context).dangerFg;

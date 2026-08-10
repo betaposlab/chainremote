@@ -186,6 +186,9 @@ export const customers = pgTable(
     vanRestartCount: integer("van_restart_count").notNull().default(0),
     vanLastRestartAt: timestamp("van_last_restart_at", { withTimezone: true }),
     vanGaveUp: boolean("van_gave_up").notNull().default(false),
+    // 데몬이 그 기기에 아예 없음(마이그037) — 다른 VAN 거래처에 관제를 잘못 켠 경우.
+    //   vanGaveUp 과 함께 참이 되지만 조치가 정반대다: 이쪽은 관제만 끄면 끝난다.
+    vanMissing: boolean("van_missing").notNull().default(false),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),
