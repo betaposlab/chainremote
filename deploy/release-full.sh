@@ -96,6 +96,31 @@ if [[ -d "$SUBMODULE_PATH" ]]; then
 fi
 echo "    ✓ 동기화 확인 (로컬 HEAD = origin/develop, 서브모듈 포함)"
 
+# ── [0.6/5] 버전 표기 4곳 일치 확인 ────────────────────────────────────────
+# ★2026-08-10 실측 사고: flutter/lib/common.dart 의 chainRemoteVersion 이 1.4.89 에 멈춰
+#   있었다(발행본은 1.4.94). 이 값은 HQ 화면에 뜨는 버전이자 [업데이트 확인] 의 비교 기준이라,
+#   이미 최신인 HQ 가 계속 "업데이트 있음"으로 뜨고 사용자는 옛 버전 번호를 보고 있었다.
+#   아래 [2/5] 의 2차 안전망은 version.rs 만 대조해 이걸 못 잡는다 — 네 곳을 한꺼번에 본다.
+echo "[0.6/5] 버전 표기 4곳 일치 확인..."
+V_RS=$(grep -oE 'CHAINREMOTE_VERSION: &str = "[^"]+"' "$REPO/src/chainremote_version.rs" \
+  | sed -E 's/.*"([^"]+)".*/\1/')
+V_AGENT=$(grep -oE '#define APP_VERSION[[:space:]]+"[^"]+"' "$REPO/deploy/win-installer/agent-installer.iss" \
+  | sed -E 's/.*"([^"]+)".*/\1/')
+V_HQ=$(grep -oE '#define APP_VERSION[[:space:]]+"[^"]+"' "$REPO/deploy/win-installer/hq-installer.iss" \
+  | sed -E 's/.*"([^"]+)".*/\1/')
+V_DART=$(grep -oE "chainRemoteVersion = '[^']+'" "$REPO/flutter/lib/common.dart" \
+  | sed -E "s/.*'([^']+)'.*/\1/")
+if [[ -z "$V_RS" || "$V_RS" != "$V_AGENT" || "$V_RS" != "$V_HQ" || "$V_RS" != "$V_DART" ]]; then
+  echo "✗ ERROR — 버전 표기가 어긋납니다:" >&2
+  echo "    src/chainremote_version.rs            = ${V_RS:-(못 읽음)}" >&2
+  echo "    deploy/win-installer/agent-installer  = ${V_AGENT:-(못 읽음)}" >&2
+  echo "    deploy/win-installer/hq-installer     = ${V_HQ:-(못 읽음)}" >&2
+  echo "    flutter/lib/common.dart               = ${V_DART:-(못 읽음)}" >&2
+  echo "  네 곳을 같은 값으로 맞춘 뒤 다시 실행하세요." >&2
+  exit 1
+fi
+echo "    ✓ v$V_RS (4곳 일치)"
+
 # ── [1/5] 빌드 스크립트 전송 + WMI 분리 실행 (SSH 끊겨도 생존) ──────────────
 echo "[1/5] 릴리즈 빌드 스크립트 전송 + 백그라운드 실행..."
 STATUS_FILE="_release_${KIND}.status"
