@@ -17,8 +17,10 @@
 //!
 //! 안전장치 둘:
 //!   - 포트에 연결이 붙어 있으면(승인 진행 중) 손대지 않는다.
-//!   - 리더기 COM 이 어긋난 것 같은 고장은 재실행으로 안 고쳐진다. 무한 재시작은 POS 를
-//!     괴롭히기만 하므로 연속 실패가 쌓이면 손을 떼고 패널에 알린다(사람이 갈 일).
+//!   - 리더기 케이블이 빠졌거나 COM 이 어긋난 고장은 재실행으로 안 낫는다. 연속 실패가
+//!     쌓이면 **완전히 손을 떼고** 패널로 사람을 부른다. 되풀이 재시작은 POS 를 괴롭히는
+//!     데다, 하필 A/S 기사가 리더기를 붙잡고 있는 중에 프로세스를 죽여 작업을 방해한다.
+//!     사람이 고쳐서 데몬이 살아나면 아래 정상 경로가 저절로 다시 무장시킨다(수동 조작 불필요).
 //!
 //! 감시는 관제를 켠 거래처에서만 돈다. 나머지는 스레드가 잠만 잔다.
 
@@ -72,10 +74,8 @@ static QUIET_UNTIL: Mutex<Option<Instant>> = Mutex::new(None);
 const WATCH_INTERVAL: Duration = Duration::from_secs(30);
 /// 재실행 후 데몬이 포트를 열 때까지 주는 시간. 이 안에 다시 판정하면 멀쩡한 걸 또 죽인다.
 const START_GRACE: Duration = Duration::from_secs(60);
-/// 이만큼 연속 실패하면 손을 뗀다. 재실행으로 안 낫는 원인(리더기 COM 불일치 등)이다.
+/// 이만큼 연속 실패하면 손을 뗀다. 재실행으로 안 낫는 원인(리더기 케이블·COM 불일치 등)이다.
 const MAX_FAILURES: u32 = 3;
-/// 포기 후 다시 시도해 볼 때까지의 간격. 사람이 리더기를 꽂으면 이 주기에 저절로 복구된다.
-const GIVE_UP_QUIET: Duration = Duration::from_secs(30 * 60);
 
 /// 관제 종류 로컬 캐시 — 재부팅 직후 heartbeat 를 기다리지 않고 바로 무장한다.
 const KIND_CACHE_KEY: &str = "chainremote-van-kind";
@@ -89,6 +89,10 @@ pub fn set_kind(kind: &str) {
         if *k != kind {
             log::info!("[chainremote_van] control -> {}", if kind.is_empty() { "off" } else { kind });
             *k = kind.to_string();
+            // 관제 대상이 바뀌었다 = 사람이 패널에서 껐다 켰다는 뜻. 포기 상태를 턴다 —
+            // 안 그러면 다시 켜도 여전히 손을 놓고 있어 "켰는데 아무것도 안 한다"가 된다.
+            GAVE_UP.store(false, Ordering::Relaxed);
+            FAILURES.store(0, Ordering::Relaxed);
         }
     }
     if hbb_common::config::LocalConfig::get_option(KIND_CACHE_KEY) != kind {
@@ -167,7 +171,13 @@ fn tick(d: &'static Daemon) {
         return;
     }
 
-    // 포기 후 휴지 중이거나 방금 재실행했으면 기다린다.
+    // 손을 뗀 상태면 복구를 시도하지 않는다. 감시는 계속 돌므로, 사람이 리더기를 고치고
+    // 데몬을 켜는 순간 위 정상 경로가 실패 카운트와 포기 상태를 털고 다시 무장한다.
+    if GAVE_UP.load(Ordering::Relaxed) {
+        return;
+    }
+
+    // 방금 재실행했으면 데몬이 뜰 때까지 기다린다.
     if in_quiet_period() {
         return;
     }
@@ -208,15 +218,17 @@ fn recover(d: &'static Daemon) {
     }
 }
 
-/// 복구 실패 누적. 한계를 넘으면 손을 떼고 패널에 알린다 — 재실행으로 안 낫는 고장이다.
+/// 복구 실패 누적. 한계를 넘으면 **그만 시도한다** — 재실행으로 안 낫는 고장이라 계속
+/// 두드려봐야 POS 만 시달린다. 재개는 시간이 아니라 사실로 판단한다: 데몬이 실제로 살아나면
+/// tick 의 정상 경로가, 사람이 패널에서 관제를 껐다 켜면 set_kind 가 이 상태를 턴다.
 fn note_failure() {
     let n = FAILURES.fetch_add(1, Ordering::Relaxed) + 1;
-    if n >= MAX_FAILURES {
-        if !GAVE_UP.swap(true, Ordering::Relaxed) {
-            log::warn!("[chainremote_van] giving up after {} attempts — needs a human (reader/COM?)", n);
-        }
-        FAILURES.store(0, Ordering::Relaxed);
-        set_quiet(GIVE_UP_QUIET);
+    if n >= MAX_FAILURES && !GAVE_UP.swap(true, Ordering::Relaxed) {
+        log::warn!(
+            "[chainremote_van] gave up after {} attempts — stopping until the daemon comes back \
+             (reader cable / COM mismatch needs a human)",
+            n
+        );
     }
 }
 
