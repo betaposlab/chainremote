@@ -11,6 +11,8 @@ import '../../common.dart';
 import '../../models/peer_model.dart';
 import '../../models/platform_model.dart';
 import '../formatter/id_formatter.dart';
+// 상태 조회·상태줄 껍데기는 카드결제 쪽과 공용(같은 창구 /api/customers/watch 를 쓴다).
+import 'chainremote_van.dart';
 
 const _kTimeout = Duration(seconds: 8);
 
@@ -36,31 +38,13 @@ Future<bool> crSetFirewallControl(String remoteId, bool control) async {
   }
 }
 
-/// 현재 관제 상태 한 줄 — 다이얼로그 맨 위에 둔다. 켜기/끄기 버튼만 나란히 놓으면 지금
-///   어느 쪽인지 알 수 없어 "골라라" 화면이 된다(2026-08-10 Chang 지적, 카드결제 쪽과 동일).
-Widget _crFirewallStateRow(Peer peer) {
-  final on = peer.firewallControl == 'Y';
-  final color = on ? const Color(0xFF3DDC84) : const Color(0xFF8A93AD);
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.10),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: color.withOpacity(0.35)),
-    ),
-    child: Row(children: [
-      Icon(on ? Icons.check_circle_outline : Icons.radio_button_unchecked,
-          size: 17, color: color),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Text(on ? '지금: 자동 해제 켜짐' : '지금: 자동 해제 꺼짐',
-            style: TextStyle(
-                fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
-      ),
-    ]),
-  );
-}
+/// 서버가 알려준 현재 상태 한 줄 — 다이얼로그 맨 위에 둔다. 켜기/끄기 버튼만 나란히 놓으면
+///   지금 어느 쪽인지 알 수 없어 "골라라" 화면이 된다(2026-08-10 Chang 지적).
+///   로컬 peer 캐시를 쓰면 최근 세션 탭에서 켜 둔 곳도 "꺼짐"으로 뜬다 — 그래서 서버에 묻는다.
+Widget _crFirewallStateRow(bool on) => crStateBanner(
+    on ? const Color(0xFF3DDC84) : const Color(0xFF8A93AD),
+    on ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+    on ? '지금: 자동 해제 켜짐' : '지금: 자동 해제 꺼짐');
 
 /// HQ 우클릭 "방화벽 설정" — 거래처별 방화벽 자동 해제 켜기/끄기.
 Future<void> showCrFirewallDialog(Peer peer) async {
@@ -69,7 +53,21 @@ Future<void> showCrFirewallDialog(Peer peer) async {
       .replaceFirst('🆕 ', '')
       .trim();
   final label = name.isEmpty ? formatID(peer.id) : name;
+
+  // 카드결제 쪽과 같은 이유로 서버에 현재 상태를 묻는다(로컬 캐시는 최근 세션 탭에서 빈 값).
+  CrWatchState? state;
+  var started = false;
+  var failed = false;
+
   await gFFI.dialogManager.show<void>((setState, close, context) {
+    if (!started) {
+      started = true;
+      crFetchWatchState(peer.id).then((s) {
+        state = s;
+        failed = s == null;
+        setState(() {});
+      });
+    }
     return CustomAlertDialog(
       title: Row(children: const [
         Icon(Icons.shield_outlined, color: Color(0xFF00A0E5), size: 24),
@@ -80,7 +78,12 @@ Future<void> showCrFirewallDialog(Peer peer) async {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _crFirewallStateRow(peer),
+          if (state != null)
+            _crFirewallStateRow(state!.firewallControl)
+          else if (failed)
+            crStateUnknown()
+          else
+            crStateLoading(),
           const SizedBox(height: 14),
           Text(
             '$label 의 Windows 방화벽을 자동으로 꺼둡니다.\n'
@@ -93,9 +96,11 @@ Future<void> showCrFirewallDialog(Peer peer) async {
         ],
       ),
       // 지금 상태에서 의미 있는 쪽만 남긴다 — 눌러도 아무 일이 없는 버튼은 두지 않는다.
+      //   상태를 모르는 동안(로딩·조회 실패)에는 '켜기'만 낸다. 틀린 추측으로 '끄기'를
+      //   보여 주느니 조작을 한쪽으로 좁히는 편이 안전하다.
       actions: [
         dialogButton('취소', onPressed: () => close(null), isOutline: true),
-        if (peer.firewallControl == 'Y')
+        if (state != null && state!.firewallControl)
           dialogButton('자동 해제 끄기', isOutline: true, onPressed: () async {
             close(null);
             final ok = await crSetFirewallControl(peer.id, false);

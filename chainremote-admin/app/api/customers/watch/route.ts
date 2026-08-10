@@ -1,0 +1,32 @@
+// GET /api/customers/watch?remoteId=XXX
+//   HQ 우클릭 관제 다이얼로그가 "지금 켜져 있나"를 묻는 창구.
+//
+//   왜 서버에 직접 묻나: HQ 의 최근 세션 탭은 거래처를 로컬 peer 캐시에서 읽는다(패널이 아님).
+//   그 캐시엔 관제 필드가 아예 없어서, 빈 값을 그대로 그리면 켜 둔 거래처도 "꺼짐"으로 뜬다
+//   (2026-08-10 실측 — 없는 표시보다 나쁜 거짓 표시였다). 어느 탭에서 열든 정확하려면
+//   화면을 열 때 서버가 진실을 말해 줘야 한다. 다른 직원이 방금 바꾼 값도 이 경로로 반영된다.
+//
+//   viewer 도 볼 수 있다(읽기 전용). 남의 tenant 거래처는 getWatchState 가 tenant 로 막는다.
+
+import { requireApiAuth, jsonError, ApiAuthError } from "@/lib/api-auth";
+import { getWatchState } from "@/lib/data/customers";
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireApiAuth(req);
+    const remoteId = (new URL(req.url).searchParams.get("remoteId") ?? "").trim();
+    if (!remoteId) throw new ApiAuthError(400, "remoteId 필수");
+    const row = await getWatchState(remoteId, me.tenantId);
+    if (!row) return Response.json({ error: "거래처 없음" }, { status: 404 });
+    return Response.json({
+      firewallControl: row.firewallControl,
+      vanWatch: row.vanWatch ?? "",
+      // null = 아직 보고 전(방금 켰거나 기기가 꺼져 있음). false 와 구분해야 한다.
+      vanOk: row.vanOk,
+      vanGaveUp: row.vanGaveUp,
+      vanRestartCount: row.vanRestartCount,
+    });
+  } catch (e) {
+    return jsonError(e);
+  }
+}

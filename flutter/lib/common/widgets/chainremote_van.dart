@@ -20,6 +20,78 @@ const List<({String kind, String label, String daemon})> kCrVanKinds = [
   (kind: 'ksnet', label: 'KSNET', daemon: 'KSCAT'),
 ];
 
+/// 관제 현재 상태 — 두 다이얼로그(방화벽·카드결제)가 공용으로 쓴다.
+///   HQ 최근 세션 탭의 peer 는 로컬 캐시라 관제 필드가 비어 있다. 그 빈 값을 "꺼짐"으로
+///   그렸다가 켜 둔 거래처가 꺼진 것처럼 보였다(2026-08-10). 그래서 화면을 열 때 서버에
+///   직접 묻고, 못 물으면 **모른다고 말한다** — 거짓 표시가 표시 없음보다 나쁘다.
+class CrWatchState {
+  final bool firewallControl;
+  final String vanWatch; // '' = 관제 off
+  final bool? vanOk; // null = 아직 보고 전
+  final bool vanGaveUp;
+  final int vanRestartCount;
+  const CrWatchState({
+    required this.firewallControl,
+    required this.vanWatch,
+    required this.vanOk,
+    required this.vanGaveUp,
+    required this.vanRestartCount,
+  });
+}
+
+/// GET /api/customers/watch — 실패하면 null(=모름).
+Future<CrWatchState?> crFetchWatchState(String remoteId) async {
+  try {
+    final base = bind.chainremoteGetApiBase();
+    final token = bind.chainremoteGetToken();
+    if (base.isEmpty || token.isEmpty) return null;
+    final resp = await http.get(
+      Uri.parse('$base/api/customers/watch?remoteId=$remoteId'),
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(_kTimeout);
+    if (resp.statusCode != 200) return null;
+    final j = jsonDecode(utf8.decode(resp.bodyBytes)) as Map<String, dynamic>;
+    return CrWatchState(
+      firewallControl: j['firewallControl'] == true,
+      vanWatch: (j['vanWatch'] as String?) ?? '',
+      vanOk: j['vanOk'] is bool ? j['vanOk'] as bool : null,
+      vanGaveUp: j['vanGaveUp'] == true,
+      vanRestartCount:
+          j['vanRestartCount'] is int ? j['vanRestartCount'] as int : 0,
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 상태 줄 공용 껍데기 — 색/아이콘/문구만 갈아 끼운다.
+Widget crStateBanner(Color color, IconData icon, String text) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.10),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: color.withOpacity(0.35)),
+    ),
+    child: Row(children: [
+      Icon(icon, size: 17, color: color),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(text,
+            style: TextStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
+      ),
+    ]),
+  );
+}
+
+/// 아직 물어보는 중 / 못 물어본 경우의 상태 줄. 어느 쪽으로도 단정하지 않는다.
+Widget crStateLoading() => crStateBanner(
+    const Color(0xFF8A93AD), Icons.hourglass_empty, '지금 상태 확인 중...');
+Widget crStateUnknown() => crStateBanner(const Color(0xFFFFB020),
+    Icons.help_outline, '상태를 불러오지 못했습니다 — 네트워크/로그인 확인');
+
 /// 관제 VAN 설정 — POST /api/customers/van. kind='' 면 관제 해제. 성공 시 true.
 Future<bool> crSetVanWatch(String remoteId, String kind) async {
   try {
@@ -42,65 +114,36 @@ Future<bool> crSetVanWatch(String remoteId, String kind) async {
   }
 }
 
-/// 현재 관제 상태 한 줄 — 다이얼로그 맨 위에 둔다.
-///   버튼만 나란히 놓으면 지금 켜져 있는지 꺼져 있는지 알 수 없어 "골라라" 화면이 된다
-///   (2026-08-10 Chang 지적). 켜져 있으면 어느 VAN 인지, 데몬이 지금 성한지까지 같이 보여준다.
-Widget _crVanStateRow(Peer peer) {
-  final on = peer.vanWatch.isNotEmpty;
-  final gaveUp = peer.vanGaveUp == 'Y';
+/// 서버가 알려준 현재 상태 한 줄. 켜짐/꺼짐뿐 아니라 데몬이 지금 성한지까지 색으로 가른다.
+Widget _crVanStateRow(CrWatchState s) {
+  if (s.vanWatch.isEmpty) {
+    return crStateBanner(
+        const Color(0xFF8A93AD), Icons.radio_button_unchecked, '지금: 관제 꺼짐');
+  }
   // 모르는 kind 면 값을 그대로 보여준다(패널이 새 VAN 을 먼저 지원하는 경우).
-  var vanName = peer.vanWatch;
+  var vanName = s.vanWatch;
   for (final e in kCrVanKinds) {
-    if (e.kind == peer.vanWatch) {
+    if (e.kind == s.vanWatch) {
       vanName = e.label;
       break;
     }
   }
-
-  late final Color color;
-  late final IconData icon;
-  late final String text;
-  if (!on) {
-    color = const Color(0xFF8A93AD);
-    icon = Icons.radio_button_unchecked;
-    text = '지금: 관제 꺼짐';
-  } else if (gaveUp) {
-    color = const Color(0xFFE5484D);
-    icon = Icons.error_outline;
-    text = '지금: $vanName 관제 켜짐 — 자동 복구 실패(사람 확인 필요)';
-  } else if (peer.vanOk == 'N') {
-    color = const Color(0xFFFFB020);
-    icon = Icons.sync_problem;
-    text = '지금: $vanName 관제 켜짐 — 데몬 멈춤, 복구 중';
-  } else if (peer.vanOk == 'Y') {
-    color = const Color(0xFF3DDC84);
-    icon = Icons.check_circle_outline;
-    text = '지금: $vanName 관제 켜짐 — 데몬 정상';
-  } else {
-    // 켜 두긴 했는데 아직 보고가 없다(방금 켰거나 기기가 꺼져 있음).
-    color = const Color(0xFF3B9EFF);
-    icon = Icons.hourglass_empty;
-    text = '지금: $vanName 관제 켜짐 — 보고 대기';
+  final tail = s.vanRestartCount > 0 ? ' · 되살림 ${s.vanRestartCount}회' : '';
+  if (s.vanGaveUp) {
+    return crStateBanner(const Color(0xFFE5484D), Icons.error_outline,
+        '지금: $vanName 관제 켜짐 — 자동 복구 실패(사람 확인 필요)$tail');
   }
-
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.10),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: color.withOpacity(0.35)),
-    ),
-    child: Row(children: [
-      Icon(icon, size: 17, color: color),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Text(text,
-            style: TextStyle(
-                fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
-      ),
-    ]),
-  );
+  if (s.vanOk == false) {
+    return crStateBanner(const Color(0xFFFFB020), Icons.sync_problem,
+        '지금: $vanName 관제 켜짐 — 데몬 멈춤, 복구 중$tail');
+  }
+  if (s.vanOk == true) {
+    return crStateBanner(const Color(0xFF3DDC84), Icons.check_circle_outline,
+        '지금: $vanName 관제 켜짐 — 데몬 정상$tail');
+  }
+  // 켜 두긴 했는데 아직 보고가 없다(방금 켰거나 기기가 꺼져 있음).
+  return crStateBanner(const Color(0xFF3B9EFF), Icons.hourglass_empty,
+      '지금: $vanName 관제 켜짐 — 보고 대기$tail');
 }
 
 /// HQ 우클릭 "카드결제 데몬 관제" — 이 거래처가 쓰는 VAN 을 고르거나 관제를 끈다.
@@ -111,7 +154,22 @@ Future<void> showCrVanDialog(Peer peer) async {
       .trim();
   final label = name.isEmpty ? formatID(peer.id) : name;
 
+  // 서버에 현재 상태를 한 번 묻는다. 화면을 그리는 동안 오므로 setState 로 갈아 끼운다.
+  //   started 로 최초 1회만 — build 는 여러 번 불린다.
+  CrWatchState? state;
+  var started = false;
+  var failed = false;
+
   await gFFI.dialogManager.show<void>((setState, close, context) {
+    if (!started) {
+      started = true;
+      crFetchWatchState(peer.id).then((s) {
+        state = s;
+        failed = s == null;
+        setState(() {});
+      });
+    }
+
     Future<void> apply(String kind) async {
       close(null);
       final ok = await crSetVanWatch(peer.id, kind);
@@ -137,7 +195,12 @@ Future<void> showCrVanDialog(Peer peer) async {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _crVanStateRow(peer),
+          if (state != null)
+            _crVanStateRow(state!)
+          else if (failed)
+            crStateUnknown()
+          else
+            crStateLoading(),
           const SizedBox(height: 14),
           Text(
             '$label 의 카드결제 데몬이 멈추면 에이전트가 자동으로 되살립니다.\n'
@@ -151,8 +214,10 @@ Future<void> showCrVanDialog(Peer peer) async {
           // VAN 이 하나뿐이라 지금은 버튼 한 줄이다. 늘어나면 여기만 자란다.
           //   지금 켜져 있는 VAN 은 눌러도 달라질 게 없으니 비활성 + '켜져 있음'으로 바꿔,
           //   상단 상태줄과 함께 두 번 알려 준다.
+          //   상태를 모르는 동안(로딩·조회 실패)에는 아무 버튼도 잠그지 않는다 — 틀린 추측으로
+          //   막느니 눌러 보게 두는 편이 낫다.
           ...kCrVanKinds.map((v) {
-            final isCurrent = peer.vanWatch == v.kind;
+            final isCurrent = state?.vanWatch == v.kind;
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: SizedBox(
@@ -175,8 +240,9 @@ Future<void> showCrVanDialog(Peer peer) async {
       ),
       actions: [
         dialogButton('취소', onPressed: () => close(null), isOutline: true),
-        // 이미 꺼져 있으면 끄기가 의미 없다 — 눌러도 아무 일이 없는 버튼은 두지 않는다.
-        if (peer.vanWatch.isNotEmpty)
+        // 켜져 있는 게 확인됐을 때만 '끄기'를 낸다. 상태를 모르는 동안에는 숨긴다 —
+        // 꺼져 있는 걸 또 끄는 버튼은 혼란만 준다.
+        if (state != null && state!.vanWatch.isNotEmpty)
           dialogButton('관제 끄기', isOutline: true, onPressed: () => apply('')),
       ],
       onCancel: () => close(null),

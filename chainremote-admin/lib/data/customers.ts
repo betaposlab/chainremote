@@ -367,6 +367,24 @@ export async function getFirewallControl(remoteId: string): Promise<boolean> {
   return row?.on ?? false;
 }
 
+/** HQ 관제 다이얼로그용 — 이 거래처의 현재 관제 설정·상태.
+ *  HQ 의 로컬 peer 캐시(최근 세션 탭)에는 이 값들이 없어 "꺼짐"으로 오독된다. 그래서
+ *  다이얼로그는 캐시를 믿지 않고 여기로 직접 묻는다. 자기 tenant 거래처만. */
+export async function getWatchState(remoteId: string, tenantId: string) {
+  const [row] = await db
+    .select({
+      firewallControl: customers.firewallControl,
+      vanWatch: customers.vanWatch,
+      vanOk: customers.vanOk,
+      vanGaveUp: customers.vanGaveUp,
+      vanRestartCount: customers.vanRestartCount,
+    })
+    .from(customers)
+    .where(and(eq(customers.remoteId, remoteId), eq(customers.tenantId, tenantId)))
+    .limit(1);
+  return row ?? null;
+}
+
 /** heartbeat 응답용 — 이 거래처에서 감시할 VAN 데몬 종류(빈 문자열이면 관제 off). */
 export async function getVanWatch(remoteId: string): Promise<string> {
   const [row] = await db

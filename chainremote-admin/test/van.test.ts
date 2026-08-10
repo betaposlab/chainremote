@@ -13,6 +13,7 @@ import {
   recordHeartbeat,
   getVanWatch,
   setVanWatch,
+  getWatchState,
 } from "@/lib/data/customers";
 import { tenants, customers } from "@/lib/schema";
 
@@ -95,6 +96,28 @@ describe("VAN 카드결제 데몬 관제 (마이그 036)", () => {
     r = await row("VN11110004");
     expect(r.vanRestartCount).toBe(2);
     expect(r.vanLastRestartAt).not.toBeNull();
+  });
+
+  it("getWatchState 는 HQ 다이얼로그가 볼 현재 상태를 주고, 남의 tenant 는 막는다", async () => {
+    // HQ 로컬 peer 캐시(최근 세션 탭)엔 관제 필드가 없어 "꺼짐"으로 오독된다. 그래서
+    // 다이얼로그는 캐시 대신 이 경로로 묻는다 — 값이 정확해야 하는 자리다.
+    const s = await seed("van-f", "포스2", "VN11110006");
+    await setVanWatch("VN11110006", "ksnet", s.tenantId);
+    await beat("VN11110006", s.token, { vanOk: true, vanRestarted: true });
+
+    const mine = await getWatchState("VN11110006", s.tenantId);
+    expect(mine?.vanWatch).toBe("ksnet");
+    expect(mine?.vanOk).toBe(true);
+    expect(mine?.vanGaveUp).toBe(false);
+    expect(mine?.vanRestartCount).toBe(1);
+    expect(mine?.firewallControl).toBe(false);
+
+    const db = testDb();
+    const [other] = await db
+      .insert(tenants)
+      .values({ slug: "van-f2", displayName: "van-f2" })
+      .returning({ id: tenants.id });
+    expect(await getWatchState("VN11110006", other.id)).toBeNull();
   });
 
   it("VAN 을 바꾸면 이전 VAN 의 누적·포기 상태를 물려받지 않는다", async () => {
