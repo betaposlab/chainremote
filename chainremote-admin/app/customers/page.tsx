@@ -14,6 +14,7 @@ import { ConfirmEnrollButton } from "./_enroll-confirm";
 import { CustomerSearch } from "./_search";
 import { DiskChip } from "./_disk-chip";
 import { FirewallChip } from "./_firewall-chip";
+import { VanChip } from "./_van-chip";
 import { AutoRefresh } from "./_auto-refresh";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -112,6 +113,11 @@ export default async function CustomersPage({
       firewallEnabled: customers.firewallEnabled,
       firewallDisarmCount: customers.firewallDisarmCount,
       firewallLastDisarmAt: customers.firewallLastDisarmAt,
+      vanWatch: customers.vanWatch,
+      vanOk: customers.vanOk,
+      vanGaveUp: customers.vanGaveUp,
+      vanRestartCount: customers.vanRestartCount,
+      vanLastRestartAt: customers.vanLastRestartAt,
     })
     .from(customers)
     .leftJoin(users, eq(users.id, customers.assignedUserId))
@@ -403,6 +409,18 @@ export default async function CustomersPage({
                           lastDisarmAt={
                             c.firewallLastDisarmAt
                               ? c.firewallLastDisarmAt.toISOString()
+                              : null
+                          }
+                        />
+                        {/* VAN 데몬 관제(마이그 036) — 켠 거래처만. 멈추면 카드가 안 긁힌다. */}
+                        <VanChip
+                          kind={c.vanWatch}
+                          ok={c.vanOk}
+                          gaveUp={c.vanGaveUp}
+                          restartCount={c.vanRestartCount}
+                          lastRestartAt={
+                            c.vanLastRestartAt
+                              ? c.vanLastRestartAt.toISOString()
                               : null
                           }
                         />

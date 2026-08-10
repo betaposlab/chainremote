@@ -31,6 +31,9 @@ export async function POST(req: Request) {
       cleanupResult?: unknown;
       firewallEnabled?: unknown;
       firewallDisarmed?: unknown;
+      vanOk?: unknown;
+      vanRestarted?: unknown;
+      vanGaveUp?: unknown;
     };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";
@@ -69,6 +72,9 @@ export async function POST(req: Request) {
         firewallEnabled:
           typeof body.firewallEnabled === "boolean" ? body.firewallEnabled : undefined,
         firewallDisarmed: body.firewallDisarmed === true,
+        vanOk: typeof body.vanOk === "boolean" ? body.vanOk : undefined,
+        vanRestarted: body.vanRestarted === true,
+        vanGaveUp: typeof body.vanGaveUp === "boolean" ? body.vanGaveUp : undefined,
       },
     );
     if (!ok) {
@@ -82,6 +88,9 @@ export async function POST(req: Request) {
     const cleanup = await data.getCleanupRequest(remoteId);
     // 방화벽 자동 해제 대상이면 에이전트가 로컬 감시를 켠다(매 heartbeat 에 플래그 전달, 멱등).
     const firewallControl = await data.getFirewallControl(remoteId);
+    // VAN 데몬 관제(마이그 036) — 종류를 내려보내면 에이전트가 그 데몬의 포트를 감시한다.
+    //   거래처마다 VAN 사가 달라 켠 곳에만 값이 실린다(빈 값이면 에이전트가 감시를 끈다).
+    const vanWatch = await data.getVanWatch(remoteId);
     // 거래처 수락창에 띄울 대리점 상호(마이그 029). 에이전트가 캐시해 두고 카드에 쓴다.
     //   여기로 내려보내는 이유는 설치본에 박으면 자동 업데이트가 덮어버리고 상호 변경도
     //   반영이 안 되기 때문(getSupportName 주석 참조).
@@ -90,6 +99,7 @@ export async function POST(req: Request) {
       ok: true,
       ...(cleanup ? { cleanup } : {}),
       firewallControl,
+      vanWatch,
       ...(supportName ? { supportName } : {}),
     });
   } catch (e) {

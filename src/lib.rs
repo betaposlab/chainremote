@@ -87,6 +87,11 @@ mod chainremote_heartbeat;
 #[cfg(target_os = "windows")]
 mod chainremote_firewall;
 
+// VAN 카드결제 데몬 관제 (마이그 036, Agent/옵션B+ 빌드만 — 윈도우만).
+// heartbeat 응답이 VAN 종류를 내려주면, 그 데몬이 포트를 듣고 있는지 감시하다 멈추면 되살린다.
+#[cfg(target_os = "windows")]
+mod chainremote_van;
+
 // Agent 푸시 폴링 (Agent 빌드만). 관리 패널의 수동 푸시 트리거를 받는다.
 // 2026-05-29 신설 — 영업시간 사고를 낸 옛 latest.json 자동 채널을 대체.
 #[cfg(target_os = "windows")]

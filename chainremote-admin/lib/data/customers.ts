@@ -209,6 +209,11 @@ export interface HeartbeatExtras {
   //   firewallDisarmed=이번 heartbeat 직전에 자동 해제했나(참이면 disarm_count++, 잦으면 업뎃 잦음 신호).
   firewallEnabled?: boolean;
   firewallDisarmed?: boolean;
+  // VAN 데몬 관제(036) — vanOk=데몬이 포트를 듣고 있나(표시용), vanRestarted=이번 heartbeat
+  //   직전에 되살렸나(참이면 restart_count++), vanGaveUp=재실행으로 안 낫아 손 뗌(사람 호출).
+  vanOk?: boolean;
+  vanRestarted?: boolean;
+  vanGaveUp?: boolean;
 }
 
 export async function recordHeartbeat(
@@ -282,6 +287,18 @@ export async function recordHeartbeat(
     firewallSet.firewallDisarmCount = sql`${customers.firewallDisarmCount} + 1`;
     firewallSet.firewallLastDisarmAt = new Date();
   }
+  // VAN 데몬 상태 반영 — 현재 정상 여부 + 이번에 되살렸으면 카운트/시각 갱신.
+  const vanSet: Record<string, unknown> = {};
+  if (typeof extras?.vanOk === "boolean") {
+    vanSet.vanOk = extras.vanOk;
+  }
+  if (typeof extras?.vanGaveUp === "boolean") {
+    vanSet.vanGaveUp = extras.vanGaveUp;
+  }
+  if (extras?.vanRestarted) {
+    vanSet.vanRestartCount = sql`${customers.vanRestartCount} + 1`;
+    vanSet.vanLastRestartAt = new Date();
+  }
   const [row] = await db
     .update(customers)
     .set({
@@ -293,6 +310,7 @@ export async function recordHeartbeat(
       ...diskSet,
       ...cleanupSet,
       ...firewallSet,
+      ...vanSet,
     })
     .where(
       and(
@@ -349,6 +367,16 @@ export async function getFirewallControl(remoteId: string): Promise<boolean> {
   return row?.on ?? false;
 }
 
+/** heartbeat 응답용 — 이 거래처에서 감시할 VAN 데몬 종류(빈 문자열이면 관제 off). */
+export async function getVanWatch(remoteId: string): Promise<string> {
+  const [row] = await db
+    .select({ kind: customers.vanWatch })
+    .from(customers)
+    .where(eq(customers.remoteId, remoteId))
+    .limit(1);
+  return (row?.kind ?? "").trim();
+}
+
 /** heartbeat 응답용 — 이 거래처를 관리하는 대리점의 상호(거래처 수락창에 뜰 이름).
  *  support_display_name 이 비면 계정 표시명으로 폴백한다. 설치본이 아니라 이 경로로
  *  내려보내는 이유: 설치본(custom.txt)은 자동 업데이트 때 번들 파일로 덮여 사라지고,
@@ -377,6 +405,29 @@ export async function setFirewallControl(
   const [row] = await db
     .update(customers)
     .set({ firewallControl: on })
+    .where(and(eq(customers.remoteId, remoteId), eq(customers.tenantId, tenantId)))
+    .returning({ id: customers.id });
+  return !!row;
+}
+
+/** HQ 우클릭 "카드결제 데몬 관제" — 감시할 VAN 종류 설정(빈 문자열이면 관제 해제).
+ *  자기 tenant 거래처만. 종류를 바꾸면 누적/포기 상태를 초기화한다 — 다른 VAN 의 이력을
+ *  그대로 물려받으면 숫자가 거짓이 된다. */
+export async function setVanWatch(
+  remoteId: string,
+  kind: string,
+  tenantId: string,
+): Promise<boolean> {
+  const k = kind.trim();
+  const [row] = await db
+    .update(customers)
+    .set({
+      vanWatch: k || null,
+      vanOk: null,
+      vanGaveUp: false,
+      vanRestartCount: 0,
+      vanLastRestartAt: null,
+    })
     .where(and(eq(customers.remoteId, remoteId), eq(customers.tenantId, tenantId)))
     .returning({ id: customers.id });
   return !!row;

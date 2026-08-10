@@ -178,6 +178,14 @@ export const customers = pgTable(
     firewallEnabled: boolean("firewall_enabled"),
     firewallDisarmCount: integer("firewall_disarm_count").notNull().default(0),
     firewallLastDisarmAt: timestamp("firewall_last_disarm_at", { withTimezone: true }),
+    // VAN 카드결제 데몬 관제(마이그 036) — 거래처마다 VAN 사가 달라 on/off 가 아니라 종류를 담는다.
+    //   vanWatch=null/빈값이면 관제 off(기본), 'ksnet' 이면 에이전트가 KSCAT 의 27015 를 감시하다
+    //   닫히면 되살린다. vanOk=마지막 점검 결과, vanGaveUp=재실행으로 안 낫아 손 뗌(사람이 갈 일).
+    vanWatch: text("van_watch"),
+    vanOk: boolean("van_ok"),
+    vanRestartCount: integer("van_restart_count").notNull().default(0),
+    vanLastRestartAt: timestamp("van_last_restart_at", { withTimezone: true }),
+    vanGaveUp: boolean("van_gave_up").notNull().default(false),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),

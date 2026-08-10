@@ -100,6 +100,8 @@ pub fn start_in_service() {
     );
     // 방화벽 자동 해제 감시 — heartbeat 응답이 대상 여부를 켜고, 이 스레드가 재활성을 잡는다.
     crate::chainremote_firewall::start_watch();
+    // VAN 카드결제 데몬 감시 — heartbeat 응답이 VAN 종류를 켜고, 이 스레드가 데몬 정지를 잡는다.
+    crate::chainremote_van::start_watch();
     std::thread::spawn(|| {
         run_loop();
     });
@@ -381,6 +383,22 @@ fn send_heartbeat(
     } else {
         false
     };
+    // VAN 데몬 관제 보고(마이그 036) — 방화벽과 같은 이유로 정규 heartbeat 에만 싣는다
+    //   (후속 전송에 같이 실으면 재시작 카운트가 중복 증가한다). vanOk=데몬이 포트를 듣고
+    //   있나, vanRestarted=지난 보고 후 되살렸나, vanGaveUp=재실행으로 안 낫아 손을 뗐나.
+    let report_van_restart = if cleanup_result.is_none() {
+        if let Some(ok) = crate::chainremote_van::current_ok() {
+            body["vanOk"] = ok.into();
+            body["vanGaveUp"] = crate::chainremote_van::gave_up().into();
+        }
+        let restarted = crate::chainremote_van::peek_restarted();
+        if restarted {
+            body["vanRestarted"] = true.into();
+        }
+        restarted
+    } else {
+        false
+    };
     let client = reqwest::blocking::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .build()?;
@@ -400,12 +418,16 @@ fn send_heartbeat(
             cleanup: String,
             #[serde(default, rename = "firewallControl")]
             firewall_control: bool,
+            #[serde(default, rename = "vanWatch")]
+            van_watch: String,
             #[serde(default, rename = "supportName")]
             support_name: String,
         }
         let parsed = resp.json::<Resp>().unwrap_or_default();
         // 방화벽 자동 해제 대상 여부를 감시 스레드에 반영.
         crate::chainremote_firewall::set_control(parsed.firewall_control);
+        // VAN 데몬 관제 종류("ksnet" 등, 빈 값이면 off)를 감시 스레드에 반영.
+        crate::chainremote_van::set_kind(&parsed.van_watch);
         // 대리점 상호 캐시. 값이 실제로 달라졌을 때만 쓴다 — 매 하트비트마다 같은 값을
         // 디스크에 다시 쓸 이유가 없다. 서버가 안 내려주면(구버전) 옛 값을 그대로 둔다.
         #[cfg(windows)]
@@ -425,6 +447,9 @@ fn send_heartbeat(
         // 방화벽 자동 해제 보고가 성공적으로 서버에 닿았으면 pending 플래그를 지운다.
         if report_firewall_disarm {
             crate::chainremote_firewall::clear_disarmed();
+        }
+        if report_van_restart {
+            crate::chainremote_van::clear_restarted();
         }
         let cleanup = (!parsed.cleanup.is_empty()).then_some(parsed.cleanup);
         return Ok(BeatOutcome::Ok(cleanup));
