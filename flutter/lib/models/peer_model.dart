@@ -35,6 +35,14 @@ class Peer {
   String diskTotal;
   String diskFree;
   String tempBytes;
+  // 관제 설정·상태(마이그028/036) — 패널이 준 현재 값. 이게 없으면 우클릭 다이얼로그가
+  //   켜기/끄기 버튼만 나란히 놓고 "골라라"가 되어, 지금 어느 쪽인지 알 수 없다(2026-08-10 Chang).
+  //   firewallControl·vanGaveUp: 'Y'|'' · vanWatch: VAN 종류('ksnet'|'') · vanOk: 'Y'|'N'|''(미보고)
+  //   vanGaveUp='Y' 는 자동 복구를 포기한 상태 = 사람이 가야 한다는 뜻이라 목록 위 스트립으로 띄운다.
+  String firewallControl;
+  String vanWatch;
+  String vanOk;
+  String vanGaveUp;
 
   String getId() {
     if (alias != '') {
@@ -65,7 +73,11 @@ class Peer {
         osBits = json['osBits'] ?? '',
         diskTotal = json['diskTotal'] ?? '',
         diskFree = json['diskFree'] ?? '',
-        tempBytes = json['tempBytes'] ?? '';
+        tempBytes = json['tempBytes'] ?? '',
+        firewallControl = json['firewallControl'] ?? '',
+        vanWatch = json['vanWatch'] ?? '',
+        vanOk = json['vanOk'] ?? '',
+        vanGaveUp = json['vanGaveUp'] ?? '';
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -91,6 +103,10 @@ class Peer {
       'diskTotal': diskTotal,
       'diskFree': diskFree,
       'tempBytes': tempBytes,
+      'firewallControl': firewallControl,
+      'vanWatch': vanWatch,
+      'vanOk': vanOk,
+      'vanGaveUp': vanGaveUp,
     };
   }
 
@@ -143,6 +159,10 @@ class Peer {
     this.diskTotal = '',
     this.diskFree = '',
     this.tempBytes = '',
+    this.firewallControl = '',
+    this.vanWatch = '',
+    this.vanOk = '',
+    this.vanGaveUp = '',
   });
 
   Peer.loading()

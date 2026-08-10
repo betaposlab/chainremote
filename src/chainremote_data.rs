@@ -46,6 +46,17 @@ struct CustomerRow {
     disk_free_bytes: Option<i64>,
     #[serde(rename = "tempBytes")]
     temp_bytes: Option<i64>,
+    // 관제 설정·상태(마이그028/036). 패널이 거래처 행을 통째로 주므로 서버 변경 없이 딸려온다.
+    //   HQ 다이얼로그가 "지금 켜져 있나"를 보여주는 데 쓰고, van_gave_up 은 자동 복구를 포기한
+    //   상태(사람이 가야 함)라 목록 위 스트립으로 띄운다.
+    #[serde(rename = "firewallControl")]
+    firewall_control: Option<bool>,
+    #[serde(rename = "vanWatch")]
+    van_watch: Option<String>,
+    #[serde(rename = "vanOk")]
+    van_ok: Option<bool>,
+    #[serde(rename = "vanGaveUp")]
+    van_gave_up: Option<bool>,
     // 폴더(마이그 026) — 패널이 folder join 으로 준다(folderName). HQ 가 device_group_name 으로
     //   받아 같은 매장 여러 POS 를 폴더로 묶는다(peers_view 그룹 헤더). 미배정이면 None.
     #[serde(rename = "folderName")]
@@ -183,6 +194,16 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
         "diskTotal": c.disk_total_bytes.map(|v| v.to_string()).unwrap_or_default(),
         "diskFree": c.disk_free_bytes.map(|v| v.to_string()).unwrap_or_default(),
         "tempBytes": c.temp_bytes.map(|v| v.to_string()).unwrap_or_default(),
+        // 관제 상태(마이그028/036) — Peer 의 다른 필드처럼 문자열로 넘긴다.
+        //   vanOk 만 3값이다: 'Y'=데몬 정상, 'N'=멈춤, ''=아직 보고 전(방금 켰거나 구버전 에이전트).
+        "firewallControl": if c.firewall_control.unwrap_or(false) { "Y" } else { "" },
+        "vanWatch": c.van_watch.clone().unwrap_or_default(),
+        "vanOk": match c.van_ok {
+            Some(true) => "Y",
+            Some(false) => "N",
+            None => "",
+        },
+        "vanGaveUp": if c.van_gave_up.unwrap_or(false) { "Y" } else { "" },
     }))
 }
 

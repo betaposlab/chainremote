@@ -8,6 +8,7 @@ import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/my_group.dart';
 import 'package:flutter_hbb/common/widgets/peers_view.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_disk.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_van.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
 import 'package:flutter_hbb/common/widgets/peer_card.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -170,9 +171,97 @@ class _PeerTabPageState extends State<PeerTabPage>
                 )),
               ),
             ).paddingOnly(right: stateGlobal.isPortrait.isTrue ? 0 : 12)),
+        _crVanAlertStrip(),
         _crDiskAlertStrip(),
         _createPeersView(),
       ],
+    );
+  }
+
+  // 카드결제 데몬 자동 복구 실패 스트립 — 에이전트가 세 번 되살려 보고 손을 뗀 상태다.
+  // 리더기 케이블이 빠졌거나 COM 이 어긋난 경우라 사람이 가야 낫는다. 관리 패널에만 빨간
+  // 칩이 뜨면 HQ 를 주로 보는 직원은 영영 모르므로 디스크 주의와 같은 자리에 올린다
+  // (2026-08-10 Chang: 만들면 파생되는 문제까지 먼저 챙길 것). 디스크보다 위에 두는 이유는
+  // 결제 불능이 더 급하기 때문 — 여유공간은 며칠 여유가 있지만 카드는 지금 못 긁는다.
+  Widget _crVanAlertStrip() {
+    return ListenableBuilder(
+      listenable: gFFI.allCustomersPeersModel,
+      builder: (context, _) {
+        final failed = gFFI.allCustomersPeersModel.peers
+            .where((p) => p.vanGaveUp == 'Y')
+            .toList();
+        if (failed.isEmpty) return const SizedBox.shrink();
+        final fg = CrColors.of(context).dangerFg;
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(right: 12, bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: CrColors.of(context).dangerBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: CrColors.of(context).dangerBorder),
+          ),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('💳 카드결제 데몬 복구 실패 ${failed.length}곳 — 확인 필요',
+                  style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
+              ...failed.map((p) {
+                // Rust 가 별칭 앞에 붙이는 상태 마커(⏳/🆕)는 검색 필터에 안 맞으니 벗긴다.
+                final name = p.alias
+                    .replaceFirst('⏳ ', '')
+                    .replaceFirst('🆕 ', '')
+                    .trim();
+                final label = name.isEmpty ? p.id : name;
+                return Container(
+                  padding: const EdgeInsets.only(left: 8, right: 4),
+                  decoration: BoxDecoration(
+                    color: CrColors.of(context).dangerBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        Border.all(color: CrColors.of(context).dangerBorder),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () {
+                          // 카드로 점프: 전체 거래처 탭 + 검색 필터(디스크 스트립과 같은 동작).
+                          gFFI.peerTabModel
+                              .setCurrentTab(PeerTabIndex.customers.index);
+                          peerSearchBarOpen.value = true;
+                          peerSearchTextController.text = label;
+                          peerSearchText.value = label;
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Text(label,
+                              style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: fg)),
+                        ),
+                      ),
+                      // 관제 설정 열기 — 고친 뒤 껐다 켜면 그 자리에서 다시 감시가 붙는다.
+                      InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => showCrVanDialog(p),
+                        child: Padding(
+                          padding: const EdgeInsets.all(3),
+                          child: Icon(Icons.credit_card, size: 13, color: fg),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 
