@@ -38,6 +38,7 @@ pub mod chainremote_auth;
 // 관리 패널 데이터 fetcher (Phase 2-C)
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 pub mod chainremote_data;
+pub mod chainremote_direct;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 mod bridge_generated;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]

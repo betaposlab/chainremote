@@ -926,6 +926,34 @@ pub fn session_switch_sides(session_id: SessionID) {
     }
 }
 
+/// ChainRemote 마킹 — 뷰어가 그린 자유선을 거래처 화면에 띄운다.
+///   points 는 "x,y;x,y;..." 문자열이다. 브리지에 구조체를 새로 만들면 생성 코드가 크게
+///   흔들리는데(1.80 세대), 이 값은 짧은 부동소수 쌍의 나열이라 문자열 하나면 충분하다.
+///   op: 0=그리기 1=지우기 2=모드종료.
+pub fn session_cr_annotate(
+    session_id: SessionID,
+    op: i32,
+    points: String,
+    argb: i64,
+    width: f64,
+    end_stroke: bool,
+) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        let pts: Vec<(f32, f32)> = points
+            .split(';')
+            .filter(|s| !s.is_empty())
+            .filter_map(|pair| {
+                let mut it = pair.split(',');
+                match (it.next()?.parse::<f32>().ok(), it.next()?.parse::<f32>().ok()) {
+                    (Some(x), Some(y)) => Some((x, y)),
+                    _ => None,
+                }
+            })
+            .collect();
+        session.cr_annotate(op, pts, argb as u32, width as f32, end_stroke);
+    }
+}
+
 pub fn session_change_resolution(session_id: SessionID, display: i32, width: i32, height: i32) {
     if let Some(session) = sessions::get_session_by_session_id(&session_id) {
         session.change_resolution(display, width, height);

@@ -871,6 +871,19 @@ pub extern "C" fn wire_session_switch_sides(port_: i64, session_id: *mut wire_ui
 }
 
 #[no_mangle]
+pub extern "C" fn wire_session_cr_annotate(
+    port_: i64,
+    session_id: *mut wire_uint_8_list,
+    op: i32,
+    points: *mut wire_uint_8_list,
+    argb: i64,
+    width: f64,
+    end_stroke: bool,
+) {
+    wire_session_cr_annotate_impl(port_, session_id, op, points, argb, width, end_stroke)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_session_change_resolution(
     port_: i64,
     session_id: *mut wire_uint_8_list,

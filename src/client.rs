@@ -658,7 +658,26 @@ impl Client {
         Option<KcpStream>,
         &'static str,
     )> {
-        let direct_failures = interface.get_lch().read().unwrap().direct_failures;
+        // 오래된 실패 기록은 한 번 무시하고 온전한 창을 준다 — 환경이나 우리 설정이 바뀌어
+        //   이제 뚫리는 거래처가 좁은 창에 갇혀 영영 릴레이만 타는 걸 막는다. 여전히 안 되면
+        //   실패 시각이 갱신돼 곧바로 다시 좁아진다(chainremote_direct 주석 참조).
+        let direct_failures = {
+            let due = {
+                let lch = interface.get_lch();
+                let lch = lch.read().unwrap();
+                lch.direct_failures > 0
+                    && crate::chainremote_direct::is_retry_due(&lch.config)
+            };
+            if due {
+                // 결과와 무관하게 "이번에 판정했다"를 지금 찍는다. 실패해도 상류는 값이 안
+                //   바뀌면 저장을 안 하므로, 여기서 안 찍으면 매 접속마다 긴 대기를 문다.
+                interface.get_lch().write().unwrap().note_direct_retry();
+                log::info!("직결 실패 기록이 오래됨 — 이번 한 번은 온전한 대기창을 준다");
+                0
+            } else {
+                interface.get_lch().read().unwrap().direct_failures
+            }
+        };
         let mut connect_timeout = 0;
         const MIN: u64 = 1000;
         if is_local || peer_nat_type == NatType::SYMMETRIC {
@@ -2016,9 +2035,18 @@ impl LoginConfigHandler {
         self.save_config(config);
     }
 
+    /// 오래된 실패 기록에 한 번 기회를 줄 때, 그 판정 시각을 남긴다(값 자체는 안 건드린다).
+    pub fn note_direct_retry(&mut self) {
+        let mut config = self.load_config();
+        crate::chainremote_direct::stamp(&mut config, true);
+        self.save_config(config);
+    }
+
     pub fn set_direct_failure(&mut self, value: i32) {
         let mut config = self.load_config();
         config.direct_failures = value;
+        // 판정 시각도 같이 남긴다 — 이게 없으면 플래그가 영영 안 풀린다(chainremote_direct 주석).
+        crate::chainremote_direct::stamp(&mut config, value > 0);
         self.save_config(config);
     }
 

@@ -12,6 +12,7 @@ import '../../consts.dart';
 import '../../common/widgets/overlay.dart';
 import '../../common/widgets/remote_input.dart';
 import '../../common/widgets/chainremote_session_record.dart';
+import '../widgets/chainremote_annotate.dart';
 import '../../common.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/toolbar.dart';
@@ -323,6 +324,9 @@ class _RemotePageState extends State<RemotePage>
     //   세션 유지라 제외. 논블로킹 fire-and-forget — dispose 진행 안 막고 실패해도 무해.
     if (closeSession) {
       crSessionEndAuto(widget.id);
+      // 그리다 만 선을 거래처 화면에 두고 나오면 안 된다(Chang: 원격 끄면 즉시 사라질 것).
+      CrAnnotateModel.of(widget.id).endSession(sessionId);
+      CrAnnotateModel.dispose_(widget.id);
     }
 
     // https://github.com/flutter/flutter/issues/64935
@@ -610,6 +614,9 @@ class _RemotePageState extends State<RemotePage>
             QualityMonitor(_ffi.qualityMonitorModel), null, null),
       ),
     );
+    // 마킹 층 — 이미지 위. 꺼져 있으면 포인터를 그대로 흘려보내 원격 조작에 영향이 없고,
+    //   켜져 있을 때만 가로채 그린다. 우클릭 두 번 감지도 여기서 한다.
+    paints.add(CrAnnotateLayer(peerId: widget.id, ffi: _ffi));
     return Stack(
       children: paints,
     );

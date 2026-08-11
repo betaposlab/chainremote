@@ -253,6 +253,10 @@ pub struct Connection {
     // by peer
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     show_my_cursor: bool,
+    // ChainRemote 마킹 모드가 켜져 있나 — 오버레이를 중복으로 올리거나, 커서 표시가 쓰고
+    //   있는 오버레이를 함부로 내리지 않기 위해 세션별로 들고 있는다.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    cr_annotating: bool,
     // by peer
     disable_clipboard: bool,
     // by peer
@@ -452,6 +456,8 @@ impl Connection {
             disable_keyboard: false,
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             show_my_cursor: false,
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            cr_annotating: false,
             tx_input,
             video_ack_required: false,
             server_audit_conn: "".to_owned(),
@@ -3508,6 +3514,71 @@ impl Connection {
                                 self.try_sub_camera_displays();
                             } else if !self.terminal {
                                 self.try_sub_monitor_services();
+                            }
+                        }
+                    }
+                    // ChainRemote 마킹 — 본사가 그린 자유선을 거래처 화면 오버레이에 띄운다.
+                    //   상류 whiteboard 인프라(투명 오버레이 프로세스 + IPC)를 그대로 쓰되,
+                    //   커서와 달리 남는 이벤트(Mark)를 보낸다. 오버레이는 첫 DRAW 때 올리고
+                    //   STOP 에서 내린다 — 안 쓰는 동안 거래처에서 프로세스가 도는 걸 막는다.
+                    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                    Some(misc::Union::CrAnnotate(a)) => {
+                        use crate::whiteboard;
+                        let key = whiteboard::get_key_cursor(self.inner.id);
+                        match a.op.enum_value_or_default() {
+                            cr_annotate::Op::STOP => {
+                                if self.cr_annotating {
+                                    self.cr_annotating = false;
+                                    whiteboard::update_whiteboard(
+                                        key.clone(),
+                                        whiteboard::CustomEvent::Clear,
+                                    );
+                                    // 커서 표시가 켜져 있으면 오버레이는 그쪽이 계속 쓴다.
+                                    if !self.show_my_cursor {
+                                        whiteboard::unregister_whiteboard(key);
+                                    }
+                                }
+                            }
+                            cr_annotate::Op::CLEAR => {
+                                whiteboard::update_whiteboard(key, whiteboard::CustomEvent::Clear);
+                            }
+                            cr_annotate::Op::DRAW => {
+                                if !self.cr_annotating {
+                                    // 합성이 꺼진 기기에 오버레이를 띄우면 투명이 안 먹어
+                                    //   불투명 사각형이 거래처 화면을 덮는다. 그리기 전에
+                                    //   막고, 본사 쪽에 왜 안 되는지 알린다 — 눌렀는데
+                                    //   아무 일도 안 일어나는 게 제일 나쁘다.
+                                    if whiteboard::is_overlay_supported() {
+                                        self.cr_annotating = true;
+                                        whiteboard::register_whiteboard(key.clone());
+                                    } else {
+                                        let mut msg_out = Message::new();
+                                        let res = MessageBox {
+                                            msgtype: "nook-nocancel-hasclose".to_owned(),
+                                            title: "화면 그리기".to_owned(),
+                                            text: "이 거래처 PC 는 화면 위에 그리기를 지원하지 않습니다(데스크톱 합성 꺼짐).".to_owned(),
+                                            link: "".to_owned(),
+                                            ..Default::default()
+                                        };
+                                        msg_out.set_message_box(res);
+                                        self.send(msg_out).await;
+                                    }
+                                }
+                                if self.cr_annotating {
+                                    whiteboard::update_whiteboard(
+                                        key,
+                                        whiteboard::CustomEvent::Mark(whiteboard::Mark {
+                                            points: a
+                                                .points
+                                                .iter()
+                                                .map(|p| (p.x, p.y))
+                                                .collect(),
+                                            argb: a.argb,
+                                            width: a.width,
+                                            end_stroke: a.end_stroke,
+                                        }),
+                                    );
+                                }
                             }
                         }
                     }

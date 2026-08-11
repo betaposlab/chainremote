@@ -72,9 +72,25 @@ pub(super) fn create_event_loop() -> ResultType<()> {
     let mut ripples: Vec<Ripple> = Vec::new();
     let mut last_cursors: HashMap<String, Cursor> = HashMap::new();
     let mut resized = final_size.is_none();
+    // ChainRemote 마킹 — 획 단위로 쌓아 두고, 마지막으로 그린 뒤 일정 시간이 지나면 지운다.
+    //   Chang 지정 규칙: 수동 지우기=즉시 / 가만히 두면 10초 뒤 / 원격 종료 시 즉시(STOP).
+    let mut marks: Vec<super::Mark> = Vec::new();
+    let mut marks_touched: Option<Instant> = None;
+
+    // 마킹을 그린 뒤 이만큼 손을 놓으면 저절로 사라진다(Chang 지정). 설명이 끝났는데 선이
+    //   화면에 남아 가리는 걸 막으면서, 지우려고 매번 버튼을 찾지 않아도 되게 하는 값이다.
+    const MARK_TTL: std::time::Duration = std::time::Duration::from_secs(10);
 
     event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
+        // ★종전엔 무조건 Poll 이라 아무 일이 없어도 루프가 계속 돌았다(거래처 POS 에서
+        //   "리소스를 먹는 것 같다"는 지적의 실체). 애니메이션(물결)이나 만료를 기다릴 게
+        //   있을 때만 다음 프레임을 예약하고, 그 밖에는 이벤트가 올 때까지 잔다.
+        let animating = !ripples.is_empty() || marks_touched.is_some();
+        *control_flow = if animating {
+            ControlFlow::WaitUntil(Instant::now() + std::time::Duration::from_millis(16))
+        } else {
+            ControlFlow::Wait
+        };
 
         match event {
             Event::WindowEvent { event, .. } => match event {
@@ -145,6 +161,49 @@ pub(super) fn create_event_loop() -> ResultType<()> {
                     }
                 }
 
+                // 마킹 — 커서보다 먼저 그려 커서 화살표가 선 위에 오게 한다.
+                for mark in &marks {
+                    if mark.points.len() < 2 {
+                        // 점 하나짜리 획은 선으로 못 그린다 — 작은 점으로 찍어 준다.
+                        if let Some(&(x, y)) = mark.points.first() {
+                            let mut pb = PathBuilder::new();
+                            pb.push_circle(x, y, (mark.width / 2.0).max(1.0));
+                            if let Some(path) = pb.finish() {
+                                let rgba = super::argb_to_rgba(mark.argb);
+                                let mut paint = Paint::default();
+                                // Note: The real color is bgra here.
+                                paint.set_color_rgba8(rgba.2, rgba.1, rgba.0, rgba.3);
+                                paint.anti_alias = true;
+                                pixmap.fill_path(
+                                    &path,
+                                    &paint,
+                                    FillRule::Winding,
+                                    Transform::identity(),
+                                    None,
+                                );
+                            }
+                        }
+                        continue;
+                    }
+                    let mut pb = PathBuilder::new();
+                    pb.move_to(mark.points[0].0, mark.points[0].1);
+                    for p in &mark.points[1..] {
+                        pb.line_to(p.0, p.1);
+                    }
+                    if let Some(path) = pb.finish() {
+                        let rgba = super::argb_to_rgba(mark.argb);
+                        let mut paint = Paint::default();
+                        // Note: The real color is bgra here.
+                        paint.set_color_rgba8(rgba.2, rgba.1, rgba.0, rgba.3);
+                        paint.anti_alias = true;
+                        let mut stroke = Stroke::default();
+                        stroke.width = mark.width.max(1.0);
+                        stroke.line_cap = tiny_skia::LineCap::Round;
+                        stroke.line_join = tiny_skia::LineJoin::Round;
+                        pixmap.stroke_path(&path, &paint, &stroke, Transform::identity(), None);
+                    }
+                }
+
                 for cursor in last_cursors.values() {
                     let (x, y) = (cursor.x, cursor.y);
                     let size = 1.5f32;
@@ -206,6 +265,13 @@ pub(super) fn create_event_loop() -> ResultType<()> {
                 }
             }
             Event::MainEventsCleared => {
+                // 손을 놓은 지 MARK_TTL 이 지나면 마킹을 걷는다.
+                if let Some(t) = marks_touched {
+                    if t.elapsed() >= MARK_TTL {
+                        marks.clear();
+                        marks_touched = None;
+                    }
+                }
                 window.request_redraw();
             }
             Event::UserEvent((k, evt)) => match evt {
@@ -219,10 +285,29 @@ pub(super) fn create_event_loop() -> ResultType<()> {
                     }
                     last_cursors.insert(k, cursor);
                 }
+                CustomEvent::Mark(mark) => {
+                    // 직전 획이 아직 안 끝났으면 그 획에 점을 잇는다(뷰어가 묶어 보내므로).
+                    let append = marks
+                        .last()
+                        .map(|m: &super::Mark| !m.end_stroke && m.argb == mark.argb)
+                        .unwrap_or(false);
+                    if append {
+                        if let Some(last) = marks.last_mut() {
+                            last.points.extend_from_slice(&mark.points);
+                            last.end_stroke = mark.end_stroke;
+                        }
+                    } else if !mark.points.is_empty() {
+                        marks.push(mark);
+                    }
+                    marks_touched = Some(Instant::now());
+                }
+                CustomEvent::Clear => {
+                    marks.clear();
+                    marks_touched = None;
+                }
                 CustomEvent::Exit => {
                     *control_flow = ControlFlow::Exit;
                 }
-                _ => {}
             },
             _ => (),
         }

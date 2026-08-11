@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
+import 'package:flutter_hbb/desktop/widgets/chainremote_annotate.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/toolbar.dart';
 import 'package:flutter_hbb/models/chat_model.dart';
@@ -408,6 +409,28 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
     if (widget.ffi.connType == ConnType.defaultConn &&
         widget.ffi.ffiModel.permissions['audio'] != false) {
       toolbarItems.add(_MuteMenu(id: widget.id, ffi: widget.ffi));
+    }
+    // 화면 마킹(자유선) — 음소거 옆. 설명 중 "여기 보세요"를 화면에 그려서 남긴다.
+    //   거래처 화면에 그리는 것이라 기본 원격 연결에서만(파일전송·카메라 세션엔 의미 없음).
+    if (widget.ffi.connType == ConnType.defaultConn) {
+      toolbarItems.add(CrAnnotateButton(
+        peerId: widget.id,
+        ffi: widget.ffi,
+        buttonBuilder: ({
+          required Icon icon,
+          required String tooltip,
+          required VoidCallback onPressed,
+          required Color color,
+          required Color hoverColor,
+        }) =>
+            _IconMenuButton(
+          icon: icon,
+          tooltip: tooltip,
+          color: color,
+          hoverColor: hoverColor,
+          onPressed: onPressed,
+        ),
+      ));
     }
     // In-session file transfer button: opens a new file transfer session to the
     // same peer. Only for default remote-control sessions, and not on web (web

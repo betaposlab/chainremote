@@ -1966,6 +1966,41 @@ fn wire_session_switch_sides_impl(
         },
     )
 }
+fn wire_session_cr_annotate_impl(
+    port_: MessagePort,
+    session_id: impl Wire2Api<uuid::Uuid> + UnwindSafe,
+    op: impl Wire2Api<i32> + UnwindSafe,
+    points: impl Wire2Api<String> + UnwindSafe,
+    argb: impl Wire2Api<i64> + UnwindSafe,
+    width: impl Wire2Api<f64> + UnwindSafe,
+    end_stroke: impl Wire2Api<bool> + UnwindSafe,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
+        WrapInfo {
+            debug_name: "session_cr_annotate",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_session_id = session_id.wire2api();
+            let api_op = op.wire2api();
+            let api_points = points.wire2api();
+            let api_argb = argb.wire2api();
+            let api_width = width.wire2api();
+            let api_end_stroke = end_stroke.wire2api();
+            move |task_callback| {
+                Ok(session_cr_annotate(
+                    api_session_id,
+                    api_op,
+                    api_points,
+                    api_argb,
+                    api_width,
+                    api_end_stroke,
+                ))
+            }
+        },
+    )
+}
 fn wire_session_change_resolution_impl(
     port_: MessagePort,
     session_id: impl Wire2Api<uuid::Uuid> + UnwindSafe,
@@ -5510,8 +5545,18 @@ impl Wire2Api<bool> for bool {
         self
     }
 }
+impl Wire2Api<f64> for f64 {
+    fn wire2api(self) -> f64 {
+        self
+    }
+}
 impl Wire2Api<i32> for i32 {
     fn wire2api(self) -> i32 {
+        self
+    }
+}
+impl Wire2Api<i64> for i64 {
+    fn wire2api(self) -> i64 {
         self
     }
 }

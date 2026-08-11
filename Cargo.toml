@@ -107,6 +107,8 @@ qrcode-generator = "4.1"
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = [
     "winuser",
+    # 투명 오버레이가 성립하는지 재기 위한 DwmIsCompositionEnabled (whiteboard).
+    "dwmapi",
     "wincrypt",
     "fileapi",
     "shellscalingapi",

@@ -431,6 +431,35 @@ impl<T: InvokeUiSession> Session<T> {
         }
     }
 
+    /// ChainRemote 마킹 전송 — 자유선 한 묶음(또는 지우기/종료)을 거래처로 보낸다.
+    ///   좌표는 원격 디스플레이 픽셀 기준으로 이미 환산된 값이다(뷰어가 배율을 푼다).
+    ///   op: 0=그리기 1=지우기 2=모드종료.
+    pub fn cr_annotate(&self, op: i32, points: Vec<(f32, f32)>, argb: u32, width: f32, end_stroke: bool) {
+        let mut a = CrAnnotate::new();
+        a.op = match op {
+            1 => cr_annotate::Op::CLEAR,
+            2 => cr_annotate::Op::STOP,
+            _ => cr_annotate::Op::DRAW,
+        }
+        .into();
+        a.points = points
+            .into_iter()
+            .map(|(x, y)| CrPoint {
+                x,
+                y,
+                ..Default::default()
+            })
+            .collect();
+        a.argb = argb;
+        a.width = width;
+        a.end_stroke = end_stroke;
+        let mut misc = Misc::new();
+        misc.set_cr_annotate(a);
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
+        self.send(Data::Message(msg_out));
+    }
+
     pub fn toggle_virtual_display(&self, index: i32, on: bool) {
         let mut misc = Misc::new();
         misc.set_toggle_virtual_display(ToggleVirtualDisplay {
