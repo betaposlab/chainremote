@@ -189,6 +189,9 @@ export const customers = pgTable(
     // 데몬이 그 기기에 아예 없음(마이그037) — 다른 VAN 거래처에 관제를 잘못 켠 경우.
     //   vanGaveUp 과 함께 참이 되지만 조치가 정반대다: 이쪽은 관제만 끄면 끝난다.
     vanMissing: boolean("van_missing").notNull().default(false),
+    // NAT 유형(마이그039) — 0=미상 1=Cone(홀펀칭 가능) 2=Symmetric(릴레이 불가피).
+    //   NULL=구버전 에이전트. 릴레이 원인을 짐작 대신 세기 위한 값이다.
+    natType: integer("nat_type"),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),

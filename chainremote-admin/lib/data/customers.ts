@@ -216,6 +216,8 @@ export interface HeartbeatExtras {
   vanGaveUp?: boolean;
   // 데몬이 그 기기에 아예 없음(037) — 다른 VAN 거래처에 잘못 켠 경우. 조치가 달라 따로 받는다.
   vanMissing?: boolean;
+  // NAT 유형(039) — 0=미상 1=Cone 2=Symmetric. 유효값일 때만 반영.
+  natType?: number;
 }
 
 export async function recordHeartbeat(
@@ -311,6 +313,11 @@ export async function recordHeartbeat(
     vanSet.vanRestartCount = sql`CASE WHEN ${watched} THEN ${customers.vanRestartCount} + 1 ELSE ${customers.vanRestartCount} END`;
     vanSet.vanLastRestartAt = sql`CASE WHEN ${watched} THEN now() ELSE ${customers.vanLastRestartAt} END`;
   }
+  // NAT 유형 — 0/1/2 만 통과(이상값은 무시해 통계를 오염시키지 않는다).
+  const natSet: Record<string, unknown> =
+    typeof extras?.natType === "number" && [0, 1, 2].includes(extras.natType)
+      ? { natType: extras.natType }
+      : {};
   const [row] = await db
     .update(customers)
     .set({
@@ -323,6 +330,7 @@ export async function recordHeartbeat(
       ...cleanupSet,
       ...firewallSet,
       ...vanSet,
+      ...natSet,
     })
     .where(
       and(

@@ -353,6 +353,11 @@ fn send_heartbeat(
         "osBits": os_bits,
         // 기기지문 — 패널이 옛 거래처에 backfill + 향후 ID 변경 시 재링크에 쓴다.
         "machineUuid": hbb_common::get_machine_fingerprint(),
+        // NAT 유형(마이그039) — 0=미상 1=Cone(홀펀칭 가능) 2=Symmetric(포트 예측 불가→릴레이).
+        //   코어가 부팅 때 서버 두 포트에 같은 로컬주소로 붙어보고 판정해 둔 값을 그대로 싣는다
+        //   (common.rs test_nat_type). 릴레이를 타는 거래처가 어떤 환경인지 짐작하지 않고 세려는 것 —
+        //   Symmetric 이 몇 대인지가 UPnP 를 만들지 말지를 정한다(2026-08-11 낭성 사례).
+        "natType": hbb_common::config::Config::get_nat_type(),
     });
     // 디스크 관제(패널 마이그 024) — C드라이브 용량 + (여유 부족 시) Temp 실측.
     //   조회 실패해도 heartbeat 는 그대로 나간다. 표시·경고용 telemetry.
