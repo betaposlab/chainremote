@@ -6,6 +6,7 @@ import { customers, supportSessions, tenants } from "@/lib/schema";
 import { and, count, eq, gte, sql } from "drizzle-orm";
 import { AgentDownloadCard } from "./_agent-download-card";
 import { ReleaseCard } from "./_release-card";
+import { P2pCard } from "./_p2p-card";
 import { canWrite } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
@@ -73,6 +74,8 @@ export default async function Home() {
       {/* 최신 버전 + 이번에 달라진 것. 대리점이 "내 거래처가 최신인가"를 스스로 판단하려면
           최신 버전이 몇인지부터 알아야 한다 — 종전엔 일괄푸시 화면에서만 확인됐다. */}
       <ReleaseCard />
+      {/* 직결/릴레이 비율(마이그038) — 릴레이가 곧 트래픽 비용이라 눈에 두고 본다. */}
+      <P2pCard tenantId={tenant.id} />
 
       <section>
         <h2 className="text-lg font-semibold mb-3 text-white">시작하기</h2>

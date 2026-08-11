@@ -164,11 +164,13 @@ describe("POST /api/sessions — remoteId 시작 + 내부기기/미등록 스킵
     );
     return token;
   }
-  async function post(token: string, remoteId: string) {
+  async function post(token: string, remoteId: string, connDirect?: boolean) {
     const req = new Request("http://t/api/sessions", {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ remoteId }),
+      body: JSON.stringify(
+        connDirect === undefined ? { remoteId } : { remoteId, connDirect },
+      ),
     });
     const res = await startSessionRoute(req);
     return { status: res.status, json: await res.json() };
@@ -179,6 +181,32 @@ describe("POST /api/sessions — remoteId 시작 + 내부기기/미등록 스킵
     const r = await post(await bearer(s), "323608526");
     expect(r.status).toBe(201);
     expect(typeof r.json.sessionId).toBe("string");
+  });
+
+  it("직결/릴레이(connDirect)를 세션에 남긴다 — 안 보내면 NULL(구버전 HQ)", async () => {
+    // 릴레이 비중이 곧 우리 트래픽 비용이라 실측이 필요하다(마이그038). 구버전 HQ 는 이 값을
+    // 안 보내므로 NULL 로 남고, 통계에서 자연히 빠진다.
+    // 거래처를 셋으로 나누는 이유: 같은 직원·거래처엔 활성 세션이 하나만 생긴다(마이그025).
+    const s = await seed();
+    const db = testDb();
+    await db.insert(customers).values([
+      { tenantId: s.tenantId, name: "릴레이집", remoteId: "111111111" },
+      { tenantId: s.tenantId, name: "미보고집", remoteId: "222222222" },
+    ]);
+    const token = await bearer(s);
+
+    await post(token, "323608526", true);
+    await post(token, "111111111", false);
+    await post(token, "222222222");
+
+    const rows = await db
+      .select()
+      .from(supportSessions)
+      .where(eq(supportSessions.tenantId, s.tenantId));
+    const byRemote = new Map(rows.map((r) => [r.remoteId, r.connDirect]));
+    expect(byRemote.get("323608526")).toBe(true);
+    expect(byRemote.get("111111111")).toBe(false);
+    expect(byRemote.get("222222222")).toBeNull();
   });
 
   it("★내부기기(is_internal) → 기록 안 함(skipped:internal)", async () => {

@@ -3657,6 +3657,15 @@ pub trait Interface: Send + Clone + 'static + Sized {
 
     fn update_direct(&self, direct: Option<bool>) {
         self.get_lch().write().unwrap().direct = direct;
+        // 이 세션이 직결이었는지 릴레이였는지를 지원기록에 남기려고 여기서 적어 둔다(마이그038).
+        //   릴레이 비중이 곧 우리 트래픽 비용이라 실측이 필요한데, 그 사실을 아는 지점이 여기다.
+        //   지원기록을 남기는 건 HQ(Flutter 빌드)뿐이라 모듈 조건을 그대로 따른다 —
+        //   32비트 에이전트(Sciter)에는 이 모듈이 없다.
+        #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
+        if let Some(d) = direct {
+            let id = self.get_lch().read().unwrap().id.clone();
+            crate::chainremote_data::note_conn_direct(&id, d);
+        }
     }
 
     fn update_received(&self, received: bool) {

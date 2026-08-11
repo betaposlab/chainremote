@@ -14,9 +14,15 @@ import * as sessions from "@/lib/data/sessions";
 export async function POST(req: Request) {
   try {
     const me = await requireApiAuth(req);
-    const body = (await req.json().catch(() => ({}))) as { remoteId?: unknown };
+    const body = (await req.json().catch(() => ({}))) as {
+      remoteId?: unknown;
+      connDirect?: unknown;
+    };
     const remoteId = typeof body.remoteId === "string" ? body.remoteId.trim() : "";
     if (!remoteId) throw new ApiAuthError(400, "remoteId 필수");
+    // 직결/릴레이(마이그038) — HQ 가 연결 수립 때 이미 아는 값. 안 보내면(구버전) NULL 로 둔다.
+    const connDirect =
+      typeof body.connDirect === "boolean" ? body.connDirect : undefined;
 
     const customer = (
       await db
@@ -41,6 +47,7 @@ export async function POST(req: Request) {
       operatorId: me.uid,
       customerId: customer.id,
       remoteId,
+      connDirect,
     });
     return Response.json({ sessionId: row.id }, { status: 201 });
   } catch (e) {

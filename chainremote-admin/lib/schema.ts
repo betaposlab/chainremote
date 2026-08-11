@@ -283,6 +283,10 @@ export const supportSessions = pgTable(
     //   contactName: 거래처측 응대자(분쟁 근거). categories: A/S 종류 멀티(콤마 조인, 예 "printer,payment").
     contactName: text("contact_name"),
     categories: text("categories"),
+    // 이 세션이 직결(P2P)이었나 릴레이였나(마이그038). NULL=미보고(구버전 HQ).
+    //   릴레이는 화면·파일이 전부 우리 서버를 거쳐 트래픽 비용이 된다 — 이 값이 쌓여야
+    //   홀펀치 개선이 실제로 몇 %를 회수했는지 증명할 수 있다.
+    connDirect: boolean("conn_direct"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

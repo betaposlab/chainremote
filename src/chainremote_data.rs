@@ -543,11 +543,36 @@ pub fn confirm_customer_blocking_pub(remote_id: String) -> bool {
 // ── 지원세션(A/S 이력) 기록 — HQ 원격 시작/종료에서 호출(Phase 2). 서버가 거래처 대조 ─────────
 //   ★모두 실패해도 원격 자체엔 무해(호출측이 try/catch·논블로킹). 인증은 authed_post 재사용.
 
+// ── 직결/릴레이 관측(마이그038) ──────────────────────────────────────────────
+//   릴레이는 화면·파일이 전부 우리 서버를 거쳐 그대로 트래픽 비용이 된다(10만 대 목표의 병목).
+//   그런데 "릴레이가 몇 %인지"를 잰 적이 없다. 뷰어는 연결 수립 시 이미 direct 여부를 알고
+//   있으므로(툴바에 표시하는 그 값), 그때 여기에 적어 두고 세션 시작 보고에 실어 보낸다.
+//   ★FFI 시그니처를 안 건드리려고 이 우회를 쓴다 — 브리지 재생성은 위험 대비 이득이 없다.
+static CONN_DIRECT: Mutex<Option<HashMap<String, bool>>> = Mutex::new(None);
+
+/// 연결이 수립되며 direct 여부가 판명됐을 때 기록(client.rs update_direct 에서 호출).
+pub fn note_conn_direct(peer_id: &str, direct: bool) {
+    if let Ok(mut g) = CONN_DIRECT.lock() {
+        g.get_or_insert_with(HashMap::new)
+            .insert(peer_id.to_owned(), direct);
+    }
+}
+
+/// 세션 시작 보고에 실을 값을 꺼낸다(한 번 쓰면 지운다 — 다음 세션에 옛 값이 새지 않게).
+fn take_conn_direct(peer_id: &str) -> Option<bool> {
+    CONN_DIRECT.lock().ok()?.as_mut()?.remove(peer_id)
+}
+
 /// 원격 시작 시 세션 생성 — POST /api/sessions {remoteId}. 서버가 미등록/내부기기(is_internal)면
 ///   sessionId=null 로 스킵. 반환 = sessionId(스킵/실패/없음이면 빈 문자열 → 호출측이 기록 안 함).
 fn session_start_blocking(remote_id: String) -> String {
     let url = format!("{}/api/sessions", chainremote_auth::api_base());
-    let body = serde_json::json!({ "remoteId": remote_id }).to_string();
+    let mut payload = serde_json::json!({ "remoteId": remote_id });
+    // 아직 판명 전이면(경합) 그냥 빼고 보낸다 — 서버가 NULL 로 두므로 통계에서 제외될 뿐이다.
+    if let Some(d) = take_conn_direct(&remote_id) {
+        payload["connDirect"] = d.into();
+    }
+    let body = payload.to_string();
     match authed_post(url, body) {
         Ok(text) => serde_json::from_str::<serde_json::Value>(&text)
             .ok()

@@ -64,6 +64,8 @@ export async function startSession(input: {
   operatorId: string;
   customerId: string;
   remoteId: string | null;
+  /** 이 연결이 직결(P2P)인가(마이그038). undefined = 미보고(구버전 HQ). */
+  connDirect?: boolean;
 }) {
   const existing = await db
     .select()
@@ -90,6 +92,7 @@ export async function startSession(input: {
       customerId: input.customerId,
       remoteId: input.remoteId,
       resolution: "in_progress",
+      connDirect: input.connDirect,
     })
     .onConflictDoNothing()
     .returning();
