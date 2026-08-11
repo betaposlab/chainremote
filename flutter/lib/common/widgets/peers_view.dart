@@ -78,7 +78,8 @@ RxString get peerSort {
 }
 
 // list for listener
-RxList<RxString> get obslist => [peerSearchText, peerSort].obs;
+//   crTableSort 를 넣어야 머리글을 눌렀을 때 목록이 다시 그려진다.
+RxList<RxString> get obslist => [peerSearchText, peerSort, crTableSort].obs;
 
 final peerSearchTextController =
     TextEditingController(text: peerSearchText.value);
@@ -311,8 +312,9 @@ class _PeersViewState extends State<_PeersView>
 
   // 루트의 폴더 타일 — 클릭하면 그 폴더 안으로 진입(소속 거래처만 표시). peer 카드와 같은 높이.
   Widget _buildFolderTile(String name, int count) {
+    // 표의 한 행과 같은 높이 — 카드 격자 시절엔 45 였지만 이제 목록의 한 줄이다.
     return SizedBox(
-      height: 45,
+      height: 34,
       child: DragTarget<String>(
         onWillAcceptWithDetails: (_) => true,
         onAcceptWithDetails: (d) => _dropIntoFolder(d.data, name),
@@ -341,8 +343,8 @@ class _PeersViewState extends State<_PeersView>
                 child: Row(
                   children: [
                     Icon(Icons.folder_rounded,
-                        size: 26, color: CrColors.of(context).tileAccent),
-                    const SizedBox(width: 10),
+                        size: 20, color: CrColors.of(context).tileAccent),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         name,
@@ -730,6 +732,10 @@ class _PeersViewState extends State<_PeersView>
             var peers = snapshot.data!;
             if (peers.length > 1000) peers = peers.sublist(0, 1000);
             gFFI.peerTabModel.setCurrentTabCachedPeers(peers);
+            // 관제 열은 켠 거래처가 하나라도 있을 때만 낸다 — 한 곳도 안 쓰는 대리점에겐
+            //   빈 열 두 개가 그냥 소음이다(열 폭도 상호에 돌려준다).
+            crShowFwCol = peers.any((p) => p.firewallControl == 'Y');
+            crShowVanCol = peers.any((p) => p.vanWatch.isNotEmpty);
             buildOnePeer(Peer peer, bool isPortrait) {
               final visibilityChild = VisibilityDetector(
                 key: ValueKey(_cardId(peer.id)),
@@ -742,14 +748,9 @@ class _PeersViewState extends State<_PeersView>
               // No need to listen the currentTab change event.
               // Because the currentTab change event will trigger the peers change event,
               // and the peers change event will trigger _buildPeersView().
+              // 표의 행 높이 — 한 줄이라 고정이다(세로/모바일은 카드라 자연 높이).
               return !isPortrait
-                  ? Obx(() => peerCardUiType.value == PeerUiType.list
-                      ? Container(height: 45, child: visibilityChild)
-                      : peerCardUiType.value == PeerUiType.grid
-                          ? SizedBox(
-                              width: 220, height: 140, child: visibilityChild)
-                          : SizedBox(
-                              width: 220, height: 42, child: visibilityChild))
+                  ? Container(height: 34, child: visibilityChild)
                   : Container(child: visibilityChild);
             }
 
@@ -828,12 +829,12 @@ class _PeersViewState extends State<_PeersView>
                         // 가로 공간을 활용해 카드/폴더 타일을 반응형 N열로 배치한다.
                         // 뒤로가기 바(_FolderBack)만 전폭, 나머지는 최소폭 기준 열 패킹.
                         return LayoutBuilder(builder: (context, constraints) {
-                          const double kTargetCardWidth = 320;
+                          // 표는 언제나 1열이다 — 열이 맞아야 훑을 수 있고, 그게 표를 쓰는
+                          //   이유다(카드 시절의 반응형 N열 패킹은 여기서 끝난다).
                           final double avail = constraints.maxWidth.isFinite
                               ? constraints.maxWidth
-                              : kTargetCardWidth * 2;
-                          final int cols =
-                              (avail / kTargetCardWidth).floor().clamp(1, 12);
+                              : 900;
+                          const int cols = 1;
                           final rows = <dynamic>[];
                           List<Object>? pending;
                           void flushPair() {
@@ -853,18 +854,65 @@ class _PeersViewState extends State<_PeersView>
                             }
                           }
                           flushPair();
-                          return ListView.builder(
+                          // 머리글 + 표. 폴더 타일이 섞여 있어도 머리글은 목록 위 한 줄이다.
+                          //   폭이 같은 LayoutBuilder 안에서 만들어야 행과 열이 어긋나지 않는다.
+                          return Column(children: [
+                            // 지금 이 화면이 담고 있는 대수 — 폴더 안이면 그 폴더 것만이다.
+                            //   탭 전체 수를 그대로 두면 4대짜리 폴더에 들어가서도 30곳으로
+                            //   보여 "왜 안 나오지"가 된다. 검색 중이면 이미 걸러진 수다.
+                            crTableHeader(
+                                context,
+                                avail - space,
+                                open != null
+                                    ? (grouped[open]?.length ?? 0)
+                                    : peers.length),
+                            Expanded(
+                                child: _buildTableList(
+                                    rows, cols, foldersApply, open, buildOnePeer)),
+                          ]);
+                        });
+                      })
+                    : DynamicGridView.builder(
+                        gridDelegate: SliverGridDelegateWithWrapping(
+                            mainAxisSpacing: space / 2,
+                            crossAxisSpacing: space),
+                        itemCount: peers.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          return buildOnePeer(peers[index], false);
+                        }));
+
+            if (updateEvent == UpdateEvent.load) {
+              _curPeers.clear();
+              _curPeers.addAll(peers.map((e) => e.id));
+              _queryOnlines(true);
+            }
+            return child;
+          } else {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+        },
+        future: matchPeers(filters[0].value, filters[1].value, peers.peers),
+      );
+    }, obslist);
+    return _wrapFolderContextMenu(body);
+  }
+
+  // 표 본체 — 위 _buildPeersView 에서 머리글과 짝으로 쓴다(분리해 둔 건 중첩이 깊어져서다).
+  Widget _buildTableList(List<dynamic> rows, int cols, bool foldersApply,
+      String? open, Widget Function(Peer, bool) buildOnePeer) {
+    return ListView.builder(
                             controller: _scrollController,
                             itemCount: rows.length,
                             itemBuilder: (BuildContext context, int index) {
                               final row = rows[index];
-                              final double topMargin =
-                                  index == 0 ? 0 : space / 2;
+                              // 표는 줄 간격이 좁아야 훑힌다. 카드 격자용 space/2(6px)를
+                              //   그대로 쓰면 행 하나당 12px 이 낭비돼 화면당 대수가 준다.
+                              final double topMargin = index == 0 ? 0 : 3;
                               if (row is _FolderBack) {
-                                return _buildFolderBackBar(row.name).marginOnly(
-                                    right: space,
-                                    top: topMargin,
-                                    bottom: space / 2);
+                                return _buildFolderBackBar(row.name)
+                                    .marginOnly(right: space, top: topMargin);
                               }
                               final cells = row as List<Object>;
                               final children = <Widget>[];
@@ -894,43 +942,16 @@ class _PeersViewState extends State<_PeersView>
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: children)
-                                  .marginOnly(
-                                      right: space,
-                                      top: topMargin,
-                                      bottom: space / 2);
+                                  .marginOnly(right: space, top: topMargin);
                             },
                           );
-                        });
-                      })
-                    : DynamicGridView.builder(
-                        gridDelegate: SliverGridDelegateWithWrapping(
-                            mainAxisSpacing: space / 2,
-                            crossAxisSpacing: space),
-                        itemCount: peers.length,
-                        itemBuilder: (BuildContext context, int index) {
-                          return buildOnePeer(peers[index], false);
-                        }));
+  }
 
-            if (updateEvent == UpdateEvent.load) {
-              _curPeers.clear();
-              _curPeers.addAll(peers.map((e) => e.id));
-              _queryOnlines(true);
-            }
-            return child;
-          } else {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-        },
-        future: matchPeers(filters[0].value, filters[1].value, peers.peers),
-      );
-    }, obslist);
-
+  // 빈 공간 우클릭 → "새 폴더"(루트에서만). 카드 위 우클릭은 카드가 먼저 처리한다.
+  Widget _wrapFolderContextMenu(Widget body) {
     final foldersApply = widget.peerTabIndex == PeerTabIndex.fav ||
         widget.peerTabIndex == PeerTabIndex.customers;
     if (!foldersApply) return body;
-    // 빈 공간 우클릭 → "새 폴더"(루트에서만). 카드 위 우클릭은 카드가 먼저 처리한다.
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onSecondaryTapUp: (d) {
@@ -1004,32 +1025,67 @@ class _PeersViewState extends State<_PeersView>
       peers = peers.where((peer) => widget.peerFilter!(peer)).toList();
     }
 
-    // fallback to id sorting
-    if (!PeerSortType.values.contains(sortedBy)) {
-      sortedBy = PeerSortType.remoteId;
-      bind.setLocalFlutterOption(
-        k: kOptionPeerSorting,
-        v: sortedBy,
-      );
+    // 정렬은 표 머리글이 정한다(2026-08-11). 상류의 peerSort(정렬 메뉴)는 이 화면에서
+    //   더 이상 쓰지 않는다 — 진실 원천이 둘이면 눌러도 안 바뀌는 것처럼 보인다.
+    //   '' = 기본 순서: 최근 세션은 최근순 그대로, 나머지는 상호 가나다순.
+    final sortCol = crSortColOf(crTableSort.value);
+    final asc = crSortAscOf(crTableSort.value);
+    String nameKey(Peer p) =>
+        (p.alias.isEmpty ? p.getId() : p.alias).toLowerCase();
+    int diskKey(Peer p) => int.tryParse(p.diskFree) ?? -1;
+    // 관제는 "손이 필요한 것부터" 가 오름차순이다 — 정상까지 스크롤해서 볼 일은 없다.
+    int fwKey(Peer p) => p.firewallControl == 'Y' ? 0 : 1;
+    int vanKey(Peer p) {
+      if (p.vanWatch.isEmpty) return 5; // 관제 안 켬
+      if (p.vanGaveUp == 'Y') return 0;
+      if (p.vanOk == 'N') return 1;
+      if (p.vanMissing == 'Y') return 2;
+      if (p.vanOk != 'Y') return 3; // 보고 대기
+      return 4; // 정상
     }
 
-    if (widget.peers.loadEvent != LoadEvent.recent) {
-      switch (sortedBy) {
-        case PeerSortType.remoteId:
-          peers.sort((p1, p2) => p1.getId().compareTo(p2.getId()));
-          break;
-        case PeerSortType.remoteHost:
-          peers.sort((p1, p2) =>
-              p1.hostname.toLowerCase().compareTo(p2.hostname.toLowerCase()));
-          break;
-        case PeerSortType.username:
-          peers.sort((p1, p2) =>
-              p1.username.toLowerCase().compareTo(p2.username.toLowerCase()));
-          break;
-        case PeerSortType.status:
-          peers.sort((p1, p2) => p1.online ? -1 : 1);
-          break;
+    int cmp(Peer a, Peer b) {
+      switch (sortCol) {
+        case 'name':
+          return nameKey(a).compareTo(nameKey(b));
+        case 'id':
+          return a.getId().compareTo(b.getId());
+        case 'status':
+          return (a.online ? 0 : 1).compareTo(b.online ? 0 : 1);
+        case 'os':
+          return (crOsBadgeText(a) ?? '').compareTo(crOsBadgeText(b) ?? '');
+        case 'disk':
+          return diskKey(a).compareTo(diskKey(b));
+        case 'fw':
+          return fwKey(a).compareTo(fwKey(b));
+        case 'van':
+          return vanKey(a).compareTo(vanKey(b));
       }
+      return 0;
+    }
+
+    // 값을 안 보낸 행(—)은 방향과 무관하게 항상 맨 뒤로. 디스크가 위험한 곳을 찾으려고
+    //   눌렀는데 미보고가 위를 다 차지하면 정렬을 한 보람이 없다(내림차순도 마찬가지).
+    bool noVal(Peer p) {
+      switch (sortCol) {
+        case 'disk':
+          return int.tryParse(p.diskFree) == null;
+        case 'os':
+          return crOsBadgeText(p) == null;
+      }
+      return false;
+    }
+
+    if (sortCol.isNotEmpty) {
+      // 같은 값끼리는 상호순으로 묶어야 목록이 새로고침마다 들썩이지 않는다.
+      peers.sort((a, b) {
+        final na = noVal(a), nb = noVal(b);
+        if (na != nb) return na ? 1 : -1;
+        final c = cmp(a, b);
+        return c != 0 ? (asc ? c : -c) : nameKey(a).compareTo(nameKey(b));
+      });
+    } else if (widget.peers.loadEvent != LoadEvent.recent) {
+      peers.sort((a, b) => nameKey(a).compareTo(nameKey(b)));
     }
 
     searchText = searchText.trim();

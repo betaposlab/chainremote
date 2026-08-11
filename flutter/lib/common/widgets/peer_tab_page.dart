@@ -107,6 +107,15 @@ class _PeerTabPageState extends State<PeerTabPage>
   }
 
   void _loadLocalOptions() {
+    // 데스크톱은 표 하나로 통일했다(2026-08-11) — 저장돼 있던 옛 보기 설정은 무시한다.
+    //   안 그러면 종전에 '작은 카드'를 골라 뒀던 사람이 폴더가 사라진 화면을 보게 된다
+    //   (폴더 렌더는 list 분기에만 있다).
+    if (isDesktop || isWebDesktop) {
+      peerCardUiType.value = PeerUiType.list;
+      // 표 정렬은 머리글이 정하고 여기서 복원한다(앱을 다시 켜도 보던 순서 그대로).
+      crTableSort.value = bind.mainGetLocalOption(key: 'cr-table-sort');
+      return;
+    }
     final uiType = bind.getLocalFlutterOption(k: kOptionPeerCardUiType);
     if (uiType != '') {
       peerCardUiType.value = int.parse(uiType) == 0
@@ -600,9 +609,12 @@ class _PeerTabPageState extends State<PeerTabPage>
     );
   }
 
-  Widget _createPeerViewTypeSwitch(BuildContext context) {
-    return PeerViewDropdown();
-  }
+  // [보기] 전환은 없앴다(2026-08-11) — 데스크톱 목록은 표 하나다.
+  //   배치가 셋이면 필드를 하나 추가할 때마다 세 곳을 고쳐야 했고(같은 날 배지 하나에 네 번
+  //   빌드했다), 정작 세 배치 어디서도 관제를 훑어볼 수가 없었다. 열이 고정된 표가 거래처가
+  //   수백 곳이 될 때 유일하게 버티는 배치다. 자세한 근거는 peer_card.dart "거래처 표" 주석.
+  //   PeerViewDropdown 은 상류(RustDesk) 코드라 남겨 두되 어디서도 안 쓴다 — 머지 때 충돌을
+  //   줄이려는 것이고, 되살리려면 툴바에 다시 끼우기만 하면 된다.
 
   // 전체 지원기록(A/S 이력) 타임라인 열기 — 전 직원·전 거래처, 최신순. 읽기 전용이라 무해.
   Widget _createSupportHistory(BuildContext context) {
@@ -962,11 +974,8 @@ class _PeerTabPageState extends State<PeerTabPage>
       if (model.currentTab == PeerTabIndex.customers.index)
         _createRefresh(index: PeerTabIndex.customers).marginOnly(right: 4),
       _createSupportHistory(context).marginOnly(right: 4),
-      _createPeerViewTypeSwitch(context),
-      Offstage(
-        offstage: model.currentTab == PeerTabIndex.recent.index,
-        child: PeerSortDropdown(),
-      ),
+      // [정렬] 드롭다운은 뺐다(2026-08-11) — 표 머리글을 누르면 그 열로 정렬한다.
+      //   둘 다 두면 진실 원천이 갈려, 메뉴로 골랐는데 머리글 화살표는 딴 곳을 가리킨다.
     ];
   }
 
@@ -1044,8 +1053,7 @@ class _PeerTabPageState extends State<PeerTabPage>
           model.currentTab == PeerTabIndex.customers.index)
         _createNewFolder(context),
       _createSupportHistory(context),
-      // 보기 전환 — 폴더(탐색기식) 보기로 들어가는 유일한 입구라 세로에도 필수.
-      _createPeerViewTypeSwitch(context),
+      // 세로(모바일)는 표가 아니라 카드라 머리글이 없다 — 정렬 메뉴를 여기만 남긴다.
       if (model.currentTab != PeerTabIndex.recent.index) PeerSortDropdown(),
     ];
     final rightWidth = availableWidth -

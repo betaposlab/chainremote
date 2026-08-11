@@ -29,6 +29,13 @@ typedef PopupMenuEntryBuilder = Future<List<mod_menu.PopupMenuEntry<String>>>
 
 // ── 디스크 배지 (마이그024) — 보고만 있으면 항상 표시(2026-07-16 Chang: HQ 가 주 화면).
 //   정상=회색, 주의(<8GB)=호박, 위험(<5GB)=빨강. 미보고(구버전 에이전트)만 생략.
+String? crDiskBadgeText(Peer peer) {
+  final info = crDiskInfo(peer);
+  if (info == null) return null;
+  return '여유 ${info.freeGb.toStringAsFixed(1)}GB'
+      '${info.level > 0 && info.tempGb != null ? " · Temp ${info.tempGb!.toStringAsFixed(1)}GB" : ""}';
+}
+
 Widget? crDiskBadge(BuildContext context, Peer peer) {
   final info = crDiskInfo(peer);
   if (info == null) return null;
@@ -50,8 +57,7 @@ Widget? crDiskBadge(BuildContext context, Peer peer) {
     ),
     child: Text(
       // 주의/위험이면 Temp(원인 후보)도 병기 — 패널 칩과 동일 정보량.
-      '여유 ${info.freeGb.toStringAsFixed(1)}GB'
-      '${info.level > 0 && info.tempGb != null ? " · Temp ${info.tempGb!.toStringAsFixed(1)}GB" : ""}',
+      crDiskBadgeText(peer)!,
       style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: fg),
     ),
   );
@@ -65,83 +71,337 @@ Widget? crDiskBadge(BuildContext context, Peer peer) {
 //   안 보여"). 패널엔 칩이 있는데 정작 매일 쓰는 화면이 HQ 다. 상태는 항상 보이게 둔다.
 //
 //   관제를 안 켠 거래처엔 아무것도 안 그린다 — 대부분이 그쪽이라 목록이 지저분해지지 않는다.
-Widget _crChip(BuildContext context,
+//
+//   ★첫 판(1.4.103)은 `🛡 방화벽` `💳 KSNET 정상` 처럼 글자를 다 넣었다가 세 보기 전부에서
+//   깨졌다 — 배지가 행 폭을 넘어 상태 pill 위에 겹쳐 그려지고 카드 경계에서 잘렸다. 자리를
+//   안 주고 정보만 늘린 탓이다. 지금은 **정상일 땐 아이콘만**(색이 상태를 말한다) 두고,
+//   손이 필요한 상태(중지·실패·없음)에만 두 글자를 붙여 눈에 걸리게 한다. 정상은 대부분이라
+//   폭을 거의 안 먹고, 이상은 드물어 넓어져도 괜찮다 — 디스크 배지와 같은 원칙이다.
+CrBadge _crChip(BuildContext context,
     {required IconData icon,
-    required String label,
+    required String? label,
     required Color bg,
     required Color fg,
     required String tip}) {
-  return Tooltip(
+  final w = _crEstBadgeWidth(label ?? '', hasIcon: true);
+  return CrBadge(
+      Tooltip(
     message: tip,
-    waitDuration: const Duration(milliseconds: 400),
+    waitDuration: const Duration(milliseconds: 300),
     child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      padding: EdgeInsets.symmetric(horizontal: label == null ? 3 : 5, vertical: 1),
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 9, color: fg),
-        const SizedBox(width: 3),
-        Text(label,
-            style:
-                TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: fg)),
+        Icon(icon, size: 11, color: fg),
+        if (label != null) ...[
+          const SizedBox(width: 2),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 9, fontWeight: FontWeight.w600, color: fg)),
+          ],
+        ]),
+      ),
+      ),
+      w);
+}
+
+CrBadge? crFirewallBadge(BuildContext context, Peer peer) {
+  if (peer.firewallControl != 'Y') return null;
+  final c = CrColors.of(context);
+  // 방화벽 관제는 켜짐/꺼짐뿐이라 상태가 갈리지 않는다 — 아이콘 하나면 충분하다.
+  return _crChip(context,
+      icon: Icons.shield_outlined,
+      label: null,
+      bg: c.chipBg,
+      fg: c.textSubtle,
+      tip: '방화벽 자동 해제 관제 켜짐 — 방화벽이 켜지면 에이전트가 바로 해제합니다.');
+}
+
+/// VAN 관제 상태 — 표시 문구·색·설명을 한 곳에서 정한다(배지와 표 열이 같은 판정을 쓴다).
+class CrVanState {
+  final String? label; // null = 정상(아이콘만으로 충분)
+  final String columnLabel; // 표 열에서는 항상 글자로 쓴다
+  final Color bg, fg;
+  final String tip;
+  const CrVanState(this.label, this.columnLabel, this.bg, this.fg, this.tip);
+}
+
+CrVanState? crVanState(BuildContext context, Peer peer) {
+  if (peer.vanWatch.isEmpty) return null;
+  final c = CrColors.of(context);
+  // 거래처마다 VAN 사가 다르므로 종류는 툴팁에서 밝힌다("ksnet" → KSNET).
+  final van = peer.vanWatch.toUpperCase();
+  if (peer.vanMissing == 'Y') {
+    // 고장이 아니라 설정 실수다 — 같은 빨강으로 묶으면 없는 고장을 고치러 나간다.
+    return CrVanState('없음', '$van 없음', c.warnBg, c.warnFg,
+        '$van 관제를 켜 뒀지만 이 기기엔 그 데몬이 없습니다.\nVAN 사가 다른 곳이면 관제를 끄세요(고장 아님).');
+  }
+  if (peer.vanGaveUp == 'Y') {
+    return CrVanState('실패', '$van 실패', c.dangerBg, c.dangerFg,
+        '$van 데몬을 세 번 되살려 봤지만 안 됐습니다 — 방문이 필요합니다.');
+  }
+  if (peer.vanOk == 'N') {
+    return CrVanState('중지', '$van 중지', c.dangerBg, c.dangerFg,
+        '$van 카드결제 데몬이 멈춰 있습니다. 에이전트가 되살리는 중입니다.');
+  }
+  if (peer.vanOk == 'Y') {
+    return CrVanState(null, '$van 정상', c.okBg, c.okFg,
+        '$van 카드결제 데몬 정상 (마지막 보고 기준).');
+  }
+  // 방금 켰거나 기기가 꺼져 있는 상태. 지시 전달 1회 + 결과 회신 1회라 주기 10분 × 2.
+  return CrVanState(null, '$van 대기', c.chipBg, c.textSubtle,
+      '$van 카드결제 관제 켜짐 — 에이전트가 다음 보고에서 확인합니다(최대 20분).');
+}
+
+CrBadge? crVanBadge(BuildContext context, Peer peer) {
+  final st = crVanState(context, peer);
+  if (st == null) return null;
+  return _crChip(context,
+      icon: Icons.credit_card,
+      label: st.label,
+      bg: st.bg,
+      fg: st.fg,
+      tip: st.tip);
+}
+
+List<CrBadge> crWatchBadges(BuildContext context, Peer peer) => [
+      crFirewallBadge(context, peer),
+      crVanBadge(context, peer),
+    ].whereType<CrBadge>().toList();
+
+// ── 거래처 표(2026-08-11) ─────────────────────────────────────────────────────
+//
+// 카드 세 보기(큰/작은/리스트)를 데스크톱에선 표 하나로 통일했다. 이유는 밀도가 아니다 —
+//   3열 카드가 오히려 한 화면에 더 많이 담긴다. 표를 쓰는 건 **열이 고정되기 때문**이다.
+//   카드에선 관제 배지가 거래처마다 다른 위치에 있어 "어디가 켜졌나"를 보려면 한 줄씩
+//   읽어야 했다(2026-08-11 Chang). 열이 맞으면 그 열만 훑으면 끝이고, 거래처가 수백 곳이
+//   되면 이 차이가 결정적이다. 배치가 셋이면 필드 하나 추가할 때마다 세 번 고쳐야 하는
+//   유지비도 컸다(같은 날 배지 하나에 네 번 빌드했다).
+//
+// 세로(모바일)는 그대로 카드다 — 폭이 없어 열이 안 들어간다.
+
+/// 열 폭(px). 상호는 남는 폭을 다 쓴다.
+const double _wAvatar = 34,
+    _wId = 106,
+    _wStatus = 74,
+    _wOs = 96,
+    _wDisk = 76,
+    _wFw = 54,
+    _wVan = 82,
+    _wMore = 34,
+    _wGap = 10;
+
+/// 목록에 관제를 켠 거래처가 하나라도 있을 때만 그 열을 낸다.
+///   한 곳도 안 켠 대리점에겐 빈 열 두 개가 그냥 소음이다. peers_view 가 목록을 만들 때 정한다.
+bool crShowFwCol = false, crShowVanCol = false;
+
+/// 폭에 따라 어떤 열을 그릴지 — **머리글과 행이 반드시 같은 판단을 써야** 열이 안 어긋난다.
+class CrCols {
+  final bool id, status, os, disk, fw, van;
+  const CrCols(this.id, this.status, this.os, this.disk, this.fw, this.van);
+
+  double get fixedWidth =>
+      _wAvatar +
+      _wMore +
+      (id ? _wId + _wGap : 0) +
+      (status ? _wStatus + _wGap : 0) +
+      (os ? _wOs + _wGap : 0) +
+      (disk ? _wDisk + _wGap : 0) +
+      (fw ? _wFw + _wGap : 0) +
+      (van ? _wVan + _wGap : 0);
+}
+
+/// 좁아지면 정보량이 낮은 열부터 접는다 — OS → 여유공간 → ID 순. 상태와 관제는 끝까지 남긴다
+///   (관제를 보려고 만든 표라 그걸 먼저 접으면 앞뒤가 안 맞는다).
+CrCols crVisibleCols(double width) {
+  final fw = crShowFwCol, van = crShowVanCol;
+  return CrCols(width >= 620, true, width >= 900, width >= 760, fw, van);
+}
+
+/// 표 정렬 — 머리글을 누르면 그 열로 정렬한다. '' = 기본 순서(최근 세션은 최근순, 그 밖은 상호순).
+///   꼴은 'name:asc' 처럼 단순 문자열이다 — obslist(RxString 목록)에 그대로 얹어 목록이
+///   자동으로 다시 그려지게 하려는 것이고, 로컬 설정에 그대로 저장하기에도 편하다.
+final crTableSort = ''.obs;
+
+String crSortColOf(String v) => v.isEmpty ? '' : v.split(':').first;
+bool crSortAscOf(String v) => !v.endsWith(':desc');
+
+/// 같은 열을 다시 누르면 방향만 뒤집고, 다른 열을 누르면 그 열의 오름차순으로 간다.
+void crToggleSort(String col) {
+  final cur = crTableSort.value;
+  crTableSort.value = (crSortColOf(cur) == col && crSortAscOf(cur))
+      ? '$col:desc'
+      : '$col:asc';
+  bind.mainSetLocalOption(key: 'cr-table-sort', value: crTableSort.value);
+}
+
+/// 표의 한 셀 — 폭 고정 + 넘치면 말줄임. 열이 흔들리지 않게 모든 셀이 이걸 쓴다.
+Widget _crCell(double width, Widget child, {Alignment align = Alignment.centerLeft}) =>
+    SizedBox(width: width, child: Align(alignment: align, child: child));
+
+Widget _crMuted(BuildContext context, String text) => Text(text,
+    style: TextStyle(fontSize: 11, color: CrColors.of(context).textDim));
+
+/// 표 머리글 — 목록 위에 한 번만. 행과 같은 폭·같은 여백을 써야 열이 맞는다.
+///   누르면 그 열로 정렬한다. 화살표가 지금 어느 열 기준인지 알려 준다.
+Widget crTableHeader(BuildContext context, double width, int count) {
+  final cols = crVisibleCols(width);
+  return Obx(() {
+    final curCol = crSortColOf(crTableSort.value);
+    final asc = crSortAscOf(crTableSort.value);
+    Widget label(String col, String text) {
+      final active = curCol == col;
+      final c = CrColors.of(context);
+      return InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: () => crToggleSort(col),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Flexible(
+              child: Text(text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  // 머리글은 누르는 것이라 읽히고 눌러도 될 것처럼 보여야 한다 — 10px·textDim
+                  //   으로 두니 장식처럼 보였다(같은 지적이 배지에서도 나왔다).
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                      color: active ? c.tileAccent : c.textMuted,
+                      letterSpacing: 0.2)),
+            ),
+            if (active)
+              Icon(asc ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                  size: 14, color: c.tileAccent),
+          ]),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.only(left: 10, right: 6, top: 4, bottom: 4),
+      child: Row(children: [
+        const SizedBox(width: _wAvatar),
+        Expanded(
+            child: Row(children: [
+          label('name', '거래처'),
+          // 지금 몇 곳을 보고 있는지 — 검색·폴더로 걸러낸 결과의 크기이기도 하다.
+          //   거래처가 수백 곳이 되면 "다 나온 건가"를 이 숫자로만 알 수 있다.
+          if (count > 0)
+            Text('$count곳',
+                style: TextStyle(
+                    fontSize: 10, color: CrColors.of(context).textDim))
+                .marginOnly(left: 6),
+        ])),
+        if (cols.id) ...[
+          const SizedBox(width: _wGap),
+          _crCell(_wId, label('id', '세션 ID'))
+        ],
+        if (cols.status) ...[
+          const SizedBox(width: _wGap),
+          _crCell(_wStatus, label('status', '상태'))
+        ],
+        if (cols.os) ...[
+          const SizedBox(width: _wGap),
+          _crCell(_wOs, label('os', 'OS'))
+        ],
+        if (cols.disk) ...[
+          const SizedBox(width: _wGap),
+          _crCell(_wDisk, label('disk', '여유공간'))
+        ],
+        if (cols.fw) ...[
+          const SizedBox(width: _wGap),
+          _crCell(_wFw, label('fw', '방화벽'))
+        ],
+        if (cols.van) ...[
+          const SizedBox(width: _wGap),
+          _crCell(_wVan, label('van', '데몬 관제'))
+        ],
+        const SizedBox(width: _wMore),
       ]),
+    );
+  });
+}
+
+/// 부제 줄에 들어갈 배지들 — **급한 것부터**. 관제 → 디스크 → OS.
+///
+///   좁은 줄에서 뒤엣것부터 빠지므로 순서가 곧 우선순위다. 손이 필요한 관제 상태(빨강)가
+///   가장 오래 살아남고, 정보량이 가장 낮고 가장 긴 OS 배지가 먼저 희생된다.
+List<CrBadge> crBadgeList(BuildContext context, Peer peer) {
+  final out = <CrBadge>[...crWatchBadges(context, peer)];
+  final diskText = crDiskBadgeText(peer);
+  final disk = crDiskBadge(context, peer);
+  if (disk != null && diskText != null) {
+    out.add(CrBadge(disk, _crEstBadgeWidth(diskText)));
+  }
+  final osText = crOsBadgeText(peer);
+  final os = crOsBadge(context, peer);
+  if (os != null && osText != null) {
+    out.add(CrBadge(os, _crEstBadgeWidth(osText)));
+  }
+  return out;
+}
+
+/// 배지 하나의 대략 폭(px) — 들어갈 것만 그리기 위한 자다.
+///
+///   왜 재나: 남는 폭에 맞춰 "그릴지 말지"를 정하려면 그리기 전에 크기를 알아야 한다. 실측
+///   위젯을 만들어 재는 방법도 있지만 목록 한 줄마다 그 비용을 낼 이유가 없다 — 배지 문구는
+///   우리가 만드는 짧은 문자열뿐이라 글자 폭 근사로 충분하다. 조금 넉넉히 잡아 잘림보다
+///   "한 칸 덜 그림" 쪽으로 틀리게 한다.
+double _crEstBadgeWidth(String text, {bool hasIcon = false}) {
+  double w = 10; // 좌우 padding
+  if (hasIcon) w += 14; // 아이콘 + 간격
+  for (final r in text.runes) {
+    // 한글·기호는 전각에 가깝고 숫자·영문은 반각. fontSize 9 기준 근사.
+    w += r > 0x2000 ? 9.5 : 5.6;
+  }
+  return w;
+}
+
+/// 한 줄짜리 배지 줄 — **들어가는 것만** 그린다(잘린 조각이 절대 안 남는다).
+///
+///   여기까지 두 번 틀렸다(2026-08-11 실측):
+///   ① Row 에 그냥 붙였더니 넘친 배지가 상태 pill **위에 겹쳐** 그려졌다.
+///   ② 가로 스크롤뷰로 잘랐더니 "E", "|" 같은 **글자 조각**이 남아 더 지저분했다.
+///   Wrap 도 답이 아니었다 — 배지 하나가 남는 폭보다 넓으면 넘길 데가 없어 그대로 잘린다
+///   (작은 카드에서 "여유"만 남고 숫자가 잘렸다).
+///   그래서 남는 폭을 LayoutBuilder 로 받아, 폭이 되는 데까지만 붙이고 나머지는 안 그린다.
+///
+///   순서가 곧 우선순위다(crBadgeList 참조) — 뒤엣것부터 빠진다.
+Widget crBadgeLine(BuildContext context, List<CrBadge> items) {
+  if (items.isEmpty) return const SizedBox.shrink();
+  return Flexible(
+    child: SizedBox(
+      height: _kBadgeLineHeight,
+      child: LayoutBuilder(builder: (context, box) {
+        final shown = <Widget>[];
+        double used = 0;
+        for (final it in items) {
+          final need = (shown.isEmpty ? 0.0 : 5.0) + it.width;
+          if (used + need > box.maxWidth) break;
+          used += need;
+          if (shown.isNotEmpty) shown.add(const SizedBox(width: 5));
+          shown.add(it.child);
+        }
+        if (shown.isEmpty) return const SizedBox.shrink();
+        return Row(mainAxisSize: MainAxisSize.min, children: shown);
+      }),
     ),
   );
 }
 
-List<Widget> crWatchBadges(BuildContext context, Peer peer) {
-  final c = CrColors.of(context);
-  final out = <Widget>[];
+const double _kBadgeLineHeight = 16;
 
-  if (peer.firewallControl == 'Y') {
-    out.add(_crChip(context,
-        icon: Icons.shield_outlined,
-        label: '방화벽',
-        bg: c.chipBg,
-        fg: c.textSubtle,
-        tip: '방화벽 자동 해제 관제 켜짐 — 방화벽이 켜지면 에이전트가 바로 해제합니다.'));
-  }
-
-  if (peer.vanWatch.isNotEmpty) {
-    // 거래처마다 VAN 사가 달라 종류를 그대로 쓴다("ksnet" → KSNET).
-    final van = peer.vanWatch.toUpperCase();
-    late final String label;
-    late final Color bg, fg;
-    late final String tip;
-    if (peer.vanMissing == 'Y') {
-      // 고장이 아니라 설정 실수다 — 같은 빨강으로 묶으면 없는 고장을 고치러 나간다.
-      label = '$van 없음';
-      bg = c.dangerBg;
-      fg = c.dangerFg;
-      tip = '이 기기엔 $van 데몬이 없습니다. VAN 사가 다른 곳이면 관제를 끄세요.';
-    } else if (peer.vanGaveUp == 'Y') {
-      label = '$van 실패';
-      bg = c.dangerBg;
-      fg = c.dangerFg;
-      tip = '자동 복구를 세 번 시도했지만 안 살아났습니다 — 방문이 필요합니다.';
-    } else if (peer.vanOk == 'N') {
-      label = '$van 중지';
-      bg = c.dangerBg;
-      fg = c.dangerFg;
-      tip = '카드결제 데몬이 멈춰 있습니다. 에이전트가 되살리는 중입니다.';
-    } else if (peer.vanOk == 'Y') {
-      label = '$van 정상';
-      bg = c.okBg;
-      fg = c.okFg;
-      tip = '카드결제 데몬이 정상입니다(마지막 보고 기준).';
-    } else {
-      // 방금 켰거나 기기가 꺼져 있는 상태. 지시 전달 1회 + 결과 회신 1회라 주기 10분 × 2.
-      label = '$van 대기';
-      bg = c.chipBg;
-      fg = c.textSubtle;
-      tip = '에이전트가 다음 보고에서 확인합니다(최대 20분).';
-    }
-    out.add(_crChip(context,
-        icon: Icons.credit_card, label: label, bg: bg, fg: fg, tip: tip));
-  }
-
-  return out;
+/// 배지 + 그 배지가 필요로 하는 대략 폭. 폭을 아는 채로 넘겨야 "들어갈지"를 판단할 수 있다.
+class CrBadge {
+  final Widget child;
+  final double width;
+  const CrBadge(this.child, this.width);
 }
+
+bool crHasBadges(BuildContext context, Peer peer) =>
+    crBadgeList(context, peer).isNotEmpty;
 
 // ── OS 배지 (마이그021) — "Win7 · 64비트" 식. os(버전)+osBits(네이티브 비트수) 우선, 없으면
 //   arch(페이로드) 폴백. 64비트 Win7 이 32비트 페이로드를 돌려도 os 로 정확히 "Win7 · 64비트".
@@ -163,6 +423,11 @@ String? crOsBadgeText(Peer peer) {
     osShort = 'Win8';
   } else if (os.contains('Windows 7')) {
     osShort = 'Win7';
+  } else if (os.contains('Embedded')) {
+    // "Windows Embedded Standard" 를 그대로 쓰면 배지 하나가 행 폭을 다 먹어 뒤 배지들이
+    //   상태 pill 위로 밀려 나갔다(2026-08-11). 우리 플릿에서 Embedded 는 여섯 대뿐이고
+    //   종류를 더 나눌 일이 없어 한 단어로 줄인다.
+    osShort = 'Embedded';
   } else if (os.isNotEmpty) {
     osShort = os.replaceFirst('Windows ', 'Win');
   }
@@ -322,10 +587,148 @@ class _PeerCardState extends State<_PeerCard>
           ),
         );
       },
-      child: gestureDetector(
-          child: Obx(() => peerCardUiType.value == PeerUiType.grid
-              ? _buildPeerCard(context, peer, deco)
-              : _buildPeerTile(context, peer, deco))),
+      child: gestureDetector(child: _buildPeerRow(context, peer, deco)),
+    );
+  }
+
+  /// 표의 한 행 — 데스크톱 목록의 유일한 배치(위 "거래처 표" 주석 참조).
+  Widget _buildPeerRow(
+      BuildContext context, Peer peer, Rx<BoxDecoration?> deco) {
+    final colors = _frontN(peer.tags, 25)
+        .map((e) => gFFI.abModel.getCurrentAbTagColor(e))
+        .toList();
+    return Tooltip(
+      message: peer.tags.isNotEmpty
+          ? '${translate('Tags')}: ${peer.tags.join(', ')}'
+          : '',
+      child: Obx(() => Container(
+            foregroundDecoration: deco.value,
+            decoration: BoxDecoration(
+              // 표는 가로로 길어 눈이 줄을 놓친다 — 마우스가 올라간 줄을 옅게 띄운다.
+              color: _rowHover.value
+                  ? CrColors.of(context).tileHoverBg
+                  : CrColors.of(context).tileBg,
+              borderRadius: BorderRadius.circular(_tileRadius),
+            ),
+            child: LayoutBuilder(builder: (context, box) {
+              final cols = crVisibleCols(box.maxWidth);
+              return Row(children: [
+                SizedBox(
+                  width: _wAvatar,
+                  child: Stack(children: [
+                    getChainRemoteAvatar(context,
+                        peer.alias.isEmpty ? peer.id : peer.alias,
+                        size: 26),
+                    if (_shouldBuildPasswordIcon(peer))
+                      const Positioned(
+                          top: 0,
+                          left: 0,
+                          child: Icon(Icons.key, size: 7, color: Colors.white)),
+                    if (colors.isNotEmpty)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: CustomPaint(
+                            painter: TagPainter(radius: 3, colors: colors)),
+                      ),
+                  ]),
+                ),
+                Expanded(
+                  child: Text(
+                    peer.alias.isEmpty ? formatID(peer.id) : peer.alias,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                // 별칭이 비면 상호 자리에 이미 ID 가 있으므로 이 열은 비운다(중복 방지).
+                if (cols.id) ...[
+                  const SizedBox(width: _wGap),
+                  _crCell(
+                      _wId,
+                      peer.alias.isEmpty
+                          ? const SizedBox.shrink()
+                          : Text(formatID(peer.id),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  color: CrColors.of(context).textMuted))),
+                ],
+                if (cols.status) ...[
+                  const SizedBox(width: _wGap),
+                  _crCell(
+                      _wStatus,
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        getOnline(6, peer.online),
+                        Text(peer.online ? '온라인' : '오프라인',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: peer.online
+                                    ? CrColors.of(context).okDot
+                                    : CrColors.of(context).textDim)),
+                      ])),
+                ],
+                if (cols.os) ...[
+                  const SizedBox(width: _wGap),
+                  _crCell(_wOs,
+                      crOsBadge(context, peer) ?? _crMuted(context, '—')),
+                ],
+                if (cols.disk) ...[
+                  const SizedBox(width: _wGap),
+                  _crCell(_wDisk,
+                      crDiskBadge(context, peer) ?? _crMuted(context, '—')),
+                ],
+                if (cols.fw) ...[
+                  const SizedBox(width: _wGap),
+                  _crCell(_wFw, _firewallCell(context, peer)),
+                ],
+                if (cols.van) ...[
+                  const SizedBox(width: _wGap),
+                  _crCell(_wVan, _vanCell(context, peer)),
+                ],
+                SizedBox(
+                    width: _wMore,
+                    child: checkBoxOrActionMoreLandscape(peer, isTile: true)),
+              ]).paddingSymmetric(horizontal: 10, vertical: 3);
+            }),
+          )),
+    );
+  }
+
+  /// 관제 열의 셀 — 안 켠 곳은 "—". 빈칸으로 두면 "값이 아직 없다"로 읽힌다.
+  Widget _firewallCell(BuildContext context, Peer peer) {
+    if (peer.firewallControl != 'Y') return _crMuted(context, '—');
+    final c = CrColors.of(context);
+    return Tooltip(
+      message: '방화벽 자동 해제 관제 켜짐 — 방화벽이 켜지면 에이전트가 바로 해제합니다.',
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.shield_outlined, size: 12, color: c.okFg),
+        const SizedBox(width: 3),
+        Text('켬',
+            style: TextStyle(
+                fontSize: 11, fontWeight: FontWeight.w600, color: c.okFg)),
+      ]),
+    );
+  }
+
+  Widget _vanCell(BuildContext context, Peer peer) {
+    final st = crVanState(context, peer);
+    if (st == null) return _crMuted(context, '—');
+    return Tooltip(
+      message: st.tip,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+        decoration: BoxDecoration(
+            color: st.bg, borderRadius: BorderRadius.circular(4)),
+        child: Text(st.columnLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w600, color: st.fg)),
+      ),
     );
   }
 
@@ -388,44 +791,27 @@ class _PeerCardState extends State<_PeerCard>
                           style: Theme.of(context).textTheme.titleSmall,
                         )),
                       ]).marginOnly(top: isPortrait ? 0 : 2),
-                      if (name.isNotEmpty ||
-                          showNote ||
-                          crOsBadge(context, peer) != null ||
-                          crDiskBadge(context, peer) != null ||
-                          crWatchBadges(context, peer).isNotEmpty)
+                      // 2줄: ID(부제) + 메모. 배지는 아래 3줄째로 내렸다 — 한 줄에 같이 두면
+                      //   좁은 폭에서 서로를 밀어내 ID 가 통째로 사라지거나 배지가 잘렸다.
+                      if (name.isNotEmpty || showNote)
                       Row(
                         children: [
                           if (name.isNotEmpty) ...[
-                          Flexible(
-                            child: Tooltip(
-                              message: name,
-                              waitDuration: const Duration(seconds: 1),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  name,
-                                  style: isPortrait ? null : greyStyle,
-                                  textAlign: TextAlign.start,
-                                  overflow: TextOverflow.ellipsis,
+                            Flexible(
+                              child: Tooltip(
+                                message: name,
+                                waitDuration: const Duration(seconds: 1),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    name,
+                                    style: isPortrait ? null : greyStyle,
+                                    textAlign: TextAlign.start,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          ],
-                          // OS·여유 배지를 이름 아래 줄(부제)로 내려, 목록에서 이름을 밀지 않게 한다(2줄화).
-                          //   종전엔 오른쪽 상태 pill 옆에 있어 좁은 목록 폭에서 이름 Expanded 를 0 으로
-                          //   찌부러뜨렸다(정보 보고한 거래처만 이름 증발, 미보고만 이름 노출 → 불일치).
-                          if (crOsBadge(context, peer) != null) ...[
-                            crOsBadge(context, peer)!,
-                            const SizedBox(width: 6),
-                          ],
-                          if (crDiskBadge(context, peer) != null) ...[
-                            crDiskBadge(context, peer)!,
-                            const SizedBox(width: 6),
-                          ],
-                          for (final b in crWatchBadges(context, peer)) ...[
-                            b,
                             const SizedBox(width: 6),
                           ],
                           if (showNote)
@@ -450,6 +836,11 @@ class _PeerCardState extends State<_PeerCard>
                             )
                         ],
                       ),
+                      // 3줄: 배지(관제 → 디스크 → OS). 자기 줄을 가지므로 ID 와 폭을 다투지 않는다.
+                      if (crHasBadges(context, peer))
+                        Row(children: [
+                          crBadgeLine(context, crBadgeList(context, peer))
+                        ]).marginOnly(top: 2),
                     ],
                   ).marginOnly(top: 2),
                 ),
@@ -459,7 +850,12 @@ class _PeerCardState extends State<_PeerCard>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           // OS·디스크 배지는 이름 아래 부제 줄로 옮겼다(위 참조) — 여기선 상태·더보기만.
-                          _statusPill(peer.online),
+                          //   ★작은 카드(220px)에선 "● Online" 알약이 폭의 4분의 1을 먹어
+                          //   이름·ID·배지가 전부 잘렸다. 그 보기에선 점만 찍는다 — 같은 정보를
+                          //   40여 px 로 줄여 나머지가 살아난다(리스트·큰 카드는 폭이 있어 그대로).
+                          peerCardUiType.value == PeerUiType.tile
+                              ? getOnline(8, peer.online).marginOnly(right: 2)
+                              : _statusPill(peer.online),
                           const SizedBox(width: 8),
                           checkBoxOrActionMoreLandscape(peer, isTile: true),
                         ],
@@ -588,7 +984,14 @@ class _PeerCardState extends State<_PeerCard>
                     ],
                   ),
                   const Spacer(),
-                  // 하단: 온라인 점 + (note 또는 alias 부제) + 더보기.
+                  // 배지 줄 — 큰 카드는 세로 여유(Spacer)가 있으니 상태줄과 나눈다.
+                  //   한 줄에 같이 넣었더니 카드 경계에서 잘렸다(2026-08-11). 줄을 나누면
+                  //   배지가 온전히 보이고 상태줄도 원래대로 넓게 쓴다.
+                  if (crHasBadges(context, peer))
+                    Row(children: [
+                      crBadgeLine(context, crBadgeList(context, peer))
+                    ]).marginOnly(bottom: 6),
+                  // 하단: 온라인 점 + 상태 + 더보기.
                   Row(
                     children: [
                       getOnline(8, peer.online),
@@ -607,41 +1010,6 @@ class _PeerCardState extends State<_PeerCard>
                           ),
                         ),
                       ),
-                      // OS 배지(마이그021) — 예외(Win7/32비트)만 표시. Win7=호박, 그 외=회색.
-                      //   "Win7 · 64비트"처럼 OS+비트수. 일반 Win10/11 64비트·미보고는 생략.
-                      if (crOsBadgeText(peer) != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: crOsBadgeIsWin7(peer)
-                                ? CrColors.of(context).warnBg
-                                : CrColors.of(context).chipBg,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            crOsBadgeText(peer)!,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              color: crOsBadgeIsWin7(peer)
-                                  ? CrColors.of(context).warnFg
-                                  : CrColors.of(context).textSubtle,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      // 디스크 배지(마이그024) — 여유공간 위험/주의만.
-                      if (crDiskBadge(context, peer) != null) ...[
-                        crDiskBadge(context, peer)!,
-                        const SizedBox(width: 6),
-                      ],
-                      // 관제 배지(028/036) — 켜 둔 거래처만. 대부분 꺼져 있어 폭을 안 먹는다.
-                      for (final b in crWatchBadges(context, peer)) ...[
-                        b,
-                        const SizedBox(width: 6),
-                      ],
                       checkBoxOrActionMoreLandscape(peer, isTile: false),
                     ],
                   ),
