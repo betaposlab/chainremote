@@ -195,6 +195,9 @@ const double _wAvatar = 34,
 /// 목록에 관제를 켠 거래처가 하나라도 있을 때만 그 열을 낸다.
 ///   한 곳도 안 켠 대리점에겐 빈 열 두 개가 그냥 소음이다. peers_view 가 목록을 만들 때 정한다.
 bool crShowFwCol = false, crShowVanCol = false;
+/// 디스크·OS 도 같은 원칙 — 한 줄도 값이 없으면 열을 안 그린다. 최근 세션 탭이 대표적인데,
+///   거기 목록은 로컬 캐시라 디스크·OS 가 아예 없어 "—" 만 줄줄이 늘어섰다.
+bool crShowDiskCol = true, crShowOsCol = true;
 
 /// 폭에 따라 어떤 열을 그릴지 — **머리글과 행이 반드시 같은 판단을 써야** 열이 안 어긋난다.
 class CrCols {
@@ -215,8 +218,14 @@ class CrCols {
 /// 좁아지면 정보량이 낮은 열부터 접는다 — OS → 여유공간 → ID 순. 상태와 관제는 끝까지 남긴다
 ///   (관제를 보려고 만든 표라 그걸 먼저 접으면 앞뒤가 안 맞는다).
 CrCols crVisibleCols(double width) {
-  final fw = crShowFwCol, van = crShowVanCol;
-  return CrCols(width >= 620, true, width >= 900, width >= 760, fw, van);
+  return CrCols(
+    width >= 620,
+    true,
+    crShowOsCol && width >= 900,
+    crShowDiskCol && width >= 760,
+    crShowFwCol,
+    crShowVanCol,
+  );
 }
 
 /// 표 정렬 — 머리글을 누르면 그 열로 정렬한다. '' = 기본 순서(최근 세션은 최근순, 그 밖은 상호순).
@@ -245,17 +254,19 @@ Widget _crMuted(BuildContext context, String text) => Text(text,
 
 /// 표 머리글 — 목록 위에 한 번만. 행과 같은 폭·같은 여백을 써야 열이 맞는다.
 ///   누르면 그 열로 정렬한다. 화살표가 지금 어느 열 기준인지 알려 준다.
-Widget crTableHeader(BuildContext context, double width, int count) {
+Widget crTableHeader(BuildContext context, double width, int count,
+    {required bool sortable}) {
   final cols = crVisibleCols(width);
   return Obx(() {
     final curCol = crSortColOf(crTableSort.value);
     final asc = crSortAscOf(crTableSort.value);
     Widget label(String col, String text) {
-      final active = curCol == col;
+      final active = sortable && curCol == col;
       final c = CrColors.of(context);
       return InkWell(
         borderRadius: BorderRadius.circular(4),
-        onTap: () => crToggleSort(col),
+        // 최근 세션 탭은 정렬을 받지 않는다 — 눌러도 안 바뀌는 머리글은 고장으로 읽힌다.
+        onTap: sortable ? () => crToggleSort(col) : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
           child: Row(mainAxisSize: MainAxisSize.min, children: [

@@ -736,6 +736,8 @@ class _PeersViewState extends State<_PeersView>
             //   빈 열 두 개가 그냥 소음이다(열 폭도 상호에 돌려준다).
             crShowFwCol = peers.any((p) => p.firewallControl == 'Y');
             crShowVanCol = peers.any((p) => p.vanWatch.isNotEmpty);
+            crShowDiskCol = peers.any((p) => crDiskBadgeText(p) != null);
+            crShowOsCol = peers.any((p) => crOsBadgeText(p) != null);
             buildOnePeer(Peer peer, bool isPortrait) {
               final visibilityChild = VisibilityDetector(
                 key: ValueKey(_cardId(peer.id)),
@@ -865,7 +867,9 @@ class _PeersViewState extends State<_PeersView>
                                 avail - space,
                                 open != null
                                     ? (grouped[open]?.length ?? 0)
-                                    : peers.length),
+                                    : peers.length,
+                                sortable: widget.peers.loadEvent !=
+                                    LoadEvent.recent),
                             Expanded(
                                 child: _buildTableList(
                                     rows, cols, foldersApply, open, buildOnePeer)),
@@ -1076,7 +1080,10 @@ class _PeersViewState extends State<_PeersView>
       return false;
     }
 
-    if (sortCol.isNotEmpty) {
+    // ★최근 세션은 이름 그대로 "최근에 본 순서"가 전부다. 다른 탭에서 고른 정렬이 여기까지
+    //   따라오면 탭의 존재 이유가 사라진다(2026-08-12 Chang). 정렬은 코어가 준 순서를 그대로 둔다.
+    final isRecent = widget.peers.loadEvent == LoadEvent.recent;
+    if (sortCol.isNotEmpty && !isRecent) {
       // 같은 값끼리는 상호순으로 묶어야 목록이 새로고침마다 들썩이지 않는다.
       peers.sort((a, b) {
         final na = noVal(a), nb = noVal(b);
@@ -1084,7 +1091,7 @@ class _PeersViewState extends State<_PeersView>
         final c = cmp(a, b);
         return c != 0 ? (asc ? c : -c) : nameKey(a).compareTo(nameKey(b));
       });
-    } else if (widget.peers.loadEvent != LoadEvent.recent) {
+    } else if (!isRecent) {
       peers.sort((a, b) => nameKey(a).compareTo(nameKey(b)));
     }
 

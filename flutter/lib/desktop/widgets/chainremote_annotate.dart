@@ -162,6 +162,11 @@ class _CrAnnotateLayerState extends State<CrAnnotateLayer> {
 
   // 화면 좌표 → 원격 디스플레이 좌표. 마우스 입력이 쓰는 환산기를 그대로 쓴다
   //   (배율·스크롤·다중 모니터가 이미 반영돼 있다). isMove=false 로 캔버스는 안 건드린다.
+  //
+  // ★반드시 **전역 좌표**(PointerEvent.position)를 넘긴다. 이 환산기는 안에서 탭바 높이
+  //   (CanvasModel.topToEdge)를 빼도록 만들어져 있어서, 이미 그만큼 빠진 localPosition 을
+  //   주면 두 번 빠져 그림이 포인터보다 위로 밀린다(2026-08-12 실사용에서 바로 드러났다).
+  //   기존 마우스 입력도 e.position 을 넘긴다(input_model.dart:1547).
   Offset? _toRemote(Offset local) {
     final p = widget.ffi.inputModel.handlePointerDevicePos(
       kPointerEventKindMouse,
@@ -197,12 +202,12 @@ class _CrAnnotateLayerState extends State<CrAnnotateLayer> {
               return;
             }
             if (!active) return;
-            final p = _toRemote(e.localPosition);
+            final p = _toRemote(e.position);
             if (p != null) _m.addPoint(widget.ffi.sessionId, p);
           },
           onPointerMove: (e) {
             if (!active || e.buttons != kPrimaryMouseButton) return;
-            final p = _toRemote(e.localPosition);
+            final p = _toRemote(e.position);
             if (p != null) _m.addPoint(widget.ffi.sessionId, p);
           },
           onPointerUp: (e) {
