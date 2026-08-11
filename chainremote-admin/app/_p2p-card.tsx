@@ -74,32 +74,38 @@ export async function P2pCard({ tenantId }: { tenantId: string }) {
   }
 
   const hasSessions = !!stats && stats.total > 0;
-  // 아직 아무 보고도 없으면(방금 도입) 조용히 숨긴다 — 0% 로 오해하게 두지 않는다.
-  if (!hasSessions && !nat) return null;
 
+  // ★데이터가 없다고 카드를 숨기지 않는다. 숨기면 "아직 안 모였다"와 "기능이 배포가 안 됐다"가
+  //   화면에서 똑같이 보여, 켜져 있는지 아닌지 알 방법이 없어진다(2026-08-11 실제로 그렇게 됐다 —
+  //   방화벽 관제 칩에서 겪은 것과 같은 종류의 문제다). 대신 "수집 중"과 언제 채워지는지를 쓴다.
   return (
     <div className="panel-card mb-8 p-5">
       <div className="mb-3 flex items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold text-white">직접 연결 비율</h2>
-        {hasSessions && (
-          <span className="text-xs text-[#ccd2e3]">최근 30일 · {stats!.total}건</span>
-        )}
+        <span className="text-xs text-[#ccd2e3]">
+          {hasSessions ? `최근 30일 · ${stats!.total}건` : "수집 중"}
+        </span>
       </div>
 
       {hasSessions ? (
-        <DirectRate total={stats!.total} direct={stats!.direct} />
+        <>
+          <DirectRate total={stats!.total} direct={stats!.direct} />
+          <p className="mt-3 text-xs text-[#ccd2e3]">
+            직접 연결은 본사와 거래처가 바로 이어져 화면·파일 전송이 빠릅니다. 서버를 경유하면
+            느려지고 회선 비용도 늘어납니다.
+          </p>
+        </>
       ) : (
-        <p className="text-sm text-[#cbd1e0]">
-          최근 30일 원격 기록이 아직 없습니다.
+        <p className="text-sm leading-relaxed text-[#cbd1e0]">
+          아직 집계된 원격이 없습니다.{" "}
+          <span className="text-[#ccd2e3]">
+            15초 미만으로 끊은 접속은 지원 이력에 안 남아 여기서도 빠집니다 — 잠깐 확인만 하고
+            닫은 접속은 세지지 않습니다.
+          </span>
         </p>
       )}
 
-      <p className="mt-3 text-xs text-[#ccd2e3]">
-        직접 연결은 본사와 거래처가 바로 이어져 화면·파일 전송이 빠릅니다. 서버를 경유하면
-        느려지고 회선 비용도 늘어납니다.
-      </p>
-
-      {nat && <NatBreakdown nat={nat} />}
+      <NatBreakdown nat={nat} />
     </div>
   );
 }
@@ -131,26 +137,34 @@ function DirectRate({ total, direct }: { total: number; direct: number }) {
   );
 }
 
-function NatBreakdown({ nat }: { nat: NatCounts }) {
+function NatBreakdown({ nat }: { nat: NatCounts | null }) {
   return (
     <div className="mt-4 border-t border-white/10 pt-4">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <h3 className="text-sm font-semibold text-white">거래처 회선 유형</h3>
-        <span className="text-xs text-[#ccd2e3]">{nat.total}대 보고</span>
+        <span className="text-xs text-[#ccd2e3]">
+          {nat ? `${nat.total}대 보고` : "수집 중"}
+        </span>
       </div>
-      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#cbd1e0]">
-        <span>
-          <span className="font-semibold text-emerald-300">{nat.cone}대</span> 직접 연결 가능
-        </span>
-        <span>
-          <span className="font-semibold text-amber-300">{nat.symmetric}대</span> 서버 경유만 가능
-        </span>
-        {nat.unknown > 0 && (
+      {nat ? (
+        <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#cbd1e0]">
           <span>
-            <span className="font-semibold text-[#ccd2e3]">{nat.unknown}대</span> 확인 중
+            <span className="font-semibold text-emerald-300">{nat.cone}대</span> 직접 연결 가능
           </span>
-        )}
-      </div>
+          <span>
+            <span className="font-semibold text-amber-300">{nat.symmetric}대</span> 서버 경유만 가능
+          </span>
+          {nat.unknown > 0 && (
+            <span>
+              <span className="font-semibold text-[#ccd2e3]">{nat.unknown}대</span> 확인 중
+            </span>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-[#cbd1e0]">
+          거래처가 최신 에이전트로 올라오면 채워집니다(보통 하룻밤).
+        </p>
+      )}
       <p className="mt-2 text-xs text-[#ccd2e3]">
         일부 인터넷 회선·공유기는 접속할 때마다 통로를 바꿔서 직접 연결이 원천적으로 안 됩니다.
         그런 거래처는 서버 경유로만 이어집니다.
