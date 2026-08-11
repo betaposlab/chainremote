@@ -120,6 +120,8 @@ export type EndSessionFields = {
   description?: string; // A/S 내용
   contactName?: string; // 거래처측 응대자
   resolution?: "resolved" | "pending" | "escalated" | "in_progress"; // 처리결과
+  /** 직결(P2P)이었나 릴레이였나(마이그038). 연결 수립 뒤에야 정해져 종료 보고에 실려 온다. */
+  connDirect?: boolean;
 };
 
 /**
@@ -143,6 +145,10 @@ export async function endSession(
       ...(fields?.description?.trim() ? { description: fields.description.trim() } : {}),
       ...(fields?.contactName?.trim() ? { contactName: fields.contactName.trim() } : {}),
       ...(fields?.resolution ? { resolution: fields.resolution } : {}),
+      // 한 번 기록되면 유지 — 내용 보강 저장(두 번째 호출)엔 안 실려 오므로 덮어쓰지 않는다.
+      ...(typeof fields?.connDirect === "boolean"
+        ? { connDirect: fields.connDirect }
+        : {}),
     })
     .where(
       and(eq(supportSessions.id, sessionId), eq(supportSessions.tenantId, tenantId)),

@@ -1,6 +1,7 @@
 // POST /api/sessions/:id/end → 본사 앱(HQ)이 원격 창 닫을 때 호출.
 // body 전부 선택적(HQ 종료 모달에서 안 적거나 스킵 가능): categories(A/S 종류 콤마조인),
-//   description(내용), contactName(거래처측 응대자), resolution(처리결과). 시간·duration 은 자동.
+//   description(내용), contactName(거래처측 응대자), resolution(처리결과), connDirect(직결/릴레이).
+//   시간·duration 은 자동.
 
 import { requireApiAuth, isUuid, jsonError } from "@/lib/api-auth";
 import * as sessions from "@/lib/data/sessions";
@@ -32,6 +33,9 @@ export async function POST(req: Request, ctx: Ctx) {
       description: str(body.description),
       contactName: str(body.contactName),
       resolution,
+      // 직결/릴레이(마이그038) — HQ 가 연결 수립 뒤 알게 된 값을 종료 때 함께 보낸다.
+      connDirect:
+        typeof body.connDirect === "boolean" ? body.connDirect : undefined,
     });
     return Response.json({ ok: true });
   } catch (e) {

@@ -558,9 +558,25 @@ pub fn note_conn_direct(peer_id: &str, direct: bool) {
     }
 }
 
-/// 세션 시작 보고에 실을 값을 꺼낸다(한 번 쓰면 지운다 — 다음 세션에 옛 값이 새지 않게).
+/// 보고에 실을 값을 꺼낸다(한 번 쓰면 지운다 — 다음 세션에 옛 값이 새지 않게).
 fn take_conn_direct(peer_id: &str) -> Option<bool> {
     CONN_DIRECT.lock().ok()?.as_mut()?.remove(peer_id)
+}
+
+/// 세션ID → 거래처ID. 종료 보고는 세션ID만 받는데 direct 값은 거래처ID로 쌓이므로 이어 준다.
+///   ★direct 는 세션이 시작된 *뒤*에 정해진다(원격 창이 뜬 시점엔 아직 연결 전) — 그래서
+///   시작 보고엔 대개 안 실리고, 종료 보고에서 채워진다. 2026-08-11 실측으로 확인한 순서다.
+static SID_TO_PEER: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+
+fn remember_session_peer(session_id: &str, peer_id: &str) {
+    if let Ok(mut g) = SID_TO_PEER.lock() {
+        g.get_or_insert_with(HashMap::new)
+            .insert(session_id.to_owned(), peer_id.to_owned());
+    }
+}
+
+fn take_session_peer(session_id: &str) -> Option<String> {
+    SID_TO_PEER.lock().ok()?.as_mut()?.remove(session_id)
 }
 
 /// 원격 시작 시 세션 생성 — POST /api/sessions {remoteId}. 서버가 미등록/내부기기(is_internal)면
@@ -574,13 +590,20 @@ fn session_start_blocking(remote_id: String) -> String {
     }
     let body = payload.to_string();
     match authed_post(url, body) {
-        Ok(text) => serde_json::from_str::<serde_json::Value>(&text)
-            .ok()
-            .and_then(|v| {
-                v.get("sessionId")
-                    .and_then(|s| s.as_str().map(|x| x.to_owned()))
-            })
-            .unwrap_or_default(),
+        Ok(text) => {
+            let sid = serde_json::from_str::<serde_json::Value>(&text)
+                .ok()
+                .and_then(|v| {
+                    v.get("sessionId")
+                        .and_then(|s| s.as_str().map(|x| x.to_owned()))
+                })
+                .unwrap_or_default();
+            // 종료 보고 때 direct 값을 찾아 실으려면 이 짝이 필요하다.
+            if !sid.is_empty() {
+                remember_session_peer(&sid, &remote_id);
+            }
+            sid
+        }
         Err(e) => {
             log::warn!("ChainRemote session_start 실패(원격은 무관): {}", e);
             String::new()
@@ -617,6 +640,13 @@ fn session_end_blocking(
     }
     if !resolution.trim().is_empty() {
         obj.insert("resolution".into(), resolution.into());
+    }
+    // 직결/릴레이(마이그038) — 연결이 수립되며 정해진 값이라 여기서야 확정돼 있다.
+    //   모달에서 내용을 나중에 저장하는 두 번째 호출엔 이미 소비돼 없으므로 안 실린다(서버가 보존).
+    if let Some(peer) = take_session_peer(&session_id) {
+        if let Some(d) = take_conn_direct(&peer) {
+            obj.insert("connDirect".into(), d.into());
+        }
     }
     let body = serde_json::Value::Object(obj).to_string();
     match authed_post(url, body) {

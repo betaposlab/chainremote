@@ -183,6 +183,28 @@ describe("POST /api/sessions — remoteId 시작 + 내부기기/미등록 스킵
     expect(typeof r.json.sessionId).toBe("string");
   });
 
+  it("★종료 보고로 connDirect 가 채워지고, 내용 보강 저장이 그 값을 지우지 않는다", async () => {
+    // direct 는 원격 창이 뜬 *뒤* 연결이 수립되며 정해진다 — 시작 보고 땐 아직 모른다
+    // (2026-08-11 실측: 시작 시점에 넣었더니 전부 NULL 이었다). 그래서 종료 보고로 채운다.
+    const s = await seed();
+    const sess = await startSession({
+      tenantId: s.tenantId,
+      operatorId: s.operatorId,
+      customerId: s.customerId,
+      remoteId: "323608526",
+    });
+    expect((await row(sess.id)).connDirect).toBeNull();
+
+    await endSession(sess.id, s.tenantId, { connDirect: false });
+    expect((await row(sess.id)).connDirect).toBe(false);
+
+    // 모달에서 A/S 내용을 나중에 저장하는 두 번째 호출 — connDirect 는 안 실려 온다.
+    await endSession(sess.id, s.tenantId, { description: "프린터 재설치" });
+    const after = await row(sess.id);
+    expect(after.connDirect).toBe(false); // 지워지면 안 된다
+    expect(after.description).toBe("프린터 재설치");
+  });
+
   it("직결/릴레이(connDirect)를 세션에 남긴다 — 안 보내면 NULL(구버전 HQ)", async () => {
     // 릴레이 비중이 곧 우리 트래픽 비용이라 실측이 필요하다(마이그038). 구버전 HQ 는 이 값을
     // 안 보내므로 NULL 로 남고, 통계에서 자연히 빠진다.
