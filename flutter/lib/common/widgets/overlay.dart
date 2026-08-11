@@ -615,7 +615,7 @@ class QualityMonitor extends StatelessWidget {
                               : qualityMonitorModel.parent.target?.ffiModel
                                           .direct ==
                                       false
-                                  ? "NAS 릴레이"
+                                  ? "서버 경유"
                                   : "...",
                           rightColor: qualityMonitorModel
                                       .parent.target?.ffiModel.direct ==

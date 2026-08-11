@@ -151,8 +151,10 @@ Widget _crVanStateRow(CrWatchState s) {
         '지금: $vanName 관제 켜짐 — 데몬 정상$tail');
   }
   // 켜 두긴 했는데 아직 보고가 없다(방금 켰거나 기기가 꺼져 있음).
+  //   ★"최대 20분"을 반드시 같이 쓴다 — 지시 전달 1회 + 결과 회신 1회라 하트비트 주기(10분)의
+  //   두 배가 걸린다. 그 말이 없으면 고장으로 읽혀 실제로 20분을 "반응이 없네" 하며 기다렸다.
   return crStateBanner(const Color(0xFF3B9EFF), Icons.hourglass_empty,
-      '지금: $vanName 관제 켜짐 — 보고 대기$tail');
+      '지금: $vanName 관제 켜짐 — 보고 대기(최대 20분)$tail');
 }
 
 /// HQ 우클릭 "카드결제 데몬 관제" — 이 거래처가 쓰는 VAN 을 고르거나 관제를 끈다.

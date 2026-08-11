@@ -66,7 +66,8 @@ export function VanChip({
     return (
       <span
         className="inline-block px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap chip chip-neutral"
-        title={`${name} 데몬 관제 켜짐 — 아직 보고 전입니다`}
+        // 주기 10분 × 2(지시 전달 + 결과 회신)라 최대 20분이다. 이 말이 없으면 고장으로 읽힌다.
+        title={`${name} 데몬 관제 켜짐 — 에이전트가 다음 보고에서 확인합니다(최대 20분)`}
       >
         💳 {name} 대기
       </span>

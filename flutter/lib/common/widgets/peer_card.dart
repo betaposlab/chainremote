@@ -57,6 +57,92 @@ Widget? crDiskBadge(BuildContext context, Peer peer) {
   );
 }
 
+// ── 관제 배지 (마이그028 방화벽 / 036 VAN) — 켜 둔 거래처에만.
+//
+//   왜 넣나: 지금까지 HQ 는 관제가 **실패했을 때만** 목록 위 경고 띠를 띄웠다. 그래서 정상일
+//   때는 "관제를 켜 뒀는데 잘 돌고 있다"와 "애초에 안 켰다"가 화면에서 똑같아, 우클릭 메뉴를
+//   하나씩 열어봐야만 알 수 있었다(2026-08-11 Chang: "큰카드 작은카드 리스트 전부 봤는데
+//   안 보여"). 패널엔 칩이 있는데 정작 매일 쓰는 화면이 HQ 다. 상태는 항상 보이게 둔다.
+//
+//   관제를 안 켠 거래처엔 아무것도 안 그린다 — 대부분이 그쪽이라 목록이 지저분해지지 않는다.
+Widget _crChip(BuildContext context,
+    {required IconData icon,
+    required String label,
+    required Color bg,
+    required Color fg,
+    required String tip}) {
+  return Tooltip(
+    message: tip,
+    waitDuration: const Duration(milliseconds: 400),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 9, color: fg),
+        const SizedBox(width: 3),
+        Text(label,
+            style:
+                TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: fg)),
+      ]),
+    ),
+  );
+}
+
+List<Widget> crWatchBadges(BuildContext context, Peer peer) {
+  final c = CrColors.of(context);
+  final out = <Widget>[];
+
+  if (peer.firewallControl == 'Y') {
+    out.add(_crChip(context,
+        icon: Icons.shield_outlined,
+        label: '방화벽',
+        bg: c.chipBg,
+        fg: c.textSubtle,
+        tip: '방화벽 자동 해제 관제 켜짐 — 방화벽이 켜지면 에이전트가 바로 해제합니다.'));
+  }
+
+  if (peer.vanWatch.isNotEmpty) {
+    // 거래처마다 VAN 사가 달라 종류를 그대로 쓴다("ksnet" → KSNET).
+    final van = peer.vanWatch.toUpperCase();
+    late final String label;
+    late final Color bg, fg;
+    late final String tip;
+    if (peer.vanMissing == 'Y') {
+      // 고장이 아니라 설정 실수다 — 같은 빨강으로 묶으면 없는 고장을 고치러 나간다.
+      label = '$van 없음';
+      bg = c.dangerBg;
+      fg = c.dangerFg;
+      tip = '이 기기엔 $van 데몬이 없습니다. VAN 사가 다른 곳이면 관제를 끄세요.';
+    } else if (peer.vanGaveUp == 'Y') {
+      label = '$van 실패';
+      bg = c.dangerBg;
+      fg = c.dangerFg;
+      tip = '자동 복구를 세 번 시도했지만 안 살아났습니다 — 방문이 필요합니다.';
+    } else if (peer.vanOk == 'N') {
+      label = '$van 중지';
+      bg = c.dangerBg;
+      fg = c.dangerFg;
+      tip = '카드결제 데몬이 멈춰 있습니다. 에이전트가 되살리는 중입니다.';
+    } else if (peer.vanOk == 'Y') {
+      label = '$van 정상';
+      bg = c.okBg;
+      fg = c.okFg;
+      tip = '카드결제 데몬이 정상입니다(마지막 보고 기준).';
+    } else {
+      // 방금 켰거나 기기가 꺼져 있는 상태. 지시 전달 1회 + 결과 회신 1회라 주기 10분 × 2.
+      label = '$van 대기';
+      bg = c.chipBg;
+      fg = c.textSubtle;
+      tip = '에이전트가 다음 보고에서 확인합니다(최대 20분).';
+    }
+    out.add(_crChip(context,
+        icon: Icons.credit_card, label: label, bg: bg, fg: fg, tip: tip));
+  }
+
+  return out;
+}
+
 // ── OS 배지 (마이그021) — "Win7 · 64비트" 식. os(버전)+osBits(네이티브 비트수) 우선, 없으면
 //   arch(페이로드) 폴백. 64비트 Win7 이 32비트 페이로드를 돌려도 os 로 정확히 "Win7 · 64비트".
 String? crOsBadgeText(Peer peer) {
@@ -305,7 +391,8 @@ class _PeerCardState extends State<_PeerCard>
                       if (name.isNotEmpty ||
                           showNote ||
                           crOsBadge(context, peer) != null ||
-                          crDiskBadge(context, peer) != null)
+                          crDiskBadge(context, peer) != null ||
+                          crWatchBadges(context, peer).isNotEmpty)
                       Row(
                         children: [
                           if (name.isNotEmpty) ...[
@@ -335,6 +422,10 @@ class _PeerCardState extends State<_PeerCard>
                           ],
                           if (crDiskBadge(context, peer) != null) ...[
                             crDiskBadge(context, peer)!,
+                            const SizedBox(width: 6),
+                          ],
+                          for (final b in crWatchBadges(context, peer)) ...[
+                            b,
                             const SizedBox(width: 6),
                           ],
                           if (showNote)
@@ -544,6 +635,11 @@ class _PeerCardState extends State<_PeerCard>
                       // 디스크 배지(마이그024) — 여유공간 위험/주의만.
                       if (crDiskBadge(context, peer) != null) ...[
                         crDiskBadge(context, peer)!,
+                        const SizedBox(width: 6),
+                      ],
+                      // 관제 배지(028/036) — 켜 둔 거래처만. 대부분 꺼져 있어 폭을 안 먹는다.
+                      for (final b in crWatchBadges(context, peer)) ...[
+                        b,
                         const SizedBox(width: 6),
                       ],
                       checkBoxOrActionMoreLandscape(peer, isTile: false),
