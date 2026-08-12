@@ -783,15 +783,13 @@ async fn direct_server(server: ServerPtr) {
     let mut port = 0;
     loop {
         // ChainRemote: 공유기 포트 열기(마이그041)를 켠 거래처는 이 리스너가 있어야
-        //   열린 문으로 들어오는 접속을 받는다. 스위치가 꺼져 있으면 상류 기본(꺼짐) 그대로다 —
-        //   포트를 안 여는 기기가 굳이 듣고 있을 이유가 없다.
-        let cr_upnp = crate::chainremote_upnp::is_enabled();
-        let disabled = (!cr_upnp
-            && !option2bool(
-                OPTION_DIRECT_SERVER,
-                &Config::get_option(OPTION_DIRECT_SERVER),
-            ))
-            || option2bool("stop-service", &Config::get_option("stop-service"));
+        //   열린 문으로 들어오는 접속을 받는다. 스위치는 하트비트(서비스 프로세스)가
+        //   OPTION_DIRECT_SERVER 로 바꿔 IPC 로 넘겨 주므로, 여기서는 그 옵션만 보면 된다 —
+        //   ★프로세스가 달라 메모리 플래그를 직접 읽으면 영원히 false 다(chainremote_upnp 주석).
+        let disabled = !option2bool(
+            OPTION_DIRECT_SERVER,
+            &Config::get_option(OPTION_DIRECT_SERVER),
+        ) || option2bool("stop-service", &Config::get_option("stop-service"));
         if !disabled && listener.is_none() {
             port = get_direct_port();
             match hbb_common::tcp::listen_any(port as _).await {

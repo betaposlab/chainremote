@@ -76,6 +76,17 @@ pub fn set_enabled(on: bool) {
     if was == on {
         return;
     }
+    // ★리스너는 **다른 프로세스**에서 돈다. 에이전트는 서비스 프로세스와 `--server`
+    //   프로세스로 나뉘는데, 이 스위치를 받는 하트비트는 서비스 쪽이고 직접 접속 리스너
+    //   (rendezvous_mediator::direct_server)는 `--server` 쪽이다. 메모리 안의 플래그는
+    //   프로세스를 못 넘으므로, 포트만 열리고 정작 듣는 사람이 없었다(2026-08-12 실측:
+    //   매핑은 성공했는데 그 주소로 붙으면 Connection refused).
+    //   그래서 옵션으로 바꿔 IPC 로 넘긴다 — UI 가 설정을 바꿀 때 쓰는 기존 통로다.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    crate::ipc::set_option(
+        hbb_common::config::keys::OPTION_DIRECT_SERVER,
+        if on { "Y" } else { "" },
+    );
     if on {
         log::info!("ChainRemote UPnP 포트 열기 켜짐 — 매핑을 시도한다");
         open_async();
