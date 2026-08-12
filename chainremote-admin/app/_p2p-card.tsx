@@ -25,6 +25,10 @@ interface NatCounts {
   upnpYes: number;
   upnpNo: number;
   upnpTotal: number;
+  // 실제로 포트를 연 곳(041) 과, 그 문이 바깥에서 진짜 열렸는지(042).
+  doorOn: number;
+  doorOpen: number;
+  doorFake: number;
 }
 
 export async function P2pCard({ tenantId }: { tenantId: string }) {
@@ -66,6 +70,17 @@ export async function P2pCard({ tenantId }: { tenantId: string }) {
         upnpYes: sql<number>`count(*) filter (where ${customers.upnp} = 'yes')`.mapWith(Number),
         upnpNo: sql<number>`count(*) filter (where ${customers.upnp} in ('no','found'))`.mapWith(Number),
         upnpTotal: sql<number>`count(*) filter (where ${customers.upnp} is not null)`.mapWith(Number),
+        doorOn: sql<number>`count(*) filter (where ${customers.upnpEnabled})`.mapWith(Number),
+        // 열림 = 클라우드가 그 주소를 두드려 에이전트 인사까지 받은 것(6시간 신선도).
+        doorOpen:
+          sql<number>`count(*) filter (where ${customers.upnpEnabled} and ${customers.upnpVerifiedAt} > now() - interval '6 hours')`.mapWith(
+            Number,
+          ),
+        // 거짓 열림 = 공유기는 주소를 내줬는데 바깥에서 두드리니 안 열리는 것.
+        doorFake:
+          sql<number>`count(*) filter (where ${customers.upnpEnabled} and ${customers.upnpEndpoint} is not null and ${customers.upnpProbeAt} is not null and (${customers.upnpVerifiedAt} is null or ${customers.upnpVerifiedAt} <= now() - interval '6 hours'))`.mapWith(
+            Number,
+          ),
       })
       .from(customers)
       .where(
@@ -194,8 +209,45 @@ function NatBreakdown({ nat }: { nat: NatCounts | null }) {
             공유기에 통로를 직접 열어 달라고 요청할 수 있는 거래처 수입니다. 직접 연결이 안 되던
             곳도 이 방법으로는 이어질 수 있습니다.
           </p>
+          {nat.doorOn > 0 && <DoorVerify nat={nat} />}
         </div>
       )}
+    </div>
+  );
+}
+
+/** 실제로 연 문이 바깥에서 열려 있는지 — 공유기 말이 아니라 실측 결과.
+ *
+ *  ★이 줄이 있는 이유: 우리집 공유기는 AddPortMapping 을 받아 주고 되읽어도 매핑이 멀쩡한데
+ *    인터넷에서 오는 연결을 랜 안쪽으로 넘기지 않았다(2026-08-12). 그래서 "가능 N대"만 세면
+ *    실제 성과를 몇 배로 부풀려 읽게 된다. 켠 곳 중 진짜 열린 곳을 따로 센다. */
+function DoorVerify({ nat }: { nat: NatCounts }) {
+  const waiting = Math.max(0, nat.doorOn - nat.doorOpen - nat.doorFake);
+  return (
+    <div className="mt-3 rounded-lg bg-white/5 p-3">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <h4 className="text-xs font-semibold text-white">실제로 연 문</h4>
+        <span className="text-xs text-[#ccd2e3]">{nat.doorOn}대 켜짐</span>
+      </div>
+      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#cbd1e0]">
+        <span>
+          <span className="font-semibold text-emerald-300">{nat.doorOpen}대</span> 열림(확인됨)
+        </span>
+        {nat.doorFake > 0 && (
+          <span>
+            <span className="font-semibold text-rose-300">{nat.doorFake}대</span> 공유기만 열었다고 함
+          </span>
+        )}
+        {waiting > 0 && (
+          <span>
+            <span className="font-semibold text-[#ccd2e3]">{waiting}대</span> 확인 대기
+          </span>
+        )}
+      </div>
+      <p className="mt-2 text-xs text-[#ccd2e3]">
+        공유기가 열었다고 대답해도 실제로는 안 열리는 제품이 있습니다. 그래서 바깥(우리 서버)에서
+        직접 두드려 보고, 응답이 온 곳만 열린 것으로 셉니다.
+      </p>
     </div>
   );
 }

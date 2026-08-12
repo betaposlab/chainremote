@@ -200,7 +200,14 @@ export const customers = pgTable(
     //   도달 가능해지므로 골라서 켠다(방화벽·VAN 관제와 같은 방식).
     upnpEnabled: boolean("upnp_enabled").notNull().default(false),
     // 공유기가 열어 준 바깥 주소 "ip:port". 본사 앱이 연결 후보로 쓴다.
+    //   ★검증(마이그042)을 통과한 것만 본사 앱에 내려간다 — 공유기가 매핑을 등록해 놓고도
+    //   실제로는 안 넘기는 경우가 있어(우리집 실측) 공유기 말만 믿으면 죽은 주소를 후보로
+    //   잡는다. 판정은 upnpVerifiedAt 이 하고, 여기 값은 날것 그대로 둔다.
     upnpEndpoint: text("upnp_endpoint"),
+    // 문 검증(마이그042) — 클라우드가 바깥에서 그 주소를 두드려 에이전트 인사까지 받은 시각.
+    //   probe 는 시도 시각(성공·실패 무관)이라 "아직 확인 못 함"과 "닫혀 있음"이 갈린다.
+    upnpVerifiedAt: timestamp("upnp_verified_at", { withTimezone: true }),
+    upnpProbeAt: timestamp("upnp_probe_at", { withTimezone: true }),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),

@@ -9,6 +9,7 @@ import { linkFavoritesToCustomer } from "@/lib/data/favorites";
 import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-token";
 import { autoQueueIfBehind } from "@/lib/data/pending-updates";
 import { getAgentPushMetaCached } from "@/lib/agent-push-meta";
+import { maskUnverifiedDoor } from "@/lib/data/upnp-probe";
 
 export interface CustomerFields {
   name: string;
@@ -31,12 +32,16 @@ export interface CustomerFields {
 export async function listCustomers(tenantId: string) {
   // 폴더명을 folder_id 로 조인해 함께 낸다(folderName). HQ 는 이 값을 device_group_name 으로
   //   받아 폴더로 묶는다. 폴더 미배정이면 leftJoin 으로 folderName=null.
-  return db
+  const rows = await db
     .select({ ...getTableColumns(customers), folderName: folders.name })
     .from(customers)
     .leftJoin(folders, eq(folders.id, customers.folderId))
     .where(eq(customers.tenantId, tenantId))
     .orderBy(desc(customers.updatedAt));
+  // ★검증 못 한 UPnP 주소는 여기서 지운다(마이그042). 공유기가 매핑을 등록해 놓고도 실제로는
+  //   랜 안쪽으로 넘기지 않는 경우가 있어(우리집 실측), 그대로 내주면 본사 앱이 원격마다
+  //   죽은 주소를 후보로 잡는다. 본사 앱은 손댈 필요가 없다 — 주소가 없으면 안 쓴다.
+  return rows.map(maskUnverifiedDoor);
 }
 
 export async function getCustomer(id: string, tenantId: string) {
@@ -421,6 +426,7 @@ export async function getWatchState(remoteId: string, tenantId: string) {
       vanRestartCount: customers.vanRestartCount,
       upnpEnabled: customers.upnpEnabled,
       upnpEndpoint: customers.upnpEndpoint,
+      upnpVerifiedAt: customers.upnpVerifiedAt,
       upnp: customers.upnp,
     })
     .from(customers)
@@ -478,7 +484,12 @@ export async function setUpnpEnabled(
 ): Promise<boolean> {
   const [row] = await db
     .update(customers)
-    .set({ upnpEnabled: on, ...(on ? {} : { upnpEndpoint: null }) })
+    // 끄면 주소와 검증 기록을 같이 지운다 — 남겨 두면 다음에 켰을 때 옛 검증이 살아 있는
+    //   것처럼 보여, 새로 안 열린 문을 열린 것으로 센다.
+    .set({
+      upnpEnabled: on,
+      ...(on ? {} : { upnpEndpoint: null, upnpVerifiedAt: null, upnpProbeAt: null }),
+    })
     .where(and(eq(customers.remoteId, remoteId), eq(customers.tenantId, tenantId)))
     .returning({ id: customers.id });
   return !!row;

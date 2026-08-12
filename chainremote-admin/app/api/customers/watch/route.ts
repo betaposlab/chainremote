@@ -10,6 +10,7 @@
 
 import { requireApiAuth, jsonError, ApiAuthError } from "@/lib/api-auth";
 import { getWatchState } from "@/lib/data/customers";
+import { doorIsOpen } from "@/lib/data/upnp-probe";
 
 export async function GET(req: Request) {
   try {
@@ -26,9 +27,13 @@ export async function GET(req: Request) {
       vanGaveUp: row.vanGaveUp,
       vanMissing: row.vanMissing,
       vanRestartCount: row.vanRestartCount,
-      // 공유기 포트 열기(041) — 켜짐 여부 + 실제로 열린 주소(없으면 null).
+      // 공유기 포트 열기(041) — 켜짐 여부 + 공유기가 열었다고 한 주소(없으면 null).
       upnpEnabled: row.upnpEnabled,
       upnpEndpoint: row.upnpEndpoint,
+      // ★그 주소가 바깥에서 진짜 열려 있는지(042). 주소만 보고 "열림"이라 쓰면 거짓말이 된다 —
+      //   매핑을 등록해 놓고도 안 넘기는 공유기가 실재한다(우리집 실측). 여기서 서버가
+      //   판정해 내려보내야 신선도 기준(6시간)이 한 곳에만 있게 된다.
+      upnpDoorOpen: doorIsOpen(row),
       upnp: row.upnp,
     });
   } catch (e) {

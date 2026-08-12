@@ -2,7 +2,9 @@
 // X-ChainRemote-Token 헤더로 인증하고 last_heartbeat_at + last_version 갱신.
 // 매칭/업데이트는 lib/data/customers.ts::recordHeartbeat.
 
+import { after } from "next/server";
 import * as data from "@/lib/data/customers";
+import { probeUpnpDoor } from "@/lib/data/upnp-probe";
 import { clientIp } from "@/lib/request-ip";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
@@ -106,6 +108,20 @@ export async function POST(req: Request) {
     // 포트 열기 대상이면 에이전트가 공유기에 매핑을 걸고 직접 접속 리스너를 켠다(041).
     //   기본 false 라 켠 거래처에만 내려간다.
     const upnpEnabled = await data.getUpnpEnabled(remoteId);
+    // 열어 둔 문이 바깥에서 진짜 열려 있는지 확인한다(마이그042). after() 로 응답 뒤에 돌려
+    //   heartbeat 가 3초짜리 소켓 시험을 기다리지 않게 한다 — 떠도는 프라미스로 두면 런타임이
+    //   응답과 함께 잘라 버릴 수 있다. 거래처당 1시간에 한 번만 실제로 두드린다.
+    //
+    // ★이 줄이 heartbeat 를 깨뜨릴 수 없어야 한다. after() 는 요청 스코프 밖에서 호출되면
+    //   던지는데(라우트를 직접 부르는 테스트가 그렇다), 그 예외가 바깥 catch 로 흘러가면
+    //   500 이 되고 에이전트는 자동 업데이트까지 통째로 잃는다 — 조용히 고착되는 그 사고다.
+    //   그래서 스코프가 없으면 그냥 지금 돌린다(우리 패널은 상주 Node 컨테이너라 안전).
+    const knockDoorLater = () => probeUpnpDoor(remoteId).catch(() => {});
+    try {
+      after(knockDoorLater);
+    } catch {
+      void knockDoorLater();
+    }
     // 거래처 수락창에 띄울 대리점 상호(마이그 029). 에이전트가 캐시해 두고 카드에 쓴다.
     //   여기로 내려보내는 이유는 설치본에 박으면 자동 업데이트가 덮어버리고 상호 변경도
     //   반영이 안 되기 때문(getSupportName 주석 참조).
