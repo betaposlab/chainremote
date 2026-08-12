@@ -734,11 +734,36 @@ impl Client {
             }
             .boxed(),
         );
+        // ★UDP 경로도 같은 창으로 묶는다. `udp_nat_connect` 는 먼저 `punch_udp` 를 도는데
+        //   그 루프는 자체 MAX_TIME(20초)까지 두드리고, 우리가 넘긴 값은 그 뒤 KCP 연결에만
+        //   쓰인다. TCP 는 3초에 포기하는데 UDP 가 계속 두드리면 둘 다 끝나야 릴레이로
+        //   넘어가므로 **연결 시각이 들쭉날쭉해진다**(2026-08-12 실측: 같은 3초 창인데 3.1초·
+        //   4.1초·11.2초. Chang 이 "무작위 초로 늦게 뜬다"고 신고한 것의 정체).
+        //   여기서 통째로 감싸면 창 하나로 두 경로가 같이 끝난다.
+        let cr_win = std::time::Duration::from_millis(connect_timeout);
         if let Some(udp_socket_nat) = udp_socket_nat {
-            connect_futures.push(udp_nat_connect(udp_socket_nat, "UDP", connect_timeout).boxed());
+            let f = udp_nat_connect(udp_socket_nat, "UDP", connect_timeout);
+            connect_futures.push(
+                async move {
+                    match tokio::time::timeout(cr_win, f).await {
+                        Ok(r) => r,
+                        Err(_) => bail!("UDP punch timed out"),
+                    }
+                }
+                .boxed(),
+            );
         }
         if let Some(udp_socket_v6) = udp_socket_v6 {
-            connect_futures.push(udp_nat_connect(udp_socket_v6, "IPv6", connect_timeout).boxed());
+            let f = udp_nat_connect(udp_socket_v6, "IPv6", connect_timeout);
+            connect_futures.push(
+                async move {
+                    match tokio::time::timeout(cr_win, f).await {
+                        Ok(r) => r,
+                        Err(_) => bail!("IPv6 punch timed out"),
+                    }
+                }
+                .boxed(),
+            );
         }
         // Run all connection attempts concurrently, return the first successful one
         let (mut conn, kcp, mut typ) = match select_ok(connect_futures).await {
