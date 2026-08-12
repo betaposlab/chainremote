@@ -2894,6 +2894,18 @@ pub fn chainremote_change_password(
     SyncReturn(result)
 }
 
+/// 연결 경로 점검 한 바퀴(마이그043) — 거래처마다 연결만 해 보고 끊어 직결/경유를 가린다.
+///
+/// 거래처 화면엔 아무것도 안 뜬다: 수락 카드는 로그인 요청을 받아야 뜨는데 그 전에 끊는다.
+/// 오래 걸리므로(거래처당 최대 12초) 별도 thread — http_request_sync 의 tokio runtime 과도
+/// 충돌하면 안 되는 자리다. 반환은 사람이 읽을 요약 한 줄.
+pub fn chainremote_probe_routes() -> SyncReturn<String> {
+    let result = std::thread::spawn(|| crate::chainremote_probe::run_once_blocking())
+        .join()
+        .unwrap_or_else(|_| "점검 실패 — 내부 오류".to_string());
+    SyncReturn(result)
+}
+
 /// 본사 앱 메인 화면용. GET /api/customers 결과를 RustDesk Peer 포맷으로 바꿔
 /// 기존 `load_recent_peers` 이벤트로 push 한다. UI 는 손댈 것 없이 같은 경로로 처리된다.
 pub fn chainremote_load_customers() {

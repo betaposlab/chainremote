@@ -31,6 +31,14 @@ interface NatCounts {
   doorFake: number;
 }
 
+/** 경로 점검 명단(마이그043) — 비율이 아니라 **어느 집이 릴레이만 타는가**가 목적이다. */
+interface ProbeRow {
+  name: string;
+  direct: boolean | null;
+  ms: number | null;
+  at: Date | null;
+}
+
 // UPnP 수치는 **우리 엔지니어링 계측**이지 대리점이 볼 것이 아니다. "공유기 포트 열기가
 //   뭐냐"는 질문만 부른다(Chang 2026-08-12). 그래서 플랫폼 운영자에게만 보인다.
 export async function P2pCard({
@@ -103,6 +111,25 @@ export async function P2pCard({
     nat = null;
   }
 
+  // 경로 점검 명단(마이그043). 실패해도 카드 전체가 죽으면 안 되므로 별도 try.
+  let probe: ProbeRow[] | null = null;
+  if (showInternals) {
+    try {
+      probe = await db
+        .select({
+          name: customers.name,
+          direct: customers.probeDirect,
+          ms: customers.probeMs,
+          at: customers.probeAt,
+        })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), isNotNull(customers.probeAt)))
+        .orderBy(customers.probeDirect, customers.name);
+    } catch {
+      probe = null;
+    }
+  }
+
   const hasSessions = !!stats && stats.total > 0;
 
   // ★데이터가 없다고 카드를 숨기지 않는다. 숨기면 "아직 안 모였다"와 "기능이 배포가 안 됐다"가
@@ -124,18 +151,17 @@ export async function P2pCard({
             직접 연결은 본사와 거래처가 바로 이어져 화면·파일 전송이 빠릅니다. 서버를 경유하면
             느려지고 회선 비용도 늘어납니다.
           </p>
+          <CountingRule />
         </>
       ) : (
-        <p className="text-sm leading-relaxed text-[#cbd1e0]">
-          아직 집계된 원격이 없습니다.{" "}
-          <span className="text-[#ccd2e3]">
-            15초 미만으로 끊은 접속은 지원 이력에 안 남아 여기서도 빠집니다 — 잠깐 확인만 하고
-            닫은 접속은 세지지 않습니다.
-          </span>
-        </p>
+        <>
+          <p className="text-sm leading-relaxed text-[#cbd1e0]">아직 집계된 원격이 없습니다.</p>
+          <CountingRule />
+        </>
       )}
 
       <NatBreakdown nat={nat} showInternals={showInternals} />
+      {probe && probe.length > 0 && <ProbeList rows={probe} />}
     </div>
   );
 }
@@ -261,6 +287,69 @@ function DoorVerify({ nat }: { nat: NatCounts }) {
       <p className="mt-2 text-xs text-[#ccd2e3]">
         공유기가 열었다고 대답해도 실제로는 안 열리는 제품이 있습니다. 그래서 바깥(우리 서버)에서
         직접 두드려 보고, 응답이 온 곳만 열린 것으로 셉니다.
+      </p>
+    </div>
+  );
+}
+
+/** 무엇이 분모에서 빠지는지 — 항상 보인다.
+ *
+ *  ★2026-08-13: "어제 원격을 많이 했는데 왜 2건이냐"는 질문이 나왔다. 실제로 그날 건
+ *    대부분이 내부 기기(우리집·재성이 컴) 대상이라 세션이 아예 안 만들어졌다
+ *    (app/api/sessions/route.ts 의 internal 스킵 — 지원 이력에 내 장비를 섞지 않으려는
+ *    의도된 설계다). 규칙이 화면에 없으면 정상 동작이 고장으로 읽힌다. */
+function CountingRule() {
+  return (
+    <p className="mt-2 text-xs text-[#8a93ad]">
+      집계에서 빠지는 것: <span className="text-[#ccd2e3]">내부 기기</span>(본사 PC·테스트
+      장비 — 지원 이력에 안 남기므로 여기서도 빠집니다) ·{" "}
+      <span className="text-[#ccd2e3]">15초 미만 접속</span>(잠깐 확인만 하고 닫은 것).
+    </p>
+  );
+}
+
+/** 경로 점검 결과 명단 — 플랫폼 운영자에게만.
+ *
+ *  ★비율이 아니라 이름이 목적이다. 거래처 26곳으로 비율을 재 봐야 ±19%p 밖에 못 좁힌다
+ *    (표본 단위가 세션이 아니라 거래처다). 릴레이만 타는 집이 소수면 그 집들을 개별로 파고,
+ *    다수면 구조적이라는 뜻이니 릴레이를 받아들이고 화질 쪽을 손보면 된다.
+ *    그 판단에 필요한 건 숫자가 아니라 명단이다. */
+function ProbeList({ rows }: { rows: ProbeRow[] }) {
+  const relay = rows.filter((r) => r.direct === false);
+  const direct = rows.filter((r) => r.direct === true);
+  const failed = rows.filter((r) => r.direct === null);
+  const at = rows.map((r) => r.at?.getTime() ?? 0).reduce((a, b) => Math.max(a, b), 0);
+
+  return (
+    <div className="mt-4 border-t border-white/10 pt-4">
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-white">경로 점검 결과</h3>
+        <span className="text-xs text-[#ccd2e3]">
+          {at ? new Date(at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }) : ""}
+        </span>
+      </div>
+      <div className="mb-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#cbd1e0]">
+        <span>
+          <span className="font-semibold text-emerald-300">{direct.length}곳</span> 직접 연결
+        </span>
+        <span>
+          <span className="font-semibold text-amber-300">{relay.length}곳</span> 서버 경유
+        </span>
+        {failed.length > 0 && (
+          <span>
+            <span className="font-semibold text-[#ccd2e3]">{failed.length}곳</span> 연결 안 됨
+          </span>
+        )}
+      </div>
+      {relay.length > 0 && (
+        <p className="text-xs leading-relaxed text-[#ccd2e3]">
+          <span className="text-amber-300">서버 경유:</span>{" "}
+          {relay.map((r) => r.name).join(" · ")}
+        </p>
+      )}
+      <p className="mt-2 text-xs text-[#8a93ad]">
+        본사 앱이 거래처마다 연결만 해 보고 끊은 결과입니다. 거래처 화면에는 아무것도 뜨지
+        않습니다.
       </p>
     </div>
   );

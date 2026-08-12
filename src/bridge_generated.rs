@@ -5195,6 +5195,16 @@ fn wire_chainremote_change_password_impl(
         },
     )
 }
+fn wire_chainremote_probe_routes_impl() -> support::WireSyncReturn {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+        WrapInfo {
+            debug_name: "chainremote_probe_routes",
+            port: None,
+            mode: FfiCallMode::Sync,
+        },
+        move || Ok(chainremote_probe_routes()),
+    )
+}
 fn wire_chainremote_load_customers_impl(port_: MessagePort) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
         WrapInfo {

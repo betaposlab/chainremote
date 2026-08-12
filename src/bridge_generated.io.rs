@@ -2296,6 +2296,11 @@ pub extern "C" fn wire_chainremote_change_password(
 }
 
 #[no_mangle]
+pub extern "C" fn wire_chainremote_probe_routes() -> support::WireSyncReturn {
+    wire_chainremote_probe_routes_impl()
+}
+
+#[no_mangle]
 pub extern "C" fn wire_chainremote_load_customers(port_: i64) {
     wire_chainremote_load_customers_impl(port_)
 }

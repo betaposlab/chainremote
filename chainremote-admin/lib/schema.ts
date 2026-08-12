@@ -208,6 +208,13 @@ export const customers = pgTable(
     //   probe 는 시도 시각(성공·실패 무관)이라 "아직 확인 못 함"과 "닫혀 있음"이 갈린다.
     upnpVerifiedAt: timestamp("upnp_verified_at", { withTimezone: true }),
     upnpProbeAt: timestamp("upnp_probe_at", { withTimezone: true }),
+    // 연결 경로 점검(마이그043) — HQ 가 한 바퀴 돌며 연결만 해 보고 끊은 결과.
+    //   true=직결 / false=서버 경유 / NULL=측정 전이거나 연결 실패. 비율이 아니라 **명단**이
+    //   목적이다(어느 집이 릴레이만 타는가). 지원기록과는 별개 — 그쪽은 내부 기기를 빼지만
+    //   여기는 우리 장비도 포함해서 다 잰다.
+    probeDirect: boolean("probe_direct"),
+    probeAt: timestamp("probe_at", { withTimezone: true }),
+    probeMs: integer("probe_ms"),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),

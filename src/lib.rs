@@ -40,6 +40,9 @@ pub mod chainremote_auth;
 pub mod chainremote_data;
 pub mod chainremote_direct;
 pub mod chainremote_upnp;
+// 연결 경로 점검(프로브) — HQ 에서만. 거래처 에이전트(Sciter/32비트)에는 없다.
+#[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
+pub mod chainremote_probe;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 mod bridge_generated;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]

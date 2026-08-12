@@ -911,3 +911,29 @@ export async function renameCustomerByRemoteId(
 // 차지(claim)는 "즐겨찾기 = 차지" 로 일원화 — favorites.ts addFavoriteByRemoteId 가 미배정
 //    거래처를 즐겨찾기하면 자동으로 담당 배정(first-wins). 원격 접속 자체는 소유와 무관.
 //    (옛 connect-time claim 프리미티브는 1.4.41 에서 폐기.)
+
+/** 연결 경로 점검 결과 기록(마이그043) — HQ 가 한 바퀴 돌고 올린다.
+ *
+ *  ★자기 tenant 거래처만 갱신한다. 결과는 덮어쓴다 — 최신 한 벌만 의미가 있고, 이력이
+ *  필요해지면 그때 별도 테이블을 판다(지금은 명단을 뽑는 게 목적이라 이력이 필요 없다). */
+export async function recordProbeResults(
+  tenantId: string,
+  rows: { remoteId: string; direct: boolean | null; ms: number }[],
+): Promise<number> {
+  let n = 0;
+  for (const r of rows) {
+    const id = (r.remoteId ?? "").trim();
+    if (!id) continue;
+    const res = await db
+      .update(customers)
+      .set({
+        probeDirect: r.direct,
+        probeAt: new Date(),
+        probeMs: Number.isFinite(r.ms) ? Math.round(r.ms) : null,
+      })
+      .where(and(eq(customers.remoteId, id), eq(customers.tenantId, tenantId)))
+      .returning({ id: customers.id });
+    n += res.length;
+  }
+  return n;
+}

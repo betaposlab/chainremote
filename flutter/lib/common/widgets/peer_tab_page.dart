@@ -10,6 +10,7 @@ import 'package:flutter_hbb/common/widgets/peers_view.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_disk.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_van.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/common/widgets/peer_card.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/popup_menu.dart';
@@ -633,6 +634,34 @@ class _PeerTabPageState extends State<PeerTabPage>
     );
   }
 
+  // 연결 경로 점검(마이그043) — 거래처를 한 바퀴 돌며 연결만 해 보고 끊어 직결/경유를 가린다.
+  //
+  // ★플랫폼 운영자에게만 보인다. 대리점이 보면 "이게 뭐냐"부터 묻는 물건이고(같은 이유로
+  //   [공유기 포트 열기] 우클릭 메뉴를 뺐다), 실제로 이건 우리 엔지니어링 도구다.
+  //   거래처 화면엔 아무것도 안 뜬다 — 수락 카드는 로그인 요청을 받아야 뜨는데 그 전에 끊는다.
+  Widget _createProbe(BuildContext context) {
+    final textColor = Theme.of(context).textTheme.titleLarge?.color;
+    return _hoverAction(
+      context: context,
+      toolTip: '거래처마다 연결만 해 보고 끊어 직결/서버경유를 가립니다 (거래처 화면엔 안 뜸)',
+      onTap: () async {
+        showToast('경로 점검을 시작합니다 — 거래처 수에 따라 몇 분 걸립니다.');
+        // FFI 가 내부에서 별도 thread 를 쓰지만 호출 자체는 블로킹이라 UI 가 멎는다.
+        //   compute 대신 짧은 지연 뒤 호출해 토스트가 먼저 그려지게 한다.
+        await Future.delayed(const Duration(milliseconds: 300));
+        final summary = bind.chainremoteProbeRoutes();
+        showToast(summary);
+      },
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.network_check, size: 18, color: textColor),
+        const SizedBox(width: 3),
+        Text('경로 점검',
+            style:
+                TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+      ]),
+    );
+  }
+
   // 새 폴더 — 검색 오른쪽. 클릭하면 목록 보기 루트로 가서 최상단에 이름 편집 타일을 띄운다.
   Widget _createNewFolder(BuildContext context) {
     final textColor = Theme.of(context).textTheme.titleLarge?.color;
@@ -974,6 +1003,8 @@ class _PeerTabPageState extends State<PeerTabPage>
       if (model.currentTab == PeerTabIndex.customers.index)
         _createRefresh(index: PeerTabIndex.customers).marginOnly(right: 4),
       _createSupportHistory(context).marginOnly(right: 4),
+      if (ChainRemoteAuth.currentRole() == 'super_admin')
+        _createProbe(context).marginOnly(right: 4),
       // [정렬] 드롭다운은 뺐다(2026-08-11) — 표 머리글을 누르면 그 열로 정렬한다.
       //   둘 다 두면 진실 원천이 갈려, 메뉴로 골랐는데 머리글 화살표는 딴 곳을 가리킨다.
     ];
@@ -1053,6 +1084,7 @@ class _PeerTabPageState extends State<PeerTabPage>
           model.currentTab == PeerTabIndex.customers.index)
         _createNewFolder(context),
       _createSupportHistory(context),
+      if (ChainRemoteAuth.currentRole() == 'super_admin') _createProbe(context),
       // 세로(모바일)는 표가 아니라 카드라 머리글이 없다 — 정렬 메뉴를 여기만 남긴다.
       if (model.currentTab != PeerTabIndex.recent.index) PeerSortDropdown(),
     ];
