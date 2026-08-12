@@ -139,8 +139,12 @@ else
     OLD=$(curl -s -b "$JAR" https://betaposlab.com/staff/ \
       | grep -oE 'ChainRemote_HQ_Setup_v[0-9.]+\.exe' | sort -u | grep -v "v${VERSION}\.exe" || true)
     curl -s -b "$JAR" --max-time 300 -F "action=upload" -F "file=@$EXE" "$STAFF" -o "$RESP"
-    if grep -q '"status":"success"' "$RESP" && \
-       curl -s -b "$JAR" https://betaposlab.com/staff/ | grep -q "$EXPECTED_NAME"; then
+    # ★판정은 업로드 응답이 아니라 **목록에 실제로 떴는가**로만 한다.
+    #   2026-08-13 실측: 25MB 업로드가 멀쩡히 끝나 파일이 자료실에 올라갔는데도 응답에
+    #   '"status":"success"' 가 없어 "업로드 실패/미확인"으로 찍혔다. 그 거짓 음성 때문에
+    #   옛 버전 삭제까지 건너뛰어 1.4.108 과 1.4.112 가 자료실에 나란히 남았다.
+    #   응답 문자열은 서버 사정으로 얼마든지 달라지지만 목록은 사실이다.
+    if curl -s -b "$JAR" https://betaposlab.com/staff/ | grep -q "$EXPECTED_NAME"; then
       echo "  ✓ 업로드: $EXPECTED_NAME"
       if [[ -n "$OLD" ]]; then
         while IFS= read -r o; do
