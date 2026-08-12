@@ -31,7 +31,15 @@ interface NatCounts {
   doorFake: number;
 }
 
-export async function P2pCard({ tenantId }: { tenantId: string }) {
+// UPnP 수치는 **우리 엔지니어링 계측**이지 대리점이 볼 것이 아니다. "공유기 포트 열기가
+//   뭐냐"는 질문만 부른다(Chang 2026-08-12). 그래서 플랫폼 운영자에게만 보인다.
+export async function P2pCard({
+  tenantId,
+  showInternals = false,
+}: {
+  tenantId: string;
+  showInternals?: boolean;
+}) {
   let stats: { total: number; direct: number } | null = null;
   try {
     const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -127,7 +135,7 @@ export async function P2pCard({ tenantId }: { tenantId: string }) {
         </p>
       )}
 
-      <NatBreakdown nat={nat} />
+      <NatBreakdown nat={nat} showInternals={showInternals} />
     </div>
   );
 }
@@ -159,7 +167,13 @@ function DirectRate({ total, direct }: { total: number; direct: number }) {
   );
 }
 
-function NatBreakdown({ nat }: { nat: NatCounts | null }) {
+function NatBreakdown({
+  nat,
+  showInternals,
+}: {
+  nat: NatCounts | null;
+  showInternals: boolean;
+}) {
   return (
     <div className="mt-4 border-t border-white/10 pt-4">
       <div className="mb-2 flex items-baseline justify-between gap-2">
@@ -191,7 +205,7 @@ function NatBreakdown({ nat }: { nat: NatCounts | null }) {
         일부 인터넷 회선·공유기는 접속할 때마다 통로를 바꿔서 직접 연결이 원천적으로 안 됩니다.
         그런 거래처는 서버 경유로만 이어집니다.
       </p>
-      {nat && nat.upnpTotal > 0 && (
+      {showInternals && nat && nat.upnpTotal > 0 && (
         <div className="mt-3 border-t border-white/10 pt-3">
           <div className="mb-1 flex items-baseline justify-between gap-2">
             <h3 className="text-sm font-semibold text-white">공유기 포트 열기(UPnP)</h3>

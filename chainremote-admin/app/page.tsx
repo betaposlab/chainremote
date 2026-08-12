@@ -75,7 +75,10 @@ export default async function Home() {
           최신 버전이 몇인지부터 알아야 한다 — 종전엔 일괄푸시 화면에서만 확인됐다. */}
       <ReleaseCard />
       {/* 직결/릴레이 비율(마이그038) — 릴레이가 곧 트래픽 비용이라 눈에 두고 본다. */}
-      <P2pCard tenantId={tenant.id} />
+      <P2pCard
+        tenantId={tenant.id}
+        showInternals={session.user.role === "super_admin"}
+      />
 
       <section>
         <h2 className="text-lg font-semibold mb-3 text-white">시작하기</h2>

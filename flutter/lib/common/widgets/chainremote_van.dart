@@ -35,6 +35,10 @@ class CrWatchState {
   /// 공유기 포트 열기(마이그041) — 켜짐 여부와 실제로 열린 바깥 주소.
   final bool upnpEnabled;
   final String upnpEndpoint;
+  /// 그 주소가 **바깥에서 진짜 열려 있는지**(마이그042). 공유기가 매핑을 등록해 놓고도
+  ///   랜 안쪽으로 안 넘기는 경우가 있어(우리집 실측), 주소가 있다고 열린 게 아니다.
+  ///   클라우드가 그 주소를 두드려 에이전트 인사까지 받았을 때만 참.
+  final bool upnpDoorOpen;
   /// 공유기가 UPnP 를 지원하는가 — 'no'|'found'|'yes'|''(조사 전).
   final String upnp;
   const CrWatchState({
@@ -46,6 +50,7 @@ class CrWatchState {
     required this.vanRestartCount,
     required this.upnpEnabled,
     required this.upnpEndpoint,
+    required this.upnpDoorOpen,
     required this.upnp,
   });
 }
@@ -70,6 +75,7 @@ Future<CrWatchState?> crFetchWatchState(String remoteId) async {
       vanMissing: j['vanMissing'] == true,
       upnpEnabled: j['upnpEnabled'] == true,
       upnpEndpoint: (j['upnpEndpoint'] ?? '').toString(),
+      upnpDoorOpen: j['upnpDoorOpen'] == true,
       upnp: (j['upnp'] ?? '').toString(),
       vanRestartCount:
           j['vanRestartCount'] is int ? j['vanRestartCount'] as int : 0,
