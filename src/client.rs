@@ -731,15 +731,22 @@ impl Client {
         //   신원을 검증하는 절차는 그대로 두고, **접속할 주소만 하나 늘린다**. 직접 IP 접속
         //   모드로 갈아타면 그 검증이 빠져 중간자 위험이 생기는데 이 방식은 그게 없다.
         //   홀펀칭이 실패하는 거래처(테스트1)를 직결로 되살리는 게 목적이다.
+        // ★공유기가 열어 준 문(마이그041)을 연결 후보로 얹는다. rendezvous 는 그대로 타므로
+        //   서버가 준 상대 공개키(signed_id_pk)로 신원을 검증하는 절차가 살아 있다 —
+        //   **접속할 주소만 하나 늘리는 것**이지 검증을 건너뛰는 게 아니다.
+        //
+        //   ★한 번 크게 틀렸던 자리다(2026-08-12): 상류의 직접 접속 리스너는
+        //   create_tcp_connection 에 secure=false 를 넘겨 **평문**으로 받는다. 그래서 이 문으로
+        //   붙으면 에이전트가 SignedId 를 안 보내고, 서명 검증을 기다리던 뷰어가 18초 만에
+        //   죽었다("deadline has elapsed"). 리스너를 secure=true 로 맞춰 홀펀칭 경로와 동등하게
+        //   만든 뒤에야 이 후보가 성립한다(rendezvous_mediator::direct_server 주석 참조).
         #[cfg(feature = "flutter")]
         {
             let ep = crate::chainremote_data::upnp_endpoint_of(peer_id);
             if !ep.is_empty() {
                 log::info!("ChainRemote 열린 문 후보: {}", ep);
                 let f = connect_tcp_local(ep, None, connect_timeout);
-                connect_futures.push(
-                    async move { Ok((f.await?, None, "UPnP")) }.boxed(),
-                );
+                connect_futures.push(async move { Ok((f.await?, None, "UPnP")) }.boxed());
             }
         }
         let fut = connect_tcp_local(peer, Some(local_addr), connect_timeout);

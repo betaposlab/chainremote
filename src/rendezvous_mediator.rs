@@ -835,7 +835,16 @@ async fn direct_server(server: ServerPtr) {
                             server,
                             hbb_common::Stream::from(stream, local_addr),
                             addr,
-                            false,
+                            // ★ChainRemote: 상류는 여기를 false(평문)로 둔다. 그래서 이 문으로
+                            //   들어온 연결은 SignedId 를 안 보내고, 서명 검증을 기대하는 뷰어는
+                            //   오지 않을 인사를 기다리다 18초 만에 죽었다(2026-08-12 실측).
+                            //   더 중요한 건 **암호화가 아예 없다**는 것이다 — 거래처 화면을
+                            //   평문으로 실어 나를 수는 없다. 우리가 UPnP 로 여는 문은 홀펀칭
+                            //   경로(같은 파일 아래쪽 create_tcp_connection(.., true, ..))와
+                            //   동등한 보안이어야 하므로 true 로 맞춘다. 그러면 에이전트가
+                            //   SignedId 를 먼저 보내고, 뷰어는 서버가 준 공개키로 그것을
+                            //   검증한 뒤 세션 키를 교환한다 — 신원 검증과 암호화가 모두 산다.
+                            true,
                             None, // Direct connections don't have control_permissions
                         )
                         .await
