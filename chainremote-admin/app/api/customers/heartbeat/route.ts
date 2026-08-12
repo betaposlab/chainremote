@@ -37,6 +37,7 @@ export async function POST(req: Request) {
       vanMissing?: unknown;
       natType?: unknown;
       upnp?: unknown;
+      upnpEndpoint?: unknown;
     };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";
@@ -83,6 +84,9 @@ export async function POST(req: Request) {
         natType: typeof body.natType === "number" ? body.natType : undefined,
         // 공유기 UPnP(040) — 직결을 되살릴 길이 있는 거래처를 세기 위한 값.
         upnp: typeof body.upnp === "string" ? body.upnp : undefined,
+        // 공유기가 열어 준 바깥 주소(041).
+        upnpEndpoint:
+          typeof body.upnpEndpoint === "string" ? body.upnpEndpoint : undefined,
       },
     );
     if (!ok) {
@@ -99,6 +103,9 @@ export async function POST(req: Request) {
     // VAN 데몬 관제(마이그 036) — 종류를 내려보내면 에이전트가 그 데몬의 포트를 감시한다.
     //   거래처마다 VAN 사가 달라 켠 곳에만 값이 실린다(빈 값이면 에이전트가 감시를 끈다).
     const vanWatch = await data.getVanWatch(remoteId);
+    // 포트 열기 대상이면 에이전트가 공유기에 매핑을 걸고 직접 접속 리스너를 켠다(041).
+    //   기본 false 라 켠 거래처에만 내려간다.
+    const upnpEnabled = await data.getUpnpEnabled(remoteId);
     // 거래처 수락창에 띄울 대리점 상호(마이그 029). 에이전트가 캐시해 두고 카드에 쓴다.
     //   여기로 내려보내는 이유는 설치본에 박으면 자동 업데이트가 덮어버리고 상호 변경도
     //   반영이 안 되기 때문(getSupportName 주석 참조).
@@ -108,6 +115,7 @@ export async function POST(req: Request) {
       ...(cleanup ? { cleanup } : {}),
       firewallControl,
       vanWatch,
+      upnpEnabled,
       ...(supportName ? { supportName } : {}),
     });
   } catch (e) {

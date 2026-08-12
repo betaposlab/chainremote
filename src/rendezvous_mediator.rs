@@ -763,6 +763,11 @@ impl RendezvousMediator {
     }
 }
 
+/// UPnP 매핑이 열어야 할 포트 — 직접 접속 리스너와 반드시 같아야 한다.
+pub fn cr_direct_port() -> i32 {
+    get_direct_port()
+}
+
 fn get_direct_port() -> i32 {
     let mut port = Config::get_option("direct-access-port")
         .parse::<i32>()
@@ -777,10 +782,16 @@ async fn direct_server(server: ServerPtr) {
     let mut listener = None;
     let mut port = 0;
     loop {
-        let disabled = !option2bool(
-            OPTION_DIRECT_SERVER,
-            &Config::get_option(OPTION_DIRECT_SERVER),
-        ) || option2bool("stop-service", &Config::get_option("stop-service"));
+        // ChainRemote: 공유기 포트 열기(마이그041)를 켠 거래처는 이 리스너가 있어야
+        //   열린 문으로 들어오는 접속을 받는다. 스위치가 꺼져 있으면 상류 기본(꺼짐) 그대로다 —
+        //   포트를 안 여는 기기가 굳이 듣고 있을 이유가 없다.
+        let cr_upnp = crate::chainremote_upnp::is_enabled();
+        let disabled = (!cr_upnp
+            && !option2bool(
+                OPTION_DIRECT_SERVER,
+                &Config::get_option(OPTION_DIRECT_SERVER),
+            ))
+            || option2bool("stop-service", &Config::get_option("stop-service"));
         if !disabled && listener.is_none() {
             port = get_direct_port();
             match hbb_common::tcp::listen_any(port as _).await {

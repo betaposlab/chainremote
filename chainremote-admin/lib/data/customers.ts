@@ -220,6 +220,8 @@ export interface HeartbeatExtras {
   natType?: number;
   // 공유기 UPnP(040) — 'no'|'found'|'yes' 만 통과.
   upnp?: string;
+  // 공유기가 열어 준 바깥 주소(041) "ip:port". 빈 문자열이면 닫힌 것으로 보고 지운다.
+  upnpEndpoint?: string;
 }
 
 export async function recordHeartbeat(
@@ -320,6 +322,16 @@ export async function recordHeartbeat(
     typeof extras?.upnp === "string" && ["no", "found", "yes"].includes(extras.upnp)
       ? { upnp: extras.upnp }
       : {};
+  // 열린 주소 — 형식이 맞을 때만 반영하고, 빈 문자열은 "닫혔다"는 보고라 NULL 로 지운다.
+  //   (에이전트가 매핑에 실패하거나 스위치가 꺼지면 빈 값을 보낸다.)
+  const endpointSet: Record<string, unknown> =
+    typeof extras?.upnpEndpoint === "string"
+      ? {
+          upnpEndpoint: /^\d{1,3}(\.\d{1,3}){3}:\d{1,5}$/.test(extras.upnpEndpoint)
+            ? extras.upnpEndpoint
+            : null,
+        }
+      : {};
   const natSet: Record<string, unknown> =
     typeof extras?.natType === "number" && [0, 1, 2].includes(extras.natType)
       ? { natType: extras.natType }
@@ -338,6 +350,7 @@ export async function recordHeartbeat(
       ...vanSet,
       ...natSet,
       ...upnpSet,
+      ...endpointSet,
     })
     .where(
       and(
@@ -406,6 +419,9 @@ export async function getWatchState(remoteId: string, tenantId: string) {
       vanGaveUp: customers.vanGaveUp,
       vanMissing: customers.vanMissing,
       vanRestartCount: customers.vanRestartCount,
+      upnpEnabled: customers.upnpEnabled,
+      upnpEndpoint: customers.upnpEndpoint,
+      upnp: customers.upnp,
     })
     .from(customers)
     .where(and(eq(customers.remoteId, remoteId), eq(customers.tenantId, tenantId)))
@@ -443,6 +459,31 @@ export async function getSupportName(remoteId: string): Promise<string | null> {
 }
 
 /** HQ 우클릭 "방화벽 설정" — 이 거래처의 방화벽 자동 해제 on/off. 자기 tenant 거래처만. */
+/** 에이전트가 heartbeat 응답으로 받는 "포트를 열어도 되는가". 켜진 거래처만 연다. */
+export async function getUpnpEnabled(remoteId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ on: customers.upnpEnabled })
+    .from(customers)
+    .where(eq(customers.remoteId, remoteId))
+    .limit(1);
+  return row?.on ?? false;
+}
+
+/** HQ 우클릭 "공유기 포트 열기" — 자기 tenant 거래처만. 끄면 열린 주소도 같이 지운다
+ *  (닫혔는데 옛 주소가 남아 있으면 본사가 없는 문을 계속 두드린다). */
+export async function setUpnpEnabled(
+  remoteId: string,
+  on: boolean,
+  tenantId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .update(customers)
+    .set({ upnpEnabled: on, ...(on ? {} : { upnpEndpoint: null }) })
+    .where(and(eq(customers.remoteId, remoteId), eq(customers.tenantId, tenantId)))
+    .returning({ id: customers.id });
+  return !!row;
+}
+
 export async function setFirewallControl(
   remoteId: string,
   on: boolean,

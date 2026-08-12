@@ -7,6 +7,7 @@ import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_disk.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_firewall.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_van.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_upnp.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_folders.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
@@ -1549,6 +1550,19 @@ abstract class BasePeerCard extends StatelessWidget {
 
   // 우클릭 "카드결제 데몬 관제" — 이 거래처가 쓰는 VAN 데몬이 멈추면 에이전트가 되살린다.
   //   데몬이 죽어도 화면엔 표시가 없어 손님이 카드를 내밀 때 발견되는 고장을 덮는다. 기본 off.
+  /// 공유기 포트 열기(041) — 홀펀칭이 실패하는 거래처를 직결로 되살리는 수단.
+  MenuEntryBase<String> _upnpAction(String id) {
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) =>
+          _watchMenuRow('공유기 포트 열기', Icons.meeting_room_outlined, style),
+      proc: () {
+        showCrUpnpDialog(peer);
+      },
+      padding: menuPadding,
+      dismissOnClicked: true,
+    );
+  }
+
   MenuEntryBase<String> _vanAction(String id) {
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) =>
@@ -1941,6 +1955,7 @@ class RecentPeerCard extends BasePeerCard {
     if (peer.platform == kPeerPlatformWindows) {
       menuItems.add(_firewallAction(peer.id));
       menuItems.add(_vanAction(peer.id));
+      menuItems.add(_upnpAction(peer.id));
     }
 
     menuItems.add(MenuEntryDivider());
@@ -2005,6 +2020,7 @@ class FavoritePeerCard extends BasePeerCard {
     if (peer.platform == kPeerPlatformWindows) {
       menuItems.add(_firewallAction(peer.id));
       menuItems.add(_vanAction(peer.id));
+      menuItems.add(_upnpAction(peer.id));
     }
 
     menuItems.add(MenuEntryDivider());
@@ -2072,6 +2088,7 @@ class AllCustomersPeerCard extends BasePeerCard {
     if (peer.platform == kPeerPlatformWindows) {
       menuItems.add(_firewallAction(peer.id));
       menuItems.add(_vanAction(peer.id));
+      menuItems.add(_upnpAction(peer.id));
     }
 
     // 미확정(pending) 후보 확정. 버튼은 마스터(owner)에게만 노출하고, 서버도 owner 를 강제한다 (이중 게이트).

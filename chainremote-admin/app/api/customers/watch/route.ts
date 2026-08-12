@@ -26,6 +26,10 @@ export async function GET(req: Request) {
       vanGaveUp: row.vanGaveUp,
       vanMissing: row.vanMissing,
       vanRestartCount: row.vanRestartCount,
+      // 공유기 포트 열기(041) — 켜짐 여부 + 실제로 열린 주소(없으면 null).
+      upnpEnabled: row.upnpEnabled,
+      upnpEndpoint: row.upnpEndpoint,
+      upnp: row.upnp,
     });
   } catch (e) {
     return jsonError(e);

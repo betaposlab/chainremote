@@ -32,6 +32,11 @@ class CrWatchState {
   /// 데몬이 그 기기에 아예 없음 — 고장이 아니라 VAN 을 잘못 고른 것이다.
   final bool vanMissing;
   final int vanRestartCount;
+  /// 공유기 포트 열기(마이그041) — 켜짐 여부와 실제로 열린 바깥 주소.
+  final bool upnpEnabled;
+  final String upnpEndpoint;
+  /// 공유기가 UPnP 를 지원하는가 — 'no'|'found'|'yes'|''(조사 전).
+  final String upnp;
   const CrWatchState({
     required this.firewallControl,
     required this.vanWatch,
@@ -39,6 +44,9 @@ class CrWatchState {
     required this.vanGaveUp,
     required this.vanMissing,
     required this.vanRestartCount,
+    required this.upnpEnabled,
+    required this.upnpEndpoint,
+    required this.upnp,
   });
 }
 
@@ -60,6 +68,9 @@ Future<CrWatchState?> crFetchWatchState(String remoteId) async {
       vanOk: j['vanOk'] is bool ? j['vanOk'] as bool : null,
       vanGaveUp: j['vanGaveUp'] == true,
       vanMissing: j['vanMissing'] == true,
+      upnpEnabled: j['upnpEnabled'] == true,
+      upnpEndpoint: (j['upnpEndpoint'] ?? '').toString(),
+      upnp: (j['upnp'] ?? '').toString(),
       vanRestartCount:
           j['vanRestartCount'] is int ? j['vanRestartCount'] as int : 0,
     );

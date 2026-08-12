@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { eq } from "drizzle-orm";
 import { testDb } from "./helpers/db";
-import { registerHeartbeatToken, recordHeartbeat } from "@/lib/data/customers";
+import {
+  registerHeartbeatToken,
+  recordHeartbeat,
+  setUpnpEnabled,
+  getUpnpEnabled,
+} from "@/lib/data/customers";
 import { tenants, customers } from "@/lib/schema";
 
 // 공유기 UPnP 조사 결과(마이그 040) — 'no'|'found'|'yes' 만 저장한다.
@@ -80,5 +85,91 @@ describe("heartbeat UPnP 조사 (마이그 040)", () => {
       }),
     ).toBe(false);
     expect(await readUpnp("GN55550005")).toBeNull();
+  });
+});
+
+// 041 — 거래처별 포트 열기 스위치. ★기본이 꺼짐이라는 것 자체가 계약이다.
+//   켜면 그 POS 가 인터넷에서 도달 가능해지므로, 실수로 전체가 켜지는 일이 없어야 한다.
+describe("UPnP 포트 열기 스위치 (마이그 041)", () => {
+  it("★기본은 꺼짐이다", async () => {
+    await seed("upnp-sw-a", "GN66660006");
+    const db = testDb();
+    const [row] = await db
+      .select({ on: customers.upnpEnabled, ep: customers.upnpEndpoint })
+      .from(customers)
+      .where(eq(customers.remoteId, "GN66660006"))
+      .limit(1);
+    expect(row.on).toBe(false);
+    expect(row.ep).toBeNull();
+  });
+
+  it("켜고 끌 수 있고, 끄면 열린 주소도 같이 지운다", async () => {
+    const token = await seed("upnp-sw-b", "GN77770007");
+    const db = testDb();
+    const [t] = await db
+      .select({ id: customers.tenantId })
+      .from(customers)
+      .where(eq(customers.remoteId, "GN77770007"))
+      .limit(1);
+
+    expect(await setUpnpEnabled("GN77770007", true, t.id)).toBe(true);
+    expect(await getUpnpEnabled("GN77770007")).toBe(true);
+
+    // 에이전트가 열린 주소를 보고
+    await recordHeartbeat("GN77770007", token, "1.4.109", undefined, undefined, undefined, undefined, {
+      upnpEndpoint: "203.0.113.7:21118",
+    });
+    let [row] = await db
+      .select({ ep: customers.upnpEndpoint })
+      .from(customers)
+      .where(eq(customers.remoteId, "GN77770007"))
+      .limit(1);
+    expect(row.ep).toBe("203.0.113.7:21118");
+
+    // 끄면 주소도 사라져야 한다 — 닫힌 문을 본사가 계속 두드리면 안 된다.
+    expect(await setUpnpEnabled("GN77770007", false, t.id)).toBe(true);
+    [row] = await db
+      .select({ ep: customers.upnpEndpoint })
+      .from(customers)
+      .where(eq(customers.remoteId, "GN77770007"))
+      .limit(1);
+    expect(row.ep).toBeNull();
+  });
+
+  it("주소 형식이 아니면 저장하지 않는다(빈 보고는 지우기로 본다)", async () => {
+    const token = await seed("upnp-sw-c", "GN88880008");
+    const db = testDb();
+    const read = async () => {
+      const [r] = await db
+        .select({ ep: customers.upnpEndpoint })
+        .from(customers)
+        .where(eq(customers.remoteId, "GN88880008"))
+        .limit(1);
+      return r.ep;
+    };
+    await recordHeartbeat("GN88880008", token, "1.4.109", undefined, undefined, undefined, undefined, {
+      upnpEndpoint: "203.0.113.9:21118",
+    });
+    expect(await read()).toBe("203.0.113.9:21118");
+    for (const bad of ["", "nope", "203.0.113.9", "host:21118"]) {
+      await recordHeartbeat("GN88880008", token, "1.4.109", undefined, undefined, undefined, undefined, {
+        upnpEndpoint: bad,
+      });
+      expect(await read()).toBeNull();
+      await recordHeartbeat("GN88880008", token, "1.4.109", undefined, undefined, undefined, undefined, {
+        upnpEndpoint: "203.0.113.9:21118",
+      });
+    }
+  });
+
+  it("★남의 tenant 거래처는 못 켠다", async () => {
+    await seed("upnp-sw-d", "GN99990009");
+    const db = testDb();
+    const [other] = await db
+      .insert(tenants)
+      .values({ slug: "upnp-sw-e", displayName: "남" })
+      .returning({ id: tenants.id });
+    expect(await setUpnpEnabled("GN99990009", true, other.id)).toBe(false);
+    expect(await getUpnpEnabled("GN99990009")).toBe(false);
   });
 });

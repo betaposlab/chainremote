@@ -196,6 +196,11 @@ export const customers = pgTable(
     //   NAT 유형이 Cone 이라도 실제로는 안 뚫리는 곳이 있어(테스트1), 직결을 되살릴 다른
     //   길이 있는지 세는 값이다. 조사는 읽기 전용이라 포트를 열지 않는다.
     upnp: text("upnp"),
+    // 거래처별 포트 열기 스위치(마이그041). ★기본 꺼짐 — 열면 그 POS 가 인터넷에서
+    //   도달 가능해지므로 골라서 켠다(방화벽·VAN 관제와 같은 방식).
+    upnpEnabled: boolean("upnp_enabled").notNull().default(false),
+    // 공유기가 열어 준 바깥 주소 "ip:port". 본사 앱이 연결 후보로 쓴다.
+    upnpEndpoint: text("upnp_endpoint"),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),

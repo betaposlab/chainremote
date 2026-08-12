@@ -370,6 +370,9 @@ fn send_heartbeat(
         if !u.is_empty() {
             body["upnp"] = u.into();
         }
+        // 공유기가 열어 준 바깥 주소(041). 스위치가 꺼져 있거나 매핑에 실패하면 빈 문자열을
+        //   보내 서버가 옛 주소를 지우게 한다 — 닫힌 문을 본사가 계속 두드리면 안 된다.
+        body["upnpEndpoint"] = crate::chainremote_upnp::endpoint().into();
     }
     // 디스크 관제(패널 마이그 024) — C드라이브 용량 + (여유 부족 시) Temp 실측.
     //   조회 실패해도 heartbeat 는 그대로 나간다. 표시·경고용 telemetry.
@@ -442,12 +445,16 @@ fn send_heartbeat(
             van_watch: String,
             #[serde(default, rename = "supportName")]
             support_name: String,
+            #[serde(default, rename = "upnpEnabled")]
+            upnp_enabled: bool,
         }
         let parsed = resp.json::<Resp>().unwrap_or_default();
         // 방화벽 자동 해제 대상 여부를 감시 스레드에 반영.
         crate::chainremote_firewall::set_control(parsed.firewall_control);
         // VAN 데몬 관제 종류("ksnet" 등, 빈 값이면 off)를 감시 스레드에 반영.
         crate::chainremote_van::set_kind(&parsed.van_watch);
+        // 공유기 포트 열기(041) — 켜진 거래처만 문을 연다. 기본은 꺼짐이라 대부분 no-op.
+        crate::chainremote_upnp::set_enabled(parsed.upnp_enabled);
         // 대리점 상호 캐시. 값이 실제로 달라졌을 때만 쓴다 — 매 하트비트마다 같은 값을
         // 디스크에 다시 쓸 이유가 없다. 서버가 안 내려주면(구버전) 옛 값을 그대로 둔다.
         #[cfg(windows)]

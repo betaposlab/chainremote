@@ -59,6 +59,9 @@ struct CustomerRow {
     van_gave_up: Option<bool>,
     #[serde(rename = "vanMissing")]
     van_missing: Option<bool>,
+    // 공유기가 열어 준 바깥 주소(마이그041) "ip:port". 켠 거래처에만 값이 있다.
+    #[serde(rename = "upnpEndpoint")]
+    upnp_endpoint: Option<String>,
     // 폴더(마이그 026) — 패널이 folder join 으로 준다(folderName). HQ 가 device_group_name 으로
     //   받아 같은 매장 여러 POS 를 폴더로 묶는다(peers_view 그룹 헤더). 미배정이면 None.
     #[serde(rename = "folderName")]
@@ -211,6 +214,33 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
     }))
 }
 
+/// 거래처 ID → 공유기가 열어 준 바깥 주소. 접속할 때 후보 하나를 더 얹는 데 쓴다.
+///   ★목록을 받을 때 채워 두는 이유: 접속 시점에 서버를 다시 부르면 그만큼 늦어지고,
+///   패널이 잠깐 죽어도 직전 목록으로 계속 시도할 수 있다.
+static UPNP_ENDPOINTS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+
+pub fn remember_upnp_endpoints(rows: &[&CustomerRow]) {
+    let mut m = HashMap::new();
+    for c in rows {
+        if let (Some(id), Some(ep)) = (c.remote_id.as_ref(), c.upnp_endpoint.as_ref()) {
+            if !ep.is_empty() {
+                m.insert(id.clone(), ep.clone());
+            }
+        }
+    }
+    *UPNP_ENDPOINTS.lock().unwrap() = Some(m);
+}
+
+/// 이 거래처에 열린 문이 있으면 그 주소. 없으면 빈 문자열.
+pub fn upnp_endpoint_of(remote_id: &str) -> String {
+    UPNP_ENDPOINTS
+        .lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|m| m.get(remote_id).cloned())
+        .unwrap_or_default()
+}
+
 /// customers 미등록 머신(orphan)용 placeholder peer — remote_id 만, 별칭/메모는 빈 값.
 /// 2026-05-27 옵션 B+ 본사 PC(HQ workstation 등) 즐겨찾기 지원용.
 fn orphan_peer_json(remote_id: &str) -> serde_json::Value {
@@ -319,6 +349,7 @@ fn fetch_customers_blocking() -> bool {
             Ok(resp) => {
                 let rows: Vec<&CustomerRow> = resp.customers.iter().collect();
                 update_remote_to_uuid(&rows);
+                remember_upnp_endpoints(&rows);
                 merge_remote_names(&rows);
                 // "전체 거래처" 탭 — remote_id 있는 거래처 전부(pending 포함)를 peer 로 push.
                 let peers: Vec<_> = resp
@@ -368,6 +399,7 @@ fn fetch_favorites_blocking() -> bool {
                     .filter_map(|f| f.customer.as_ref())
                     .collect();
                 update_remote_to_uuid(&mapped_customers);
+                remember_upnp_endpoints(&mapped_customers);
                 merge_remote_names(&mapped_customers);
 
                 // customer 정보 있으면 그대로, orphan 은 remote_id 만으로 placeholder.

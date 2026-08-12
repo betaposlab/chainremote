@@ -13,11 +13,15 @@
 //   부터 센다. NAT 유형을 세어 UPnP 착수를 정하려던 것과 같은 방식이고, 짐작으로 큰 걸
 //   만들었다가 헛수고하는 걸 이미 두 번 피했다.
 //
-// ■ 포트를 열지는 않는다
+// ■ 조사에서 실제 포트 열기로 (2026-08-12 오후)
 //
-// 조사 단계에서 남의 공유기에 구멍을 뚫어 두면 안 된다. 그래서 여기서는 **읽기 전용**
-//   GetExternalIPAddress 까지만 호출한다. SSDP 응답만 보면 "광고는 하는데 제어는 막힌"
-//   장비를 걸러내지 못해서, 실제 제어 호출이 성공하는지까지 봐야 답이 된다.
+// 조사 결과가 나왔다 — 26곳 중 14곳(54%)이 제어까지 열려 있었다. 절반이 넘으므로 세는 데서
+//   멈추지 않고 **실제로 포트를 연다**. 순서는 그대로다: SSDP → 장치설명 → 읽기 전용
+//   GetExternalIPAddress(제어가 사는지 확인) → AddPortMapping.
+//   SSDP 응답만 보면 "광고는 하는데 제어는 막힌" 장비를 못 거르므로 읽기 전용 호출은 남긴다.
+//
+// ★임대(LEASE_SECS)를 반드시 건다. 영구 매핑은 에이전트가 죽거나 PC 를 치운 뒤에도 남의
+//   공유기에 구멍을 남긴다. 살아 있는 동안만 절반 주기로 갱신하고, 꺼지면 저절로 닫힌다.
 //
 // ■ 결과값
 //
@@ -29,14 +33,57 @@
 use hbb_common::log;
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs, UdpSocket};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
 static RESULT: Mutex<Option<String>> = Mutex::new(None);
+/// 공유기가 열어 준 바깥 주소("ip:port"). 본사가 여기로 곧장 붙는다.
+static ENDPOINT: Mutex<Option<String>> = Mutex::new(None);
+
+/// 매핑 임대 시간(초). ★영구 매핑을 걸지 않는다 — 에이전트가 죽거나 PC 를 치워도 남의
+///   공유기에 구멍이 영영 남으면 안 된다. 짧게 걸고 살아 있는 동안 갱신한다.
+const LEASE_SECS: u32 = 3600;
+/// 갱신 주기 — 임대의 절반이면 한 번 실패해도 만료 전에 한 번 더 기회가 있다.
+const RENEW_SECS: u64 = (LEASE_SECS / 2) as u64;
+
+/// 이 거래처에 포트를 열어도 되는가(마이그041). heartbeat 응답이 정한다. **기본 꺼짐** —
+///   포트를 열면 그 POS 가 인터넷에서 도달 가능해지므로 켠 곳에만 연다.
+static ENABLED: AtomicBool = AtomicBool::new(false);
+/// 이미 열어 뒀나 — 매 heartbeat 마다 다시 열지 않기 위한 래치.
+static OPENED: AtomicBool = AtomicBool::new(false);
 
 /// 조사 결과(캐시). 아직 안 끝났으면 빈 문자열.
 pub fn result() -> String {
     RESULT.lock().unwrap().clone().unwrap_or_default()
+}
+
+/// 이 거래처가 포트 열기 대상인가 — 직접 접속 리스너를 켤지 판단하는 데도 쓴다.
+pub fn is_enabled() -> bool {
+    ENABLED.load(Ordering::SeqCst)
+}
+
+/// 공유기가 열어 준 바깥 주소. 못 열었으면 빈 문자열.
+pub fn endpoint() -> String {
+    ENDPOINT.lock().unwrap().clone().unwrap_or_default()
+}
+
+/// heartbeat 가 알려 준 스위치를 반영한다. 켜지는 순간 한 번만 문을 연다.
+///   끄면 갱신을 멈추고 보고할 주소를 지운다 — 임대가 만료되면 공유기 쪽도 저절로 닫힌다
+///   (우리가 DeletePortMapping 을 못 보내고 죽는 경우까지 임대가 덮어 준다).
+pub fn set_enabled(on: bool) {
+    let was = ENABLED.swap(on, Ordering::SeqCst);
+    if was == on {
+        return;
+    }
+    if on {
+        log::info!("ChainRemote UPnP 포트 열기 켜짐 — 매핑을 시도한다");
+        open_async();
+    } else {
+        log::info!("ChainRemote UPnP 포트 열기 꺼짐 — 갱신 중단, 임대 만료로 닫힌다");
+        OPENED.store(false, Ordering::SeqCst);
+        *ENDPOINT.lock().unwrap() = None;
+    }
 }
 
 /// 백그라운드로 한 번 조사한다. 부팅 경로에서 부르되 **절대 블로킹하지 않는다** —
@@ -53,15 +100,103 @@ fn probe() -> String {
     let Some(location) = discover() else {
         return "no".to_owned();
     };
-    match control_url(&location) {
-        Some((url, service)) => {
-            if get_external_ip(&url, &service).is_some() {
-                "yes".to_owned()
-            } else {
-                "found".to_owned()
-            }
+    let Some((url, service)) = control_url(&location) else {
+        return "found".to_owned();
+    };
+    let Some(external_ip) = get_external_ip(&url, &service) else {
+        return "found".to_owned();
+    };
+    // 제어가 열려 있다는 것까지가 조사다. **여기서 포트를 열지는 않는다** — 여는 건
+    //   거래처별 스위치가 켜졌을 때만(set_enabled → open_async).
+    let _ = external_ip;
+    "yes".to_owned()
+}
+
+/// 스위치가 켜졌을 때 실제로 문을 연다. 조사와 같은 경로를 다시 타고 AddPortMapping 까지.
+fn open_async() {
+    std::thread::spawn(|| {
+        if OPENED.swap(true, Ordering::SeqCst) {
+            return; // 이미 열어 뒀다
         }
-        None => "found".to_owned(),
+        let Some(location) = discover() else {
+            OPENED.store(false, Ordering::SeqCst);
+            return;
+        };
+        let Some((url, service)) = control_url(&location) else {
+            OPENED.store(false, Ordering::SeqCst);
+            return;
+        };
+        let Some(external_ip) = get_external_ip(&url, &service) else {
+            OPENED.store(false, Ordering::SeqCst);
+            return;
+        };
+        let Some(local_ip) = local_ip_for(&url) else {
+            OPENED.store(false, Ordering::SeqCst);
+            return;
+        };
+        let port = crate::rendezvous_mediator::cr_direct_port() as u16;
+        if add_mapping(&url, &service, &local_ip, port) {
+            *ENDPOINT.lock().unwrap() = Some(format!("{external_ip}:{port}"));
+            log::info!("ChainRemote UPnP 포트 매핑 성공: {external_ip}:{port}");
+            spawn_renew(url, service, local_ip, port);
+        } else {
+            log::info!("ChainRemote UPnP 제어는 되지만 포트 매핑은 거부됨");
+            OPENED.store(false, Ordering::SeqCst);
+        }
+    });
+}
+
+/// 임대가 끝나기 전에 다시 건다. 실패해도 조용히 — 다음 주기에 또 시도한다.
+fn spawn_renew(url: String, service: String, local_ip: String, port: u16) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(RENEW_SECS));
+        // 스위치가 꺼졌으면 갱신을 멈춘다 — 임대가 만료되며 공유기 쪽도 닫힌다.
+        if !ENABLED.load(Ordering::SeqCst) {
+            log::info!("ChainRemote UPnP 갱신 종료(스위치 꺼짐)");
+            return;
+        }
+        if !add_mapping(&url, &service, &local_ip, port) {
+            log::warn!("ChainRemote UPnP 매핑 갱신 실패 — 다음 주기에 재시도");
+        }
+    });
+}
+
+/// 공유기와 통신할 때 쓰는 우리 쪽 사설 IP. 매핑의 내부 주소로 넣어야 한다.
+///   랜카드가 여럿이면(가상 어댑터 등) 어느 IP 를 넣을지가 문제라, 실제로 공유기까지
+///   나가는 경로의 IP 를 커널에게 물어본다(UDP connect 는 패킷을 안 보낸다).
+fn local_ip_for(url: &str) -> Option<String> {
+    let rest = url.strip_prefix("http://")?;
+    let hostport = rest.split('/').next()?;
+    let addr = hostport.to_socket_addrs().ok()?.next()?;
+    let sock = UdpSocket::bind("0.0.0.0:0").ok()?;
+    sock.connect(addr).ok()?;
+    Some(sock.local_addr().ok()?.ip().to_string())
+}
+
+fn add_mapping(url: &str, service: &str, local_ip: &str, port: u16) -> bool {
+    let body = format!(
+        "<?xml version=\"1.0\"?>\
+         <s:Envelope xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\" \
+         s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">\
+         <s:Body><u:AddPortMapping xmlns:u=\"{service}\">\
+         <NewRemoteHost></NewRemoteHost>\
+         <NewExternalPort>{port}</NewExternalPort>\
+         <NewProtocol>TCP</NewProtocol>\
+         <NewInternalPort>{port}</NewInternalPort>\
+         <NewInternalClient>{local_ip}</NewInternalClient>\
+         <NewEnabled>1</NewEnabled>\
+         <NewPortMappingDescription>ChainRemote</NewPortMappingDescription>\
+         <NewLeaseDuration>{lease}</NewLeaseDuration>\
+         </u:AddPortMapping></s:Body></s:Envelope>",
+        lease = LEASE_SECS
+    );
+    let extra = format!(
+        "SOAPAction: \"{service}#AddPortMapping\"\r\nContent-Type: text/xml; charset=\"utf-8\"\r\n"
+    );
+    match http_request(url, "POST", &extra, Some(&body)) {
+        // 성공은 200 + AddPortMappingResponse. 공유기가 거부하면 500 + UPnPError 를 준다.
+        Some(resp) => resp.contains("AddPortMappingResponse") && !resp.contains("UPnPError"),
+        None => false,
     }
 }
 

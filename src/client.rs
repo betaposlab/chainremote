@@ -726,6 +726,22 @@ impl Client {
         let start = std::time::Instant::now();
 
         let mut connect_futures = Vec::new();
+        // ★공유기가 열어 준 문(마이그041)이 있으면 후보로 하나 더 얹는다.
+        //   rendezvous 를 건너뛰지 않는 것이 핵심이다 — 서버가 준 상대 공개키(signed_id_pk)로
+        //   신원을 검증하는 절차는 그대로 두고, **접속할 주소만 하나 늘린다**. 직접 IP 접속
+        //   모드로 갈아타면 그 검증이 빠져 중간자 위험이 생기는데 이 방식은 그게 없다.
+        //   홀펀칭이 실패하는 거래처(테스트1)를 직결로 되살리는 게 목적이다.
+        #[cfg(feature = "flutter")]
+        {
+            let ep = crate::chainremote_data::upnp_endpoint_of(peer_id);
+            if !ep.is_empty() {
+                log::info!("ChainRemote 열린 문 후보: {}", ep);
+                let f = connect_tcp_local(ep, None, connect_timeout);
+                connect_futures.push(
+                    async move { Ok((f.await?, None, "UPnP")) }.boxed(),
+                );
+            }
+        }
         let fut = connect_tcp_local(peer, Some(local_addr), connect_timeout);
         connect_futures.push(
             async move {
