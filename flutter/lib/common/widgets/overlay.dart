@@ -562,6 +562,33 @@ class QualityMonitor extends StatelessWidget {
   final QualityMonitorModel qualityMonitorModel;
   QualityMonitor(this.qualityMonitorModel);
 
+  /// 이 거래처에 [항상 릴레이를 통해 연결]이 켜져 있나. 켜져 있으면 직결이 가능해도 안 쓴다.
+  bool get _forcedRelay {
+    final ffi = qualityMonitorModel.parent.target;
+    if (ffi == null) return false;
+    return bind.sessionGetToggleOptionSync(
+        sessionId: ffi.sessionId, arg: kOptionForceAlwaysRelay);
+  }
+
+  String _routeText() {
+    final direct = qualityMonitorModel.parent.target?.ffiModel.direct;
+    if (direct == true) return "P2P 직결";
+    if (direct == false) {
+      return _forcedRelay ? "서버 경유 (항상 릴레이 설정)" : "서버 경유";
+    }
+    return "...";
+  }
+
+  Color? _routeColor() {
+    final direct = qualityMonitorModel.parent.target?.ffiModel.direct;
+    if (direct == true) return Colors.green;
+    if (direct == false) {
+      // 설정 때문이면 네트워크 탓이 아니라 사람이 끌 수 있는 것 — 더 눈에 띄게.
+      return _forcedRelay ? Colors.redAccent : Colors.orange;
+    }
+    return null;
+  }
+
   Widget _row(String info, String? value, {Color? rightColor}) {
     return Row(
       children: [
@@ -606,26 +633,15 @@ class QualityMonitor extends StatelessWidget {
                       _row(
                           "Codec", qualityMonitorModel.data.codecFormat ?? '-'),
                       _row("Chroma", qualityMonitorModel.data.chroma ?? '-'),
-                      // 연결 경로 표시 (P2P 직결 vs NAS 릴레이)
-                      _row(
-                          "경로",
-                          qualityMonitorModel.parent.target?.ffiModel.direct ==
-                                  true
-                              ? "P2P 직결"
-                              : qualityMonitorModel.parent.target?.ffiModel
-                                          .direct ==
-                                      false
-                                  ? "서버 경유"
-                                  : "...",
-                          rightColor: qualityMonitorModel
-                                      .parent.target?.ffiModel.direct ==
-                                  true
-                              ? Colors.green
-                              : qualityMonitorModel.parent.target?.ffiModel
-                                          .direct ==
-                                      false
-                                  ? Colors.orange
-                                  : null),
+                      // 연결 경로 표시 (P2P 직결 vs 서버 경유)
+                      //
+                      // ★"왜 경유인가"를 같이 쓴다. 이 거래처에 [항상 릴레이를 통해 연결]이
+                      //   켜져 있으면 직결이 **성공해도 버리고** 릴레이를 탄다(client.rs 의
+                      //   is_force_relay 분기). 그런데 그 설정은 우클릭 메뉴를 열어야만 보이고
+                      //   화면엔 그냥 "서버 경유"로만 떠서, 2026-08-12 에 오클릭 하나 때문에
+                      //   반나절을 공유기·코드 회귀로 오진하며 태웠다. 원인이 설정이면 설정이라고
+                      //   화면이 말해 줘야 한다.
+                      _row("경로", _routeText(), rightColor: _routeColor()),
                     ],
                   ),
                 )

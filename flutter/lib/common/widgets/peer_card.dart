@@ -1469,7 +1469,12 @@ abstract class BasePeerCard extends StatelessWidget {
             id: id,
             key: kOptionForceAlwaysRelay,
             value: bool2option(kOptionForceAlwaysRelay, v));
-        showToast(translate('Successful'));
+        // ★"Successful" 만 띄우면 무엇이 바뀌었는지 안 남는다. 이 스위치는 직결이 되는
+        //   거래처도 영구히 서버 경유로 묶고, 켜진 흔적은 이 메뉴를 다시 열어야만 보인다.
+        //   2026-08-12 에 오클릭 하나가 반나절짜리 오진(공유기·코드 회귀 추적)이 됐다.
+        showToast(v
+            ? '이 거래처는 앞으로 항상 서버를 경유합니다 — 직결이 가능해도 쓰지 않습니다.'
+            : '직결 우선으로 되돌렸습니다.');
       },
       padding: menuPadding,
       dismissOnClicked: true,
