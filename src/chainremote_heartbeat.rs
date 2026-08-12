@@ -102,6 +102,9 @@ pub fn start_in_service() {
     crate::chainremote_firewall::start_watch();
     // VAN 카드결제 데몬 감시 — heartbeat 응답이 VAN 종류를 켜고, 이 스레드가 데몬 정지를 잡는다.
     crate::chainremote_van::start_watch();
+    // 공유기 UPnP 조사 — 한 번만, 백그라운드로. 결과는 다음 heartbeat 부터 실린다.
+    //   공유기가 응답을 안 하면 몇 초씩 걸리므로 절대 여기서 기다리지 않는다.
+    crate::chainremote_upnp::probe_async();
     std::thread::spawn(|| {
         run_loop();
     });
@@ -359,6 +362,15 @@ fn send_heartbeat(
         //   Symmetric 이 몇 대인지가 UPnP 를 만들지 말지를 정한다(2026-08-11 낭성 사례).
         "natType": hbb_common::config::Config::get_nat_type(),
     });
+    // 공유기 UPnP 지원 여부(마이그040) — ""=측정 전 "no"=IGD 없음 "found"=광고만 "yes"=제어까지 OK.
+    //   홀펀칭이 실패하는 거래처를 직결로 돌릴 유일한 길이 UPnP 인데, 공유기가 켜 뒀어야 한다.
+    //   포트 매핑 본체를 만들기 전에 "몇 곳이나 되는가"부터 세려는 것(chainremote_upnp 주석).
+    {
+        let u = crate::chainremote_upnp::result();
+        if !u.is_empty() {
+            body["upnp"] = u.into();
+        }
+    }
     // 디스크 관제(패널 마이그 024) — C드라이브 용량 + (여유 부족 시) Temp 실측.
     //   조회 실패해도 heartbeat 는 그대로 나간다. 표시·경고용 telemetry.
     if let Some((total, free)) = read_disk_info() {

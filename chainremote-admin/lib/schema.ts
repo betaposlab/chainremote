@@ -192,6 +192,10 @@ export const customers = pgTable(
     // NAT 유형(마이그039) — 0=미상 1=Cone(홀펀칭 가능) 2=Symmetric(릴레이 불가피).
     //   NULL=구버전 에이전트. 릴레이 원인을 짐작 대신 세기 위한 값이다.
     natType: integer("nat_type"),
+    // 공유기 UPnP 지원(마이그040) — 'no'|'found'|'yes'. NULL=구버전/측정 전.
+    //   NAT 유형이 Cone 이라도 실제로는 안 뚫리는 곳이 있어(테스트1), 직결을 되살릴 다른
+    //   길이 있는지 세는 값이다. 조사는 읽기 전용이라 포트를 열지 않는다.
+    upnp: text("upnp"),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),

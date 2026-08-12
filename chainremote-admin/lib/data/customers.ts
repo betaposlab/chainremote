@@ -218,6 +218,8 @@ export interface HeartbeatExtras {
   vanMissing?: boolean;
   // NAT 유형(039) — 0=미상 1=Cone 2=Symmetric. 유효값일 때만 반영.
   natType?: number;
+  // 공유기 UPnP(040) — 'no'|'found'|'yes' 만 통과.
+  upnp?: string;
 }
 
 export async function recordHeartbeat(
@@ -314,6 +316,10 @@ export async function recordHeartbeat(
     vanSet.vanLastRestartAt = sql`CASE WHEN ${watched} THEN now() ELSE ${customers.vanLastRestartAt} END`;
   }
   // NAT 유형 — 0/1/2 만 통과(이상값은 무시해 통계를 오염시키지 않는다).
+  const upnpSet: Record<string, unknown> =
+    typeof extras?.upnp === "string" && ["no", "found", "yes"].includes(extras.upnp)
+      ? { upnp: extras.upnp }
+      : {};
   const natSet: Record<string, unknown> =
     typeof extras?.natType === "number" && [0, 1, 2].includes(extras.natType)
       ? { natType: extras.natType }
@@ -331,6 +337,7 @@ export async function recordHeartbeat(
       ...firewallSet,
       ...vanSet,
       ...natSet,
+      ...upnpSet,
     })
     .where(
       and(

@@ -661,6 +661,8 @@ impl Client {
         // 오래된 실패 기록은 한 번 무시하고 온전한 창을 준다 — 환경이나 우리 설정이 바뀌어
         //   이제 뚫리는 거래처가 좁은 창에 갇혀 영영 릴레이만 타는 걸 막는다. 여전히 안 되면
         //   실패 시각이 갱신돼 곧바로 다시 좁아진다(chainremote_direct 주석 참조).
+        // 오래된 실패 기록에 한 번 기회를 준 접속인가 — 그렇다면 대기창을 짧게 묶는다.
+        let mut cr_retry = false;
         let direct_failures = {
             let due = {
                 let lch = interface.get_lch();
@@ -672,7 +674,8 @@ impl Client {
                 // 결과와 무관하게 "이번에 판정했다"를 지금 찍는다. 실패해도 상류는 값이 안
                 //   바뀌면 저장을 안 하므로, 여기서 안 찍으면 매 접속마다 긴 대기를 문다.
                 interface.get_lch().write().unwrap().note_direct_retry();
-                log::info!("직결 실패 기록이 오래됨 — 이번 한 번은 온전한 대기창을 준다");
+                log::info!("직결 실패 기록이 오래됨 — 이번 한 번 다시 시도한다");
+                cr_retry = true;
                 0
             } else {
                 interface.get_lch().read().unwrap().direct_failures
@@ -709,6 +712,16 @@ impl Client {
                 connect_timeout = MIN;
             }
         }
+        // ★릴레이로 되돌아갈 길이 있으면 직결을 오래 기다리지 않는다. 성공하는 홀펀칭은
+        //   0.3초 안에 끝나므로 18초를 버텨서 건지는 직결이 없고, 실패할 때 "연결 중…"만
+        //   길어진다(chainremote_direct::DIRECT_WINDOW_MS 주석에 실측 근거).
+        //   릴레이가 없으면(직결만 가능한 구성) 상류 값을 그대로 둔다 — 그땐 기다리는 것 말고
+        //   대안이 없다.
+        if !relay_server.is_empty() {
+            connect_timeout =
+                connect_timeout.min(crate::chainremote_direct::DIRECT_WINDOW_MS);
+        }
+        let _ = cr_retry;
         log::info!("peer address: {}, timeout: {}", peer, connect_timeout);
         let start = std::time::Instant::now();
 

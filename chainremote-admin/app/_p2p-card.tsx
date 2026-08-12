@@ -21,6 +21,10 @@ interface NatCounts {
   symmetric: number;
   unknown: number;
   total: number;
+  // 공유기 UPnP(040) — 홀펀칭이 안 되는 곳을 직결로 되살릴 수 있는지.
+  upnpYes: number;
+  upnpNo: number;
+  upnpTotal: number;
 }
 
 export async function P2pCard({ tenantId }: { tenantId: string }) {
@@ -59,6 +63,9 @@ export async function P2pCard({ tenantId }: { tenantId: string }) {
         symmetric: sql<number>`count(*) filter (where ${customers.natType} = 2)`.mapWith(Number),
         unknown: sql<number>`count(*) filter (where ${customers.natType} = 0)`.mapWith(Number),
         total: sql<number>`count(*)`.mapWith(Number),
+        upnpYes: sql<number>`count(*) filter (where ${customers.upnp} = 'yes')`.mapWith(Number),
+        upnpNo: sql<number>`count(*) filter (where ${customers.upnp} in ('no','found'))`.mapWith(Number),
+        upnpTotal: sql<number>`count(*) filter (where ${customers.upnp} is not null)`.mapWith(Number),
       })
       .from(customers)
       .where(
@@ -169,6 +176,26 @@ function NatBreakdown({ nat }: { nat: NatCounts | null }) {
         일부 인터넷 회선·공유기는 접속할 때마다 통로를 바꿔서 직접 연결이 원천적으로 안 됩니다.
         그런 거래처는 서버 경유로만 이어집니다.
       </p>
+      {nat && nat.upnpTotal > 0 && (
+        <div className="mt-3 border-t border-white/10 pt-3">
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <h3 className="text-sm font-semibold text-white">공유기 포트 열기(UPnP)</h3>
+            <span className="text-xs text-[#ccd2e3]">{nat.upnpTotal}대 조사됨</span>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#cbd1e0]">
+            <span>
+              <span className="font-semibold text-emerald-300">{nat.upnpYes}대</span> 가능
+            </span>
+            <span>
+              <span className="font-semibold text-[#ccd2e3]">{nat.upnpNo}대</span> 불가
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-[#ccd2e3]">
+            공유기에 통로를 직접 열어 달라고 요청할 수 있는 거래처 수입니다. 직접 연결이 안 되던
+            곳도 이 방법으로는 이어질 수 있습니다.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

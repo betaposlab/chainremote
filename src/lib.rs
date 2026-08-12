@@ -39,6 +39,7 @@ pub mod chainremote_auth;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 pub mod chainremote_data;
 pub mod chainremote_direct;
+pub mod chainremote_upnp;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 mod bridge_generated;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]

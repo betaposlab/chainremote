@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       vanGaveUp?: unknown;
       vanMissing?: unknown;
       natType?: unknown;
+      upnp?: unknown;
     };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";
@@ -80,6 +81,8 @@ export async function POST(req: Request) {
         vanMissing: typeof body.vanMissing === "boolean" ? body.vanMissing : undefined,
         // NAT 유형(039) — 릴레이 원인 집계용. 구버전 에이전트는 안 보내므로 NULL 로 남는다.
         natType: typeof body.natType === "number" ? body.natType : undefined,
+        // 공유기 UPnP(040) — 직결을 되살릴 길이 있는 거래처를 세기 위한 값.
+        upnp: typeof body.upnp === "string" ? body.upnp : undefined,
       },
     );
     if (!ok) {
