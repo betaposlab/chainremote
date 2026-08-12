@@ -91,6 +91,10 @@ class _FileManagerPageState extends State<FileManagerPage>
   final Set<int> _lastTransferBatchIds = {};
   // 전송 진행 모달이 지금 떠 있는지 — 같은 배치에 두 번 띄우지 않기 위한 래치.
   bool _transferDialogOpen = false;
+  // 사용자가 [백그라운드로]로 물린 배치인가. 종전엔 닫자마자 "진행 중 작업이 있으니" 곧바로
+  //   다시 열려, 그 버튼이 무의미했고 덮어쓰기 확인창까지 계속 가렸다(2026-08-12).
+  //   배치가 끝나면(진행 중 0) 풀린다.
+  bool _transferDialogDismissed = false;
 
   late FFI _ffi;
 
@@ -256,6 +260,8 @@ class _FileManagerPageState extends State<FileManagerPage>
           .toList();
 
       if (active.isEmpty) {
+        // 배치가 끝났으니 "물림"도 푼다 — 다음 전송에선 진행창이 다시 떠야 한다.
+        _transferDialogDismissed = false;
         // 방금 활성 전송이 0 으로 전이했으면 — 그 배치의 결과(성공/실패)를 토스트로 확정 안내.
         if (_lastTransferBatchIds.isNotEmpty) {
           final ids = _lastTransferBatchIds.toList();
@@ -297,7 +303,11 @@ class _FileManagerPageState extends State<FileManagerPage>
       //   전송이 시작되면 화면 중앙에 진행 창을 자동으로 띄운다. 07-08 에 전체화면 모달을
       //   기각했던 이유(대용량 전송 중 탐색을 막는다)는 '닫을 수 있게' 해서 피한다 —
       //   닫아도 이 하단 바가 그대로 남아 진행이 계속 보인다.
-      if (!_transferDialogOpen) {
+      // 덮어쓰기 확인이 떠 있으면 진행창을 띄우지 않는다 — 답을 해야 전송이 시작되는데
+      //   그 창을 덮어 버리면 사용자는 멈춘 것으로만 본다(실제 신고 사례).
+      if (!_transferDialogOpen &&
+          !_transferDialogDismissed &&
+          !model.crConfirmPending.value) {
         _transferDialogOpen = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _showTransferProgressDialog();
@@ -410,6 +420,17 @@ class _FileManagerPageState extends State<FileManagerPage>
           final active = jobController.jobTable
               .where((j) => j.state == JobState.inProgress)
               .toList();
+          // ★덮어쓰기 확인이 뜨면 스스로 물러난다.
+          //   진행창이 먼저 열리고 확인창은 digest 왕복 뒤에 도착하므로, "열 때"만 막아서는
+          //   소용이 없다(2026-08-12 실측 — 고쳤는데도 그대로였다). 이미 열린 창을 닫아야
+          //   확인창이 보인다. 답을 하면 아래 하단 바가 다시 띄워 준다.
+          //   모르는 사람은 이 창만 보고 한없이 기다리게 된다(Chang).
+          if (model.crConfirmPending.value) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (Navigator.canPop(ctx)) Navigator.pop(ctx);
+            });
+            return const SizedBox.shrink();
+          }
           // 진행 중인 게 없으면(=배치 완료) 스스로 닫는다.
           if (active.isEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -532,7 +553,11 @@ class _FileManagerPageState extends State<FileManagerPage>
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(ctx),
+                onPressed: () {
+                  // 물린 건 사용자 의사다 — 이 배치가 끝날 때까지 다시 띄우지 않는다.
+                  _transferDialogDismissed = true;
+                  Navigator.pop(ctx);
+                },
                 child: const Text('백그라운드로'),
               ),
             ],

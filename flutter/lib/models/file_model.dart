@@ -217,6 +217,10 @@ class FileModel {
     jobController.jobError(evt);
   }
 
+  /// 덮어쓰기 확인창이 떠 있는 동안 참. 전송 진행창이 그 위를 덮지 않게 하려는 것 —
+  ///   실제로 확인창이 진행창 뒤에 깔려 "무한 전송 중"으로 보였다(2026-08-12 Chang).
+  final crConfirmPending = false.obs;
+
   Future<void> postOverrideFileConfirm(Map<String, dynamic> evt) async {
     evtLoop.pushEvent(
         _FileDialogEvent(WeakReference(this), FileDialogType.overwrite, evt));
@@ -227,11 +231,18 @@ class FileModel {
     // If `skip == true`, it means to skip this file without showing dialog.
     // Because `resp` may be null after the user operation or the last remembered operation,
     // and we should distinguish them.
-    final resp = overrideConfirm ??
-        (!skip
-            ? await showFileConfirmDialog(translate("Overwrite"),
-                "${evt['read_path']}", true, evt['is_identical'] == "true")
-            : null);
+    bool? resp;
+    if (overrideConfirm != null) {
+      resp = overrideConfirm;
+    } else if (!skip) {
+      crConfirmPending.value = true;
+      try {
+        resp = await showFileConfirmDialog(translate("Overwrite"),
+            "${evt['read_path']}", true, evt['is_identical'] == "true");
+      } finally {
+        crConfirmPending.value = false;
+      }
+    }
     final id = int.tryParse(evt['id']) ?? 0;
     if (false == resp) {
       final jobIndex = jobController.getJob(id);
