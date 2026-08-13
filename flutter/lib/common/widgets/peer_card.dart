@@ -143,20 +143,40 @@ CrVanState? crVanState(BuildContext context, Peer peer) {
   }
   if (peer.vanOk == 'N') {
     return CrVanState('중지', '$van 중지', c.dangerBg, c.dangerFg,
-        '$van 카드결제 데몬이 멈춰 있습니다. 에이전트가 되살리는 중입니다.');
+        // ★"되살리는 중"이라고 단정하지 않는다. 1.4.113 부터 에이전트는 **돌던 것이 멈췄을 때만**
+        //   손대고, 리더기를 아직 안 켠 상태는 아예 '대기'로 보낸다. 여기 '중지'가 뜨는 건
+        //   한 번 정상이던 데몬이 멈춘 경우라 되살리기를 시도하는 게 맞지만, 리더기 케이블처럼
+        //   재실행으로 안 낫는 고장도 이 자리에 온다 — 단정 대신 무엇을 볼지 알려 준다.
+        '$van 카드결제 데몬이 멈춰 있습니다.\n에이전트가 되살리기를 시도합니다 — 안 되면 리더기 연결을 확인하세요.');
   }
   if (peer.vanOk == 'Y') {
     return CrVanState(null, '$van 정상', c.okBg, c.okFg,
         '$van 카드결제 데몬 정상 (마지막 보고 기준).');
   }
   // 방금 켰거나 기기가 꺼져 있는 상태. 지시 전달 1회 + 결과 회신 1회라 주기 10분 × 2.
+  // '대기'는 두 가지다: 방금 켜서 아직 회신 전이거나, **리더기를 안 켠 정상 상태**(1.4.113~).
+  //   KSCAT 데몬은 IC 리더기가 켜져 있어야 뜨므로 영업 준비 전에는 안 도는 게 정상이고,
+  //   에이전트는 그때 손대지 않고 판정을 보류한다. 둘 다 "지금은 알 수 없다"라 같은 표시다.
   return CrVanState(null, '$van 대기', c.chipBg, c.textSubtle,
-      '$van 카드결제 관제 켜짐 — 에이전트가 다음 보고에서 확인합니다(최대 20분).');
+      '$van 관제는 켜져 있고 데몬은 아직 안 돕니다.\n리더기를 켜지 않은 영업 준비 전이면 정상입니다(켜면 자동으로 뜹니다).');
 }
 
 CrBadge? crVanBadge(BuildContext context, Peer peer) {
   final st = crVanState(context, peer);
   if (st == null) return null;
+  // ★기기가 꺼져 있으면 데몬 상태를 **알 수 없다**. 하트비트가 끊기면 서버 값이 마지막으로
+  //   본 그대로 얼어붙는데, 그걸 현재처럼 그리면 꺼진 POS 가 'KSNET 정상'으로 뜬다 —
+  //   카드결제가 되는지 안 되는지 아무도 모르는 상태를 "정상"이라고 말하는 셈이다.
+  //   색을 죽이고 "마지막 확인" 임을 문구로 밝힌다(숨기지는 않는다 — 값 자체는 진단에 쓴다).
+  if (!peer.online) {
+    final c = CrColors.of(context);
+    return _crChip(context,
+        icon: Icons.credit_card,
+        label: st.label,
+        bg: c.chipBg,
+        fg: c.textSubtle,
+        tip: '기기가 꺼져 있어 지금 상태는 알 수 없습니다.\n마지막으로 확인된 상태: ${st.tip}');
+  }
   return _crChip(context,
       icon: Icons.credit_card,
       label: st.label,

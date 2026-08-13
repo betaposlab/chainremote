@@ -731,6 +731,7 @@ class _PeersViewState extends State<_PeersView>
           if (snapshot.hasData) {
             var peers = snapshot.data!;
             if (peers.length > 1000) peers = peers.sublist(0, 1000);
+            crFillFromPanel(peers);
             gFFI.peerTabModel.setCurrentTabCachedPeers(peers);
             // 관제 열은 켠 거래처가 하나라도 있을 때만 낸다 — 한 곳도 안 쓰는 대리점에겐
             //   빈 열 두 개가 그냥 소음이다(열 폭도 상호에 돌려준다).
@@ -1153,6 +1154,43 @@ abstract class BasePeersView extends StatelessWidget {
         peerFilter: peerFilter,
         peerCardBuilder: peerCardBuilder,
         peerTabIndex: peerTabIndex);
+  }
+}
+
+/// 로컬 캐시에서 온 peer 에 패널 값을 채운다 — OS·여유공간·관제.
+///
+/// ★왜 필요한가(2026-08-13): **최근 세션 탭의 거래처는 패널이 아니라 로컬 peer 캐시에서
+///   온다.** 거기엔 이 필드들이 아예 없어서, 위의 "값이 있는 거래처가 하나라도 있을 때만
+///   열을 낸다" 규칙에 걸려 네 열이 통째로 사라졌다. 같은 거래처인데 즐겨찾기 탭에서는
+///   보이고 최근 세션 탭에서는 안 보였고, 사라진 이유가 화면 어디에도 없어서 Chang 이
+///   고장으로 읽고 재로그인까지 했다. 정상 동작이 고장으로 읽히면 그건 설계 문제다.
+///
+///   패널 값은 이미 `allCustomersPeersModel`(전체 거래처 탭)에 다 들어와 있으므로 Rust 도
+///   브리지도 건드릴 필요가 없다 — 그리는 직전에 같은 ID 를 찾아 비어 있는 칸만 메운다.
+///   **덮어쓰지 않고 빈 칸만 채운다**: 패널 경로로 온 peer 는 이미 제 값을 갖고 있고,
+///   그걸 다시 쓰면 마커(⏳/🆕)나 탭별 표시 규칙이 어긋난다.
+void crFillFromPanel(List<Peer> peers) {
+  final src = gFFI.allCustomersPeersModel.peers;
+  if (src.isEmpty || peers.isEmpty) return;
+  final byId = <String, Peer>{for (final p in src) p.id: p};
+  for (final p in peers) {
+    final c = byId[p.id];
+    if (c == null) continue;
+    if (p.os.isEmpty) p.os = c.os;
+    if (p.osBits.isEmpty) p.osBits = c.osBits;
+    if (p.arch.isEmpty) p.arch = c.arch;
+    if (p.diskFree.isEmpty) p.diskFree = c.diskFree;
+    if (p.diskTotal.isEmpty) p.diskTotal = c.diskTotal;
+    if (p.tempBytes.isEmpty) p.tempBytes = c.tempBytes;
+    if (p.firewallControl.isEmpty) p.firewallControl = c.firewallControl;
+    if (p.vanWatch.isEmpty) {
+      p.vanWatch = c.vanWatch;
+      // vanOk/GaveUp/Missing 은 vanWatch 와 한 묶음이다 — 따로 채우면 관제가 꺼진 거래처에
+      //   상태만 남아 "꺼졌는데 빨간 줄"이 된다.
+      p.vanOk = c.vanOk;
+      p.vanGaveUp = c.vanGaveUp;
+      p.vanMissing = c.vanMissing;
+    }
   }
 }
 
