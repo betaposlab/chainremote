@@ -96,8 +96,16 @@ impl Interface for ProbeInterface {
 }
 
 /// 거래처 하나의 연결 경로를 잰다. 판정이 끝나면 즉시 끊는다.
+///
+/// ★점검이 "최근 세션"을 오염시키면 안 된다. `Client::start` 는 실제 원격과 같은 경로라
+///   `peers/<id>.toml` 을 만들어 저장하는데, 최근 세션 탭은 그 파일 목록을 읽는다. 그래서
+///   한 바퀴 돌면 원격한 적도 없는 거래처 39곳이 전부 최근 세션에 박혔다(2026-08-13 실측:
+///   낭성 4대·월광 2대가 그렇게 올라왔다). 그 탭은 **내가 실제로 원격한 곳**이어야 한다.
+///   그래서 점검 전에 그 파일이 원래 있었는지 보고, 우리가 만든 것이면 끝나고 지운다.
+///   원래 있던 거래처의 기록은 손대지 않는다 — 비밀번호·별칭·해상도가 거기 들어 있다.
 pub async fn probe_one(peer_id: &str) -> ProbeResult {
     let started = std::time::Instant::now();
+    let had_config = peer_config_exists(peer_id);
     let mut lch = LoginConfigHandler::default();
     // force_relay=false — 이 점검의 목적이 "직결이 되는가"라 강제 릴레이를 걸면 의미가 없다.
     lch.initialize(
@@ -149,6 +157,10 @@ pub async fn probe_one(peer_id: &str) -> ProbeResult {
             error: "시간 초과".to_owned(),
         },
     };
+    // 우리가 만든 기록이면 치운다. 원래 있던 것은 그대로 둔다.
+    if !had_config {
+        hbb_common::config::PeerConfig::remove(peer_id);
+    }
     log::info!(
         "ChainRemote 경로 점검 {} → {} ({}ms){}",
         out.id,
@@ -202,6 +214,14 @@ pub fn to_json(results: &[ProbeResult]) -> String {
         })
         .collect();
     serde_json::Value::Array(arr).to_string()
+}
+
+/// 이 거래처의 peer 기록이 이미 있나 — 점검이 만든 것만 골라 지우기 위한 사전 확인.
+fn peer_config_exists(peer_id: &str) -> bool {
+    hbb_common::config::Config::path("")
+        .join("peers")
+        .join(format!("{peer_id}.toml"))
+        .exists()
 }
 
 /// 거래처 목록에서 원격 ID 만 뽑는다. remote_id 없는 pending 거래처는 잴 대상이 아니다.
