@@ -65,7 +65,7 @@ var isMobile = isAndroid || isIOS;
 var version = ''; // RustDesk 코어 버전 (bind.mainGetVersion)
 // 우리 자체 버전. src/chainremote_version.rs 의 CHAINREMOTE_VERSION,
 // deploy/win-installer/{agent,hq}-installer.iss 의 APP_VERSION 과 늘 맞춰야 한다.
-const chainRemoteVersion = '1.4.114';
+const chainRemoteVersion = '1.4.115';
 int androidVersion = 0;
 
 // Only used on Linux.
@@ -196,6 +196,7 @@ class CrColors extends ThemeExtension<CrColors> {
     required this.tileAccent,
     required this.tileBorder,
     required this.tileHoverBg,
+    required this.folderIcon,
     required this.onSurface,
     required this.onSurfaceStrong,
     required this.authBgTop,
@@ -239,6 +240,11 @@ class CrColors extends ThemeExtension<CrColors> {
   final Color cardBg, tileBg;
   /// 폴더 타일 계열 + 옛 Colors.black54/87 을 대신하는 표면 위 글자색.
   final Color tileText, tileAccent, tileBorder, tileHoverBg, onSurface, onSurfaceStrong;
+  /// 폴더 아이콘 전용 색. 목록에서 폴더 행과 거래처 행은 배경이 같아 훑을 때 안 갈렸다
+  ///   (2026-08-14 Chang). 배경을 물들이는 대신 **아이콘만** 다른 색을 준다 — 윈도우 탐색기의
+  ///   노란 폴더가 익숙한 신호인데, 그 원색은 우리 화면에서 너무 튀어 한 톤 옅게 잡았다.
+  ///   다크는 배경이 어두워 밝은 크림 골드, 라이트는 배경이 밝아 진한 골드여야 보인다.
+  final Color folderIcon;
   /// 로그인 화면 배경 그라디언트 + 입력칸 채움.
   final Color authBgTop, authBgBottom, inputFill;
   /// 세그먼트(알약) 버튼의 비선택 배경. 카드 위에 얹히므로 카드와 달라야 한다.
@@ -289,6 +295,7 @@ class CrColors extends ThemeExtension<CrColors> {
     tileAccent: Color(0xFF1E5BFF),
     tileBorder: Color(0xFFBBD0FF),
     tileHoverBg: Color(0xFFD6E4FF),
+    folderIcon: Color(0xFFC08A1E),
     onSurface: Color(0x8A000000),
     onSurfaceStrong: Color(0xDD000000),
     authBgTop: Color(0xFFE5ECF5),
@@ -360,6 +367,7 @@ class CrColors extends ThemeExtension<CrColors> {
     tileAccent: const Color(0xFFC3D3FF),
     tileBorder: const Color(0xFF566999),
     tileHoverBg: const Color(0xFF3B5291),
+    folderIcon: const Color(0xFFF0DCA0),
     onSurface: const Color(0xFFCBD1E0),
     onSurfaceStrong: const Color(0xFFEEF1F7),
     authBgTop: const Color(0xFF2B364F),

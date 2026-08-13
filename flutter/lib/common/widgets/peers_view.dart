@@ -342,8 +342,11 @@ class _PeersViewState extends State<_PeersView>
                 ),
                 child: Row(
                   children: [
+                    // ★폴더만 다른 색 — 배경이 같아 목록을 훑을 때 폴더 행이 안 갈렸다.
+                    //   배경을 물들이면 표 전체가 얼룩덜룩해지므로 아이콘 하나만 바꾼다.
+                    //   윈도우 탐색기의 노란 폴더가 익숙한 신호인데 원색은 튀어서 한 톤 옅게.
                     Icon(Icons.folder_rounded,
-                        size: 20, color: CrColors.of(context).tileAccent),
+                        size: 20, color: CrColors.of(context).folderIcon),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -622,7 +625,7 @@ class _PeersViewState extends State<_PeersView>
                   size: 20, color: CrColors.of(context).tileAccent),
               const SizedBox(width: 6),
               Icon(Icons.folder_open_rounded,
-                  size: 18, color: CrColors.of(context).tileAccent),
+                  size: 18, color: CrColors.of(context).folderIcon),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
