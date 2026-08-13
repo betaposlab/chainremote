@@ -144,13 +144,30 @@ else
     #   '"status":"success"' 가 없어 "업로드 실패/미확인"으로 찍혔다. 그 거짓 음성 때문에
     #   옛 버전 삭제까지 건너뛰어 1.4.108 과 1.4.112 가 자료실에 나란히 남았다.
     #   응답 문자열은 서버 사정으로 얼마든지 달라지지만 목록은 사실이다.
-    if curl -s -b "$JAR" https://betaposlab.com/staff/ | grep -q "$EXPECTED_NAME"; then
+    # ★목록 반영에 시차가 있다. 2026-08-14 실측: 업로드는 멀쩡히 끝나 파일이 올라갔는데
+    #   직후 조회에는 안 떠서 옛 버전 삭제를 건너뛰었고, 1.4.114 와 1.4.115 가 나란히 남았다.
+    #   응답 문자열 대신 목록을 믿는 건 맞지만, **한 번만 보고 단정하면 안 된다** — 몇 초
+    #   기다렸다 다시 본다. 그래도 없으면 그때는 진짜 실패다.
+    UPLOADED=""
+    for _ in 1 2 3 4 5; do
+      if curl -s -b "$JAR" https://betaposlab.com/staff/ | grep -q "$EXPECTED_NAME"; then
+        UPLOADED=1
+        break
+      fi
+      sleep 2
+    done
+    if [[ -n "$UPLOADED" ]]; then
       echo "  ✓ 업로드: $EXPECTED_NAME"
       if [[ -n "$OLD" ]]; then
         while IFS= read -r o; do
           [[ -z "$o" ]] && continue
           curl -s -b "$JAR" -F "action=delete" -F "filename=$o" "$STAFF" -o "$RESP" </dev/null
-          grep -q '"status":"success"' "$RESP" && echo "    옛 HQ 삭제: $o" || echo "    ⚠ 삭제 실패: $o"
+          # 삭제도 목록으로 확인한다 — 응답 문자열을 믿었다가 업로드에서 이미 한 번 데었다.
+          if curl -s -b "$JAR" https://betaposlab.com/staff/ | grep -q "$o"; then
+            echo "    ⚠ 삭제 실패(아직 목록에 있음): $o"
+          else
+            echo "    옛 HQ 삭제: $o"
+          fi
         done <<< "$OLD"
       fi
     else
