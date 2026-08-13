@@ -136,7 +136,6 @@ export function CustomerForm({
           name="notes"
           defaultValue={initial?.notes ?? ""}
           rows={3}
-          placeholder="POS+키오스크 2대 / 점심시간 피해서 연락"
           className="input"
         />
       </Field>
