@@ -78,7 +78,14 @@ export async function POST(req: Request) {
         firewallEnabled:
           typeof body.firewallEnabled === "boolean" ? body.firewallEnabled : undefined,
         firewallDisarmed: body.firewallDisarmed === true,
-        vanOk: typeof body.vanOk === "boolean" ? body.vanOk : undefined,
+        // null 은 "판정 보류"(리더기 대기)라는 **명시 신호**다 — 필드 누락(undefined)과 달리
+        //   기존 값을 비워야 한다. 안 그러면 한 번 박힌 빨간 '중지'가 안 풀린다.
+        vanOk:
+          typeof body.vanOk === "boolean"
+            ? body.vanOk
+            : body.vanOk === null
+              ? null
+              : undefined,
         vanRestarted: body.vanRestarted === true,
         vanGaveUp: typeof body.vanGaveUp === "boolean" ? body.vanGaveUp : undefined,
         vanMissing: typeof body.vanMissing === "boolean" ? body.vanMissing : undefined,

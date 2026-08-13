@@ -216,7 +216,7 @@ export interface HeartbeatExtras {
   firewallDisarmed?: boolean;
   // VAN 데몬 관제(036) — vanOk=데몬이 포트를 듣고 있나(표시용), vanRestarted=이번 heartbeat
   //   직전에 되살렸나(참이면 restart_count++), vanGaveUp=재실행으로 안 낫아 손 뗌(사람 호출).
-  vanOk?: boolean;
+  vanOk?: boolean | null;
   vanRestarted?: boolean;
   vanGaveUp?: boolean;
   // 데몬이 그 기기에 아예 없음(037) — 다른 VAN 거래처에 잘못 켠 경우. 조치가 달라 따로 받는다.
@@ -311,6 +311,12 @@ export async function recordHeartbeat(
   //   Postgres 가 42804(datatype mismatch)로 거절한다.
   if (typeof extras?.vanOk === "boolean") {
     vanSet.vanOk = sql`CASE WHEN ${watched} THEN ${extras.vanOk}::boolean ELSE NULL::boolean END`;
+  } else if (extras?.vanOk === null) {
+    // ★에이전트가 "판정 보류"를 명시한 것(리더기 대기). 필드를 안 보낸 것과 다르다 —
+    //   안 보내면 옛 값이 남아 한 번 박힌 빨간 '중지'가 영영 안 풀린다(2026-08-13 신부산).
+    //   여기서 비워야 화면이 회색 '대기'로 돌아간다. 관제 자체를 껐으면 어차피 NULL 이다.
+    vanSet.vanOk = null;
+    vanSet.vanGaveUp = sql`CASE WHEN ${watched} THEN false ELSE false END`;
   }
   if (typeof extras?.vanGaveUp === "boolean") {
     vanSet.vanGaveUp = sql`CASE WHEN ${watched} THEN ${extras.vanGaveUp}::boolean ELSE false END`;

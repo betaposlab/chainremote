@@ -32,7 +32,7 @@ use std::sync::{Arc, RwLock};
 
 use async_trait::async_trait;
 use hbb_common::{
-    config::Config,
+    config::LocalConfig,
     log,
     message_proto::{Hash, PeerInfo, TestDelay, WindowsSession},
     rendezvous_proto::ConnType,
@@ -113,8 +113,13 @@ pub async fn probe_one(peer_id: &str) -> ProbeResult {
         lch: Arc::new(RwLock::new(lch)),
     };
 
-    let key = Config::get_option("key");
-    let token = Config::get_option("access_token");
+    // ★키는 `get_key` 로 얻어야 한다. `Config::get_option("key")` 는 **사용자가 설정 화면에
+    //   직접 넣은 값**이라 우리처럼 custom.txt(빌드 내장)로 서버 키를 박은 배포에서는 비어
+    //   있다. 빈 키로 붙으면 서버가 준 공개키와 대조가 안 돼 전 거래처가 "Key mismatch" 로
+    //   떨어진다(2026-08-13 첫 실행에서 39곳 전부 그랬다). 실제 세션도 io_loop 에서
+    //   `crate::get_key(false)` 를 쓴다 — 같은 경로를 타야 같은 조건이 된다.
+    let key = crate::get_key(false).await;
+    let token = LocalConfig::get_option("access_token");
     let fut = Client::start(peer_id, &key, &token, ConnType::DEFAULT_CONN, iface);
 
     let out = match tokio::time::timeout(
@@ -273,7 +278,12 @@ fn upload(results: &[ProbeResult]) -> Result<usize, String> {
 pub fn run_once_blocking() -> String {
     let ids = match fetch_ids() {
         Ok(v) => v,
-        Err(e) => return format!("점검 실패 — {e}"),
+        Err(e) => {
+            // ★실패도 반드시 로그로 남긴다. 첫 실행에서 DNS 가 죽어 목록을 못 받았는데
+            //   로그가 한 줄도 없어 "눌렀는데 아무 일도 안 일어난다"로 한참 헤맸다.
+            log::warn!("ChainRemote 경로 점검 실패 — 거래처 목록: {e}");
+            return format!("점검 실패 — {e}");
+        }
     };
     if ids.is_empty() {
         return "점검할 거래처가 없습니다".to_owned();

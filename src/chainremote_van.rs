@@ -61,6 +61,19 @@ static KIND: Mutex<String> = Mutex::new(String::new());
 static RESTARTED_PENDING: AtomicBool = AtomicBool::new(false);
 /// 마지막 점검에서 데몬이 정상이었나(표시용). 관제 off 면 의미 없다.
 static LAST_OK: AtomicBool = AtomicBool::new(false);
+/// 이번 부팅에서 데몬이 **한 번이라도** 정상이었나. 복구는 이게 참일 때만 한다.
+///
+/// ★2026-08-13 Chang: KSCAT 데몬은 **IC 리더기가 켜져 있어야** 뜬다. 그래서 "포트가 닫혀
+///   있다"는 고장만이 아니라 **영업 준비 전(리더기 꺼짐)이라는 정상 상태**이기도 하다.
+///   그 둘을 포트만으로는 구분할 수 없다 — 실제로 신부산오뎅본점을 우리가 고장으로 보고
+///   세 번 죽였는데, 아무도 손대지 않았는데 영업이 시작되자 저절로 정상이 됐다.
+///
+///   구분은 **시간축**으로 한다. 실측한 고장 둘(프로세스 죽음 / 데몬만 멈춤)은 **돌던 것이
+///   멈춘** 상황이고, 리더기 꺼짐은 **처음부터 안 돈** 상태다. 그러니 한 번 정상이던 것이
+///   닫혔을 때만 손대면 남의 매장 결제 프로그램을 헛되이 죽이는 일이 사라진다.
+static EVER_OK: AtomicBool = AtomicBool::new(false);
+/// 위 대기 로그를 매 주기(90초) 찍지 않기 위한 1회 플래그.
+static WAITING_LOGGED: AtomicBool = AtomicBool::new(false);
 /// 복구를 포기한 상태 — 재실행으로 안 낫는 고장이라는 뜻. 패널이 이걸 사람에게 알린다.
 static GAVE_UP: AtomicBool = AtomicBool::new(false);
 /// 이 기기에 데몬 자체가 없다 = 다른 VAN 을 쓰는 거래처에 관제를 잘못 켰다는 뜻.
@@ -97,6 +110,8 @@ pub fn set_kind(kind: &str) {
             // 안 그러면 다시 켜도 여전히 손을 놓고 있어 "켰는데 아무것도 안 한다"가 된다.
             // VAN 을 바꿔 켰다면 찾을 프로그램도 달라지므로 '설치 안 됨'도 같이 턴다.
             GAVE_UP.store(false, Ordering::Relaxed);
+            EVER_OK.store(false, Ordering::Relaxed);
+            WAITING_LOGGED.store(false, Ordering::Relaxed);
             NOT_INSTALLED.store(false, Ordering::Relaxed);
             FAILURES.store(0, Ordering::Relaxed);
         }
@@ -107,9 +122,34 @@ pub fn set_kind(kind: &str) {
 }
 
 /// 마지막 점검 결과(정상 여부). 관제 off 면 None — 서버가 표시하지 않는다.
+///
+/// ★리더기 대기 상태도 None 을 낸다. 데몬이 안 도는 건 맞지만 **고장이 아니다** —
+///   KSCAT 은 IC 리더기가 켜져 있어야 데몬을 띄우므로, 영업 준비 전에는 안 도는 게 정상이다.
+///   이걸 false 로 보내면 화면이 빨간 "중지 — 되살리는 중"으로 뜨는데, 우리는 손도 안 대고
+///   있고 매장도 멀쩡하다. 매일 아침 영업 전마다 전 매장이 빨개지는 셈이라 경보가 무뎌진다.
+///   None 은 서버가 "아직 판정 못 함"으로 받아 회색 '대기'로 그린다 — 서버도 화면도 손댈 것
+///   없이 사실에 맞는 표시가 된다(2026-08-13 Chang: "모든 게 정상이면 정상 메시지를 내야 한다").
+///
+///   판정을 보류하는 조건은 tick 의 게이트와 같다: 프로세스는 있는데 이번 부팅에서 한 번도
+///   정상이었던 적이 없을 때. 한 번이라도 돌았다가 멈춘 것이면 진짜 고장이라 false 가 나간다.
 pub fn current_ok() -> Option<bool> {
     let on = KIND.lock().map(|k| !k.is_empty()).unwrap_or(false);
-    on.then(|| LAST_OK.load(Ordering::Relaxed))
+    if !on {
+        return None;
+    }
+    if LAST_OK.load(Ordering::Relaxed) {
+        return Some(true);
+    }
+    // 아직 한 번도 안 돌았고 프로그램은 떠 있다 = 리더기를 안 켠 것으로 본다.
+    if !EVER_OK.load(Ordering::Relaxed) && !NOT_INSTALLED.load(Ordering::Relaxed) {
+        return None;
+    }
+    Some(false)
+}
+
+/// 관제가 켜져 있나 — 판정 보류(리더기 대기)와 관제 off 를 heartbeat 가 구분하려고 쓴다.
+pub fn is_on() -> bool {
+    KIND.lock().map(|k| !k.is_empty()).unwrap_or(false)
 }
 
 /// 복구를 포기한 상태인가(패널 경고용).
@@ -170,6 +210,7 @@ fn tick(d: &'static Daemon) {
         FAILURES.store(0, Ordering::Relaxed);
         GAVE_UP.store(false, Ordering::Relaxed);
         NOT_INSTALLED.store(false, Ordering::Relaxed);
+        EVER_OK.store(true, Ordering::Relaxed);
         cache_path_if_missing(d);
         return;
     }
@@ -194,12 +235,43 @@ fn tick(d: &'static Daemon) {
         return;
     }
 
+    // ★리더기 대기와 진짜 고장은 **프로세스 유무**로 갈린다.
+    //
+    //   KSCAT 은 IC 리더기가 꺼져 있어도 프로세스로는 떠 있다 — 리더기 스위치가 좌우하는 건
+    //   *데몬이 뜨느냐*지 *프로그램이 실행돼 있느냐*가 아니다(2026-08-13 신부산오뎅본점:
+    //   리더기가 꺼진 채로 프로세스는 존재했다). 그러니 프로세스가 아예 없으면 리더기와
+    //   무관하게 고장이고, 이때는 지체 없이 되살린다 — 부팅 후 자동시작이 실패한 경우가
+    //   여기 해당하며, 리더기 대기로 오해해 방치하면 영업이 시작돼도 카드가 안 긁힌다.
+    //
+    //   프로세스가 **있는데** 포트만 닫혀 있을 때가 애매한 자리다. 그건 리더기를 아직 안 켠
+    //   정상 상태일 수도, 데몬만 멈춘 고장일 수도 있다. 둘을 시간축으로 가른다 —
+    //   이번 부팅에서 한 번이라도 정상이었다면 "돌던 것이 멈춘" 고장이고, 한 번도 없었다면
+    //   아직 안 켠 것이다.
+    if find_pid(d.process).is_some() && !EVER_OK.load(Ordering::Relaxed) {
+        if !WAITING_LOGGED.swap(true, Ordering::Relaxed) {
+            log::info!(
+                "[chainremote_van] {} 아직 정상인 적 없음 — 리더기 대기로 보고 손대지 않는다",
+                d.kind
+            );
+        }
+        return;
+    }
+
     recover(d);
 }
 
 /// 재실행 시도. 프로세스가 남아 있으면(데몬만 멈춘 B 상태) 먼저 정리하고 띄운다.
 fn recover(d: &'static Daemon) {
     let pid = find_pid(d.process);
+    // ★죽이기 **전에** 경로를 확보한다. 캐시는 데몬이 정상일 때만 채워지므로(tick 의
+    //   listening 분기), 우리가 붙은 뒤로 한 번도 정상인 적이 없고 설치 위치가 fallbacks 밖이면
+    //   캐시가 영영 빈다. 그 상태에서 종전 코드는 **프로세스를 먼저 죽이고 나서** 경로가
+    //   없다고 포기했다 — 남의 매장 카드결제를 죽여 놓고 못 살린다는 뜻이다
+    //   (2026-08-13 신부산오뎅본점: 성공 재시작 0회인데 3회 실패로 포기, 프로세스는 존재).
+    //   살아 있는 프로세스는 자기 실행 경로를 알고 있으니 그걸 먼저 받아 둔다.
+    if pid.is_some() {
+        cache_path_if_missing(d);
+    }
     let path = daemon_path(d);
 
     // 프로세스도 없고 설치 경로에도 없다 = 이 기기는 애초에 이 VAN 을 안 쓴다.
@@ -216,6 +288,17 @@ fn recover(d: &'static Daemon) {
         return;
     }
 
+    // ★경로를 모르면 **죽이지 않는다**. 못 살릴 걸 알면서 죽이는 건 관제가 아니라 고장이다.
+    //   다음 주기에 다시 시도하고(캐시가 채워질 수 있다), 계속 모르면 실패로 세어 사람을 부른다.
+    if path.is_none() {
+        log::warn!(
+            "[chainremote_van] {} path unknown — 죽이지 않고 넘어간다(못 살릴 것을 죽이지 않는다)",
+            d.process
+        );
+        note_failure();
+        return;
+    }
+
     if let Some(pid) = pid {
         log::info!("[chainremote_van] {} alive (pid {}) but port {} closed → restarting", d.process, pid, d.port);
         if !kill(pid) {
@@ -227,10 +310,8 @@ fn recover(d: &'static Daemon) {
         log::info!("[chainremote_van] {} not running → starting", d.process);
     }
 
-    // 프로세스는 떠 있었는데 실행 파일 위치를 못 찾은 경우(캐시도 후보 경로도 빗나감).
-    //   드물지만 여기선 '설치 안 됨'이 아니라 평범한 복구 실패로 센다.
+    // 위에서 이미 걸렀으므로 여기선 반드시 Some 이다.
     let Some(path) = path else {
-        log::warn!("[chainremote_van] {} path unknown — cannot start", d.process);
         note_failure();
         return;
     };

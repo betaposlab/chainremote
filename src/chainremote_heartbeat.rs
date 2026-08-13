@@ -407,6 +407,14 @@ fn send_heartbeat(
     //   (후속 전송에 같이 실으면 재시작 카운트가 중복 증가한다). vanOk=데몬이 포트를 듣고
     //   있나, vanRestarted=지난 보고 후 되살렸나, vanGaveUp=재실행으로 안 낫아 손을 뗐나.
     let report_van_restart = if cleanup_result.is_none() {
+        // ★관제는 켜져 있는데 판정을 보류한 상태(리더기 대기)면 **null 을 명시해서** 보낸다.
+        //   필드를 빼면 서버는 "변경 없음"으로 읽어 옛 값을 그대로 둔다 — 한 번 빨간 '중지'가
+        //   박힌 거래처는 리더기를 안 켜는 한 영영 빨갛게 남는다(2026-08-13 신부산).
+        if crate::chainremote_van::is_on() && crate::chainremote_van::current_ok().is_none() {
+            body["vanOk"] = serde_json::Value::Null;
+            body["vanGaveUp"] = false.into();
+            body["vanMissing"] = false.into();
+        }
         if let Some(ok) = crate::chainremote_van::current_ok() {
             body["vanOk"] = ok.into();
             body["vanGaveUp"] = crate::chainremote_van::gave_up().into();

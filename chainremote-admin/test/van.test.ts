@@ -194,3 +194,72 @@ describe("VAN 카드결제 데몬 관제 (마이그 036)", () => {
     expect(r.vanLastRestartAt).toBeNull();
   });
 });
+
+// ★리더기 대기(판정 보류) 계약 — 2026-08-13.
+//
+// KSCAT 데몬은 IC 리더기가 켜져 있어야 뜬다. 그래서 "포트가 닫혔다"는 고장만이 아니라
+//   영업 준비 전이라는 **정상 상태**이기도 하다. 에이전트는 그때 vanOk 를 **명시적 null**
+//   로 보낸다. 필드를 빼면(undefined) 서버가 "변경 없음"으로 읽어 한 번 박힌 빨간 '중지'가
+//   영영 안 풀린다 — 신부산오뎅본점이 그렇게 굳어 있었다. 그 차이를 여기서 못박는다.
+/** 이 거래처의 VAN 상태를 날것으로 읽는다(판정 보류 계약 검증용). */
+async function readVan(remoteId: string) {
+  const db = testDb();
+  const [row] = await db
+    .select({ vanOk: customers.vanOk, vanGaveUp: customers.vanGaveUp })
+    .from(customers)
+    .where(eq(customers.remoteId, remoteId))
+    .limit(1);
+  return row;
+}
+
+describe("VAN 판정 보류 (리더기 대기)", () => {
+  it("null 을 보내면 기존 '중지'가 '대기'로 풀린다", async () => {
+    const db = testDb();
+    const [t] = await db
+      .insert(tenants)
+      .values({ slug: "van-wait", displayName: "van-wait" })
+      .returning({ id: tenants.id });
+    await db
+      .insert(customers)
+      .values({ tenantId: t.id, name: "van-wait", remoteId: "VW11110001" });
+    const token = (await registerHeartbeatToken("VW11110001"))!;
+    await setVanWatch("VW11110001", "ksnet", t.id);
+
+    // 먼저 고장으로 굳힌다.
+    await recordHeartbeat("VW11110001", token, "1.4.112", undefined, undefined, undefined, undefined, {
+      vanOk: false,
+      vanGaveUp: true,
+    });
+    let row = await readVan("VW11110001");
+    expect(row?.vanOk).toBe(false);
+    expect(row?.vanGaveUp).toBe(true);
+
+    // 판정 보류를 명시하면 비워져야 한다.
+    await recordHeartbeat("VW11110001", token, "1.4.112", undefined, undefined, undefined, undefined, {
+      vanOk: null,
+    });
+    row = await readVan("VW11110001");
+    expect(row?.vanOk).toBeNull();
+    expect(row?.vanGaveUp).toBe(false);
+  });
+
+  it("필드를 아예 안 보내면 기존 값이 보존된다 — null 과 구분된다", async () => {
+    const db = testDb();
+    const [t] = await db
+      .insert(tenants)
+      .values({ slug: "van-keep", displayName: "van-keep" })
+      .returning({ id: tenants.id });
+    await db
+      .insert(customers)
+      .values({ tenantId: t.id, name: "van-keep", remoteId: "VW11110002" });
+    const token = (await registerHeartbeatToken("VW11110002"))!;
+    await setVanWatch("VW11110002", "ksnet", t.id);
+
+    await recordHeartbeat("VW11110002", token, "1.4.112", undefined, undefined, undefined, undefined, {
+      vanOk: false,
+    });
+    await recordHeartbeat("VW11110002", token, "1.4.112", undefined, undefined, undefined, undefined, {});
+    const row = await readVan("VW11110002");
+    expect(row?.vanOk).toBe(false);
+  });
+});
