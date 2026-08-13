@@ -21,14 +21,6 @@ interface NatCounts {
   symmetric: number;
   unknown: number;
   total: number;
-  // 공유기 UPnP(040) — 홀펀칭이 안 되는 곳을 직결로 되살릴 수 있는지.
-  upnpYes: number;
-  upnpNo: number;
-  upnpTotal: number;
-  // 실제로 포트를 연 곳(041) 과, 그 문이 바깥에서 진짜 열렸는지(042).
-  doorOn: number;
-  doorOpen: number;
-  doorFake: number;
 }
 
 /** 경로 점검 명단(마이그043) — 비율이 아니라 **어느 집이 릴레이만 타는가**가 목적이다. */
@@ -83,20 +75,6 @@ export async function P2pCard({
         symmetric: sql<number>`count(*) filter (where ${customers.natType} = 2)`.mapWith(Number),
         unknown: sql<number>`count(*) filter (where ${customers.natType} = 0)`.mapWith(Number),
         total: sql<number>`count(*)`.mapWith(Number),
-        upnpYes: sql<number>`count(*) filter (where ${customers.upnp} = 'yes')`.mapWith(Number),
-        upnpNo: sql<number>`count(*) filter (where ${customers.upnp} in ('no','found'))`.mapWith(Number),
-        upnpTotal: sql<number>`count(*) filter (where ${customers.upnp} is not null)`.mapWith(Number),
-        doorOn: sql<number>`count(*) filter (where ${customers.upnpEnabled})`.mapWith(Number),
-        // 열림 = 클라우드가 그 주소를 두드려 에이전트 인사까지 받은 것(6시간 신선도).
-        doorOpen:
-          sql<number>`count(*) filter (where ${customers.upnpEnabled} and ${customers.upnpVerifiedAt} > now() - interval '6 hours')`.mapWith(
-            Number,
-          ),
-        // 거짓 열림 = 공유기는 주소를 내줬는데 바깥에서 두드리니 안 열리는 것.
-        doorFake:
-          sql<number>`count(*) filter (where ${customers.upnpEnabled} and ${customers.upnpEndpoint} is not null and ${customers.upnpProbeAt} is not null and (${customers.upnpVerifiedAt} is null or ${customers.upnpVerifiedAt} <= now() - interval '6 hours'))`.mapWith(
-            Number,
-          ),
       })
       .from(customers)
       .where(
@@ -160,7 +138,7 @@ export async function P2pCard({
         </>
       )}
 
-      <NatBreakdown nat={nat} showInternals={showInternals} />
+      {showInternals && <NatBreakdown nat={nat} />}
       {probe && probe.length > 0 && <ProbeList rows={probe} />}
     </div>
   );
@@ -193,17 +171,17 @@ function DirectRate({ total, direct }: { total: number; direct: number }) {
   );
 }
 
-function NatBreakdown({
-  nat,
-  showInternals,
-}: {
-  nat: NatCounts | null;
-  showInternals: boolean;
-}) {
+/** 거래처 회선 유형 — **추정치**이고 플랫폼 운영자에게만 보인다.
+ *
+ *  ★"직접 연결 가능 N대"를 대리점에게 보여주면 안 된다. RustDesk 의 NAT 판정은 **같은 서버
+ *    IP 의 두 포트**로만 재기 때문에(common.rs test_nat_type_), 목적지 IP 마다 포트를 바꾸는
+ *    공유기를 Cone(가능)으로 잘못 센다. 실제로 테스트1 은 Cone 으로 보고되는데 홀펀칭이
+ *    실패한다. 실측은 경로 점검(마이그043)이 하고, 이 값은 그 원인을 짐작하는 참고일 뿐이다. */
+function NatBreakdown({ nat }: { nat: NatCounts | null }) {
   return (
     <div className="mt-4 border-t border-white/10 pt-4">
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold text-white">거래처 회선 유형</h3>
+        <h3 className="text-sm font-semibold text-white">거래처 회선 유형(추정)</h3>
         <span className="text-xs text-[#ccd2e3]">
           {nat ? `${nat.total}대 보고` : "수집 중"}
         </span>
@@ -229,68 +207,16 @@ function NatBreakdown({
       )}
       <p className="mt-2 text-xs text-[#ccd2e3]">
         일부 인터넷 회선·공유기는 접속할 때마다 통로를 바꿔서 직접 연결이 원천적으로 안 됩니다.
-        그런 거래처는 서버 경유로만 이어집니다.
+        <span className="text-[#8a93ad]">
+          {" "}
+          단 이 값은 추정입니다 — &quot;가능&quot;으로 잡혀도 실제로는 안 뚫리는 회선이 있어
+          실측은 아래 경로 점검이 합니다.
+        </span>
       </p>
-      {showInternals && nat && nat.upnpTotal > 0 && (
-        <div className="mt-3 border-t border-white/10 pt-3">
-          <div className="mb-1 flex items-baseline justify-between gap-2">
-            <h3 className="text-sm font-semibold text-white">공유기 포트 열기(UPnP)</h3>
-            <span className="text-xs text-[#ccd2e3]">{nat.upnpTotal}대 조사됨</span>
-          </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#cbd1e0]">
-            <span>
-              <span className="font-semibold text-emerald-300">{nat.upnpYes}대</span> 가능
-            </span>
-            <span>
-              <span className="font-semibold text-[#ccd2e3]">{nat.upnpNo}대</span> 불가
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-[#ccd2e3]">
-            공유기에 통로를 직접 열어 달라고 요청할 수 있는 거래처 수입니다. 직접 연결이 안 되던
-            곳도 이 방법으로는 이어질 수 있습니다.
-          </p>
-          {nat.doorOn > 0 && <DoorVerify nat={nat} />}
-        </div>
-      )}
     </div>
   );
 }
 
-/** 실제로 연 문이 바깥에서 열려 있는지 — 공유기 말이 아니라 실측 결과.
- *
- *  ★이 줄이 있는 이유: 우리집 공유기는 AddPortMapping 을 받아 주고 되읽어도 매핑이 멀쩡한데
- *    인터넷에서 오는 연결을 랜 안쪽으로 넘기지 않았다(2026-08-12). 그래서 "가능 N대"만 세면
- *    실제 성과를 몇 배로 부풀려 읽게 된다. 켠 곳 중 진짜 열린 곳을 따로 센다. */
-function DoorVerify({ nat }: { nat: NatCounts }) {
-  const waiting = Math.max(0, nat.doorOn - nat.doorOpen - nat.doorFake);
-  return (
-    <div className="mt-3 rounded-lg bg-white/5 p-3">
-      <div className="mb-1 flex items-baseline justify-between gap-2">
-        <h4 className="text-xs font-semibold text-white">실제로 연 문</h4>
-        <span className="text-xs text-[#ccd2e3]">{nat.doorOn}대 켜짐</span>
-      </div>
-      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#cbd1e0]">
-        <span>
-          <span className="font-semibold text-emerald-300">{nat.doorOpen}대</span> 열림(확인됨)
-        </span>
-        {nat.doorFake > 0 && (
-          <span>
-            <span className="font-semibold text-rose-300">{nat.doorFake}대</span> 공유기만 열었다고 함
-          </span>
-        )}
-        {waiting > 0 && (
-          <span>
-            <span className="font-semibold text-[#ccd2e3]">{waiting}대</span> 확인 대기
-          </span>
-        )}
-      </div>
-      <p className="mt-2 text-xs text-[#ccd2e3]">
-        공유기가 열었다고 대답해도 실제로는 안 열리는 제품이 있습니다. 그래서 바깥(우리 서버)에서
-        직접 두드려 보고, 응답이 온 곳만 열린 것으로 셉니다.
-      </p>
-    </div>
-  );
-}
 
 /** 무엇이 분모에서 빠지는지 — 항상 보인다.
  *
