@@ -41,17 +41,6 @@ div.support-banner > .banner-end:hover {
     background: #C62828;
 }
 
-/* ChainRemote: 배너 + (펼쳤을 때) 채팅. 배너 줄은 높이를 고정해 채팅이 붙어도
-   드래그 핸들 위치가 그대로다. 값은 Flutter 쪽(server_page.dart)과 맞춘다. */
-div.banner-wrap {
-    size: *;
-    flow: vertical;
-    background: #1F2937;
-}
-div.banner-wrap > div.support-banner {
-    height: 48px;
-    size: * 48px;
-}
 div.support-banner > .banner-chatbtn {
     background: transparent;
     border: none;
@@ -77,17 +66,79 @@ div.support-banner > .banner-chatbtn > .banner-unread {
     background: #E53935;
     border-radius: 7px;
 }
-/* 채팅은 배너에 붙은 게 아니라 그 아래 놓인 **별개 카드**로 보이게 한다.
-   틈과 둥근 모서리, 자체 테두리 — "배너가 커졌다"가 아니라 "밑에 채팅이 떴다"로
-   읽히게 하는 것(2026-08-14 Chang "디테일이 없어 보인다"). Flutter 와 같은 값. */
-div.banner-wrap > div.banner-chatpane {
+/* ChainRemote: 채팅 펼침 = 맥 HQ 채팅창과 같은 구성의 독립 창.
+   헤더(드래그)+대화 카드+하단 상태줄. 값은 Flutter(server_page.dart)와 맞춘다. */
+div.chatwin {
     size: *;
-    margin: 6px;
-    padding: 0;
+    flow: vertical;
+    background: #1F2937;
+}
+div.chatwin > div.chatwin-head {
+    size: * 32px;
+    flow: horizontal;
+    padding: 0 10px;
+}
+div.chatwin-head > .cwh-label {
+    size: *;
+    color: #FFFFFF;
+    font-size: 13px;
+    font-weight: bold;
+    margin: * 0;
+    vertical-align: middle;
+}
+div.chatwin-head > .cwh-close {
+    background: transparent;
+    border: none;
+    color: #9CA3AF;
+    font-size: 13px;
+    padding: 3px 8px;
+    margin: * 0;
+}
+div.chatwin-head > .cwh-close:hover {
+    background: #374151;
+    border-radius: 4px;
+    color: #FFFFFF;
+}
+div.chatwin > div.chatwin-body {
+    size: *;
+    margin: 0 6px;
     background: #171A21;
     border: 1px solid #374151;
     border-radius: 10px;
     flow: vertical;
+}
+div.chatwin-body > .chatbox {
+    size: *;
+}
+div.chatwin > div.chatwin-foot {
+    size: * 32px;
+    flow: horizontal;
+    padding: 0 10px;
+}
+div.chatwin-foot > .cwf-dot {
+    size: 8px;
+    background: #E53935;
+    border-radius: 8px;
+    margin: * 7px * 0;
+}
+div.chatwin-foot > .cwf-label {
+    size: *;
+    color: #9CA3AF;
+    font-size: 11px;
+    margin: * 0;
+    vertical-align: middle;
+}
+div.chatwin-foot > .cwf-end {
+    color: #FFFFFF;
+    background: #E53935;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    margin: * 0;
+}
+div.chatwin-foot > .cwf-end:hover {
+    background: #C62828;
 }
 
 div.left-panel {
@@ -450,34 +501,5 @@ div.accept-card .ac-accept {
 }
 div.accept-card .ac-deny:hover {
     background: #2E313A;
-    color: #FFFFFF;
-}
-
-/* ChainRemote: 거래처 채팅 헤더 — 본사 채팅창과 같은 모양("채팅" + X).
-   닫을 곳이 안 보이면 사람은 눈에 띄는 빨간 [원격 종료]를 누른다(2026-08-14 실사고). */
-div.banner-chatpane > div.chatpane-head {
-    size: * 26px;
-    flow: horizontal;
-    padding: 0 4px 0 8px;
-}
-div.chatpane-head > .cph-label {
-    size: *;
-    color: #9CA3AF;
-    font-size: 12px;
-    font-weight: bold;
-    margin: * 0;
-    vertical-align: middle;
-}
-div.chatpane-head > .cph-close {
-    background: transparent;
-    border: none;
-    color: #9CA3AF;
-    font-size: 13px;
-    padding: 3px 6px;
-    margin: * 0;
-}
-div.chatpane-head > .cph-close:hover {
-    background: #374151;
-    border-radius: 4px;
     color: #FFFFFF;
 }

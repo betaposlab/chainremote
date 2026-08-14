@@ -45,34 +45,37 @@ class Body: Reactor.Component
         // ChainRemote(Agent32): 활성 세션이면 슬림 "원격지원 중" 배너를 띄운다(Flutter 톤).
         //   빨간 점 + "원격지원 중" + [원격 종료]. 전체 카드 대신 이걸 보여줘 거래처가 원격 중임을 항상 알게 한다.
         if (auth && !disconnected) {
-            // ChainRemote: role=window-caption 이면 배너를 잡고 끌어 옮길 수 있다.
-            //   #disconnect 버튼은 interactive라 드래그에서 빠진다(클릭 유지). no-focus(스캐너 보호)는
-            //   windowTopmost만 쓰고 view.focus 는 안 부르는 방식(applyCmBanner)이라 드래그와 충돌하지 않는다.
-            // ChainRemote: 배너에 채팅을 붙인다. 종전엔 본사가 보낸 메시지가 여기 도착해도
-            //   그릴 자리가 없어 조용히 사라졌다(수락카드/배너로 갈아엎을 때 같이 잘려 나갔다).
-            //   말풍선을 누르면 접었다 폈다 하고, 안 읽은 게 있으면 점이 붙는다.
-            var unread = c.unreaded > 0 && !show_chat;
-            return <div .banner-wrap>
-                <div .support-banner role="window-caption">
-                    <span .banner-dot />
-                    <span .banner-label>{translate('Remote support in progress')}</span>
-                    <button #bannerchat .banner-chatbtn>
-                        {svg_chat}
-                        {unread ? <span .banner-unread /> : ""}
-                    </button>
-                    <button #disconnect .banner-end>{translate('Disconnect')}</button>
-                </div>
-                {show_chat ?
-                    <div .banner-chatpane>
-                        {/* 채팅 헤더 — 본사 채팅창과 같은 모양("채팅" + X).
-                            ★닫을 곳이 안 보이면 사람은 눈에 띄는 빨간 버튼을 누른다.
-                              실제로 채팅을 닫으려다 원격이 끊긴 일이 있었다(2026-08-14). */}
-                        <div .chatpane-head>
-                            <span .cph-label>{translate('Chat')}</span>
-                            <button #chatclose .cph-close>{"\u2715"}</button>
-                        </div>
+            // ChainRemote: 원격 중 UI. 채팅이 접혀 있으면 슬림 배너, 펼쳐지면 맥 HQ
+            //   채팅창과 같은 구성의 독립 창(헤더 드래그+X / 대화 / 하단 상태줄).
+            //   원격 중임을 항상 알린다는 배너의 의무는 하단 상태줄이 이어받고,
+            //   X(우상단)와 [원격 종료](우하단)를 양끝으로 떼어 오클릭을 막는다.
+            //   ★마크업 안에 {/* */} 주석 금지 — TIScript 가 빈 표현식으로 읽어
+            //     렌더가 통째로 죽을 수 있다(1.4.121 에 실제로 박혀 있던 지뢰).
+            if (show_chat) {
+                return <div .chatwin>
+                    <div .chatwin-head role="window-caption">
+                        <span .cwh-label>{translate('Chat')}</span>
+                        <button #chatclose .cwh-close>{"\u2715"}</button>
+                    </div>
+                    <div .chatwin-body>
                         <ChatBox msgs={c.msgs} callback={callback} />
-                    </div> : ""}
+                    </div>
+                    <div .chatwin-foot>
+                        <span .cwf-dot />
+                        <span .cwf-label>{translate('Remote support in progress')}</span>
+                        <button #disconnect .cwf-end>{translate('Disconnect')}</button>
+                    </div>
+                </div>;
+            }
+            var unread = c.unreaded > 0;
+            return <div .support-banner role="window-caption">
+                <span .banner-dot />
+                <span .banner-label>{translate('Remote support in progress')}</span>
+                <button #bannerchat .banner-chatbtn>
+                    {svg_chat}
+                    {unread ? <span .banner-unread /> : ""}
+                </button>
+                <button #disconnect .banner-end>{translate('Disconnect')}</button>
             </div>;
         }
         // ChainRemote(Agent32): 대기(미수락) 상태는 Flutter "원격지원 요청" 카드와 톤을 맞춘다.
@@ -496,8 +499,8 @@ function applyCmBanner() {
         //   채팅을 펼쳤으면 아래로 자란다.
         //   ★폭 300 — 260 이던 시절 라벨이 짧아 들어갔는데 [원격 종료] + 말풍선이 붙으며
         //     버튼이 잘렸다(2026-08-14 Chang 스샷). Flutter 배너와 같은 값.
-        var w = wantChat ? scaleIt(380) : scaleIt(300);
-        var h = wantChat ? scaleIt(300) : scaleIt(48);
+        var w = wantChat ? scaleIt(340) : scaleIt(300);
+        var h = wantChat ? scaleIt(400) : scaleIt(48);
         setWindowState(View.WINDOW_SHOWN);
         // ★배너끼리의 전환(채팅 펼침/접힘)은 **위치를 지키고 크기만** 바꾼다.
         //   종전엔 매번 (sw-w)/2 로 상단 중앙에 다시 놓아서, 채팅을 켜고 끌 때마다 창이
@@ -515,16 +518,18 @@ function applyCmBanner() {
         // 카드(380x260)에서 배너(260x48)로 줄었으니 비운 자리를 다시 그리게 한다.
         //   Aero 꺼진 구형 Win7 POS 는 그 영역이 자동 무효화되지 않아 직전 프레임이
         //   검은 상자처럼 남는다 (2026-07-31 테스트1). Win10 은 원래 안 남지만 무해하다.
-        var cw = scaleIt(380);
-        var ch = scaleIt(260);
-        handler.repaint_area((sw - cw) / 2, 0, cw, ch);
+        // 위치가 보존되므로 "중앙"이 아니라 창이 **실제로 있던 자리**(이동 전 rect)를
+        //   다시 그린다 — 옮겨 둔 창이 줄어들 때 그 자리에 잔상이 남는 것을 막는다.
+        if (cw0 > 0) handler.repaint_area(cx, cy, cw0, ch0);
     } else {
         // 대기(수락카드)/끊김: 카드 크기. 카드는 거래처가 눌러야 하는 창이라 스타일을 원복한다.
         var w = scaleIt(380);
         var h = scaleIt(260);
         handler.set_banner_mode(false);
         view.windowTopmost = false;
+        var (ecx, ecy, ecw, ech) = view.box(#rectw, #border, #screen);
         view.move((sw - w) / 2, 0, w, h);
+        if (ecw > 0) handler.repaint_area(ecx, ecy, ecw, ech);
         // 수락카드로 돌아왔다 = 새 세션의 시작. 다음 배너는 다시 중앙에서 시작한다.
         cm_banner_was_shown = false;
     }
@@ -658,6 +663,10 @@ handler.crChatPanel = function(id, open) {
     } else {
         chat_idle_timer_gen++;   // 대기 중인 접기 타이머 무효화
         show_chat = false;
+        // 보다 만 대화의 잔여 안읽음 정리 — 닫힌 배너에 빨간 점만 남는 것을 막는다.
+        var j = -1;
+        connections.map(function(cc, i) { if (cc.id == id) j = i; });
+        if (j >= 0) connections[j].unreaded = 0;
     }
     applyCmBanner();
     body.update();
@@ -678,11 +687,13 @@ handler.newMessage = function(id, text) {
     //      전제다. 배너에선 applyCmBanner 가 크기의 단일 창구라 둘이 싸운다.
     //   대신 배너 안에서 펼치고, 창 크기는 applyCmBanner 한 곳에서만 잡는다.
     if (cm_banner_state) {
-        conn.unreaded += 1;
         if (idx == body.cur) {
             show_chat = true;
+            conn.unreaded = 0;   // 바로 펼쳐 보여주므로 안읽음이 아니다
             applyCmBanner();
             scheduleChatCollapse();   // 조용해지면 스스로 접힌다
+        } else {
+            conn.unreaded += 1;
         }
         update();
         return;

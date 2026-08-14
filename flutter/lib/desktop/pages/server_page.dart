@@ -515,10 +515,19 @@ class ConnectionManagerState extends State<ConnectionManager>
     //   ★값이 바뀐 순간에만 반응한다. 매 build 마다 따라가면 거래처가 말풍선으로 직접
     //     접은 것을 다음 build 가 도로 펴 버린다.
     final peerChat = crAgentChatPanelOpen.value;
+    // ★진범 기록(2026-08-14 스샷3): 본사가 [열기→메시지→닫기] 순서로 쓰면 닫힘이 안 먹었다.
+    //   메시지가 "창이 이미 열린 상태"에서 도착하면 안읽음이 1 로 남는데(그걸 지우는 곳이
+    //   없었다), 닫힘 신호가 _agentChatOpen=false 로 만든 직후 같은 build 의 자동 펼침이
+    //   그 잔여 안읽음을 보고 도로 열었다. 초저녁 테스트에서 통과한 이유는 순서가
+    //   [메시지→자동펼침(안읽음 소비)→닫기] 라 잔여가 0 이었기 때문 — 순서 의존 버그였다.
+    //   수정 3종: ①열린 동안 온 메시지는 즉시 소비(아래 채팅 패널) ②닫힘 신호가 잔여를
+    //   같이 지움 ③닫힘을 처리한 build 에선 자동 펼침을 건너뜀(같은 프레임 역전 방지).
+    var peerJustClosed = false;
     if (_agentPeerChatShown != peerChat) {
       _agentPeerChatShown = peerChat;
       if (activeClient != null) {
         _agentChatOpen = peerChat;
+        if (!peerChat) peerJustClosed = true;
         // 부수효과는 post-frame 으로 — build(Obx) 안에서 Rx 를 쓰거나 타이머를 걸면
         //   같은 프레임에 다시 그리려 들어 "setState during build" 가 된다.
         final c = activeClient;
@@ -529,13 +538,15 @@ class ConnectionManagerState extends State<ConnectionManager>
             _scheduleAgentChatCollapse();
           } else {
             _agentChatIdleTimer?.cancel();
+            c.unreadChatMessageCount.value = 0; // 잔여를 지워야 자동 펼침이 안 되살린다
           }
         });
       }
     }
     // 본사가 말을 걸면(안 읽은 수 > 0) 자동으로 펼친다. 배너만 뜬 채로 메시지가 오면
     // 피지원자는 온 줄도 모른다 — 그게 여태의 상태였다.
-    if (!_agentChatOpen &&
+    if (!peerJustClosed &&
+        !_agentChatOpen &&
         activeClient != null &&
         activeClient.unreadChatMessageCount.value > 0) {
       _agentChatOpen = true;
@@ -755,10 +766,101 @@ class ConnectionManagerState extends State<ConnectionManager>
     );
   }
 
-  // 활성 세션 인디케이터. 슬림 다크 배너 + 종료 버튼. 드래그로 옮길 수 있고
-  // (windowManager.startDragging), 종료 버튼으로 피지원자가 직접 연결을 끊는다.
+  // 원격 중 UI. 채팅이 접혀 있으면 슬림 배너, 펼쳐지면 **맥 HQ 채팅창과 같은 구성의
+  // 독립 창**이 된다(2026-08-14 Chang 요구 — "배너에 붙은 카드"는 없어 보인다고 기각):
+  //   [헤더: 채팅 ──────── ✕]   ← 드래그 핸들. ✕ 는 채팅만 닫는다.
+  //   [대화 목록 + 입력]
+  //   [하단: ● 원격지원 중 ── 원격 종료]
+  // "원격 중임을 항상 알린다"는 배너의 의무는 하단 상태줄이 이어받는다. ✕(우상단)와
+  // [원격 종료](우하단)를 양끝으로 떼어놔 채팅 닫으려다 원격을 끊는 오클릭을 막는다.
   Widget _buildAgentIndicator(Client? activeClient) {
     final hasActive = activeClient != null;
+    if (hasActive && _agentChatOpen) {
+      return Material(
+        color: const Color(0xFF1F2937),
+        child: Column(
+          children: [
+            // 헤더 — 여기만 드래그 핸들. 전체를 핸들로 잡으면 목록 스크롤·글자 선택
+            // 드래그가 창 이동과 경합한다.
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: (_) => windowManager.startDragging(),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.move,
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.chat_bubble_outline_rounded,
+                          size: 13, color: Color(0xFF9CA3AF)),
+                      const SizedBox(width: 6),
+                      const Text('채팅',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700)),
+                      const Spacer(),
+                      InkWell(
+                        onTap: () {
+                          setState(() => _agentChatOpen = false);
+                          _agentChatIdleTimer?.cancel();
+                        },
+                        borderRadius: BorderRadius.circular(4),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5),
+                          child: Icon(Icons.close_rounded,
+                              size: 15, color: Color(0xFF9CA3AF)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(6, 0, 6, 0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF171A21),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF374151)),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _buildAgentChatPane(activeClient),
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 32,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                          shape: BoxShape.circle, color: Color(0xFFE53935)),
+                    ),
+                    const SizedBox(width: 7),
+                    const Text('원격지원 중',
+                        style: TextStyle(
+                            color: Color(0xFF9CA3AF),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    _buildEndButton(activeClient, compact: true),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    // 배너 모드(채팅 접힘) — 슬림 다크 배너 + 말풍선 + 종료. 전체가 드래그 핸들.
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onPanStart: (_) => windowManager.startDragging(),
@@ -766,67 +868,39 @@ class ConnectionManagerState extends State<ConnectionManager>
         cursor: SystemMouseCursors.move,
         child: Material(
           color: const Color(0xFF1F2937),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 배너 줄. 채팅을 펼쳐도 이 줄은 그대로 남아 드래그 핸들 겸 상태 표시를 한다.
-              SizedBox(
-                height: kAgentSupportBannerSize.height,
-                child: Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: hasActive
-                              ? const Color(0xFFE53935)
-                              : const Color(0xFF6B7280),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        hasActive ? '원격지원 중' : '원격지원 대기',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      if (activeClient != null) ...[
-                        const SizedBox(width: 10),
-                        _buildChatToggle(activeClient),
-                        const SizedBox(width: 8),
-                        _buildEndButton(activeClient),
-                      ],
-                    ],
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: hasActive
+                        ? const Color(0xFFE53935)
+                        : const Color(0xFF6B7280),
                   ),
                 ),
-              ),
-              // 채팅은 배너에 붙은 게 아니라 **그 아래 놓인 별개 카드**로 보이게 한다.
-              //   틈(6px)과 둥근 모서리, 자체 테두리를 줘서 "배너가 커졌다"가 아니라
-              //   "배너 밑에 채팅이 하나 떴다"로 읽히게 하는 것 — 2026-08-14 Chang 이
-              //   "디테일이 없어 보인다"고 지적한 자리다.
-              if (activeClient != null && _agentChatOpen)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF171A21),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF374151)),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: _buildAgentChatPane(activeClient),
-                    ),
+                const SizedBox(width: 8),
+                Text(
+                  hasActive ? '원격지원 중' : '원격지원 대기',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
                   ),
                 ),
-            ],
+                if (activeClient != null) ...[
+                  const SizedBox(width: 10),
+                  _buildChatToggle(activeClient),
+                  const SizedBox(width: 8),
+                  _buildEndButton(activeClient),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -898,47 +972,18 @@ class ConnectionManagerState extends State<ConnectionManager>
         if (msgs.length != _agentChatSeenMsgCount) {
           _agentChatSeenMsgCount = msgs.length;
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && _agentChatOpen) _scheduleAgentChatCollapse();
+            if (mounted && _agentChatOpen) {
+              // 보고 있는 중에 온 메시지는 안읽음이 아니다. 여길 안 지우면 본사가 닫는
+              //   순간 자동 펼침이 그 잔여로 창을 도로 연다(스샷3 버그의 반쪽).
+              client.unreadChatMessageCount.value = 0;
+              _scheduleAgentChatCollapse();
+            }
           });
         }
         return Container(
           // 위쪽 경계선은 감싸는 카드의 테두리가 대신한다.
           child: Column(
             children: [
-              // 채팅 헤더 — 본사 채팅창과 같은 모양("채팅" + ✕)으로 둔다.
-              //   ★닫을 곳이 안 보이면 사람은 눈에 띄는 빨간 버튼을 누른다. 실제로
-              //     채팅을 닫으려다 원격이 끊긴 일이 있었다(2026-08-14). 본사 쪽에
-              //     이미 익숙한 자리에 같은 ✕ 를 두는 게 안내문보다 확실하다.
-              SizedBox(
-                height: 26,
-                child: Row(
-                  children: [
-                    const SizedBox(width: 10),
-                    const Icon(Icons.chat_bubble_outline_rounded,
-                        size: 12, color: Color(0xFF9CA3AF)),
-                    const SizedBox(width: 5),
-                    const Text('채팅',
-                        style: TextStyle(
-                            color: Color(0xFF9CA3AF),
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600)),
-                    const Spacer(),
-                    InkWell(
-                      onTap: () {
-                        setState(() => _agentChatOpen = false);
-                        _agentChatIdleTimer?.cancel();
-                      },
-                      borderRadius: BorderRadius.circular(4),
-                      child: const Padding(
-                        padding: EdgeInsets.all(5),
-                        child: Icon(Icons.close_rounded,
-                            size: 14, color: Color(0xFF9CA3AF)),
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                  ],
-                ),
-              ),
               Expanded(
                 child: msgs.isEmpty
                     ? const Center(
@@ -1058,24 +1103,23 @@ class ConnectionManagerState extends State<ConnectionManager>
   }
 
   // 종료 버튼. 피지원자가 지금 원격 세션을 직접 끊는다(RustDesk CM 의 cmCloseConnection).
-  Widget _buildEndButton(Client client) {
+  Widget _buildEndButton(Client client, {bool compact = false}) {
     return InkWell(
       onTap: () => bind.cmCloseConnection(connId: client.id),
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: EdgeInsets.symmetric(
+            horizontal: compact ? 8 : 10, vertical: compact ? 3 : 4),
         decoration: BoxDecoration(
           color: const Color(0xFFE53935),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: const Text(
-          // ★"종료"만 쓰면 채팅창 닫기로 오해한다 — 실제로 Chang 이 채팅을 닫으려다
-          //   원격을 끊었다(2026-08-14). Sciter 는 원래 translate('Disconnect')로
-          //   "원격 종료"였다. 무엇이 끝나는지 라벨에 박는다.
+        child: Text(
+          // "종료"만 쓰면 채팅창 닫기로 오해한다(2026-08-14 실사고) — 무엇이 끝나는지 박는다.
           '원격 종료',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 13,
+            fontSize: compact ? 11.5 : 13,
             fontWeight: FontWeight.w700,
           ),
         ),
