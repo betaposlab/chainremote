@@ -334,6 +334,10 @@ const Size kConnectionManagerWindowSizeOpenChat = Size(700, 490);
 const Size kAgentSupportBannerSize = Size(220, 34);
 // 클릭 수락 대기 시 뜨는 [수락]/[거부] 카드 크기(배너보다 크다). 상태에 따라 server_page 가 전환.
 const Size kAgentAcceptCardSize = Size(360, 200);
+// 원격 중 채팅을 펼쳤을 때. 배너(윗줄) + 대화 + 입력칸이 들어간다.
+// 폭을 카드와 맞춰 배너↔채팅 전환 때 좌우로 흔들리지 않게 한다(정렬이 topCenter 라 폭이
+// 바뀌면 창이 옆으로 미끄러지는 것처럼 보인다).
+const Size kAgentSupportChatSize = Size(360, 300);
 // Tabbar transition duration, now we remove the duration
 const Duration kTabTransitionDuration = Duration.zero;
 const double kEmptyMarginTop = 50;

@@ -412,15 +412,14 @@ class ChatModel with ChangeNotifier {
         return;
       }
       if (isDesktop) {
-        windowOnTop(null);
-        // disable auto jumpTo other tab when hasFocus, and mark unread message
-        final currentSelectedTab =
-            session.serverModel.tabController.state.value.selectedTabInfo;
-        if (currentSelectedTab.key != id.toString() && inputNode.hasFocus) {
-          client.unreadChatMessageCount.value += 1;
-        } else {
-          parent.target?.serverModel.jumpTo(id);
-        }
+        // ★windowOnTop(null) 을 부르지 않는다. 그건 show() + focus() 라 거래처 포스의
+        //   포커스를 뺏는다 — 바코드 스캐너 입력이 포스가 아니라 우리 배너로 들어가고,
+        //   show() 는 v1.4.70 에서 잡은 "배너가 바탕화면 보기를 되돌리던" 그 호출이다.
+        //   우리 CM 은 RustDesk 기본 창이 아니라 topmost-no-focus 배너라 이미 위에 떠
+        //   있으므로 끌어올릴 필요 자체가 없다. 대신 안 읽은 수만 올려 배너가 스스로
+        //   채팅을 펼치게 한다(server_page.dart _buildAgentIndicator).
+        //   이 경로는 여태 죽어 있었다 — 우리가 채팅을 안 써서 아무도 안 밟았을 뿐이다.
+        client.unreadChatMessageCount.value += 1;
       } else {
         if (HomePage.homeKey.currentState?.isChatPageCurrentTab != true ||
             _currentKey != messagekey) {

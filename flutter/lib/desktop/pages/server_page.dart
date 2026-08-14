@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:dash_chat_2/dash_chat_2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -219,6 +220,7 @@ class ConnectionManagerState extends State<ConnectionManager>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _agentChatInput.dispose();
     super.dispose();
   }
 
@@ -426,15 +428,36 @@ class ConnectionManagerState extends State<ConnectionManager>
   //   settle 창(~1.1s) 동안 목표 크기를 계속 유지해 늦게 도착하는 네이티브 스냅백도 교정한다.
   int _cmGeomGen = 0;
 
+  // 채팅을 펼쳤는지. 본사가 말을 걸면 자동으로 펼치고(안 읽은 수가 오르면), 피지원자가
+  // 배너의 말풍선을 눌러 접을 수 있다. ★펼칠 때 창을 focus 하지 않는다 — 포스 바코드
+  // 스캐너 입력을 뺏지 않으려는 것이고, 우리 창은 이미 topmost 라 끌어올릴 필요도 없다.
+  bool _agentChatOpen = false;
+  // reconcile 루프를 다시 킥할지 판단하려고 마지막으로 반영한 채팅 상태를 들고 있는다.
+  bool _agentGeomChatShown = false;
+  final TextEditingController _agentChatInput = TextEditingController();
+
   Widget _buildAgentSupportBanner(ServerModel serverModel) {
     final pending = serverModel.clients
         .firstWhereOrNull((c) => !c.authorized && !c.disconnected);
     final activeClient = serverModel.clients
         .firstWhereOrNull((c) => c.authorized && !c.disconnected);
     final wantPending = pending != null;
-    // 대기↔활성 전환이 있을 때만 CM 창 크기 reconcile 을 새로 킥한다(build 부작용 회피 post-frame).
-    if (_agentPendingShown != wantPending) {
+    // 본사가 말을 걸면(안 읽은 수 > 0) 자동으로 펼친다. 배너만 뜬 채로 메시지가 오면
+    // 피지원자는 온 줄도 모른다 — 그게 여태의 상태였다.
+    if (!_agentChatOpen &&
+        activeClient != null &&
+        activeClient.unreadChatMessageCount.value > 0) {
+      _agentChatOpen = true;
+    }
+    // 활성 세션이 끝나면 접어 둔다(다음 세션이 배너로 시작하게).
+    if (activeClient == null && _agentChatOpen) {
+      _agentChatOpen = false;
+    }
+    // 대기↔활성↔채팅 전환이 있을 때만 CM 창 크기 reconcile 을 새로 킥한다(build 부작용 회피 post-frame).
+    if (_agentPendingShown != wantPending ||
+        _agentGeomChatShown != _agentChatOpen) {
       _agentPendingShown = wantPending;
+      _agentGeomChatShown = _agentChatOpen;
       final int myGen = ++_cmGeomGen; // 이 킥이 이전 진행 루프를 모두 무효화한다
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         // settle 창(~1.1s) 동안 목표 크기로 수렴시키고 유지한다. 매 틱:
@@ -448,10 +471,16 @@ class ConnectionManagerState extends State<ConnectionManager>
           if (!mounted || myGen != _cmGeomGen) return;
           try {
             if (await windowManager.isMinimized()) continue;
+            // ★목표는 매 틱 라이브로 재계산한다(클로저 캡처 금지). 채팅 펼침도 여기서
+            //   같이 본다 — 안 그러면 채팅을 펼친 순간 이 루프가 다음 틱에 배너 크기로
+            //   되돌려 방금 펼친 창을 도로 접는다.
             final live = gFFI.serverModel.clients
                 .any((c) => !c.authorized && !c.disconnected);
-            final target =
-                live ? kAgentAcceptCardSize : kAgentSupportBannerSize;
+            final target = live
+                ? kAgentAcceptCardSize
+                : (_agentChatOpen
+                    ? kAgentSupportChatSize
+                    : kAgentSupportBannerSize);
             final cur = await windowManager.getSize();
             final same = (cur.width - target.width).abs() < 2 &&
                 (cur.height - target.height).abs() < 2;
@@ -611,41 +640,228 @@ class ConnectionManagerState extends State<ConnectionManager>
         cursor: SystemMouseCursors.move,
         child: Material(
           color: const Color(0xFF1F2937),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: hasActive
-                        ? const Color(0xFFE53935)
-                        : const Color(0xFF6B7280),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 배너 줄. 채팅을 펼쳐도 이 줄은 그대로 남아 드래그 핸들 겸 상태 표시를 한다.
+              SizedBox(
+                height: kAgentSupportBannerSize.height,
+                child: Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: hasActive
+                              ? const Color(0xFFE53935)
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        hasActive ? '원격지원 중' : '원격지원 대기',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      if (activeClient != null) ...[
+                        const SizedBox(width: 10),
+                        _buildChatToggle(activeClient),
+                        const SizedBox(width: 8),
+                        _buildEndButton(activeClient),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  hasActive ? '원격지원 중' : '원격지원 대기',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                if (activeClient != null) ...[
-                  const SizedBox(width: 12),
-                  _buildEndButton(activeClient),
-                ],
-              ],
-            ),
+              ),
+              if (activeClient != null && _agentChatOpen)
+                Expanded(child: _buildAgentChatPane(activeClient)),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  // 채팅 펼침/접기. 안 읽은 메시지가 있으면 점을 띄운다.
+  Widget _buildChatToggle(Client client) {
+    return Obx(() {
+      final unread = client.unreadChatMessageCount.value;
+      return InkWell(
+        onTap: () {
+          setState(() {
+            _agentChatOpen = !_agentChatOpen;
+            if (_agentChatOpen) {
+              client.unreadChatMessageCount.value = 0;
+            }
+          });
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+          decoration: BoxDecoration(
+            color: _agentChatOpen
+                ? const Color(0xFF374151)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.chat_bubble_outline_rounded,
+                  size: 15, color: Colors.white),
+              if (unread > 0 && !_agentChatOpen)
+                Positioned(
+                  right: -3,
+                  top: -3,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFFE53935),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  // 대화 영역. RustDesk 기본 ChatPage 를 안 쓰고 직접 그린다 — 그건 CM 탭 레이아웃을
+  // 전제로 만들어졌는데 우리 CM 은 탭이 없는 배너이고, 360px 폭에 얹으면 넘친다.
+  //
+  // ★입력칸에 자동 포커스를 주지 않는다. 포스에서 포커스를 뺏으면 바코드 스캐너가
+  //   먹통이 된다 — 피지원자가 직접 눌러야 그때 포커스가 간다.
+  Widget _buildAgentChatPane(Client client) {
+    final key = MessageKey(client.peerId, client.id);
+    return Consumer<ChatModel>(
+      builder: (context, chat, _) {
+        final msgs = chat.messages[key]?.chatMessages ?? const <ChatMessage>[];
+        return Container(
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xFF374151))),
+          ),
+          child: Column(
+            children: [
+              Expanded(
+                child: msgs.isEmpty
+                    ? const Center(
+                        child: Text('본사가 보낸 메시지가 여기 표시됩니다.',
+                            style: TextStyle(
+                                color: Color(0xFF9CA3AF), fontSize: 12)),
+                      )
+                    : ListView.builder(
+                        reverse: true,
+                        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                        itemCount: msgs.length,
+                        itemBuilder: (context, i) {
+                          // reverse 라 최신이 아래에 붙는다.
+                          final m = msgs[msgs.length - 1 - i];
+                          final mine = m.user.id != client.peerId;
+                          return Align(
+                            alignment: mine
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 6),
+                              constraints:
+                                  const BoxConstraints(maxWidth: 250),
+                              decoration: BoxDecoration(
+                                color: mine
+                                    ? const Color(0xFF1740C4)
+                                    : const Color(0xFF374151),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(m.text,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12.5,
+                                      height: 1.35)),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              _buildAgentChatInput(client),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAgentChatInput(Client client) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _agentChatInput,
+              autofocus: false,
+              style: const TextStyle(color: Colors.white, fontSize: 12.5),
+              cursorColor: Colors.white,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: '답장 쓰기',
+                hintStyle: const TextStyle(
+                    color: Color(0xFF9CA3AF), fontSize: 12.5),
+                filled: true,
+                fillColor: const Color(0xFF111827),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(7),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onSubmitted: (_) => _sendAgentChat(client),
+            ),
+          ),
+          const SizedBox(width: 6),
+          InkWell(
+            onTap: () => _sendAgentChat(client),
+            borderRadius: BorderRadius.circular(7),
+            child: Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1740C4),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: const Icon(Icons.send_rounded,
+                  size: 15, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _sendAgentChat(Client client) {
+    final text = _agentChatInput.text.trim();
+    if (text.isEmpty) return;
+    // ChatModel.send 는 _currentKey 로 보낸다. 우리 CM 은 탭이 없어 그 키가 안 잡힐 수
+    // 있으므로(탭 onSelected 가 안 돌아서) 보내기 직전에 이 세션으로 못박는다.
+    final key = MessageKey(client.peerId, client.id);
+    gFFI.chatModel.changeCurrentKey(key);
+    gFFI.chatModel.send(ChatMessage(
+      text: text,
+      user: ChatUser(id: 'me', firstName: '거래처'),
+      createdAt: DateTime.now(),
+    ));
+    _agentChatInput.clear();
   }
 
   // 종료 버튼. 피지원자가 지금 원격 세션을 직접 끊는다(RustDesk CM 의 cmCloseConnection).

@@ -41,6 +41,48 @@ div.support-banner > .banner-end:hover {
     background: #C62828;
 }
 
+/* ChainRemote: 배너 + (펼쳤을 때) 채팅. 배너 줄은 높이를 고정해 채팅이 붙어도
+   드래그 핸들 위치가 그대로다. 값은 Flutter 쪽(server_page.dart)과 맞춘다. */
+div.banner-wrap {
+    size: *;
+    flow: vertical;
+    background: #1F2937;
+}
+div.banner-wrap > div.support-banner {
+    height: 48px;
+    size: * 48px;
+}
+div.support-banner > .banner-chatbtn {
+    background: transparent;
+    border: none;
+    padding: 4px 7px;
+    margin: * 8px * 0;
+    position: relative;
+}
+div.support-banner > .banner-chatbtn:hover {
+    background: #374151;
+    border-radius: 6px;
+}
+div.support-banner > .banner-chatbtn svg {
+    size: 15px;
+    fill: #FFFFFF;
+    stroke: #FFFFFF;
+}
+/* 안 읽은 표시. 숫자 대신 점 하나 — 배너가 좁고 사장님에겐 개수가 의미 없다. */
+div.support-banner > .banner-chatbtn > .banner-unread {
+    position: absolute;
+    right: 2px;
+    top: 2px;
+    size: 7px;
+    background: #E53935;
+    border-radius: 7px;
+}
+div.banner-wrap > div.banner-chatpane {
+    size: *;
+    border-top: 1px solid #374151;
+    padding: 6px;
+}
+
 div.left-panel {
     size: *;
     padding: 1em;

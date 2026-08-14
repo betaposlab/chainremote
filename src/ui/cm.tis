@@ -48,10 +48,24 @@ class Body: Reactor.Component
             // ChainRemote: role=window-caption 이면 배너를 잡고 끌어 옮길 수 있다.
             //   #disconnect 버튼은 interactive라 드래그에서 빠진다(클릭 유지). no-focus(스캐너 보호)는
             //   windowTopmost만 쓰고 view.focus 는 안 부르는 방식(applyCmBanner)이라 드래그와 충돌하지 않는다.
-            return <div .support-banner role="window-caption">
-                <span .banner-dot />
-                <span .banner-label>{translate('Remote support in progress')}</span>
-                <button #disconnect .banner-end>{translate('Disconnect')}</button>
+            // ChainRemote: 배너에 채팅을 붙인다. 종전엔 본사가 보낸 메시지가 여기 도착해도
+            //   그릴 자리가 없어 조용히 사라졌다(수락카드/배너로 갈아엎을 때 같이 잘려 나갔다).
+            //   말풍선을 누르면 접었다 폈다 하고, 안 읽은 게 있으면 점이 붙는다.
+            var unread = c.unreaded > 0 && !show_chat;
+            return <div .banner-wrap>
+                <div .support-banner role="window-caption">
+                    <span .banner-dot />
+                    <span .banner-label>{translate('Remote support in progress')}</span>
+                    <button #bannerchat .banner-chatbtn>
+                        {svg_chat}
+                        {unread ? <span .banner-unread /> : ""}
+                    </button>
+                    <button #disconnect .banner-end>{translate('Disconnect')}</button>
+                </div>
+                {show_chat ?
+                    <div .banner-chatpane>
+                        <ChatBox msgs={c.msgs} callback={callback} />
+                    </div> : ""}
             </div>;
         }
         // ChainRemote(Agent32): 대기(미수락) 상태는 Flutter "원격지원 요청" 카드와 톤을 맞춘다.
@@ -234,6 +248,21 @@ class Body: Reactor.Component
         });
     }
 
+    // ChainRemote: 배너의 말풍선 — 채팅 접기/펼치기.
+    //   ★checkClickTime 가드를 쓰지 않는다. 그 가드는 본사가 원격으로 눌러 셀프 수락하는 걸
+    //     막으려는 것이고(#accept/#dismiss), 채팅 펼치기는 본사가 대신 눌러 줘도 무해하다.
+    //   ★view.focus 를 주지 않는다. 포스에서 포커스를 뺏으면 바코드 스캐너가 먹통이 된다 —
+    //     사장님이 입력칸을 직접 눌렀을 때만 포커스가 가야 한다(원본 chaticon 핸들러와 다른 점).
+    event click $(button#bannerchat) {
+        show_chat = !show_chat;
+        if (show_chat) {
+            var c = connections[body.cur];
+            if (c) c.unreaded = 0;
+        }
+        applyCmBanner();
+        body.update();
+    }
+
     event click $(button#disconnect) {
         // ChainRemote: 원격 종료는 원격 클릭도 허용한다. Flutter 에이전트(_buildEndButton, 가드 없음)와
         //   동작을 맞춘다. controller 가 세션을 끊는 건 자기 창 닫기와 같아 무해하다.
@@ -375,6 +404,8 @@ function adaptSizeForChat() {
 }
 
 var cm_banner_state = undefined;
+// 배너에서 채팅을 펼친 상태. applyCmBanner 가 창 크기를 다시 잡을지 판단하는 데 같이 쓴다.
+var cm_banner_chat_state = undefined;
 // ChainRemote(Agent32): 활성 세션이면 cm 창을 슬림 "원격지원 중" 배너로(상단 중앙, 상시 최상위),
 //   대기/끊김이면 카드 크기로 되돌린다. 떨림을 막으려 전환 시에만 view.move 한다.
 //   windowTopmost=true 만 설정하고 view.focus 는 건드리지 않는다. z-order 만 최상위로 올라가고
@@ -397,13 +428,19 @@ function applyCmBanner() {
     //   "수락만 누르면 끝" 이라는 우리 UX 약속을 깬다. Flutter(x64) cm 은 원래 대기 우선이라
     //   이 증상이 32비트(Win7) 에서만 났다 — 그 동작에 맞춘다.
     var wantBanner = active && !pending;
-    if (cm_banner_state == wantBanner) return;
+    // ChainRemote: 채팅 펼침도 상태의 일부다. 종전엔 wantBanner 만 비교해서, 배너인 채로
+    //   채팅을 펼치면 "상태 안 바뀜"으로 조기 반환해 창이 260x48 그대로였다 — 채팅이
+    //   그려져도 볼 수가 없다.
+    var wantChat = wantBanner && show_chat;
+    if (cm_banner_state == wantBanner && cm_banner_chat_state == wantChat) return;
     cm_banner_state = wantBanner;
+    cm_banner_chat_state = wantChat;
     var (sw, sh) = view.screenBox(#workarea, #dimension);
     if (wantBanner) {
         // 활성: 슬림 "원격지원 중" 배너 (상단 중앙, 상시 최상위, focus 안 뺏음=스캐너 보호).
-        var w = scaleIt(260);
-        var h = scaleIt(48);
+        //   채팅을 펼쳤으면 아래로 자란다. 폭은 카드와 맞춰 좌우로 미끄러지지 않게 한다.
+        var w = wantChat ? scaleIt(380) : scaleIt(260);
+        var h = wantChat ? scaleIt(300) : scaleIt(48);
         setWindowState(View.WINDOW_SHOWN);
         view.move((sw - w) / 2, 0, w, h);
         view.windowTopmost = true;
@@ -542,6 +579,21 @@ handler.newMessage = function(id, text) {
     var conn = connections[idx];
     if (!conn) return;
     conn.msgs.push({name: conn.name, text: text, time: getNowStr()});
+    // ChainRemote: 배너 모드(원격 중)면 원본 경로를 타지 않는다. 두 가지가 해롭다 —
+    //   ① bring_to_top 은 windowTopmost 를 켰다 바로 끄므로 배너의 상시 최상위가 풀린다.
+    //      숨김/최소화 상태였다면 setWindowState(SHOWN) 까지 불러 포스 화면을 건드린다.
+    //   ② adaptSizeForChat 은 우측 패널을 펴며 창을 600px 로 넓히는데, 그건 탭 레이아웃
+    //      전제다. 배너에선 applyCmBanner 가 크기의 단일 창구라 둘이 싸운다.
+    //   대신 배너 안에서 펼치고, 창 크기는 applyCmBanner 한 곳에서만 잡는다.
+    if (cm_banner_state) {
+        conn.unreaded += 1;
+        if (idx == body.cur) {
+            show_chat = true;
+            applyCmBanner();
+        }
+        update();
+        return;
+    }
     bring_to_top(idx);
     if (idx == body.cur) {
         var shouldAdapt = !show_chat;

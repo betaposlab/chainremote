@@ -28,6 +28,7 @@ import './popup_menu.dart';
 import './kb_layout_type_chooser.dart';
 import 'package:flutter_hbb/utils/scale.dart';
 import 'package:flutter_hbb/common/widgets/custom_scale_base.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
 
 class ToolbarState {
   late RxBool _pin;
@@ -443,6 +444,10 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       toolbarItems.add(_KeyboardMenu(id: widget.id, ffi: widget.ffi));
     }
     toolbarItems.add(_ChatMenu(id: widget.id, ffi: widget.ffi));
+    // 지원 이력 — 채팅 옆. 기본 원격에서만(파일전송·카메라 창엔 붙일 이유가 없다).
+    if (widget.ffi.connType == ConnType.defaultConn) {
+      toolbarItems.add(_SupportHistoryMenu(id: widget.id));
+    }
     // 2026-05-27: 거래처와의 음성 통화 및 수동 녹화 toolbar 노출을 제거했다(Chang 결정).
     // 분쟁 증거가 필요하면 일반 설정의 "내가 거래처 원격할 때 영상 자동 저장" 토글로 대체한다.
     toolbarItems.add(_CloseMenu(id: widget.id, ffi: widget.ffi));
@@ -547,6 +552,42 @@ class _PinMenu extends StatelessWidget {
             ? _ToolbarTheme.hoverBlueColor
             : _ToolbarTheme.hoverInactiveColor,
       ),
+    );
+  }
+}
+
+// 세션 중 지원 이력 조회. 사장님이 "지난번에도 이랬는데" 하는 순간이 바로 이력을 봐야 할
+// 때인데, 종전엔 원격 창을 내리고 홈의 [지원 기록] 탭으로 가야만 볼 수 있었다. 다중 원격이면
+// 어느 거래처였는지 다시 찾는 일까지 붙는다. 각 창이 자기 거래처 것만 띄운다.
+//
+// ★원격 창은 메인 창과 다른 프로세스라 메모리의 거래처 목록을 못 본다(탭 제목 때 겪은 그것).
+//   여기선 문제가 안 된다 — showCrHistoryDialog 가 디스크에 있는 설정에서 토큰을 읽어
+//   패널 API 를 직접 치기 때문이다. 상호도 같은 이유로 peer config 의 alias 에서 꺼낸다.
+class _SupportHistoryMenu extends StatelessWidget {
+  final String id;
+  const _SupportHistoryMenu({Key? key, required this.id}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return _IconMenuButton(
+      icon: const Icon(Icons.history_rounded, size: 18),
+      tooltip: 'Support history',
+      label: '지원기록',
+      onPressed: () {
+        var name = '';
+        try {
+          name = bind.mainGetPeerOptionSync(id: id, key: 'alias').trim();
+        } catch (e) {
+          debugPrint('alias read failed: $e');
+        }
+        showCrHistoryDialog(
+          context,
+          remoteId: id,
+          title: name.isEmpty ? '지원 이력' : '$name 지원 이력',
+        );
+      },
+      color: _ToolbarTheme.inactiveColor,
+      hoverColor: _ToolbarTheme.hoverInactiveColor,
     );
   }
 }
