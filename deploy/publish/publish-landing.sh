@@ -63,6 +63,10 @@ HQ_SHA="$(printf '%s' "$LATEST" | python3 -c 'import json,sys; print(json.load(s
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "✗ 버전 형식 오류: $VERSION" >&2; exit 1; }
 HQ_NAME="ChainRemote_HQ_Setup_v${VERSION}.exe"
 CHAINGO_NAME="ChainGo_v${VERSION}.exe"
+# 페이지가 가리키는 이름. 아래에서 CHAINGO_NAME 은 "이번에 올릴 게 있나"로 비워질 수 있는데,
+# [6/7] 정리는 "페이지가 가리키는 것"을 기준으로 지워야 한다 — 그러지 않으면 로컬에 산출물이
+# 없는 날 랜딩만 갱신했다가 멀쩡히 살아있던 ChainGo 를 지워, 링크만 남고 파일은 404 가 된다.
+CHAINGO_LINKED="$CHAINGO_NAME"
 echo "    최신 = v$VERSION"
 
 # ── [2/6] 올릴 파일 준비 + 무결성 확인 ──────────────────────────────────────
@@ -135,7 +139,12 @@ verify() { # $1=파일명 $2=기대sha(옵션)
   echo "    ✓ $1"
 }
 verify "$HQ_NAME" "$HQ_SHA"
-[[ -n "$CHAINGO_NAME" ]] && verify "$CHAINGO_NAME" "$(shasum -a 256 "$WORK/$CHAINGO_NAME" | cut -d' ' -f1)"
+if [[ -n "$CHAINGO_NAME" ]]; then
+  verify "$CHAINGO_NAME" "$(shasum -a 256 "$WORK/$CHAINGO_NAME" | cut -d' ' -f1)"
+else
+  # 안 올렸어도 페이지는 이 파일을 가리킨다. 링크가 404 인 채로 발행을 끝내지 않는다.
+  verify "$CHAINGO_LINKED"
+fi
 PAGE="$(curl -fsS "$PUBLIC_BASE/")"
 printf '%s' "$PAGE" | grep -q "$HQ_NAME" || { echo "    ✗ 페이지가 $HQ_NAME 을 안 가리킴"; fail=1; }
 printf '%s' "$PAGE" | grep -qE 'downloads/[^"]*Agent[^"]*\.exe' && { echo "    ✗ 라이브 페이지에 Agent 링크가 남아있음"; fail=1; }
@@ -145,7 +154,7 @@ echo "    ✓ 페이지 표기 일치"
 # ── [6/6] 옛 파일 정리 (Agent 잔재 포함) ────────────────────────────────────
 echo "[6/6] 옛 파일 정리..."
 OLD="$(lftp -e "set sftp:auto-confirm yes; cls -1 $REMOTE_DIR/downloads/; quit" -u "$USER","$PW" "sftp://$HOST:22" 2>/dev/null \
-      | sed "s#.*/##" | grep -E '\.exe$' | grep -vE "^($HQ_NAME|${CHAINGO_NAME:-__none__})$" || true)"
+      | sed "s#.*/##" | grep -E '\.exe$' | grep -vE "^($HQ_NAME|$CHAINGO_LINKED)$" || true)"
 if [[ -n "$OLD" ]]; then
   DEL="set sftp:auto-confirm yes;"
   while IFS= read -r o; do
