@@ -461,6 +461,8 @@ class _RocketPainter extends CustomPainter {
       Paint()..color = const Color(0xFF2A2F3A),
     );
     // 화면 — 착탄 전엔 꺼져 있고, 맞는 순간 불이 들어온다.
+    //   ★꺼진 화면이 그냥 검으면 로켓이 어디로 날아가는지 안 보인다(2026-08-15 Chang).
+    //     빨간 OFF 를 띄워 목표를 명확히 하고, 맞으면 ON 으로 바뀐다.
     final inner = r.deflate(5);
     if (lit) {
       final e = ((t - _kImpact) / 0.25).clamp(0.0, 1.0);
@@ -483,11 +485,16 @@ class _RocketPainter extends CustomPainter {
           ..color = const Color(0xFF5A8CFF).withOpacity(0.35 * e)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
       );
+      // ON — 켜진 순간 살짝 커졌다 제자리로(툭 켜지는 맛).
+      final pop = 1.0 + (1 - e) * 0.5;
+      _drawScreenText(canvas, c, 'ON', const Color(0xFFEAF2FF), 20 * pop, e);
     } else {
       canvas.drawRRect(
         RRect.fromRectAndRadius(inner, const Radius.circular(3)),
         Paint()..color = const Color(0xFF0E1117),
       );
+      // OFF — 빨간 글자 + 옅은 잔광. 로켓이 어디로 가는지 한눈에 보이게.
+      _drawScreenText(canvas, c, 'OFF', const Color(0xFFE53935), 18, 1.0);
     }
     // 받침
     canvas.drawRect(
@@ -503,6 +510,33 @@ class _RocketPainter extends CustomPainter {
       ),
       Paint()..color = const Color(0xFF2A2F3A),
     );
+  }
+
+  /// 모니터 화면 한가운데 글자. CustomPainter 라 TextPainter 를 매번 만든다 —
+  /// 2.6초짜리 1회성 연출이라 캐시할 값어치가 없다.
+  void _drawScreenText(
+      Canvas canvas, Offset c, String text, Color color, double size, double opacity) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color.withOpacity(opacity.clamp(0.0, 1.0)),
+          fontSize: size,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 2,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    // 글자에도 옅은 발광 — 작은 화면이라 이게 없으면 밋밋하다.
+    canvas.drawCircle(
+      c,
+      size * 0.9,
+      Paint()
+        ..color = color.withOpacity(0.22 * opacity.clamp(0.0, 1.0))
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+    );
+    tp.paint(canvas, Offset(c.dx - tp.width / 2, c.dy - tp.height / 2));
   }
 
   @override

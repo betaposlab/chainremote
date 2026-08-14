@@ -2574,9 +2574,13 @@ class _AboutState extends State<_About> {
                     children: [
                       // 심볼만 (체인 아이콘) — 흰 배경 원 안에.
                       // 이스터에그: 로고를 길게 누르면 크레딧 크롤(chainremote_easter_crawl.dart).
-                      GestureDetector(
-                        onLongPress: () => showCrCreditsCrawl(context),
-                        child: const _BrandMark(),
+                      //   ★바깥 SelectionArea 가 길게누르기도 가져가므로 여기서 빼 준다.
+                      SelectionContainer.disabled(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onLongPress: () => showCrCreditsCrawl(context),
+                          child: const _BrandMark(),
+                        ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -2609,14 +2613,19 @@ class _AboutState extends State<_About> {
               ).marginSymmetric(vertical: 6.0),
               const SizedBox(height: 12),
               // 이스터에그: 버전 표기를 7번 연타하면 "함께한 시간"(chainremote_easter.dart).
-              //   SelectionArea 안이라 GestureDetector 로 감싸면 글자 선택과 안 싸운다.
-              GestureDetector(
-                onTap: () {
-                  if (_crVersionTaps.tap()) showCrTogetherCard(context);
-                },
-                child: SelectionArea(
-                    child: Text('버전: $chainRemoteVersion (코어 $version 기반)')
-                        .marginSymmetric(vertical: 4.0)),
+              //   ★SelectionContainer.disabled 로 감싼다 — SelectionArea 는 글자 선택을
+              //     위해 탭 제스처를 가져가서, 그냥 GestureDetector 로 감싸면 탭이 아예
+              //     안 들어온다(2026-08-15 실측: 1·2번이 그래서 안 먹었다). 이 한 줄만
+              //     선택 대상에서 빼는 대신 탭을 확실히 받는다.
+              SelectionContainer.disabled(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (_crVersionTaps.tap()) showCrTogetherCard(context);
+                  },
+                  child: Text('버전: $chainRemoteVersion (코어 $version 기반)')
+                      .marginSymmetric(vertical: 4.0),
+                ),
               ),
               SelectionArea(
                   child: Text('빌드 날짜: $buildDate')
