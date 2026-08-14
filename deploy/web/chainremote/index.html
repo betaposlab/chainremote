@@ -153,20 +153,33 @@ header{position:sticky;top:0;z-index:60;background:rgba(11,12,14,.72);backdrop-f
   box-shadow:0 0 16px 4px rgba(255,125,218,.6);offset-path:path('M4 4 C 100 26, 140 100, 232 168');opacity:0;animation:travel 10s infinite;z-index:3}
 @keyframes travel{0%,13%{offset-distance:0%;opacity:0}15%{opacity:1}34%{offset-distance:100%}38%{opacity:0}
   55%{offset-distance:0%;opacity:0}58%{opacity:.9}72%{offset-distance:100%;opacity:.9}76%{opacity:0}100%{opacity:0}}
-.accard{position:absolute;right:-6px;bottom:0;width:300px;background:#fff;border-radius:14px;color:#20263a;
-  box-shadow:var(--sh-float);transform:rotate(2deg) scale(.94);opacity:0;animation:accshow 10s infinite;z-index:4}
+/* 거래처가 실제로 보는 수락 카드의 복제본이다. 색·치수·버튼 순서를 에이전트 쪽
+   (flutter/lib/desktop/pages/server_page.dart _buildAgentAcceptCard) 과 맞춰 둔다 —
+   여기만 예쁘게 고쳐 두면 랜딩을 보고 온 대리점이 실물에서 다른 화면을 만난다.
+   ★[거부] 가 왼쪽, [수락] 이 오른쪽. 실물이 그 순서다. */
+.accard{position:absolute;right:-6px;bottom:0;width:300px;
+  transform:rotate(2deg) scale(.94);opacity:0;animation:accshow 10s infinite;z-index:4}
 @keyframes accshow{0%,30%{opacity:0;transform:rotate(2deg) scale(.94) translateY(14px)}
   36%{opacity:1;transform:rotate(2deg) scale(1) translateY(0)}92%{opacity:1}98%,100%{opacity:0}}
-.accard .ahead{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #edf0f7}
-.accard .ahead img{height:20px}
-.accard .ahead span{margin-left:auto;font-size:.68rem;color:#9aa3ba}
-.accard .abody{padding:14px}
-.accard .abody b{font-size:.92rem}
-.accard .abody p{font-size:.8rem;color:#5c6580;margin:8px 0 12px;line-height:1.55}
+/* 실물엔 모서리 둥글기가 없다(창 자체가 사각). 파란 3px 테두리도 그대로 —
+   검은 포스 베젤에 카드 윗변이 묻히지 않게 하려고 굵게 준 값이다. */
+.accard .acbox{display:flex;align-items:stretch;background:#22242B;border:3px solid #5A8CFF;
+  box-shadow:var(--sh-float)}
+.accard .apillar{flex:none;width:64px;background:#1740C4;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:4px}
+.accard .apillar .mon{width:34px;height:30px;border:3px solid #fff;border-radius:6px}
+.accard .apillar .stand{width:14px;height:3px;background:#fff;border-radius:2px}
+.accard .abody{flex:1;padding:16px 17px 15px}
+.accard .abody b{font-size:1.06rem;font-weight:800;color:#fff}
+.accard .abody p{font-size:.78rem;color:#ADB2C0;margin:5px 0 16px;line-height:1.5}
+.accard .abody p em{font-style:normal;font-weight:700;color:#fff}
 .accard .arow{display:flex;gap:8px}
-.accard .arow .b1{flex:1;text-align:center;background:#1E5BFF;color:#fff;border-radius:9px;padding:10px 0;
-  font-size:.88rem;font-weight:700;animation:accpress 10s infinite}
-.accard .arow .b2{flex:1;text-align:center;background:#eef0f5;color:#3b445f;border-radius:9px;padding:10px 0;font-size:.88rem;font-weight:600}
+.accard .arow .b1,.accard .arow .b2{flex:1;text-align:center;border-radius:9px;padding:11px 0;
+  font-size:.9rem;font-weight:700}
+.accard .arow .b1{background:#1740C4;color:#fff;animation:accpulse 1.4s ease-in-out infinite,accpress 10s infinite}
+.accard .arow .b2{border:1px solid #454955;color:#B0B5C2;padding:10px 0}
+/* 실물 [수락] 은 짙은 파랑 ↔ 밝은 파랑을 오간다(Sciter·Flutter 양쪽 같은 값). */
+@keyframes accpulse{0%,100%{background:#1740C4}50%{background:#5A8CFF}}
 @keyframes accpress{0%,46%{transform:scale(1)}48%{transform:scale(.94)}51%,100%{transform:scale(1)}}
 .linked{position:absolute;right:6px;bottom:-38px;display:flex;align-items:center;gap:8px;z-index:4;
   background:rgba(18,36,79,.85);border:1px solid var(--hairline);color:#7ce6ac;font-size:.84rem;font-weight:600;
@@ -452,11 +465,13 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
       <span class="pulsedot" aria-hidden="true"></span>
 
       <div class="accard">
-        <div class="ahead"><img src="logo.png" alt=""><span>거래처 POS 화면</span></div>
-        <div class="abody">
-          <b>원격지원 요청</b>
-          <p>베타포스랩(본사)에서 원격지원을 요청했습니다. 수락하시면 화면 공유가 시작됩니다.</p>
-          <div class="arow"><span class="b1">수락</span><span class="b2">거절</span></div>
+        <div class="acbox">
+          <div class="apillar" aria-hidden="true"><i class="mon"></i><i class="stand"></i></div>
+          <div class="abody">
+            <b>원격지원 요청</b>
+            <p><em>베타포스랩</em>에서 이 PC 에 원격 접속을 요청했습니다.</p>
+            <div class="arow"><span class="b2">거부</span><span class="b1">수락</span></div>
+          </div>
         </div>
       </div>
 
