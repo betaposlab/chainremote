@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_easter.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_easter_crawl.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -36,7 +37,6 @@ class DesktopHomePage extends StatefulWidget {
   @override
   State<DesktopHomePage> createState() => _DesktopHomePageState();
 }
-
 
 class _DesktopHomePageState extends State<DesktopHomePage>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
@@ -83,7 +83,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           children: [
             buildChainRemoteSidebar(context),
             VerticalDivider(
-                width: 2, thickness: 2, color: CrColors.of(context).neuLineStrong),
+                width: 2,
+                thickness: 2,
+                color: CrColors.of(context).neuLineStrong),
             Expanded(
               child: Container(
                 color: CrColors.of(context).neuBg,
@@ -162,17 +164,26 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           // ClipRect 로 넘침을 막고 Transform.translate 로 이미지를 왼쪽으로 밀었다.
           Padding(
             padding: const EdgeInsets.only(bottom: 22),
-            child: ClipRect(
-              child: SizedBox(
-                height: 56,
-                child: Transform.translate(
-                  offset: const Offset(-22, 0),
-                  child: Image.asset('assets/chainremote_logo.png',
-                      fit: BoxFit.contain,
-                      height: 56,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (_, __, ___) =>
-                          const SizedBox(height: 56)),
+            // 이스터에그: 사이드바 로고를 길게 누르면 크레딧 크롤.
+            //   ★설정 안 로고에도 걸어 뒀지만, 사람이 본능적으로 누르는 자리는 여기다
+            //     (2026-08-15 Chang 이 여기부터 눌렀다). 두 곳 다 열리게 둔다.
+            //   ClipRect 가 로고를 잘라 놔서 GestureDetector 를 바깥에 두고
+            //   opaque 로 잡아야 잘린 여백까지 눌린다.
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onLongPress: () => showCrCreditsCrawl(context),
+              child: ClipRect(
+                child: SizedBox(
+                  height: 56,
+                  child: Transform.translate(
+                    offset: const Offset(-22, 0),
+                    child: Image.asset('assets/chainremote_logo.png',
+                        fit: BoxFit.contain,
+                        height: 56,
+                        filterQuality: FilterQuality.medium,
+                        errorBuilder: (_, __, ___) =>
+                            const SizedBox(height: 56)),
+                  ),
                 ),
               ),
             ),
@@ -295,7 +306,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                           child: Text(name,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                  fontSize: 13, color: CrColors.of(context).onSurfaceStrong)),
+                                  fontSize: 13,
+                                  color: CrColors.of(context).onSurfaceStrong)),
                         ),
                       ],
                     ),
@@ -346,7 +358,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     bool compact = false,
   }) {
     // 뉴모 사이드바 항목. 선택되면 솟은 표면 + 남색, 아니면 투명.
-    final fg = selected ? CrColors.of(context).neuBlueInk : CrColors.of(context).tabIdle;
+    final fg = selected
+        ? CrColors.of(context).neuBlueInk
+        : CrColors.of(context).tabIdle;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
@@ -412,7 +426,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 filterQuality: FilterQuality.medium,
                 errorBuilder: (_, __, ___) => const SizedBox(width: 200)),
           ),
-          if ((Platform.environment['CHAINREMOTE_PORTABLE_DIR'] ?? '').isNotEmpty) ...[
+          if ((Platform.environment['CHAINREMOTE_PORTABLE_DIR'] ?? '')
+              .isNotEmpty) ...[
             const SizedBox(width: 10),
             _buildChainGoBadge(),
           ],
@@ -432,7 +447,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                   const SizedBox(width: 6),
                   Text(name,
                       style: TextStyle(
-                          fontSize: 13, color: CrColors.of(context).onSurfaceStrong)),
+                          fontSize: 13,
+                          color: CrColors.of(context).onSurfaceStrong)),
                 ],
               ),
             );
@@ -452,8 +468,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             icon: const Icon(Icons.settings_outlined, size: 22),
             onPressed: () {
               if (DesktopSettingPage.tabKeys.isNotEmpty) {
-                DesktopSettingPage.switch2page(
-                    DesktopSettingPage.tabKeys[0]);
+                DesktopSettingPage.switch2page(DesktopSettingPage.tabKeys[0]);
               }
             },
           ),
@@ -548,7 +563,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text('내 ID ',
-                    style: TextStyle(fontSize: 12, color: CrColors.of(context).onSurface)),
+                    style: TextStyle(
+                        fontSize: 12, color: CrColors.of(context).onSurface)),
                 Text(id,
                     style: TextStyle(
                         fontSize: 15,
@@ -556,7 +572,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                         letterSpacing: 0.5,
                         color: CrColors.of(context).infoInk)),
                 const SizedBox(width: 6),
-                Icon(Icons.copy, size: 14, color: CrColors.of(context).onSurface),
+                Icon(Icons.copy,
+                    size: 14, color: CrColors.of(context).onSurface),
               ],
             ),
           ),
@@ -1013,7 +1030,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           watchIsInputMonitoring = true;
         }, help: 'Help', link: translate("doc_mac_permission"));
       } else if (!isOutgoingOnly &&
-          !bind.isIncomingOnly() && // 거래처 에이전트(incoming)엔 '부팅 서비스 설치' 배너를 숨긴다. macOS 서비스는 로그인 화면 캡처 제약 + 서비스 TCC 재요구로 불안정해서, 거래처가 누르면 오히려 원격이 안 된다. 무인 운영은 자동 로그인 + 로그인 항목 + 영구비번으로 처리한다.
+          !bind
+              .isIncomingOnly() && // 거래처 에이전트(incoming)엔 '부팅 서비스 설치' 배너를 숨긴다. macOS 서비스는 로그인 화면 캡처 제약 + 서비스 TCC 재요구로 불안정해서, 거래처가 누르면 오히려 원격이 안 된다. 무인 운영은 자동 로그인 + 로그인 항목 + 영구비번으로 처리한다.
           !svcStopped.value &&
           bind.mainIsInstalled() &&
           !bind.mainIsInstalledDaemon(prompt: false)) {
@@ -1284,7 +1302,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
 
     bool isChattyMethod(String methodName) {
       switch (methodName) {
-        case kWindowBumpMouse: return true;
+        case kWindowBumpMouse:
+          return true;
       }
 
       return false;
@@ -1293,7 +1312,7 @@ class _DesktopHomePageState extends State<DesktopHomePage>
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       if (!isChattyMethod(call.method)) {
         debugPrint(
-          "[Main] call ${call.method} with args ${call.arguments} from window $fromWindowId");
+            "[Main] call ${call.method} with args ${call.arguments} from window $fromWindowId");
       }
       if (call.method == kWindowMainWindowOnTop) {
         windowOnTop(null);
@@ -1328,9 +1347,8 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           connToken: call.arguments['connToken'],
         );
       } else if (call.method == kWindowBumpMouse) {
-        return RdPlatformChannel.instance.bumpMouse(
-          dx: call.arguments['dx'],
-          dy: call.arguments['dy']);
+        return RdPlatformChannel.instance
+            .bumpMouse(dx: call.arguments['dx'], dy: call.arguments['dy']);
       } else if (call.method == kWindowEventMoveTabToNewWindow) {
         final args = call.arguments.split(',');
         int? windowId;

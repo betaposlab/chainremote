@@ -76,6 +76,64 @@ Future<void> showCrCreditsCrawl(BuildContext context) async {
   ));
 }
 
+/// 한 줄의 배치 결과. 순수 계산이라 테스트가 눈 없이도 검증할 수 있다.
+class CrCrawlItem {
+  final int index;
+  final double y; // 화면 좌표(위에서부터)
+  final double scale; // 위로 갈수록 작아진다
+  final double opacity; // 위로 갈수록 옅어진다
+
+  const CrCrawlItem(this.index, this.y, this.scale, this.opacity);
+}
+
+/// 줄 종류별 높이(논리 좌표).
+double crCrawlLineHeight(String text, int i) {
+  if (text.isEmpty) return 26;
+  if (i == 0) return 68;
+  return crCrawlIsHead(text) ? 46 : 38;
+}
+
+bool crCrawlIsHead(String t) =>
+    t == '우리가 더한 것' ||
+    t == '만든 사람' ||
+    t == '그리고' ||
+    t == 'made with care';
+
+/// 크롤 배치 계산 — 위젯과 분리한 순수 함수.
+///
+/// ★3D 원근 행렬(Matrix4 + setEntry)과 ShaderMask 를 쓰지 않는다. 첫 판이 그 조합으로
+///   검은 화면만 나왔는데(2026-08-15), 컴파일도 되고 위젯 테스트도 통과하면서 실제
+///   화면만 비는 유형이라 눈으로 보기 전엔 못 잡는다. 대신 줄마다 **크기와 투명도를
+///   직접 계산**해 부채꼴과 페이드를 만든다 — 같은 그림인데 깨질 구석이 없고,
+///   이렇게 순수 함수로 빼 두면 테스트가 숫자로 확인할 수 있다.
+List<CrCrawlItem> crCrawlLayout({
+  required List<String> lines,
+  required double progress, // 0..1
+  required double height,
+}) {
+  final offsets = <double>[];
+  var acc = 0.0;
+  for (var i = 0; i < lines.length; i++) {
+    offsets.add(acc);
+    acc += crCrawlLineHeight(lines[i], i);
+  }
+  final scroll = progress * (acc + height);
+  final out = <CrCrawlItem>[];
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].isEmpty) continue;
+    final raw = height + offsets[i] - scroll;
+    if (raw < -80 || raw > height + 80) continue;
+    // 위로 갈수록 촘촘해진다(멀어지는 느낌). 아래쪽은 거의 그대로.
+    final t = (raw / height).clamp(0.0, 1.0);
+    final y = raw <= 0 ? raw : height * pow(t, 1.35).toDouble();
+    // 위로 갈수록 작아지고 옅어진다.
+    final scale = 0.32 + 0.68 * t;
+    final opacity = (t / 0.5).clamp(0.0, 1.0);
+    out.add(CrCrawlItem(i, y, scale, opacity));
+  }
+  return out;
+}
+
 class _CrCrawlPage extends StatefulWidget {
   const _CrCrawlPage();
 
@@ -121,45 +179,34 @@ class _CrCrawlPageState extends State<_CrCrawlPage>
                 builder: (context, box) {
                   final h = box.maxHeight;
                   return ClipRect(
-                    child: ShaderMask(
-                      shaderCallback: (rect) => const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        // 위로 갈수록 옅어지다 사라진다.
-                        colors: [
-                          Colors.transparent,
-                          Colors.transparent,
-                          Colors.white24,
-                          Colors.white,
-                          Colors.white,
-                        ],
-                        stops: [0.0, 0.16, 0.34, 0.62, 1.0],
-                      ).createShader(rect),
-                      blendMode: BlendMode.dstIn,
-                      child: AnimatedBuilder(
-                        animation: _c,
-                        builder: (context, _) {
-                          // 화면 아래에서 시작해 글 전체가 위로 빠져나갈 때까지.
-                          final travel = h + _kCrawlLines.length * 44.0 + h * 0.5;
-                          final dy = h - _c.value * travel;
-                          return Transform(
-                            alignment: Alignment.topCenter,
-                            transform: Matrix4.identity()
-                              ..setEntry(3, 2, 0.0016) // 원근
-                              ..rotateX(1.02), // 눕히기 = 부채꼴
-                            child: Transform.translate(
-                              offset: Offset(0, dy),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  for (var i = 0; i < _kCrawlLines.length; i++)
-                                    _crawlLine(_kCrawlLines[i], i),
-                                ],
+                    child: AnimatedBuilder(
+                      animation: _c,
+                      builder: (context, _) {
+                        final items = crCrawlLayout(
+                          lines: _kCrawlLines,
+                          progress: _c.value,
+                          height: h,
+                        );
+                        return Stack(
+                          children: [
+                            for (final it in items)
+                              Positioned(
+                                top: it.y,
+                                left: 0,
+                                right: 0,
+                                child: Opacity(
+                                  opacity: it.opacity,
+                                  child: Transform.scale(
+                                    scale: it.scale,
+                                    alignment: Alignment.topCenter,
+                                    child: _crawlLine(
+                                        _kCrawlLines[it.index], it.index),
+                                  ),
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                          ],
+                        );
+                      },
                     ),
                   );
                 },
@@ -184,25 +231,18 @@ class _CrCrawlPageState extends State<_CrCrawlPage>
   }
 
   Widget _crawlLine(String text, int i) {
-    if (text.isEmpty) return const SizedBox(height: 26);
     final isTitle = i == 0;
-    final isHead = text == '우리가 더한 것' ||
-        text == '만든 사람' ||
-        text == '그리고' ||
-        text == 'made with care';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: isTitle || isHead ? _kGold : _kGoldDim,
-          fontSize: isTitle ? 46 : (isHead ? 26 : 21),
-          fontWeight:
-              isTitle ? FontWeight.w900 : (isHead ? FontWeight.w800 : FontWeight.w600),
-          letterSpacing: isTitle ? 3 : 1.1,
-          height: 1.45,
-        ),
+    final isHead = crCrawlIsHead(text);
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: isTitle || isHead ? _kGold : _kGoldDim,
+        fontSize: isTitle ? 46 : (isHead ? 26 : 21),
+        fontWeight:
+            isTitle ? FontWeight.w900 : (isHead ? FontWeight.w800 : FontWeight.w600),
+        letterSpacing: isTitle ? 3 : 1.1,
+        height: 1.3,
       ),
     );
   }
