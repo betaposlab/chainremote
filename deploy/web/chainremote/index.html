@@ -178,7 +178,11 @@ header{position:sticky;top:0;z-index:60;background:rgba(11,12,14,.72);backdrop-f
 .marquee{position:relative;border-top:1px solid var(--inkline);border-bottom:1px solid var(--inkline);
   padding:15px 0;overflow:hidden;background:var(--void)}
 .mq{display:flex;gap:44px;width:max-content;animation:mq 26s linear infinite}
-.mq span{display:inline-flex;gap:9px;align-items:center;font-size:.9rem;color:var(--ash);font-weight:300;white-space:nowrap}
+/* 흐르는 기능 줄 — 앰버 글자 + 민트 체크. 종전엔 회색(--ash) 300 두께에 체크도 흐린
+   파랑이라 검은 배경에서 읽히지 않았다(2026-08-14 Chang). 색은 팔레트 안에서 골라
+   새 색이 끼어들지 않게 했다. 체크만 민트로 남긴 건 "확인됨" 신호가 글자와 구분되게 하려는 것. */
+.mq span{display:inline-flex;gap:9px;align-items:center;font-size:.9rem;color:var(--amber);font-weight:400;white-space:nowrap}
+.mq .chk{stroke:var(--mint)}
 @keyframes mq{to{transform:translateX(-50%)}}
 
 /* 섹션 */
