@@ -860,8 +860,12 @@ class ConnectionManagerState extends State<ConnectionManager>
                         padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                         itemCount: msgs.length,
                         itemBuilder: (context, i) {
-                          // reverse 라 최신이 아래에 붙는다.
-                          final m = msgs[msgs.length - 1 - i];
+                          // ★MessageBody.insert 가 insert(0, ...) 이라 msgs[0] 이 **최신**이다.
+                          //   reverse:true 는 index 0 을 맨 아래에 놓으므로 msgs[i] 를 그대로
+                          //   쓰면 최신이 아래, 오래된 게 위 — 카톡과 같은 순서가 된다.
+                          //   종전엔 msgs[length-1-i] 로 한 번 더 뒤집어 두 번 뒤집힌 꼴이라
+                          //   최신이 맨 위로 갔다(2026-08-14 우리집 실측).
+                          final m = msgs[i];
                           final mine = m.user.id != client.peerId;
                           return Align(
                             alignment: mine
