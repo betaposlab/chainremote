@@ -229,6 +229,13 @@ class ConnectionManagerState extends State<ConnectionManager>
   @override
   Widget build(BuildContext context) {
     final serverModel = Provider.of<ServerModel>(context);
+    // ★ChatModel 도 구독한다. 종전엔 ServerModel 만 봤는데, 채팅이 도착할 때 바뀌는 건
+    //   ChatModel 과 unreadChatMessageCount(Rx) 라 이 build 가 안 돌았다 — 그래서
+    //   "안 읽은 게 있으면 펼친다"가 도착 시점에 실행되지 않고, ServerModel 이 딴 이유로
+    //   알림을 줄 때에야 뒤늦게 돌았다. 창은 크기 루프 때문에 커졌는데 내용은 안 그려진
+    //   빈 상자가 그 결과다(2026-08-14 우리집 실측). 말풍선을 눌러 setState 를 강제하면
+    //   그제야 제대로 그려져서, 눌러야만 보이는 것처럼 보였다.
+    Provider.of<ChatModel>(context);
     pointerHandler(PointerEvent e) {
       if (serverModel.cmHiddenTimer != null) {
         serverModel.cmHiddenTimer!.cancel();
@@ -240,7 +247,15 @@ class ConnectionManagerState extends State<ConnectionManager>
     // 피제어될 때(거래처 Agent, 본사 HQ 옵션B+ 양쪽 다) 우상단에 슬림 수락 카드,
     // 이어서 "원격지원 중" 배너 + 종료만 보인다. HQ 가 피제어될 때도 피지원자가 원격
     // 진행을 알고 끊을 수 있어야 하므로, RustDesk 기본 CM(아래) 대신 이 배너로 통일한다.
-    return _buildAgentSupportBanner(serverModel);
+    // 안 읽은 수는 Rx(GetX)라 Provider 구독으로는 안 잡힌다. 배너 전체를 Obx 로 감싸
+    //   메시지가 도착하는 즉시 다시 그린다.
+    return Obx(() {
+      // 활성 세션의 안 읽은 수를 읽어 이 Obx 를 구독시킨다(값 자체는 아래서 다시 본다).
+      for (final c in gFFI.serverModel.clients) {
+        c.unreadChatMessageCount.value;
+      }
+      return _buildAgentSupportBanner(serverModel);
+    });
 
     return serverModel.clients.isEmpty
         ? Column(
@@ -481,12 +496,18 @@ class ConnectionManagerState extends State<ConnectionManager>
       _agentPeerChatShown = peerChat;
       if (activeClient != null) {
         _agentChatOpen = peerChat;
-        if (peerChat) {
-          activeClient.unreadChatMessageCount.value = 0;
-          _scheduleAgentChatCollapse();
-        } else {
-          _agentChatIdleTimer?.cancel();
-        }
+        // 부수효과는 post-frame 으로 — build(Obx) 안에서 Rx 를 쓰거나 타이머를 걸면
+        //   같은 프레임에 다시 그리려 들어 "setState during build" 가 된다.
+        final c = activeClient;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (peerChat) {
+            c.unreadChatMessageCount.value = 0;
+            _scheduleAgentChatCollapse();
+          } else {
+            _agentChatIdleTimer?.cancel();
+          }
+        });
       }
     }
     // 본사가 말을 걸면(안 읽은 수 > 0) 자동으로 펼친다. 배너만 뜬 채로 메시지가 오면
@@ -495,18 +516,26 @@ class ConnectionManagerState extends State<ConnectionManager>
         activeClient != null &&
         activeClient.unreadChatMessageCount.value > 0) {
       _agentChatOpen = true;
-      activeClient.unreadChatMessageCount.value = 0;
-      _scheduleAgentChatCollapse();
+      // ★build 중에 Rx 를 쓰거나 타이머를 걸지 않는다 — Obx 안에서 값을 바꾸면
+      //   같은 프레임에 다시 그리려 들어 "setState during build" 가 된다.
+      final c = activeClient;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        c.unreadChatMessageCount.value = 0;
+        _scheduleAgentChatCollapse();
+      });
     }
     // 활성 세션이 끝나면 접어 둔다(다음 세션이 배너로 시작하게).
     if (activeClient == null && _agentChatOpen) {
       _agentChatOpen = false;
       _agentChatIdleTimer?.cancel();
     }
-    if (activeClient == null) {
-      // 다음 세션이 옛 신호를 물려받지 않게 원위치.
-      crAgentChatPanelOpen.value = false;
+    if (activeClient == null && _agentPeerChatShown != null) {
+      // 다음 세션이 옛 신호를 물려받지 않게 원위치. Rx 쓰기라 post-frame 으로 뺀다.
       _agentPeerChatShown = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) crAgentChatPanelOpen.value = false;
+      });
     }
     // 대기↔활성↔채팅 전환이 있을 때만 CM 창 크기 reconcile 을 새로 킥한다(build 부작용 회피 post-frame).
     if (_agentPendingShown != wantPending ||
