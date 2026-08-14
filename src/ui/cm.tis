@@ -615,6 +615,25 @@ handler.removeConnection = function(id, close) {
     }
 }
 
+// ChainRemote: 본사가 자기 채팅창을 열거나 닫았다 — 거래처 채팅 영역을 따라 연다/닫는다.
+//   본사가 닫으면 120초를 안 기다리고 곧바로 접혀 포스 화면이 돌아온다.
+//   ★배너 모드(원격 중)일 때만 의미가 있다. 수락카드 상태에선 채팅 영역 자체가 없다.
+handler.crChatPanel = function(id, open) {
+    if (!cm_banner_state) return;
+    if (open) {
+        var idx = -1;
+        connections.map(function(c, i) { if (c.id == id) idx = i; });
+        if (idx >= 0 && idx == body.cur && connections[idx]) connections[idx].unreaded = 0;
+        show_chat = true;
+        scheduleChatCollapse();
+    } else {
+        chat_idle_timer_gen++;   // 대기 중인 접기 타이머 무효화
+        show_chat = false;
+    }
+    applyCmBanner();
+    body.update();
+}
+
 handler.newMessage = function(id, text) { 
     var idx = -1;
     connections.map(function(c, i) {

@@ -930,6 +930,13 @@ pub fn session_switch_sides(session_id: SessionID) {
 ///   points 는 "x,y;x,y;..." 문자열이다. 브리지에 구조체를 새로 만들면 생성 코드가 크게
 ///   흔들리는데(1.80 세대), 이 값은 짧은 부동소수 쌍의 나열이라 문자열 하나면 충분하다.
 ///   op: 0=그리기 1=지우기 2=모드종료.
+/// ChainRemote: 본사 채팅창 열림/닫힘을 거래처에 전달.
+pub fn session_cr_chat_panel(session_id: SessionID, open: bool) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.cr_chat_panel(open);
+    }
+}
+
 pub fn session_cr_annotate(
     session_id: SessionID,
     op: i32,

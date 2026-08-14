@@ -368,6 +368,10 @@ class FfiModel with ChangeNotifier {
       } else if (name == 'chat_server_mode') {
         parent.target?.chatModel
             .receive(int.parse(evt['id'] as String), evt['text'] ?? '');
+      } else if (name == 'cr_chat_panel') {
+        // ChainRemote: 본사가 자기 채팅창을 열거나 닫았다 — 거래처 CM 의 채팅 영역을
+        //   따라 연다/닫는다. 세션엔 영향 없다(화면만 접힌다).
+        crAgentChatPanelOpen.value = evt['open'] == 'true';
       } else if (name == 'terminal_response') {
         parent.target?.routeTerminalResponse(evt);
       } else if (name == 'file_dir') {

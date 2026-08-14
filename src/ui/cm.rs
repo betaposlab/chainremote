@@ -56,6 +56,10 @@ impl InvokeUiCM for SciterHandler {
         self.call("newMessage", &make_args!(id, text));
     }
 
+    fn cr_chat_panel(&self, id: i32, open: bool) {
+        self.call("crChatPanel", &make_args!(id, open));
+    }
+
     fn change_theme(&self, dark: String) {
         self.call("changeTheme", &make_args!(dark));
     }

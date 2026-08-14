@@ -1525,6 +1525,13 @@ pub mod connection_manager {
             );
         }
 
+        fn cr_chat_panel(&self, id: i32, open: bool) {
+            self.push_event(
+                "cr_chat_panel",
+                &[("id", &id.to_string()), ("open", &open.to_string())],
+            );
+        }
+
         fn change_theme(&self, dark: String) {
             self.push_event("theme", &[("dark", &dark)]);
         }

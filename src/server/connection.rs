@@ -3384,6 +3384,11 @@ impl Connection {
                     Some(misc::Union::TogglePrivacyMode(t)) => {
                         self.toggle_privacy_mode(t).await;
                     }
+                    // ChainRemote: 본사가 채팅창을 열고 닫은 걸 CM 창에 그대로 전달한다.
+                    //   화면만 접었다 폈다 하는 신호라 권한 검사가 필요 없다.
+                    Some(misc::Union::CrChatPanel(p)) => {
+                        self.send_to_cm(ipc::Data::CrChatPanel { open: p.open });
+                    }
                     Some(misc::Union::ChatMessage(c)) => {
                         self.send_to_cm(ipc::Data::ChatMessage { text: c.text });
                         self.chat_unanswered = true;

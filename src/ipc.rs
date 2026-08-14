@@ -249,6 +249,11 @@ pub enum Data {
     ChatMessage {
         text: String,
     },
+    // ChainRemote: 본사 쪽 채팅창 열림/닫힘. CM 창의 채팅 영역을 따라 열고 닫는다.
+    //   본사가 채팅을 닫으면 거래처 포스 화면을 곧바로 돌려주려는 것.
+    CrChatPanel {
+        open: bool,
+    },
     SwitchPermission {
         name: String,
         enabled: bool,

@@ -186,6 +186,9 @@ pub trait InvokeUiCM: Send + Clone + 'static + Sized {
 
     fn new_message(&self, id: i32, text: String);
 
+    /// ChainRemote: 본사 쪽 채팅창 열림/닫힘 — CM 의 채팅 영역을 따라 연다/닫는다.
+    fn cr_chat_panel(&self, id: i32, open: bool);
+
     fn change_theme(&self, dark: String);
 
     fn change_language(&self);
@@ -533,6 +536,9 @@ impl<T: InvokeUiCM> IpcTaskRunner<T> {
                                 Data::ChatMessage { text } => {
                                     self.cm.new_message(self.conn_id, text);
                                 }
+                                Data::CrChatPanel { open } => {
+                                    self.cm.cr_chat_panel(self.conn_id, open);
+                                }
                                 Data::FS(mut fs) => {
                                     if let ipc::FS::WriteBlock { id, file_num, data: _, compressed } = fs {
                                         if let Ok(bytes) = self.stream.next_raw().await {
@@ -862,6 +868,9 @@ pub async fn start_listen<T: InvokeUiCM>(
             }
             Some(Data::ChatMessage { text }) => {
                 cm.new_message(current_id, text);
+            }
+            Some(Data::CrChatPanel { open }) => {
+                cm.cr_chat_panel(current_id, open);
             }
             Some(Data::FS(fs)) => {
                 // Android doesn't need CM-side file reading (no need_validate_file_read_access)

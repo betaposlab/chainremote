@@ -1966,6 +1966,24 @@ fn wire_session_switch_sides_impl(
         },
     )
 }
+fn wire_session_cr_chat_panel_impl(
+    port_: MessagePort,
+    session_id: impl Wire2Api<uuid::Uuid> + UnwindSafe,
+    open: impl Wire2Api<bool> + UnwindSafe,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
+        WrapInfo {
+            debug_name: "session_cr_chat_panel",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_session_id = session_id.wire2api();
+            let api_open = open.wire2api();
+            move |task_callback| Ok(session_cr_chat_panel(api_session_id, api_open))
+        },
+    )
+}
 fn wire_session_cr_annotate_impl(
     port_: MessagePort,
     session_id: impl Wire2Api<uuid::Uuid> + UnwindSafe,

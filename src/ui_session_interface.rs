@@ -434,6 +434,19 @@ impl<T: InvokeUiSession> Session<T> {
     /// ChainRemote 마킹 전송 — 자유선 한 묶음(또는 지우기/종료)을 거래처로 보낸다.
     ///   좌표는 원격 디스플레이 픽셀 기준으로 이미 환산된 값이다(뷰어가 배율을 푼다).
     ///   op: 0=그리기 1=지우기 2=모드종료.
+    /// ChainRemote: 본사 쪽 채팅창 열림/닫힘을 거래처에 알린다.
+    /// 본사가 채팅을 닫으면 거래처 화면의 채팅도 같이 닫혀 포스 화면이 돌아온다.
+    /// 세션 자체엔 영향이 없다 — 채팅 영역만 접힌다.
+    pub fn cr_chat_panel(&self, open: bool) {
+        let mut p = CrChatPanel::new();
+        p.open = open;
+        let mut misc = Misc::new();
+        misc.set_cr_chat_panel(p);
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
+        self.send(Data::Message(msg_out));
+    }
+
     pub fn cr_annotate(&self, op: i32, points: Vec<(f32, f32)>, argb: u32, width: f32, end_stroke: bool) {
         let mut a = CrAnnotate::new();
         a.op = match op {

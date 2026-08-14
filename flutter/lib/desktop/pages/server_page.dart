@@ -6,6 +6,7 @@ import 'dart:math';
 
 import 'package:dash_chat_2/dash_chat_2.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hbb/common/shared_state.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
@@ -461,12 +462,33 @@ class ConnectionManagerState extends State<ConnectionManager>
     });
   }
 
+  // 본사 채팅창 신호를 따라가려고 마지막으로 반영한 값. 값이 바뀔 때만 움직인다 —
+  //   매번 따라가면 거래처가 직접 접은 걸 다음 build 가 도로 펴 버린다.
+  bool? _agentPeerChatShown;
+
   Widget _buildAgentSupportBanner(ServerModel serverModel) {
     final pending = serverModel.clients
         .firstWhereOrNull((c) => !c.authorized && !c.disconnected);
     final activeClient = serverModel.clients
         .firstWhereOrNull((c) => c.authorized && !c.disconnected);
     final wantPending = pending != null;
+    // 본사가 자기 채팅창을 열거나 닫으면 따라간다(1.4.117+ HQ 만 이 신호를 보낸다).
+    //   본사가 닫으면 거래처 화면도 곧바로 접혀 포스 화면이 돌아온다 — 120초를 안 기다린다.
+    //   ★값이 바뀐 순간에만 반응한다. 매 build 마다 따라가면 거래처가 말풍선으로 직접
+    //     접은 것을 다음 build 가 도로 펴 버린다.
+    final peerChat = crAgentChatPanelOpen.value;
+    if (_agentPeerChatShown != peerChat) {
+      _agentPeerChatShown = peerChat;
+      if (activeClient != null) {
+        _agentChatOpen = peerChat;
+        if (peerChat) {
+          activeClient.unreadChatMessageCount.value = 0;
+          _scheduleAgentChatCollapse();
+        } else {
+          _agentChatIdleTimer?.cancel();
+        }
+      }
+    }
     // 본사가 말을 걸면(안 읽은 수 > 0) 자동으로 펼친다. 배너만 뜬 채로 메시지가 오면
     // 피지원자는 온 줄도 모른다 — 그게 여태의 상태였다.
     if (!_agentChatOpen &&
@@ -480,6 +502,11 @@ class ConnectionManagerState extends State<ConnectionManager>
     if (activeClient == null && _agentChatOpen) {
       _agentChatOpen = false;
       _agentChatIdleTimer?.cancel();
+    }
+    if (activeClient == null) {
+      // 다음 세션이 옛 신호를 물려받지 않게 원위치.
+      crAgentChatPanelOpen.value = false;
+      _agentPeerChatShown = null;
     }
     // 대기↔활성↔채팅 전환이 있을 때만 CM 창 크기 reconcile 을 새로 킥한다(build 부작용 회피 post-frame).
     if (_agentPendingShown != wantPending ||

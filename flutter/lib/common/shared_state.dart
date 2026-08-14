@@ -366,3 +366,11 @@ removeSharedStates(String id) {
   UnreadChatCountState.delete(id);
   if (isMobile) ConnectionTypeState.delete(id);
 }
+
+// ChainRemote: 본사가 자기 채팅창을 열었나/닫았나 (거래처 CM 전용).
+//   본사가 채팅을 닫으면 거래처 화면의 채팅도 같이 닫아 포스 화면을 곧바로 돌려준다.
+//   프로토콜 CrChatPanel → ipc CrChatPanel → 'cr_chat_panel' 이벤트로 여기 들어온다.
+//   ★거래처가 직접 말풍선을 눌러 접는 것과는 별개다 — 그건 로컬 토글이고 이건 본사 신호다.
+//   null 이 아니라 단순 bool 인 이유: 옛 HQ 는 이 신호를 아예 안 보내고, 그때는 거래처가
+//   자기 타이머(120초)로만 접히면 되므로 "신호 없음 = 아무 일도 안 함"이면 충분하다.
+final crAgentChatPanelOpen = false.obs;

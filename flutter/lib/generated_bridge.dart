@@ -608,6 +608,12 @@ abstract class Rustdesk {
   ///   points 는 "x,y;x,y;..." 문자열이다. 브리지에 구조체를 새로 만들면 생성 코드가 크게
   ///   흔들리는데(1.80 세대), 이 값은 짧은 부동소수 쌍의 나열이라 문자열 하나면 충분하다.
   ///   op: 0=그리기 1=지우기 2=모드종료.
+  /// ChainRemote: 본사 채팅창 열림/닫힘을 거래처에 전달.
+  Future<void> sessionCrChatPanel(
+      {required UuidValue sessionId, required bool open, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kSessionCrChatPanelConstMeta;
+
   Future<void> sessionCrAnnotate(
       {required UuidValue sessionId,
       required int op,
@@ -4010,6 +4016,26 @@ class RustdeskImpl implements Rustdesk {
       const FlutterRustBridgeTaskConstMeta(
         debugName: "session_switch_sides",
         argNames: ["sessionId"],
+      );
+
+  Future<void> sessionCrChatPanel(
+      {required UuidValue sessionId, required bool open, dynamic hint}) {
+    var arg0 = _platform.api2wire_Uuid(sessionId);
+    var arg1 = open;
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_session_cr_chat_panel(port_, arg0, arg1),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kSessionCrChatPanelConstMeta,
+      argValues: [sessionId, open],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kSessionCrChatPanelConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "session_cr_chat_panel",
+        argNames: ["sessionId", "open"],
       );
 
   Future<void> sessionCrAnnotate(
@@ -10998,6 +11024,25 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
               ffi.Pointer<wire_uint_8_list>)>>('wire_session_switch_sides');
   late final _wire_session_switch_sides = _wire_session_switch_sidesPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
+
+  void wire_session_cr_chat_panel(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> session_id,
+    bool open,
+  ) {
+    return _wire_session_cr_chat_panel(
+      port_,
+      session_id,
+      open,
+    );
+  }
+
+  late final _wire_session_cr_chat_panelPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_cr_chat_panel');
+  late final _wire_session_cr_chat_panel = _wire_session_cr_chat_panelPtr
+      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>, bool)>();
 
   void wire_session_cr_annotate(
     int port_,

@@ -223,7 +223,25 @@ class ChatModel with ChangeNotifier {
     });
     overlayState.insert(overlay);
     chatWindowOverlayEntry = overlay;
+    _notifyPeerChatPanel(true);
     requestChatInputFocus();
+  }
+
+  // ChainRemote: 본사 쪽 채팅창 열림/닫힘을 거래처에 알린다.
+  //   본사가 채팅을 닫으면 거래처 화면의 채팅도 같이 닫혀 포스 화면이 곧바로 돌아온다.
+  //   ★뷰어일 때만 보낸다 — CM(거래처 자기 창)에서 부르면 자기한테 보내는 꼴이 된다.
+  //   옛 에이전트는 이 메시지를 모르는 필드로 무시하고 자기 타이머로만 접는다.
+  void _notifyPeerChatPanel(bool open) {
+    if (isConnManager) return;
+    try {
+      final sid = parent.target?.sessionId;
+      if (sid == null) return;
+      bind.sessionCrChatPanel(sessionId: sid, open: open);
+    } catch (e) {
+      // 알림이 실패해도 본사 쪽 채팅은 정상 동작해야 한다 — 거래처가 조금 늦게
+      //   (자기 타이머로) 접힐 뿐이다.
+      debugPrint('cr_chat_panel notify failed: $e');
+    }
   }
 
   hideChatWindowOverlay() {
@@ -231,6 +249,7 @@ class ChatModel with ChangeNotifier {
       _blockableOverlayState.setMiddleBlocked(false);
       chatWindowOverlayEntry!.remove();
       chatWindowOverlayEntry = null;
+      _notifyPeerChatPanel(false);
       return;
     }
   }

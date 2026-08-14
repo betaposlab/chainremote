@@ -871,6 +871,15 @@ pub extern "C" fn wire_session_switch_sides(port_: i64, session_id: *mut wire_ui
 }
 
 #[no_mangle]
+pub extern "C" fn wire_session_cr_chat_panel(
+    port_: i64,
+    session_id: *mut wire_uint_8_list,
+    open: bool,
+) {
+    wire_session_cr_chat_panel_impl(port_, session_id, open)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_session_cr_annotate(
     port_: i64,
     session_id: *mut wire_uint_8_list,
