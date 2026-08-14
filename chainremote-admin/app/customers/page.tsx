@@ -459,7 +459,13 @@ export default async function CustomersPage({
                         ID 등록
                       </Link>
                     )}
-                    {c.remoteId && !c.isInternal && c.enrollStatus === "active" && (
+                    {/* 내부 기기(is_internal)도 단건 푸시는 열어 둔다. 그 플래그의 목적은
+                        과금·대량조작에서 빼는 것이고, 그건 [전체 일괄 푸시]가 SQL 에서
+                        is_internal=false 로 이미 지킨다(pushBulk). 여기까지 막으면 정작
+                        **우리 테스트 기기에 시험 빌드를 못 넣는다** — 거래처에 내보내기 전
+                        검증할 곳이 사라진다(2026-08-14 우리집 x64 검증에서 걸림).
+                        서버 pushToCustomer 에는 원래 내부 기기 가드가 없었다 = 화면만 과했다. */}
+                    {c.remoteId && c.enrollStatus === "active" && (
                       <CustomerPushButton
                         customerId={c.id}
                         customerName={c.name}

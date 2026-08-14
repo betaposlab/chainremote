@@ -42,6 +42,7 @@ import {
 } from "@/lib/data/customers";
 import {
   pushToCustomer,
+  pushBulk,
   getPendingForAgent,
 } from "@/lib/data/pending-updates";
 import { claimSeat, takeoverSeat } from "@/lib/data/active-sessions";
@@ -444,5 +445,39 @@ describe("HBI (B) 결함 후보 — 실패 예상", () => {
     const j = await res.json();
     // 정책(2026-07-21): 정지 tenant 도 원격 유지보수(디스크 정리)는 계속 배달된다.
     expect(typeof j.cleanup).toBe("string");
+  });
+
+  // HBI-INT — 내부 기기(is_internal)의 푸시 정책. 두 동작이 서로 반대여야 한다.
+  //
+  //   [전체 일괄 푸시]는 내부 기기를 빼야 한다 — 과금·대량조작에 우리 장비가 섞이면 안 된다.
+  //   [단건 푸시]는 내부 기기에 되어야 한다 — 거래처에 내보내기 전에 시험할 곳이 거기뿐이다.
+  //
+  //   2026-08-14: 화면이 단건 푸시까지 !isInternal 로 막고 있어서 정작 우리집(x64 테스트기)에
+  //   시험 빌드를 못 넣었다. 서버엔 원래 그 가드가 없었다 = 화면만 과했다. 화면을 고치면서
+  //   "일괄은 여전히 제외"까지 같이 못 박는다 — 이게 깨지면 조용히 과금이 틀어진다.
+  it("HBI-INT: 내부 기기는 일괄 푸시에서 빠지고, 단건 푸시는 된다", async () => {
+    const tid = await makeTenant("hbiint");
+    const uid = await makeUser(tid, "hbiint@x", "owner");
+    const internalId = await makeCustomer(tid, "우리집", "HBINT0001", { isInternal: true });
+    const normalId = await makeCustomer(tid, "일반거래처", "HBINT0002");
+    const asset = {
+      targetVersion: "1.4.118",
+      assetUrl: "https://x/v1.4.118.exe",
+      assetSha256: "c".repeat(64),
+      assetSize: 35_000_000,
+    };
+
+    // 1) 일괄 푸시 — 일반 거래처만 큐잉된다.
+    await pushBulk(asset, {}, { tenantId: tid, requestedBy: uid });
+    expect((await pendingRows(internalId)).length).toBe(0);
+    expect((await pendingRows(normalId)).length).toBe(1);
+
+    // 2) 단건 푸시 — 내부 기기에도 걸린다(시험용 경로).
+    const pushed = await pushToCustomer(internalId, asset, {}, {
+      tenantId: tid,
+      requestedBy: uid,
+    });
+    expect(pushed).not.toBeNull();
+    expect((await pendingRows(internalId)).length).toBe(1);
   });
 });
