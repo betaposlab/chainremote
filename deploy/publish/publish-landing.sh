@@ -12,7 +12,7 @@
 #   버전은 NAS latest.json(hq 채널)이 진실 원천. 사람이 HTML 을 손으로 고치지 않는다
 #   — 그렇게 하다가 v1.4.16 으로 6주 방치된 게 이 스크립트를 만든 이유다.
 #
-# 사용: ./deploy/nas/publish-landing.sh [ChainGo_vX.Y.Z.exe 경로]
+# 사용: ./deploy/publish/publish-landing.sh [ChainGo_vX.Y.Z.exe 경로]
 #   Cafe24 비번 = 환경변수 CAFE24_PW, 없으면 FileZilla 설정에서 런타임 추출.
 
 set -euo pipefail

@@ -5,7 +5,7 @@
 // 발견 — sha256 대조 결과 Setup exe 와 100% 동일 파일이었다(그냥 복사본). 매 릴리즈마다
 // 이 복사를 깜빡하면 신규 가맹점이 옛 버전으로 온보딩되는 사고가 나서(1.4.49 방치),
 // 별도 "Base" 파일 관례를 폐기하고 이 한 곳만 보게 통일한다 — 발행은
-// deploy/nas/publish-agent-push-meta.sh 하나면 이제 두 소비처(최신 가져오기 버튼 +
+// deploy/publish/publish-agent-push-meta.sh 하나면 이제 두 소비처(최신 가져오기 버튼 +
 // 테넌트별 오버레이 다운로드) 다 자동으로 따라온다.
 
 const META_CANDIDATES = [

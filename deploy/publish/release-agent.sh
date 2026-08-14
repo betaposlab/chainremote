@@ -17,9 +17,9 @@
 # 즉: 이 스크립트 = [1·3 소스 갱신] + [4 자료실, 오버레이 자동재생성] 전부 자동, [2]만 사람 클릭.
 #     실행 후 Chang 이 패널서 일괄푸시 클릭 한 번으로 4단계 완성.
 #
-# 사용: ./deploy/nas/release-agent.sh <ChainRemote_Agent_Setup_vX.Y.Z.exe> ["릴리즈노트"]
-#   스텝 자료실 로그인 비번 = 환경변수 STAFF_PW, 또는 deploy/nas/.staff-pw 파일(gitignore).
-#   패널(오버레이 재생성) 로그인 비번 = 환경변수 PANEL_PW, 또는 deploy/nas/.panel-pw 파일.
+# 사용: ./deploy/publish/release-agent.sh <ChainRemote_Agent_Setup_vX.Y.Z.exe> ["릴리즈노트"]
+#   스텝 자료실 로그인 비번 = 환경변수 STAFF_PW, 또는 deploy/publish/.staff-pw 파일(gitignore).
+#   패널(오버레이 재생성) 로그인 비번 = 환경변수 PANEL_PW, 또는 deploy/publish/.panel-pw 파일.
 #   둘 중 하나라도 없으면 해당 단계만 스킵하고 수동 안내를 출력한다(파이프라인은 안 막음).
 
 set -euo pipefail
@@ -79,7 +79,7 @@ fi
 if [[ "$OVERLAY_CHECK" != "OK_KEY" ]]; then
   : # 가드에서 이미 거부 안내함 — 아무것도 안 함
 elif [[ -z "$STAFF_PW" ]]; then
-  echo "  ⚠ STAFF_PW 없음(환경변수/deploy/nas/.staff-pw 둘 다) → 스텝 자료실 업로드 스킵."
+  echo "  ⚠ STAFF_PW 없음(환경변수/deploy/publish/.staff-pw 둘 다) → 스텝 자료실 업로드 스킵."
   echo "    수동: 메모리 reference_staff_drive_upload 레시피로 $(basename "$EXE") 업로드 필요."
 else
   STAFF="https://betaposlab.com/staff/index.php"

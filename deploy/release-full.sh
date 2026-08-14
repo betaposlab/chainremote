@@ -188,20 +188,20 @@ echo "    ✓ 무결성 확인"
 # ── [4/5] 발행 (기존 검증된 스크립트 재사용) ─────────────────────────────────
 echo "[4/5] 발행 (NAS + 채널 + 스텝자료실)..."
 if [[ "$KIND" == "agent" ]]; then
-  NAS_HOST=chang@100.93.42.91 bash "$REPO/deploy/nas/release-agent.sh" "$DEST" "$NOTES"
+  NAS_HOST=chang@100.93.42.91 bash "$REPO/deploy/publish/release-agent.sh" "$DEST" "$NOTES"
 else
-  NAS_HOST=chang@100.93.42.91 bash "$REPO/deploy/nas/publish-hq.sh" "$DEST" "$NOTES"
+  NAS_HOST=chang@100.93.42.91 bash "$REPO/deploy/publish/publish-hq.sh" "$DEST" "$NOTES"
   # ChainGo(포터블 HQ) 동반 갱신 — 자동업뎃 경로가 없는 무설치 exe 라 여기 안 묶으면
   # 영원히 옛 버전 고착(1.4.38 5개월 사고, 2026-07-16). 실패해도 HQ 발행 자체는 유효라 경고만.
-  if ! bash "$REPO/deploy/nas/release-chaingo.sh"; then
-    echo "⚠ ChainGo 동반 빌드 실패 — HQ 발행은 완료. deploy/nas/release-chaingo.sh 단독 재실행 필요." >&2
+  if ! bash "$REPO/deploy/publish/release-chaingo.sh"; then
+    echo "⚠ ChainGo 동반 빌드 실패 — HQ 발행은 완료. deploy/publish/release-chaingo.sh 단독 재실행 필요." >&2
   fi
   # ★영업 랜딩(배포처 4번). 이걸 파이프라인 밖에 두는 한 반드시 잊는다 — v1.4.16 으로 6주
   #   방치된 게 그래서였고, 그 교훈으로 publish-landing.sh 를 만들고도 **호출을 안 걸어**
   #   2026-08-13 에 또 1.4.108 로 남아 있었다. 사람이 기억해야 하는 단계는 단계가 아니다.
   #   Agent 는 여기 안 온다(랜딩 게재 금지) — hq 분기 안이라 구조적으로 걸릴 일이 없다.
-  if ! bash "$REPO/deploy/nas/publish-landing.sh" "$REPO/dist/ChainGo_v$VERSION.exe"; then
-    echo "⚠ 랜딩 배포 실패 — HQ 발행 자체는 완료. deploy/nas/publish-landing.sh 단독 재실행 필요." >&2
+  if ! bash "$REPO/deploy/publish/publish-landing.sh" "$REPO/dist/ChainGo_v$VERSION.exe"; then
+    echo "⚠ 랜딩 배포 실패 — HQ 발행 자체는 완료. deploy/publish/publish-landing.sh 단독 재실행 필요." >&2
   fi
 fi
 

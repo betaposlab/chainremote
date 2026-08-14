@@ -7,7 +7,7 @@
 #
 # 흐름: 윈컴 SSH(sustained — 세션 끊기면 빌드 죽는 함정 회피) 로 build-chaingo.ps1 실행
 #   → ChainGo.exe 회수 → 자료실에 ChainGo_v{버전}.exe 업로드 + 옛 ChainGo_v* 정리.
-# 비번: STAFF_PW 환경변수 또는 deploy/nas/.staff-pw.
+# 비번: STAFF_PW 환경변수 또는 deploy/publish/.staff-pw.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

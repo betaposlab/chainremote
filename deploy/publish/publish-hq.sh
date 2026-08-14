@@ -7,8 +7,8 @@
 #   옛 deploy/release.sh 가 latest.json 을 flat 포맷으로 통째로 덮어써 HQ 채널을 파괴한 지뢰의
 #   교훈(2026-07-09 그 release.sh 삭제). 이 스크립트는 절대 agent 채널을 건드리지 않는다.
 #
-# 사용: ./deploy/nas/publish-hq.sh <ChainRemote_HQ_Setup_vX.Y.Z.exe> ["릴리즈노트"]
-#   스텝 자료실 비번 = 환경변수 STAFF_PW 또는 deploy/nas/.staff-pw. 없으면 자료실만 스킵.
+# 사용: ./deploy/publish/publish-hq.sh <ChainRemote_HQ_Setup_vX.Y.Z.exe> ["릴리즈노트"]
+#   스텝 자료실 비번 = 환경변수 STAFF_PW 또는 deploy/publish/.staff-pw. 없으면 자료실만 스킵.
 
 set -euo pipefail
 

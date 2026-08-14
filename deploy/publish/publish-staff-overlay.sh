@@ -11,9 +11,9 @@
 #   같이 갱신해 자동푸시 소스가 특정 대리점 키 포함 오버레이로 오염된다. 이 스크립트는
 #   [4]자료실 갱신만 담당(release-agent.sh 가 raw 베이스를 거부한 뒤 자동 호출).
 #
-# 사용: ./deploy/nas/publish-staff-overlay.sh
-#   패널 비번  = 환경변수 PANEL_PW, 또는 deploy/nas/.panel-pw 파일(gitignore).
-#   자료실 비번 = 환경변수 STAFF_PW, 또는 deploy/nas/.staff-pw 파일(gitignore).
+# 사용: ./deploy/publish/publish-staff-overlay.sh
+#   패널 비번  = 환경변수 PANEL_PW, 또는 deploy/publish/.panel-pw 파일(gitignore).
+#   자료실 비번 = 환경변수 STAFF_PW, 또는 deploy/publish/.staff-pw 파일(gitignore).
 #   둘 중 하나라도 없으면 스킵(수동 안내만) — exit 0(파이프라인 전체를 막지 않음).
 
 set -uo pipefail

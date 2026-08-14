@@ -20,9 +20,9 @@ ssh root@115.68.192.153 'caddy validate --config /etc/caddy/Caddyfile && systemc
 
 - `626.kr` / `api.626.kr` → 패널(127.0.0.1:3001). TLS 자동 발급·갱신.
 - `626.kr/main` → 영업 랜딩 정적 서빙(`/opt/chainremote/web/main/`).
-  파일 갱신은 `deploy/nas/publish-landing.sh` 의 [7/7] 이 자동으로 한다.
+  파일 갱신은 `deploy/publish/publish-landing.sh` 의 [7/7] 이 자동으로 한다.
 
 ## 패널 재배포
 
-`deploy/cloud/redeploy-panel.sh` — ★`deploy/nas/redeploy-panel.sh` 는 은퇴 대기 중인
-NAS 잔존 스택용이다. 헷갈리면 "배포했는데 아무것도 안 바뀜" 이 된다.
+`deploy/cloud/redeploy-panel.sh` 하나뿐이다. NAS 판은 2026-08-14 삭제했다 — NAS 옛 스택을
+중지한 날 그 스크립트는 "배포했는데 아무것도 안 바뀜"을 만드는 지뢰가 됐다.

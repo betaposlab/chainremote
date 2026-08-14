@@ -10,7 +10,7 @@
 //
 // 자동 채움은 NAS 의 agent-push.json(별도 메타 파일)에서 sha256/URL/size 를 끌어온다.
 // latest.json 의 agent 채널은 옛 v1.3.4 Agent 호환 위해 0.0.0 으로 영구 고정 — agent-push.json 은
-// v1.3.6+ 패널만 읽고 옛 Agent 는 안 본다. 발행은 deploy/nas/publish-agent-push-meta.sh 가
+// v1.3.6+ 패널만 읽고 옛 Agent 는 안 본다. 발행은 deploy/publish/publish-agent-push-meta.sh 가
 // 매 릴리즈마다 자동 갱신(2026-07-08 복구 — 6/24 이후 수동 발행이 끊겨 이 버튼이 죽어있었음).
 
 import { useState, useTransition } from "react";

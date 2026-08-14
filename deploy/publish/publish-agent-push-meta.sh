@@ -11,7 +11,7 @@
 #   옛 deploy/release.sh 는 이 latest.json 을 flat 포맷으로 덮어써 HQ 채널을 파괴하는
 #   지뢰였다 → 2026-07-09 삭제(build-and-release.sh 도 함께). 이 스크립트가 그 정석 후계다.
 #
-# 사용법: ./deploy/nas/publish-agent-push-meta.sh <ChainRemote_Agent_Setup_v*.exe 경로> [릴리즈노트]
+# 사용법: ./deploy/publish/publish-agent-push-meta.sh <ChainRemote_Agent_Setup_v*.exe 경로> [릴리즈노트]
 
 set -euo pipefail
 
