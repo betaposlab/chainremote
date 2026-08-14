@@ -30,6 +30,7 @@ export async function POST(req: Request) {
       diskTotal?: unknown;
       diskFree?: unknown;
       tempBytes?: unknown;
+      topDirs?: unknown;
       cleanupResult?: unknown;
       firewallEnabled?: unknown;
       firewallDisarmed?: unknown;
@@ -74,6 +75,18 @@ export async function POST(req: Request) {
         diskTotal: asNum(body.diskTotal),
         diskFree: asNum(body.diskFree),
         tempBytes: asNum(body.tempBytes),
+        // 용량 상위 폴더 실측(044) — 에이전트가 가끔만 보내는 선택 필드. 모양이 맞는 것만 통과.
+        topDirs: Array.isArray(body.topDirs)
+          ? (body.topDirs as unknown[])
+              .filter(
+                (d): d is { name: string; bytes: number } =>
+                  !!d &&
+                  typeof d === "object" &&
+                  typeof (d as { name?: unknown }).name === "string" &&
+                  typeof (d as { bytes?: unknown }).bytes === "number",
+              )
+              .slice(0, 8)
+          : undefined,
         cleanupResult,
         firewallEnabled:
           typeof body.firewallEnabled === "boolean" ? body.firewallEnabled : undefined,

@@ -504,4 +504,52 @@ describe("disk — 버그 후보(의도 vs 실제 divergence)", () => {
     // 기대: 비정상 거대값은 이상값으로 무시하고 200(ok). 실제: 상한 검사 부재 → bigint out of range → 500.
     expect(res.status).toBe(200);
   });
+
+  // ── disk-06: 용량 상위 폴더 실측(044) 왕복 ──
+  //   에이전트는 여유 부족일 때 6시간에 한 번만 보낸다. 그래서 "안 보낸 heartbeat 가
+  //   먼저 잰 값을 지우지 않는가"가 이 기능의 급소다 — 지워지면 데이터가 영영 안 쌓인다.
+  it("disk-06 topDirs 는 저장되고, 안 보낸 heartbeat 가 그걸 지우지 않는다", async () => {
+    const s = await seed("disk-adv-06b", "DKADV006B");
+    await recordHeartbeat(
+      "DKADV006B", s.token, "1.4.116", undefined, undefined, undefined, undefined,
+      {
+        diskTotal: 120 * GB,
+        diskFree: 4 * GB,
+        topDirs: [
+          { name: "Local\\배달앱A", bytes: 3 * GB },
+          { name: "Local\\배달대행B", bytes: 1 * GB },
+        ],
+      },
+    );
+    let r = await row("DKADV006B");
+    expect(r.topDirs).toHaveLength(2);
+    expect(r.topDirs?.[0].name).toBe("Local\\배달앱A");
+    expect(r.topDirs?.[0].bytes).toBe(3 * GB);
+
+    // 다음 heartbeat 는 실측을 안 실었다(6시간 캐시). 앞서 잰 값이 살아 있어야 한다.
+    await recordHeartbeat(
+      "DKADV006B", s.token, "1.4.116", undefined, undefined, undefined, undefined,
+      { diskTotal: 120 * GB, diskFree: 4 * GB },
+    );
+    r = await row("DKADV006B");
+    expect(r.topDirs).toHaveLength(2);
+  });
+
+  // ── disk-07: 모양이 깨진 topDirs 가 heartbeat 를 깨면 안 된다 ──
+  //   telemetry 하나 때문에 하트비트가 죽으면 그 기기는 자동 업데이트까지 끊긴다.
+  it("disk-07 망가진 topDirs 는 걸러지고 heartbeat 는 200 이다", async () => {
+    const s = await seed("disk-adv-07", "DKADV0007");
+    const res = await heartbeatPOST(
+      hbReq(
+        `{"remoteId":"DKADV0007","version":"1.4.116","diskTotal":${120 * GB},` +
+          `"diskFree":${4 * GB},"topDirs":[{"name":"ok","bytes":123},` +
+          `{"name":123,"bytes":"x"},null,"nope",{"bytes":5}]}`,
+        s.token,
+      ),
+    );
+    expect(res.status).toBe(200);
+    const r = await row("DKADV0007");
+    expect(r.topDirs).toHaveLength(1);
+    expect(r.topDirs?.[0].name).toBe("ok");
+  });
 });

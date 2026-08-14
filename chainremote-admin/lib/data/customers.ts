@@ -208,6 +208,8 @@ export interface HeartbeatExtras {
   diskTotal?: number;
   diskFree?: number;
   tempBytes?: number;
+  // 용량 상위 폴더 실측(044) — 재기만 한 결과. 최대 8개, 200MB 이상만 온다.
+  topDirs?: { name: string; bytes: number }[];
   // 에이전트의 정리 완료 보고(JSON 문자열) — 저장하고 정리 요청 큐를 비운다.
   cleanupResult?: string;
   // 방화벽 관제(028) — 에이전트 보고. firewallEnabled=현재 방화벽 켜짐 여부(표시용),
@@ -260,6 +262,14 @@ export async function recordHeartbeat(
   const diskTotal = posNum(extras?.diskTotal, false);
   const diskFree = posNum(extras?.diskFree, true);
   const tempBytes = posNum(extras?.tempBytes, true);
+  const topDirs = Array.isArray(extras?.topDirs) && extras.topDirs.length > 0
+    ? extras.topDirs
+        .filter(
+          (d): d is { name: string; bytes: number } =>
+            !!d && typeof d.name === "string" && Number.isFinite(d.bytes) && d.bytes > 0,
+        )
+        .slice(0, 8)
+    : undefined;
   const diskSet =
     diskTotal !== undefined && diskFree !== undefined
       ? {
@@ -267,6 +277,9 @@ export async function recordHeartbeat(
           diskFreeBytes: diskFree,
           diskReportedAt: new Date(),
           ...(tempBytes !== undefined ? { tempBytes } : {}),
+          // 실측이 온 heartbeat 에만 갱신한다. 매번 오는 값이 아니라서(여유 부족일 때
+          //   6시간에 한 번) 무조건 덮어쓰면 방금 잰 걸 다음 heartbeat 가 지운다.
+          ...(topDirs !== undefined ? { topDirs } : {}),
         }
       : {};
   // 정리 완료 보고 — 결과 저장 + 요청 큐 클리어. 단, 이 결과가 실제로 충족한 요청만 비운다.

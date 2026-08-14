@@ -166,6 +166,10 @@ export const customers = pgTable(
     diskTotalBytes: bigint("disk_total_bytes", { mode: "number" }),
     diskFreeBytes: bigint("disk_free_bytes", { mode: "number" }),
     tempBytes: bigint("temp_bytes", { mode: "number" }),
+    // 용량을 먹는 폴더 상위(마이그 044) — [{name, bytes}] 최대 8개. 재기만 하고 지우지 않는다.
+    //   Temp 를 비워도 여유가 안 늘어나는 기기의 진짜 범인을 데이터로 확인하려는 것.
+    //   여기 쌓인 걸 보고 정리 대상을 정한다(짐작으로 지우면 앱이 깨진다).
+    topDirs: jsonb("top_dirs").$type<{ name: string; bytes: number }[]>(),
     diskReportedAt: timestamp("disk_reported_at", { withTimezone: true }),
     // 원격 Temp 정리 명령 큐 — 버튼이 now() 를 찍고, 에이전트가 heartbeat 응답에서 받아
     //   실행 후 결과(JSON)를 보고하면 requested 가 비워진다. 자동업뎃 푸시와 같은 결.

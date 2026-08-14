@@ -382,6 +382,21 @@ fn send_heartbeat(
         if let Some(t) = measured_temp_bytes(free) {
             body["tempBytes"] = t.into();
         }
+        // 용량을 먹는 폴더 상위 — 여유 부족일 때만, 6시간에 한 번. 재기만 한다(지우지 않음).
+        //   "Temp 를 비워도 여유가 안 늘어나는" 기기의 진짜 범인을 데이터로 확인하려는 것.
+        //   서버가 이 필드를 모르면 그냥 무시된다(옛 패널 호환).
+        if let Some(dirs) = measured_top_dirs(free) {
+            body["topDirs"] = dirs
+                .into_iter()
+                .map(|(name, bytes)| {
+                    let mut o = serde_json::Map::new();
+                    o.insert("name".into(), name.into());
+                    o.insert("bytes".into(), bytes.into());
+                    serde_json::Value::Object(o)
+                })
+                .collect::<Vec<_>>()
+                .into();
+        }
     }
     // [디스크 정리] 완료 보고 — 서버가 결과 저장 + 요청 큐를 비운다.
     if let Some(r) = cleanup_result {
@@ -705,6 +720,100 @@ fn remeasure_temp_now() -> u64 {
 fn remeasure_temp_now() -> u64 {
     0
 }
+
+/// 용량을 먹는 폴더 상위 목록 — **재기만 하고 아무것도 지우지 않는다.**
+///
+/// 왜 필요한가: 지금 정리 대상은 Temp + 휴지통뿐인데, 정작 요즘 포스가 차는 이유는
+/// 배달 주문 접수·배달대행 앱들이다(Chang 현장 관찰 2026-08-14). 이들 대부분이 브라우저
+/// 엔진을 통째로 안고 있어 앱 하나가 수백 MB 고, 자동 업데이트가 델타가 아니라 새 버전을
+/// 통째로 받아 `%LOCALAPPDATA%\<앱>\app-1.2.3` 식으로 옛 버전 폴더를 남긴다. 그 자리는
+/// 우리가 안 건드리므로 "정리했는데 여유가 그대로"가 된다 — 위 AUTO_CLEAN_MIN_INTERVAL_SECS
+/// 주석의 "Temp 를 비워도 5GB 를 못 넘기는 기기(원인이 딴 데)"가 바로 이것으로 보인다.
+///
+/// ★그렇다고 짐작으로 지우면 앱이 깨진다. 무엇을 지워도 되는지 정하려면 실측이 먼저다.
+/// 그래서 이 함수는 보고만 한다. 데이터가 쌓이면 그때 정리 대상을 정한다.
+///
+/// 절제: Temp 실측과 같은 규칙 — 여유가 부족할 때만, 6시간에 한 번.
+/// ★깊이는 제한하지 않는다. 얕게 훑으면 캐시·옛 버전 폴더가 빠져 **작게 나오고**, 그러면
+/// 진짜 범인을 엉뚱한 폴더로 지목하게 된다. 틀린 숫자는 없느니만 못하다. 비용은 위 두
+/// 게이트로 잡는다(Temp 실측도 같은 이유로 depth 0 = 전체 순회다).
+#[cfg(windows)]
+fn measured_top_dirs(disk_free: u64) -> Option<Vec<(String, u64)>> {
+    use std::sync::atomic::Ordering;
+    const LOW_BYTES: u64 = 20 * 1024 * 1024 * 1024;
+    const REMEASURE_SECS: u64 = 6 * 3600;
+    const TOP_N: usize = 8;
+    // 이보다 작은 폴더는 보고해 봐야 노이즈다.
+    const MIN_REPORT_BYTES: u64 = 200 * 1024 * 1024;
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+    let last = TOPDIRS_MEASURED_AT.load(Ordering::Relaxed);
+    if disk_free >= LOW_BYTES || (last != 0 && now.saturating_sub(last) < REMEASURE_SECS) {
+        return None;
+    }
+    TOPDIRS_MEASURED_AT.store(now, Ordering::Relaxed);
+
+    let mut roots: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(rd) = std::fs::read_dir("C:\\Users") {
+        for e in rd.flatten() {
+            for sub in ["AppData\\Local", "AppData\\Roaming"] {
+                let p = e.path().join(sub);
+                if p.is_dir() {
+                    roots.push(p);
+                }
+            }
+        }
+    }
+    let pd = std::path::PathBuf::from("C:\\ProgramData");
+    if pd.is_dir() {
+        roots.push(pd);
+    }
+
+    let mut found: Vec<(String, u64)> = Vec::new();
+    for root in roots {
+        let Ok(rd) = std::fs::read_dir(&root) else {
+            continue;
+        };
+        for e in rd.flatten() {
+            let p = e.path();
+            if !p.is_dir() {
+                continue;
+            }
+            // Temp 는 이미 tempBytes 로 따로 보고한다 — 두 번 세지 않는다.
+            if p.file_name().map(|n| n.eq_ignore_ascii_case("Temp")) == Some(true) {
+                continue;
+            }
+            let sz = dir_size(&p, 0); // 전체 순회 — 얕게 재면 캐시가 빠져 범인을 놓친다
+            if sz >= MIN_REPORT_BYTES {
+                // 사용자명이 섞이지 않게 마지막 두 조각만 남긴다("Local\\메신저" 꼴).
+                let label = p
+                    .components()
+                    .rev()
+                    .take(2)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .map(|c| c.as_os_str().to_string_lossy().to_string())
+                    .collect::<Vec<_>>()
+                    .join("\\");
+                found.push((label, sz));
+            }
+        }
+    }
+    found.sort_by(|a, b| b.1.cmp(&a.1));
+    found.truncate(TOP_N);
+    (!found.is_empty()).then_some(found)
+}
+#[cfg(not(windows))]
+fn measured_top_dirs(_disk_free: u64) -> Option<Vec<(String, u64)>> {
+    None
+}
+
+#[cfg(windows)]
+static TOPDIRS_MEASURED_AT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Temp(전 프로필 + 윈도우) 정리 + (include_recycle_bin 이면) 휴지통 비우기.
 /// API 삭제라 휴지통을 안 거치는 영구 삭제이며(탐색기 Shift+Delete 와 동일), 최근 1시간
