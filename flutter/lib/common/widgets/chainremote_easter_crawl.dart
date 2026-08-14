@@ -138,23 +138,29 @@ List<CrCrawlItem> crCrawlLayout({
   return out;
 }
 
-/// 크롤 배경음 재생기.
+/// 이스터에그 소리 재생기 — 크롤 배경음과 로켓 효과음이 같이 쓴다.
 ///
 /// ★오디오 플러그인을 쓰지 않는다. 플러그인을 붙이면 macOS·Windows 양쪽 빌드 설정이
 ///   딸려 오고, 잘 돌던 윈도우 HQ 빌드가 깨질 위험을 이스터에그 하나 때문에 지게 된다.
 ///   대신 OS 에 이미 있는 재생기를 프로세스로 부른다 — macOS `afplay`,
 ///   Windows PowerShell `SoundPlayer`(WAV 전용이라 음원도 WAV 로 둔다).
 /// 실패해도 조용히 넘어간다. 소리가 안 나는 것보다 크롤이 안 뜨는 게 훨씬 나쁘다.
-class _CrCrawlAudio {
+class _CrEasterAudio {
+  /// 자산 이름(assets/ 아래)과 macOS 재생 음량.
+  final String asset;
+  final String macVolume;
+
+  _CrEasterAudio(this.asset, {this.macVolume = '0.35'});
+
   Process? _proc;
   bool _stopped = false;
 
   Future<void> start() async {
     try {
       if (!(Platform.isMacOS || Platform.isWindows)) return;
-      final bytes = await rootBundle.load('assets/cr_credits.wav');
+      final bytes = await rootBundle.load('assets/$asset');
       final dir = await getTemporaryDirectory();
-      final f = File('${dir.path}/cr_credits.wav');
+      final f = File('${dir.path}/$asset');
       // 매번 쓰지 않는다 — 같은 파일이면 그대로 재사용.
       if (!await f.exists() ||
           await f.length() != bytes.lengthInBytes) {
@@ -163,7 +169,7 @@ class _CrCrawlAudio {
       if (_stopped) return; // 쓰는 사이에 닫혔다
       if (Platform.isMacOS) {
         // -v 로 음량을 낮춘다. 통화 중이거나 원격 지원 중에 열 수 있어 크면 놀란다.
-        _proc = await Process.start('afplay', ['-v', '0.35', f.path]);
+        _proc = await Process.start('afplay', ['-v', macVolume, f.path]);
       } else {
         _proc = await Process.start('powershell', [
           '-NoProfile',
@@ -200,7 +206,7 @@ class _CrCrawlPage extends StatefulWidget {
 class _CrCrawlPageState extends State<_CrCrawlPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
-  final _audio = _CrCrawlAudio();
+  final _audio = _CrEasterAudio('cr_credits.wav');
 
   @override
   void initState() {
@@ -366,6 +372,10 @@ class _CrRocketPageState extends State<_CrRocketPage>
   late final AnimationController _c;
   final List<_Spark> _sparks = [];
   final _rnd = Random();
+  // 슈웅 + 착탄 폭죽. 애니메이션 2.6초에 타이밍을 통째로 구워 넣은 한 파일이라
+  //   시작만 맞추면 착탄 순간(1.43s)까지 저절로 들어맞는다.
+  //   효과음은 배경음보다 조금 크게 — 짧고 한 번뿐이라 묻히면 안 들린다.
+  final _audio = _CrEasterAudio('cr_rocket.wav', macVolume: '0.5');
 
   @override
   void initState() {
@@ -374,6 +384,7 @@ class _CrRocketPageState extends State<_CrRocketPage>
       vsync: this,
       duration: const Duration(milliseconds: 2600),
     )..forward();
+    _audio.start();
     _c.addStatusListener((s) {
       if (s == AnimationStatus.completed && mounted) Navigator.of(context).pop();
     });
@@ -393,6 +404,7 @@ class _CrRocketPageState extends State<_CrRocketPage>
 
   @override
   void dispose() {
+    _audio.stop();
     _c.dispose();
     super.dispose();
   }
