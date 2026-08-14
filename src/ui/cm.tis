@@ -258,6 +258,9 @@ class Body: Reactor.Component
         if (show_chat) {
             var c = connections[body.cur];
             if (c) c.unreaded = 0;
+            scheduleChatCollapse();   // 직접 펼친 것도 조용해지면 접힌다
+        } else {
+            chat_idle_timer_gen++;    // 직접 접었으면 대기 중인 타이머 무효화
         }
         applyCmBanner();
         body.update();
@@ -406,6 +409,40 @@ function adaptSizeForChat() {
 var cm_banner_state = undefined;
 // 배너에서 채팅을 펼친 상태. applyCmBanner 가 창 크기를 다시 잡을지 판단하는 데 같이 쓴다.
 var cm_banner_chat_state = undefined;
+
+// ChainRemote: 조용해지면 채팅을 스스로 접는다.
+//
+// 왜 필요한가: 사장님은 채팅을 닫을 생각을 안 한다. 본사가 자기 쪽 채팅창을 닫아도
+// 거래처 화면엔 그대로 남아 포스 화면을 계속 가린다(2026-08-14 테스트1 실측).
+// 본사가 닫을 때 같이 닫으려면 "채팅창 닫음" 프로토콜 메시지가 필요한데 RustDesk 엔 없고,
+// 코어 통신 경로를 건드릴 만한 값어치도 없다 — 게다가 사장님이 아직 읽는 중일 수도 있다.
+// 대신 로컬 타이머로 접는다. 본사가 뭘 하든, 연결이 끊겨도 항상 동작한다.
+// 안 읽은 표시(빨간 점)는 남으니 다시 펼쳐 읽을 수 있고, 대화는 지워지지 않는다.
+const CHAT_IDLE_COLLAPSE_MS = 60000;
+var chat_idle_timer_gen = 0;
+
+// 조용해지면 접기 — 타이머를 다시 걸 때마다 세대를 올려 이전 타이머를 무효화한다.
+//   (메시지가 연달아 오면 타이머가 여러 개 살아 마지막 것만 유효해야 한다.)
+function scheduleChatCollapse() {
+    var myGen = ++chat_idle_timer_gen;
+    self.timer(CHAT_IDLE_COLLAPSE_MS, function() {
+        if (myGen != chat_idle_timer_gen) return;   // 더 최근 메시지가 타이머를 새로 걸었다
+        if (!show_chat) return;
+        // 사장님이 답장을 쓰는 중이면 접지 않는다 — 쓰던 글이 사라지면 최악이다.
+        var el = $(div.banner-chatpane input);
+        if (el && (el.value || "").trim()) { scheduleChatCollapse(); return; }
+        show_chat = false;
+        applyCmBanner();
+        body.update();
+    });
+}
+
+// 세션이 끝나면 채팅 상태를 원위치. ★안 하면 show_chat 이 전역이라 **다음 세션이 채팅을
+//   펼친 채로 시작한다** — 아무도 열지 않았는데 열려 있는 창이 된다.
+function resetChatState() {
+    chat_idle_timer_gen++;   // 진행 중인 접기 타이머 무효화
+    show_chat = false;
+}
 // ChainRemote(Agent32): 활성 세션이면 cm 창을 슬림 "원격지원 중" 배너로(상단 중앙, 상시 최상위),
 //   대기/끊김이면 카드 크기로 되돌린다. 떨림을 막으려 전환 시에만 view.move 한다.
 //   windowTopmost=true 만 설정하고 view.focus 는 건드리지 않는다. z-order 만 최상위로 올라가고
@@ -565,6 +602,13 @@ handler.removeConnection = function(id, close) {
         var conn = connections[i];
         conn.disconnected = true;
     }
+    // ChainRemote: 활성 세션이 없어지면 채팅을 원위치. show_chat 이 전역이라 안 그러면
+    //   다음 세션이 채팅을 펼친 채로 시작한다(아무도 열지 않았는데 열려 있는 창).
+    var stillActive = false;
+    for (var k = 0; k < connections.length; k++) {
+        if (connections[k].authorized && !connections[k].disconnected) stillActive = true;
+    }
+    if (!stillActive) resetChatState();
     if (connections.length > 0) {
         if (body.cur >= i && body.cur > 0 && close) body.cur -= 1;
         update();
@@ -590,6 +634,7 @@ handler.newMessage = function(id, text) {
         if (idx == body.cur) {
             show_chat = true;
             applyCmBanner();
+            scheduleChatCollapse();   // 조용해지면 스스로 접힌다
         }
         update();
         return;

@@ -220,6 +220,7 @@ class ConnectionManagerState extends State<ConnectionManager>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _agentChatIdleTimer?.cancel();
     _agentChatInput.dispose();
     super.dispose();
   }
@@ -436,6 +437,30 @@ class ConnectionManagerState extends State<ConnectionManager>
   bool _agentGeomChatShown = false;
   final TextEditingController _agentChatInput = TextEditingController();
 
+  // 조용해지면 채팅을 스스로 접는다.
+  //
+  // 사장님은 채팅을 닫을 생각을 안 한다. 본사가 자기 쪽 채팅창을 닫아도 거래처 화면엔
+  // 그대로 남아 포스 화면을 계속 가린다(2026-08-14 실측). 본사가 닫을 때 같이 닫으려면
+  // "채팅창 닫음" 프로토콜 메시지가 필요한데 RustDesk 엔 없고, 코어 통신 경로를 건드릴
+  // 값어치도 없다 — 사장님이 아직 읽는 중일 수도 있다. 로컬 타이머면 본사가 뭘 하든,
+  // 연결이 끊겨도 항상 동작한다. Sciter 쪽(cm.tis)과 같은 값·같은 규칙.
+  static const Duration _kChatIdleCollapse = Duration(seconds: 60);
+  Timer? _agentChatIdleTimer;
+  int _agentChatSeenMsgCount = -1;
+
+  void _scheduleAgentChatCollapse() {
+    _agentChatIdleTimer?.cancel();
+    _agentChatIdleTimer = Timer(_kChatIdleCollapse, () {
+      if (!mounted || !_agentChatOpen) return;
+      // 답장을 쓰는 중이면 접지 않는다 — 쓰던 글이 사라지면 최악이다.
+      if (_agentChatInput.text.trim().isNotEmpty) {
+        _scheduleAgentChatCollapse();
+        return;
+      }
+      setState(() => _agentChatOpen = false);
+    });
+  }
+
   Widget _buildAgentSupportBanner(ServerModel serverModel) {
     final pending = serverModel.clients
         .firstWhereOrNull((c) => !c.authorized && !c.disconnected);
@@ -448,10 +473,13 @@ class ConnectionManagerState extends State<ConnectionManager>
         activeClient != null &&
         activeClient.unreadChatMessageCount.value > 0) {
       _agentChatOpen = true;
+      activeClient.unreadChatMessageCount.value = 0;
+      _scheduleAgentChatCollapse();
     }
     // 활성 세션이 끝나면 접어 둔다(다음 세션이 배너로 시작하게).
     if (activeClient == null && _agentChatOpen) {
       _agentChatOpen = false;
+      _agentChatIdleTimer?.cancel();
     }
     // 대기↔활성↔채팅 전환이 있을 때만 CM 창 크기 reconcile 을 새로 킥한다(build 부작용 회피 post-frame).
     if (_agentPendingShown != wantPending ||
@@ -700,6 +728,9 @@ class ConnectionManagerState extends State<ConnectionManager>
             _agentChatOpen = !_agentChatOpen;
             if (_agentChatOpen) {
               client.unreadChatMessageCount.value = 0;
+              _scheduleAgentChatCollapse();
+            } else {
+              _agentChatIdleTimer?.cancel();
             }
           });
         },
@@ -747,6 +778,14 @@ class ConnectionManagerState extends State<ConnectionManager>
     return Consumer<ChatModel>(
       builder: (context, chat, _) {
         final msgs = chat.messages[key]?.chatMessages ?? const <ChatMessage>[];
+        // 대화가 오가는 동안엔 접지 않는다 — 메시지 수가 늘 때마다 타이머를 다시 건다.
+        //   (build 중 setState 금지라 post-frame 으로 미룬다.)
+        if (msgs.length != _agentChatSeenMsgCount) {
+          _agentChatSeenMsgCount = msgs.length;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _agentChatOpen) _scheduleAgentChatCollapse();
+          });
+        }
         return Container(
           decoration: const BoxDecoration(
             border: Border(top: BorderSide(color: Color(0xFF374151))),
