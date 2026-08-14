@@ -32,6 +32,20 @@ const FIRST_CHECK_DELAY: Duration = Duration::from_secs(60 * 5); // 부팅 후 5
 const PENDING_DIR: &str = r"C:\ProgramData\ChainRemote\pending";
 const PENDING_FILE: &str = "ChainRemote_Setup.exe";
 const UPDATER_LOG_PATH: &str = r"C:\ProgramData\ChainRemote\updater.log";
+
+/// 로그 파일 머리에 한 번만 새기는 서명. 이스터에그 중 가장 조용한 것 — 화면에 안 나오고
+/// 이 파일을 직접 열어 본 사람만 본다.
+const LOG_SIGNATURE: &str = concat!(
+    "   ______ __         _        ____                       __\r\n",
+    "  / ____// /_  ____ _(_)___   / __ \\___  ____ ___  ____  / /____\r\n",
+    " / /    / __ \\/ __ `/ / __ \\ / /_/ / _ \\/ __ `__ \\/ __ \\/ __/ _ \\\r\n",
+    "/ /___ / / / / /_/ / / / / // _, _/  __/ / / / / / /_/ / /_/  __/\r\n",
+    "\\____//_/ /_/\\__,_/_/_/ /_//_/ |_|\\___/_/ /_/ /_/\\____/\\__/\\___/\r\n",
+    "\r\n",
+    "        made with care  ·  betaposlab\r\n",
+    "        이 로그를 열어 본 당신, 오늘도 고생 많으십니다.\r\n",
+    "\r\n"
+);
 // 수동 "지금 설치" 트리거 파일. 비권한 UI(트레이)가 이 파일을 만들면 SYSTEM 서비스가
 // ≤TICK_INTERVAL 안에 감지해 즉시 적용(다운로드+권한설치)한다. UI 는 winlogon 토큰이 없어
 // 직접 설치를 못 하니 서비스에 신호만 던지는 것. ProgramData\ChainRemote ACL 은 Users 파일생성
@@ -47,11 +61,18 @@ const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(60 * 10); // 인스톨러
 /// 바로 쓴다. 실패는 무시(디스크 가득 같은 상황에서 메인 동작을 막지 않게).
 fn flog(msg: &str) {
     let _ = std::fs::create_dir_all(r"C:\ProgramData\ChainRemote");
+    // 로그 파일이 처음 생길 때만 서명을 새긴다. 화면엔 절대 안 나오고, 몇 년 뒤 누군가
+    // 이 로그를 열었을 때만 보이는 조용한 인사다. append 전에 존재를 보고 판단한다 —
+    // 파일이 커져 잘려도 다시 새기지는 않는다(잘림은 우리가 아니라 사람이 하는 일).
+    let fresh = !std::path::Path::new(UPDATER_LOG_PATH).exists();
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(UPDATER_LOG_PATH)
     {
+        if fresh {
+            let _ = write!(f, "{}", LOG_SIGNATURE);
+        }
         let ts = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
         let _ = writeln!(f, "{} v{} {}", ts, crate::CHAINREMOTE_VERSION, msg);
     }

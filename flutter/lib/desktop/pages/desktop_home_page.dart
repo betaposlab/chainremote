@@ -6,6 +6,7 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_easter.dart';
 import 'package:flutter_hbb/common/widgets/animated_rotation_widget.dart';
 import 'package:flutter_hbb/common/widgets/custom_password.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -534,6 +535,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
             Clipboard.setData(ClipboardData(text: id));
             showToast(translate("Copied"));
           },
+          // 이스터에그: 길게 누르면 오늘의 지원 운세(chainremote_easter.dart).
+          //   날짜로 고정돼 하루 동안 같은 문장이 나온다.
+          onLongPress: () => showCrFortune(context),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(

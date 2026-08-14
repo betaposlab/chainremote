@@ -6,6 +6,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_easter.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_easter_crawl.dart';
 import 'package:flutter_hbb/common/chainremote_update_check.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
@@ -2525,6 +2527,9 @@ class _About extends StatefulWidget {
 }
 
 class _AboutState extends State<_About> {
+  // 이스터에그: 버전 7번 연타 감지(안드로이드 전통). 3초 안에 이어서 눌러야 한다.
+  final _crVersionTaps = CrTapCounter();
+
   @override
   Widget build(BuildContext context) {
     return futureBuilder(future: () async {
@@ -2568,7 +2573,11 @@ class _AboutState extends State<_About> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // 심볼만 (체인 아이콘) — 흰 배경 원 안에.
-                      const _BrandMark(),
+                      // 이스터에그: 로고를 길게 누르면 크레딧 크롤(chainremote_easter_crawl.dart).
+                      GestureDetector(
+                        onLongPress: () => showCrCreditsCrawl(context),
+                        child: const _BrandMark(),
+                      ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
@@ -2599,9 +2608,16 @@ class _AboutState extends State<_About> {
                 ),
               ).marginSymmetric(vertical: 6.0),
               const SizedBox(height: 12),
-              SelectionArea(
-                  child: Text('버전: $chainRemoteVersion (코어 $version 기반)')
-                      .marginSymmetric(vertical: 4.0)),
+              // 이스터에그: 버전 표기를 7번 연타하면 "함께한 시간"(chainremote_easter.dart).
+              //   SelectionArea 안이라 GestureDetector 로 감싸면 글자 선택과 안 싸운다.
+              GestureDetector(
+                onTap: () {
+                  if (_crVersionTaps.tap()) showCrTogetherCard(context);
+                },
+                child: SelectionArea(
+                    child: Text('버전: $chainRemoteVersion (코어 $version 기반)')
+                        .marginSymmetric(vertical: 4.0)),
+              ),
               SelectionArea(
                   child: Text('빌드 날짜: $buildDate')
                       .marginSymmetric(vertical: 4.0)),

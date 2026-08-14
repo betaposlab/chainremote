@@ -10,6 +10,8 @@ import 'package:flutter_hbb/common/widgets/peers_view.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_disk.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_van.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_easter.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_easter_crawl.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
 import 'package:flutter_hbb/common/widgets/peer_card.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -1173,6 +1175,19 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
                         controller: peerSearchTextController,
                         onChanged: (searchText) {
                           peerSearchText.value = searchText;
+                          // 이스터에그: 검색창에 gogo — Chang 의 WoL 명령어 오마주.
+                          //   로켓이 날아가 거래처 포스에 닿고 폭죽이 터진다.
+                          //   gogo2 는 연말결산 미리보기(12월까지 못 기다리므로).
+                          final t = searchText.trim().toLowerCase();
+                          if (t == 'gogo' || t == 'gogo2') {
+                            peerSearchTextController.clear();
+                            peerSearchText.value = '';
+                            if (t == 'gogo') {
+                              showCrRocket(context);
+                            } else {
+                              showCrYearEndPreview(context);
+                            }
+                          }
                         },
                         focusNode: focusNode,
                         textAlign: TextAlign.start,
