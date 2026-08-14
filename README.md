@@ -16,7 +16,7 @@
 
 | 역할 | 받는 것 | 절차 |
 |------|---------|------|
-| **거래처 (피지원자)** | `ChainRemote_Agent_Setup_v*.exe` | 더블클릭 → UAC 예 → 끝. 그 다음 본사에 ID 알려주면 영원히 무인 접속. |
+| **거래처 (피지원자)** | `ChainRemote_Agent_Setup_v*.exe` | 더블클릭 → UAC 예 → 상호 입력 → 끝. 그 뒤로는 본사가 원격을 걸 때 뜨는 **'수락' 버튼만** 누르면 됩니다. |
 | **본사 직원** | `ChainRemote_HQ_Setup_v*.exe` (Windows) 또는 `ChainRemote.app` (macOS) | 더블클릭 설치 → 계정 로그인 → 즐겨찾기에서 거래처 클릭. |
 | **빌린 PC 비상용** | `ChainGo.exe` (단일 SFX) | 다운로드 → 더블클릭 → 로그인 → 1 클릭 원격 → 닫기. 호스트 PC 에 흔적 0. |
 
@@ -47,9 +47,10 @@ ChainRemote 는 [GNU Affero General Public License v3](LICENCE) 에 따라 배�
 
 ## 운영
 
-- **시그널링 / 릴레이 서버 (hbbs / hbbr)**: 베타포스랩 자체 NAS 에서 Docker 로 가동 (`sepani.synology.me`, 포트 21115~21118). RustDesk 의 hbbs / hbbr 바이너리를 그대로 사용합니다.
-- **관리 패널**: Next.js (TypeScript) + PostgreSQL. 베타포스랩 자체 NAS Docker 컨테이너로 가동. 접속 URL 은 운영자에게만 공유합니다 (장래 `admin.betaposlab.com` 으로 이전 검토 중).
-- **자동 업데이트**: 거래처 PC 의 ChainRemote 가 24 시간마다 폴링하여 새 버전을 사일런트로 적용합니다.
+- **시그널링 / 릴레이 서버 (hbbs / hbbr)**: 베타포스랩 자체 클라우드 서버에서 Docker 로 가동합니다. RustDesk 의 hbbs / hbbr 바이너리를 그대로 사용합니다.
+- **관리 패널**: Next.js (TypeScript) + PostgreSQL. 같은 클라우드 서버의 별도 컨테이너로 가동하며, DB 는 외부에 노출하지 않습니다. 접속 URL 은 운영자에게만 공유합니다.
+- **접속 정책**: 거래처가 **매 세션 '수락'을 클릭**해야 원격이 시작됩니다(`approve-mode=click`). 영구 비밀번호나 무인 접속 모드는 쓰지 않습니다 — 통제권은 거래처에 있습니다.
+- **자동 업데이트**: 거래처 PC 의 ChainRemote 가 주기적으로 폴링하여 새 버전을 사일런트로 적용합니다.
 
 ## 연락처
 
