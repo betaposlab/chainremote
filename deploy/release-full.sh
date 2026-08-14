@@ -9,6 +9,13 @@
 #   끝에 이 안내를 절대 놓치지 않게 큰 글씨로 출력한다.
 #
 # 사용: ./deploy/release-full.sh agent ["릴리즈노트"]
+#
+# ★AUTO_ROLLOUT=0 을 앞에 붙이면 **스테이징만** 한다(agent 발행 한정).
+#   agent-push.json 에 auto_rollout 키가 없으면 서버는 켜진 것으로 보고, 발행 즉시
+#   구버전 온라인 거래처에 스스로 업데이트를 큐잉한다 — 사람 클릭을 안 기다린다.
+#   실기기 검증이 남은 빌드는 반드시 이걸 붙여 내보내고, 확인 뒤 같은 exe 로
+#   AUTO_ROLLOUT=1 재실행해 켠다(sha 가 같아 FORCE_REPUBLISH 불필요).
+#     AUTO_ROLLOUT=0 ./deploy/release-full.sh agent "노트"
 #       ./deploy/release-full.sh hq    ["릴리즈노트"]
 
 set -euo pipefail

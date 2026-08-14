@@ -114,12 +114,25 @@ if ! NOTES_JSON=$(printf '%s' "$NOTES" | python3 -c 'import json,sys; print(json
   echo "✗ ERROR — notes JSON 인코딩 실패(python3 확인 필요) — agent-push.json 갱신 중단." >&2
   exit 1
 fi
+# ★자동 롤아웃 킬스위치. 이 파일에 auto_rollout 키가 없으면 서버는 **켜진 것으로 본다**
+#   (lib/agent-push-meta.ts 의 `j.auto_rollout !== false`). 즉 발행하는 순간 구버전을
+#   보고하는 온라인 거래처에 서버가 스스로 업데이트를 큐잉한다 — 사람 클릭을 안 기다린다.
+#   실기기 검증이 남은 빌드를 그렇게 내보내면 안 되므로, 스테이징만 하고 싶을 때
+#   `AUTO_ROLLOUT=0` 으로 껐다가 검증 후 다시 켠다(같은 exe 로 재실행하면 되고,
+#   sha 가 같으니 FORCE_REPUBLISH 도 필요 없다).
+if [[ "${AUTO_ROLLOUT:-1}" == "0" ]]; then
+  ROLLOUT_LINE='  "auto_rollout": false,'
+  echo "    ⚠ 자동 롤아웃 OFF 로 발행합니다 — 거래처에 저절로 안 나갑니다(스테이징만)."
+else
+  ROLLOUT_LINE='  "auto_rollout": true,'
+fi
 META_JSON=$(cat <<EOF
 {
   "version": "$VERSION",
   "url": "$PUBLIC_BASE_URL/$EXPECTED_NAME",
   "sha256": "$SHA256",
   "size": $SIZE,
+$ROLLOUT_LINE
   "released_at": "$RELEASED_AT",
   "notes": $NOTES_JSON
 }
