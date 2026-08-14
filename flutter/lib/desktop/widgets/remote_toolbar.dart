@@ -2220,17 +2220,22 @@ class _ChatMenuState extends State<_ChatMenu> {
   Widget build(BuildContext context) {
     if (isWeb) {
       return buildTextChatButton();
-    } else {
-      return _IconSubmenuButton(
-          tooltip: 'Chat',
-          label: '채팅',
-          key: chatButtonKey,
-          svg: 'assets/chat.svg',
-          ffi: widget.ffi,
-          color: _ToolbarTheme.blueColor,
-          hoverColor: _ToolbarTheme.hoverBlueColor,
-          menuChildrenGetter: (_) => [textChat(), voiceCall()]);
     }
+    // [채팅] 클릭 = 바로 채팅창(2026-08-14 Chang 결정). 종전엔 드롭다운으로
+    // [거래처와 채팅]/[거래처와 음성 통화] 를 골랐는데, 음성 통화는 우리 에이전트
+    // 화면(수락카드/배너)에 통화 수락 UI 자체가 없어 눌러도 거래처에 아무것도 안 뜨는
+    // 죽은 기능이었다 — 현장은 전화 걸면서 원격 보는 흐름이라 쓸 일도 없다.
+    // 5월에 툴바의 음성통화 버튼을 뺀 것과 같은 결정(드롭다운 안에 하나가 남아 있었다).
+    // upstream 머지 때 드롭다운이 되살아나면 다시 뺄 것.
+    return _IconMenuButton(
+      assetName: 'assets/chat.svg',
+      tooltip: 'Chat',
+      label: '채팅',
+      key: chatButtonKey,
+      onPressed: _textChatOnPressed,
+      color: _ToolbarTheme.blueColor,
+      hoverColor: _ToolbarTheme.hoverBlueColor,
+    );
   }
 
   buildTextChatButton() {
@@ -2242,13 +2247,6 @@ class _ChatMenuState extends State<_ChatMenu> {
       color: _ToolbarTheme.blueColor,
       hoverColor: _ToolbarTheme.hoverBlueColor,
     );
-  }
-
-  textChat() {
-    return MenuButton(
-        child: Text(translate('Text chat')),
-        ffi: widget.ffi,
-        onPressed: _textChatOnPressed);
   }
 
   _textChatOnPressed() {
@@ -2264,14 +2262,6 @@ class _ChatMenuState extends State<_ChatMenu> {
     widget.ffi.chatModel.toggleChatOverlay(chatInitPos: initPos);
   }
 
-  voiceCall() {
-    return MenuButton(
-      child: Text(translate('Voice call')),
-      ffi: widget.ffi,
-      onPressed: () =>
-          bind.sessionRequestVoiceCall(sessionId: widget.ffi.sessionId),
-    );
-  }
 }
 
 class _VoiceCallMenu extends StatelessWidget {
