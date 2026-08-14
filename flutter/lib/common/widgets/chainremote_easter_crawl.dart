@@ -7,7 +7,11 @@
 //   • 설정 → 정보 → 로고 길게 누르기   → showCrCreditsCrawl()
 //   • 홈 → 거래처 검색창에 "gogo"      → showCrRocket()
 
+import 'dart:io';
 import 'dart:math';
+
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter/material.dart';
 
@@ -134,6 +138,58 @@ List<CrCrawlItem> crCrawlLayout({
   return out;
 }
 
+/// 크롤 배경음 재생기.
+///
+/// ★오디오 플러그인을 쓰지 않는다. 플러그인을 붙이면 macOS·Windows 양쪽 빌드 설정이
+///   딸려 오고, 잘 돌던 윈도우 HQ 빌드가 깨질 위험을 이스터에그 하나 때문에 지게 된다.
+///   대신 OS 에 이미 있는 재생기를 프로세스로 부른다 — macOS `afplay`,
+///   Windows PowerShell `SoundPlayer`(WAV 전용이라 음원도 WAV 로 둔다).
+/// 실패해도 조용히 넘어간다. 소리가 안 나는 것보다 크롤이 안 뜨는 게 훨씬 나쁘다.
+class _CrCrawlAudio {
+  Process? _proc;
+  bool _stopped = false;
+
+  Future<void> start() async {
+    try {
+      if (!(Platform.isMacOS || Platform.isWindows)) return;
+      final bytes = await rootBundle.load('assets/cr_credits.wav');
+      final dir = await getTemporaryDirectory();
+      final f = File('${dir.path}/cr_credits.wav');
+      // 매번 쓰지 않는다 — 같은 파일이면 그대로 재사용.
+      if (!await f.exists() ||
+          await f.length() != bytes.lengthInBytes) {
+        await f.writeAsBytes(bytes.buffer.asUint8List(), flush: true);
+      }
+      if (_stopped) return; // 쓰는 사이에 닫혔다
+      if (Platform.isMacOS) {
+        // -v 로 음량을 낮춘다. 통화 중이거나 원격 지원 중에 열 수 있어 크면 놀란다.
+        _proc = await Process.start('afplay', ['-v', '0.35', f.path]);
+      } else {
+        _proc = await Process.start('powershell', [
+          '-NoProfile',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          "(New-Object Media.SoundPlayer '${f.path}').PlaySync()",
+        ]);
+      }
+      if (_stopped) stop(); // 시작하는 사이에 닫혔다
+    } catch (e) {
+      debugPrint('crawl audio start failed: $e');
+    }
+  }
+
+  void stop() {
+    _stopped = true;
+    try {
+      _proc?.kill();
+    } catch (e) {
+      debugPrint('crawl audio stop failed: $e');
+    }
+    _proc = null;
+  }
+}
+
 class _CrCrawlPage extends StatefulWidget {
   const _CrCrawlPage();
 
@@ -144,6 +200,7 @@ class _CrCrawlPage extends StatefulWidget {
 class _CrCrawlPageState extends State<_CrCrawlPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
+  final _audio = _CrCrawlAudio();
 
   @override
   void initState() {
@@ -152,6 +209,7 @@ class _CrCrawlPageState extends State<_CrCrawlPage>
       vsync: this,
       duration: const Duration(seconds: 42),
     )..forward();
+    _audio.start();
     _c.addStatusListener((s) {
       if (s == AnimationStatus.completed && mounted) Navigator.of(context).pop();
     });
@@ -159,6 +217,8 @@ class _CrCrawlPageState extends State<_CrCrawlPage>
 
   @override
   void dispose() {
+    // 창을 닫으면 음악도 즉시 멈춘다 — 끝까지 안 보고 나가는 게 기본이다.
+    _audio.stop();
     _c.dispose();
     super.dispose();
   }
