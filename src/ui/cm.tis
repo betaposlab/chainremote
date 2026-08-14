@@ -418,7 +418,7 @@ var cm_banner_chat_state = undefined;
 // 코어 통신 경로를 건드릴 만한 값어치도 없다 — 게다가 사장님이 아직 읽는 중일 수도 있다.
 // 대신 로컬 타이머로 접는다. 본사가 뭘 하든, 연결이 끊겨도 항상 동작한다.
 // 안 읽은 표시(빨간 점)는 남으니 다시 펼쳐 읽을 수 있고, 대화는 지워지지 않는다.
-const CHAT_IDLE_COLLAPSE_MS = 60000;
+const CHAT_IDLE_COLLAPSE_MS = 120000;
 var chat_idle_timer_gen = 0;
 
 // 조용해지면 접기 — 타이머를 다시 걸 때마다 세대를 올려 이전 타이머를 무효화한다.

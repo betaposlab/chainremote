@@ -444,7 +444,7 @@ class ConnectionManagerState extends State<ConnectionManager>
   // "채팅창 닫음" 프로토콜 메시지가 필요한데 RustDesk 엔 없고, 코어 통신 경로를 건드릴
   // 값어치도 없다 — 사장님이 아직 읽는 중일 수도 있다. 로컬 타이머면 본사가 뭘 하든,
   // 연결이 끊겨도 항상 동작한다. Sciter 쪽(cm.tis)과 같은 값·같은 규칙.
-  static const Duration _kChatIdleCollapse = Duration(seconds: 60);
+  static const Duration _kChatIdleCollapse = Duration(seconds: 120);
   Timer? _agentChatIdleTimer;
   int _agentChatSeenMsgCount = -1;
 
