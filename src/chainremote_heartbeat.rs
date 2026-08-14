@@ -651,6 +651,39 @@ fn temp_dirs() -> Vec<std::path::PathBuf> {
     v
 }
 
+/// 시간 제한이 걸린 폴더 크기 — 상위 폴더 실측 전용.
+///
+/// ★왜 제한이 필요한가: 이건 여유가 20GB 미만인 기기에서만 도는데, 그건 곧 **제일 느리고
+/// 파일이 제일 많은 포스**라는 뜻이다. 배달앱이 여럿 깔린 포스면 AppData 아래 파일이
+/// 수십만 개고, 무제한으로 훑으면 저사양 포스의 디스크를 몇 분간 때린다. 결제·주문이
+/// 도는 기계에서 그건 용납이 안 된다(2026-08-14 Chang: 원격이 끊기는 건 감수해도
+/// 고객 포스가 느려지는 건 사고다). 예산을 넘기면 그 자리에서 멈추고 여태 센 만큼만 준다 —
+/// 숫자가 조금 작게 나오는 건 감수한다. 어차피 "어느 폴더가 큰가"를 보려는 것이라
+/// 순위는 거의 그대로다.
+#[cfg(windows)]
+fn dir_size_budgeted(dir: &std::path::Path, deadline: std::time::Instant, depth: u32) -> u64 {
+    if depth > 16 || std::time::Instant::now() >= deadline {
+        return 0;
+    }
+    let mut sum = 0u64;
+    if let Ok(rd) = std::fs::read_dir(dir) {
+        for (i, e) in rd.flatten().enumerate() {
+            // 매 항목마다 시계를 보면 그 자체가 비용이라 64개마다 본다.
+            if i % 64 == 0 && std::time::Instant::now() >= deadline {
+                break;
+            }
+            if let Ok(md) = e.metadata() {
+                if md.is_dir() {
+                    sum += dir_size_budgeted(&e.path(), deadline, depth + 1);
+                } else {
+                    sum += md.len();
+                }
+            }
+        }
+    }
+    sum
+}
+
 #[cfg(windows)]
 fn dir_size(dir: &std::path::Path, depth: u32) -> u64 {
     if depth > 16 {
@@ -756,6 +789,11 @@ fn measured_top_dirs(disk_free: u64) -> Option<Vec<(String, u64)>> {
     }
     TOPDIRS_MEASURED_AT.store(now, Ordering::Relaxed);
 
+    // 전체 예산 20초. 이걸 넘기면 훑기를 멈춘다 — 포스가 느려지는 것보다 숫자가
+    //   덜 정확한 게 낫다. 하트비트가 이 함수를 동기로 부르므로 지연 상한이기도 하다.
+    const SCAN_BUDGET: std::time::Duration = std::time::Duration::from_secs(20);
+    let deadline = std::time::Instant::now() + SCAN_BUDGET;
+
     let mut roots: Vec<std::path::PathBuf> = Vec::new();
     if let Ok(rd) = std::fs::read_dir("C:\\Users") {
         for e in rd.flatten() {
@@ -774,6 +812,9 @@ fn measured_top_dirs(disk_free: u64) -> Option<Vec<(String, u64)>> {
 
     let mut found: Vec<(String, u64)> = Vec::new();
     for root in roots {
+        if std::time::Instant::now() >= deadline {
+            break;
+        }
         let Ok(rd) = std::fs::read_dir(&root) else {
             continue;
         };
@@ -786,7 +827,7 @@ fn measured_top_dirs(disk_free: u64) -> Option<Vec<(String, u64)>> {
             if p.file_name().map(|n| n.eq_ignore_ascii_case("Temp")) == Some(true) {
                 continue;
             }
-            let sz = dir_size(&p, 0); // 전체 순회 — 얕게 재면 캐시가 빠져 범인을 놓친다
+            let sz = dir_size_budgeted(&p, deadline, 0);
             if sz >= MIN_REPORT_BYTES {
                 // 사용자명이 섞이지 않게 마지막 두 조각만 남긴다("Local\\메신저" 꼴).
                 let label = p
