@@ -128,18 +128,6 @@ div.chatwin-foot > .cwf-label {
     margin: * 0;
     vertical-align: middle;
 }
-div.chatwin-foot > .cwf-end {
-    color: #FFFFFF;
-    background: #E53935;
-    border: none;
-    border-radius: 6px;
-    padding: 4px 10px;
-    font-size: 11px;
-    margin: * 0;
-}
-div.chatwin-foot > .cwf-end:hover {
-    background: #C62828;
-}
 
 div.left-panel {
     size: *;

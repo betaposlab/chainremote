@@ -47,8 +47,9 @@ class Body: Reactor.Component
         if (auth && !disconnected) {
             // ChainRemote: 원격 중 UI. 채팅이 접혀 있으면 슬림 배너, 펼쳐지면 맥 HQ
             //   채팅창과 같은 구성의 독립 창(헤더 드래그+X / 대화 / 하단 상태줄).
-            //   원격 중임을 항상 알린다는 배너의 의무는 하단 상태줄이 이어받고,
-            //   X(우상단)와 [원격 종료](우하단)를 양끝으로 떼어 오클릭을 막는다.
+            //   원격 중임을 항상 알린다는 배너의 의무는 하단 상태줄이 이어받는다.
+            //   ★하단엔 [원격 종료]를 두지 않는다 — ChatBox 의 [보내기] 바로 아래라
+            //     오클릭으로 원격이 끊긴다. 끊기는 X→배너의 [원격 종료] 두 클릭.
             //   ★마크업 안에 {/* */} 주석 금지 — TIScript 가 빈 표현식으로 읽어
             //     렌더가 통째로 죽을 수 있다(1.4.121 에 실제로 박혀 있던 지뢰).
             if (show_chat) {
@@ -63,7 +64,6 @@ class Body: Reactor.Component
                     <div .chatwin-foot>
                         <span .cwf-dot />
                         <span .cwf-label>{translate('Remote support in progress')}</span>
-                        <button #disconnect .cwf-end>{translate('Disconnect')}</button>
                     </div>
                 </div>;
             }
@@ -430,6 +430,10 @@ var cm_banner_chat_state = undefined;
 // 이 세션에서 배너를 이미 한 번 놓았는가. 처음만 상단 중앙에 놓고, 그 뒤엔 사용자가
 //   옮겨 둔 자리를 지킨다(크기만 바꾼다).
 var cm_banner_was_shown = false;
+// 모드별 위치 기억 — 배너는 배너의 자리, 채팅은 채팅의 자리(Flutter 와 같은 규칙).
+// undefined 비교를 피하려 set 플래그를 따로 둔다(TIScript 엄격비교 의존 금지).
+var banner_px = 0; var banner_py = 0; var banner_pos_set = false;
+var chat_px = 0; var chat_py = 0; var chat_pos_set = false;
 
 // ChainRemote: 조용해지면 채팅을 스스로 접는다.
 //
@@ -463,6 +467,8 @@ function scheduleChatCollapse() {
 function resetChatState() {
     chat_idle_timer_gen++;   // 진행 중인 접기 타이머 무효화
     show_chat = false;
+    banner_pos_set = false;  // 다음 세션은 제 위치(상단 중앙)에서 새로 시작
+    chat_pos_set = false;
 }
 // ChainRemote(Agent32): 활성 세션이면 cm 창을 슬림 "원격지원 중" 배너로(상단 중앙, 상시 최상위),
 //   대기/끊김이면 카드 크기로 되돌린다. 떨림을 막으려 전환 시에만 view.move 한다.
@@ -491,6 +497,8 @@ function applyCmBanner() {
     //   그려져도 볼 수가 없다.
     var wantChat = wantBanner && show_chat;
     if (cm_banner_state == wantBanner && cm_banner_chat_state == wantChat) return;
+    var prevBanner = cm_banner_state;   // 떠나는 모드 — 위치를 어느 칸에 저장할지
+    var prevChat = cm_banner_chat_state;
     cm_banner_state = wantBanner;
     cm_banner_chat_state = wantChat;
     var (sw, sh) = view.screenBox(#workarea, #dimension);
@@ -502,13 +510,24 @@ function applyCmBanner() {
         var w = wantChat ? scaleIt(340) : scaleIt(300);
         var h = wantChat ? scaleIt(400) : scaleIt(48);
         setWindowState(View.WINDOW_SHOWN);
-        // ★배너끼리의 전환(채팅 펼침/접힘)은 **위치를 지키고 크기만** 바꾼다.
-        //   종전엔 매번 (sw-w)/2 로 상단 중앙에 다시 놓아서, 채팅을 켜고 끌 때마다 창이
-        //   옆으로 튀고 사용자가 드래그로 옮겨 둔 자리도 버려졌다. 카드→배너로 처음
-        //   들어올 때만 중앙에 놓고, 그 뒤엔 왼쪽 위 모서리를 붙들고 아래로만 자란다.
+        // ★모드별 위치 기억 — 배너는 배너의 자리로 돌아가고, 채팅은 마지막에 뒀던
+        //   자리에 다시 뜬다(2026-08-14 Chang: 한 위치를 공유하면 채팅을 옮길 때
+        //   배너가 따라오고, 다시 연 채팅이 엉뚱한 자리에 나타난다 — 일관성 없음).
         var (cx, cy, cw0, ch0) = view.box(#rectw, #border, #screen);
-        var keepPos = cm_banner_was_shown && cw0 > 0;
-        view.move(keepPos ? cx : (sw - w) / 2, keepPos ? cy : 0, w, h);
+        if (prevBanner == true && cw0 > 0) {
+            if (prevChat == true) { chat_px = cx; chat_py = cy; chat_pos_set = true; }
+            else { banner_px = cx; banner_py = cy; banner_pos_set = true; }
+        }
+        var nx; var ny; var have = false;
+        if (wantChat && chat_pos_set) { nx = chat_px; ny = chat_py; have = true; }
+        if (!wantChat && banner_pos_set) { nx = banner_px; ny = banner_py; have = true; }
+        if (!have) {
+            // 그 모드의 첫 등장: 이미 떠 있던 창이면 지금 자리에서 자라고, 진짜 처음이면 상단 중앙.
+            var keepPos = cm_banner_was_shown && cw0 > 0;
+            nx = keepPos ? cx : (sw - w) / 2;
+            ny = keepPos ? cy : 0;
+        }
+        view.move(nx, ny, w, h);
         cm_banner_was_shown = true;
         view.windowTopmost = true;
         // 창 자체를 활성화 불가(NOACTIVATE)+Alt+Tab 제외(TOOLWINDOW)로. POS 의 "바탕화면 보기"가

@@ -491,6 +491,15 @@ class ConnectionManagerState extends State<ConnectionManager>
   //   ★배치는 "처음 뜰 때 한 번"만 한다. 그 뒤엔 사용자가 드래그로 옮긴 자리를 존중하고
   //     크기만 바꾼다. 종전엔 크기가 바뀔 때마다 상단 중앙으로 끌어와 창이 튀었다.
   bool _agentWindowPlaced = false;
+  // 모드별 위치 기억 — "독립 창처럼" 행동하는 핵심(2026-08-14 Chang):
+  //   배너는 배너의 자리로 돌아가고, 채팅은 마지막에 뒀던 자리에 다시 뜬다.
+  //   종전엔 한 위치를 공유해서 채팅을 옮기면 배너가 그리로 따라오고(배너가 이동한
+  //   것처럼 보임), 다시 연 채팅이 엉뚱한 자리에 나타났다(일관성 없음).
+  Offset? _agentBannerPos;
+  Offset? _agentChatPos;
+  // 마지막으로 창에 반영한 모드. true=채팅, false=배너, null=카드/미정 — 전환 때
+  // "떠나는 모드"의 자리를 어느 칸에 저장할지 판단한다.
+  bool? _agentGeomChatMode;
 
   /// 처음 뜰 때만 상단 중앙으로. 실패해도 조용히 넘어간다 — 위치가 조금 어긋나는 것보다
   /// 창이 안 뜨는 게 훨씬 나쁘다.
@@ -567,6 +576,9 @@ class ConnectionManagerState extends State<ConnectionManager>
     // 세션이 없으면 배치 플래그를 푼다 — 다음 세션의 수락카드는 다시 상단 중앙에서 시작한다.
     if (activeClient == null && !wantPending) {
       _agentWindowPlaced = false;
+      _agentBannerPos = null;
+      _agentChatPos = null;
+      _agentGeomChatMode = null;
     }
     if (activeClient == null && _agentPeerChatShown != null) {
       // 다음 세션이 옛 신호를 물려받지 않게 원위치. Rx 쓰기라 post-frame 으로 뺀다.
@@ -584,42 +596,47 @@ class ConnectionManagerState extends State<ConnectionManager>
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         // settle 창(~1.1s) 동안 목표 크기로 수렴시키고 유지한다. 매 틱:
         //  ① 세대가 바뀌었으면(더 최근 전이) 즉시 종료 — 반대 목표 루프와 경합하지 않는다.
-        //  ② 최소화 중이면 그 틱 스킵 — iconic 창의 getSize 는 -32000 쓰레기값이라 가드가 샌다.
-        //  ③ 목표는 매 틱 라이브 상태로 재계산(클로저 캡처 금지) — 전이 중첩에도 항상 정답.
-        //  ④ 이미 목표 크기면 재적용 안 함(불필요한 네이티브 리사이즈=펼쳐짐 방지). break 는 안 한다
-        //     — 늦은 네이티브 스냅백을 남은 틱이 되돌려야 하므로.
+        //  ② 최소화 중이면 그 틱 스킵 — iconic 창의 getSize 는 -32000 쓰레기값.
+        //  ③ 목표는 매 틱 라이브로 재계산(클로저 캡처 금지).
+        //  ④ 위치는 아래 "모드 전환 1회"에서만 만진다 — 매 틱 위치까지 되돌리면
+        //     settle 중 드래그하는 사용자와 싸운다. 이후 틱은 크기 스냅백만 교정.
+        var modeApplied = false;
         for (var i = 0; i < 6; i++) {
           await Future.delayed(Duration(milliseconds: i == 0 ? 80 : 200));
           if (!mounted || myGen != _cmGeomGen) return;
           try {
             if (await windowManager.isMinimized()) continue;
-            // ★목표는 매 틱 라이브로 재계산한다(클로저 캡처 금지). 채팅 펼침도 여기서
-            //   같이 본다 — 안 그러면 채팅을 펼친 순간 이 루프가 다음 틱에 배너 크기로
-            //   되돌려 방금 펼친 창을 도로 접는다.
             final live = gFFI.serverModel.clients
                 .any((c) => !c.authorized && !c.disconnected);
+            final chatMode = !live && _agentChatOpen;
             final target = live
                 ? kAgentAcceptCardSize
-                : (_agentChatOpen
-                    ? kAgentSupportChatSize
-                    : kAgentSupportBannerSize);
+                : (chatMode ? kAgentSupportChatSize : kAgentSupportBannerSize);
             if (!_agentWindowPlaced) {
               await _placeAgentWindowInitially(target);
+              _agentGeomChatMode = live ? null : chatMode;
+              continue;
+            }
+            if (!modeApplied) {
+              modeApplied = true;
+              // 떠나는 모드의 자리를 저장하고, 들어가는 모드의 기억된 자리로 옮긴다.
+              final cur = await windowManager.getPosition();
+              if (_agentGeomChatMode == true) {
+                _agentChatPos = cur;
+              } else if (_agentGeomChatMode == false) {
+                _agentBannerPos = cur;
+              }
+              final dest = chatMode ? _agentChatPos : _agentBannerPos;
+              _agentGeomChatMode = live ? null : chatMode;
+              await windowManager.setSize(target);
+              // 기억된 자리가 없으면(그 모드의 첫 등장) 지금 자리를 지켜 아래로만 자란다.
+              await windowManager.setPosition(dest ?? cur);
               continue;
             }
             final cur = await windowManager.getSize();
             final same = (cur.width - target.width).abs() < 2 &&
                 (cur.height - target.height).abs() < 2;
             if (!same) {
-              // ★크기만 바꾸고 위치는 지킨다.
-              //   종전엔 setSizeAlignment(target, topCenter) 였는데 그건 크기와 함께
-              //   **위치를 화면 상단 중앙으로 다시 맞춘다.** 두 가지가 나빴다:
-              //   ① 폭이 배너(300)→채팅(360)으로 커질 때 중앙 기준이라 창이 옆으로 밀린다
-              //   ② 배너는 드래그로 옮길 수 있는데(startDragging), 크기가 바뀌는 순간
-              //      사용자가 정한 자리를 버리고 상단 중앙으로 끌려간다
-              //   채팅을 켜고 끌 때마다 창이 튀어 "디테일이 없어 보인다"는 지적을 받았다
-              //   (2026-08-14 Chang). 이제 왼쪽 위 모서리를 붙들고 아래로만 자란다.
-              //   처음 띄울 때의 상단 중앙 배치는 _placeAgentWindowInitially 가 한 번만 한다.
               final pos = await windowManager.getPosition();
               await windowManager.setSize(target);
               await windowManager.setPosition(pos);
@@ -770,9 +787,9 @@ class ConnectionManagerState extends State<ConnectionManager>
   // 독립 창**이 된다(2026-08-14 Chang 요구 — "배너에 붙은 카드"는 없어 보인다고 기각):
   //   [헤더: 채팅 ──────── ✕]   ← 드래그 핸들. ✕ 는 채팅만 닫는다.
   //   [대화 목록 + 입력]
-  //   [하단: ● 원격지원 중 ── 원격 종료]
-  // "원격 중임을 항상 알린다"는 배너의 의무는 하단 상태줄이 이어받는다. ✕(우상단)와
-  // [원격 종료](우하단)를 양끝으로 떼어놔 채팅 닫으려다 원격을 끊는 오클릭을 막는다.
+  //   [하단: ● 원격지원 중]
+  // "원격 중임을 항상 알린다"는 배너의 의무는 하단 상태줄이 이어받는다.
+  // ★채팅창엔 [원격 종료]가 없다 — [보내기] 아래 놓으면 오클릭으로 원격이 끊긴다.
   Widget _buildAgentIndicator(Client? activeClient) {
     final hasActive = activeClient != null;
     if (hasActive && _agentChatOpen) {
@@ -851,7 +868,10 @@ class ConnectionManagerState extends State<ConnectionManager>
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600)),
                     const Spacer(),
-                    _buildEndButton(activeClient, compact: true),
+                    // ★[원격 종료]는 여기 두지 않는다 — 입력칸의 [보내기] 바로 아래라
+                    //   오클릭으로 원격이 끊긴다(Chang: "누르는 사람 분명히 나와").
+                    //   끊기는 ✕로 채팅을 접으면 나오는 배너에서 — 두 클릭이면 충분하고,
+                    //   실수 한 클릭에 끊기는 것보다 낫다.
                   ],
                 ),
               ),
@@ -1103,23 +1123,22 @@ class ConnectionManagerState extends State<ConnectionManager>
   }
 
   // 종료 버튼. 피지원자가 지금 원격 세션을 직접 끊는다(RustDesk CM 의 cmCloseConnection).
-  Widget _buildEndButton(Client client, {bool compact = false}) {
+  Widget _buildEndButton(Client client) {
     return InkWell(
       onTap: () => bind.cmCloseConnection(connId: client.id),
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: EdgeInsets.symmetric(
-            horizontal: compact ? 8 : 10, vertical: compact ? 3 : 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: const Color(0xFFE53935),
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Text(
+        child: const Text(
           // "종료"만 쓰면 채팅창 닫기로 오해한다(2026-08-14 실사고) — 무엇이 끝나는지 박는다.
           '원격 종료',
           style: TextStyle(
             color: Colors.white,
-            fontSize: compact ? 11.5 : 13,
+            fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
         ),
