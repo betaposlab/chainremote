@@ -331,7 +331,11 @@ const Size kConnectionManagerWindowSizeOpenChat = Size(700, 490);
 // 콜드스타트·reveal 은 항상 카드 크기로 띄운다. 배너로 띄우면 피제어 전체화면일 때 resize 가
 // 안 먹어 흰 박스로 굳는다. 활성이 되면 server_page 가 배너로 줄인다(그땐 창이 전면이라 안정적).
 // Agent(incoming-only) 빌드의 CM 창은 "원격지원 중" 작은 배너만 쓴다.
-const Size kAgentSupportBannerSize = Size(220, 34);
+// ★폭은 내용에 맞춰 잰 값이다. 220 이던 시절 라벨이 "종료"(2자)라 들어갔는데,
+//   "원격 종료"(5자)로 바꾸면서 버튼이 잘렸다(2026-08-14 Chang 스샷).
+//   점9 + 8 + "원격지원 중"78 + 10 + 말풍선29 + 8 + 버튼85 ≈ 227 + 여유.
+//   채팅 폭(360)과 맞추지 않는 이유: 배너는 작을수록 포스 화면을 덜 가린다.
+const Size kAgentSupportBannerSize = Size(300, 34);
 // 클릭 수락 대기 시 뜨는 [수락]/[거부] 카드 크기(배너보다 크다). 상태에 따라 server_page 가 전환.
 const Size kAgentAcceptCardSize = Size(360, 200);
 // 원격 중 채팅을 펼쳤을 때. 배너(윗줄) + 대화 + 입력칸이 들어간다.

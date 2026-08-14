@@ -424,6 +424,9 @@ function adaptSizeForChat() {
 var cm_banner_state = undefined;
 // 배너에서 채팅을 펼친 상태. applyCmBanner 가 창 크기를 다시 잡을지 판단하는 데 같이 쓴다.
 var cm_banner_chat_state = undefined;
+// 이 세션에서 배너를 이미 한 번 놓았는가. 처음만 상단 중앙에 놓고, 그 뒤엔 사용자가
+//   옮겨 둔 자리를 지킨다(크기만 바꾼다).
+var cm_banner_was_shown = false;
 
 // ChainRemote: 조용해지면 채팅을 스스로 접는다.
 //
@@ -489,12 +492,21 @@ function applyCmBanner() {
     cm_banner_chat_state = wantChat;
     var (sw, sh) = view.screenBox(#workarea, #dimension);
     if (wantBanner) {
-        // 활성: 슬림 "원격지원 중" 배너 (상단 중앙, 상시 최상위, focus 안 뺏음=스캐너 보호).
-        //   채팅을 펼쳤으면 아래로 자란다. 폭은 카드와 맞춰 좌우로 미끄러지지 않게 한다.
-        var w = wantChat ? scaleIt(380) : scaleIt(260);
+        // 활성: 슬림 "원격지원 중" 배너 (상시 최상위, focus 안 뺏음=스캐너 보호).
+        //   채팅을 펼쳤으면 아래로 자란다.
+        //   ★폭 300 — 260 이던 시절 라벨이 짧아 들어갔는데 [원격 종료] + 말풍선이 붙으며
+        //     버튼이 잘렸다(2026-08-14 Chang 스샷). Flutter 배너와 같은 값.
+        var w = wantChat ? scaleIt(380) : scaleIt(300);
         var h = wantChat ? scaleIt(300) : scaleIt(48);
         setWindowState(View.WINDOW_SHOWN);
-        view.move((sw - w) / 2, 0, w, h);
+        // ★배너끼리의 전환(채팅 펼침/접힘)은 **위치를 지키고 크기만** 바꾼다.
+        //   종전엔 매번 (sw-w)/2 로 상단 중앙에 다시 놓아서, 채팅을 켜고 끌 때마다 창이
+        //   옆으로 튀고 사용자가 드래그로 옮겨 둔 자리도 버려졌다. 카드→배너로 처음
+        //   들어올 때만 중앙에 놓고, 그 뒤엔 왼쪽 위 모서리를 붙들고 아래로만 자란다.
+        var (cx, cy, cw0, ch0) = view.box(#rectw, #border, #screen);
+        var keepPos = cm_banner_was_shown && cw0 > 0;
+        view.move(keepPos ? cx : (sw - w) / 2, keepPos ? cy : 0, w, h);
+        cm_banner_was_shown = true;
         view.windowTopmost = true;
         // 창 자체를 활성화 불가(NOACTIVATE)+Alt+Tab 제외(TOOLWINDOW)로. POS 의 "바탕화면 보기"가
         //   topmost 배너에 포커스를 뺏겨 방금 최소화한 POS 를 도로 띄우던 문제를 끊는다
@@ -513,6 +525,8 @@ function applyCmBanner() {
         handler.set_banner_mode(false);
         view.windowTopmost = false;
         view.move((sw - w) / 2, 0, w, h);
+        // 수락카드로 돌아왔다 = 새 세션의 시작. 다음 배너는 다시 중앙에서 시작한다.
+        cm_banner_was_shown = false;
     }
 }
 

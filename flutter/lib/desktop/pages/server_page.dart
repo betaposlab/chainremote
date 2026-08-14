@@ -487,6 +487,23 @@ class ConnectionManagerState extends State<ConnectionManager>
   //   매번 따라가면 거래처가 직접 접은 걸 다음 build 가 도로 펴 버린다.
   bool? _agentPeerChatShown;
 
+  // 이 세션에서 창을 상단 중앙에 한 번 놓았는가.
+  //   ★배치는 "처음 뜰 때 한 번"만 한다. 그 뒤엔 사용자가 드래그로 옮긴 자리를 존중하고
+  //     크기만 바꾼다. 종전엔 크기가 바뀔 때마다 상단 중앙으로 끌어와 창이 튀었다.
+  bool _agentWindowPlaced = false;
+
+  /// 처음 뜰 때만 상단 중앙으로. 실패해도 조용히 넘어간다 — 위치가 조금 어긋나는 것보다
+  /// 창이 안 뜨는 게 훨씬 나쁘다.
+  Future<void> _placeAgentWindowInitially(Size target) async {
+    if (_agentWindowPlaced) return;
+    _agentWindowPlaced = true;
+    try {
+      await windowManager.setSizeAlignment(target, Alignment.topCenter);
+    } catch (e) {
+      debugPrint('agent window initial placement failed: $e');
+    }
+  }
+
   Widget _buildAgentSupportBanner(ServerModel serverModel) {
     final pending = serverModel.clients
         .firstWhereOrNull((c) => !c.authorized && !c.disconnected);
@@ -536,6 +553,10 @@ class ConnectionManagerState extends State<ConnectionManager>
       _agentChatOpen = false;
       _agentChatIdleTimer?.cancel();
     }
+    // 세션이 없으면 배치 플래그를 푼다 — 다음 세션의 수락카드는 다시 상단 중앙에서 시작한다.
+    if (activeClient == null && !wantPending) {
+      _agentWindowPlaced = false;
+    }
     if (activeClient == null && _agentPeerChatShown != null) {
       // 다음 세션이 옛 신호를 물려받지 않게 원위치. Rx 쓰기라 post-frame 으로 뺀다.
       _agentPeerChatShown = null;
@@ -571,11 +592,26 @@ class ConnectionManagerState extends State<ConnectionManager>
                 : (_agentChatOpen
                     ? kAgentSupportChatSize
                     : kAgentSupportBannerSize);
+            if (!_agentWindowPlaced) {
+              await _placeAgentWindowInitially(target);
+              continue;
+            }
             final cur = await windowManager.getSize();
             final same = (cur.width - target.width).abs() < 2 &&
                 (cur.height - target.height).abs() < 2;
             if (!same) {
-              await windowManager.setSizeAlignment(target, Alignment.topCenter);
+              // ★크기만 바꾸고 위치는 지킨다.
+              //   종전엔 setSizeAlignment(target, topCenter) 였는데 그건 크기와 함께
+              //   **위치를 화면 상단 중앙으로 다시 맞춘다.** 두 가지가 나빴다:
+              //   ① 폭이 배너(300)→채팅(360)으로 커질 때 중앙 기준이라 창이 옆으로 밀린다
+              //   ② 배너는 드래그로 옮길 수 있는데(startDragging), 크기가 바뀌는 순간
+              //      사용자가 정한 자리를 버리고 상단 중앙으로 끌려간다
+              //   채팅을 켜고 끌 때마다 창이 튀어 "디테일이 없어 보인다"는 지적을 받았다
+              //   (2026-08-14 Chang). 이제 왼쪽 위 모서리를 붙들고 아래로만 자란다.
+              //   처음 띄울 때의 상단 중앙 배치는 _placeAgentWindowInitially 가 한 번만 한다.
+              final pos = await windowManager.getPosition();
+              await windowManager.setSize(target);
+              await windowManager.setPosition(pos);
             }
           } catch (_) {}
         }
@@ -771,8 +807,25 @@ class ConnectionManagerState extends State<ConnectionManager>
                   ),
                 ),
               ),
+              // 채팅은 배너에 붙은 게 아니라 **그 아래 놓인 별개 카드**로 보이게 한다.
+              //   틈(6px)과 둥근 모서리, 자체 테두리를 줘서 "배너가 커졌다"가 아니라
+              //   "배너 밑에 채팅이 하나 떴다"로 읽히게 하는 것 — 2026-08-14 Chang 이
+              //   "디테일이 없어 보인다"고 지적한 자리다.
               if (activeClient != null && _agentChatOpen)
-                Expanded(child: _buildAgentChatPane(activeClient)),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF171A21),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF374151)),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: _buildAgentChatPane(activeClient),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -849,9 +902,7 @@ class ConnectionManagerState extends State<ConnectionManager>
           });
         }
         return Container(
-          decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: Color(0xFF374151))),
-          ),
+          // 위쪽 경계선은 감싸는 카드의 테두리가 대신한다.
           child: Column(
             children: [
               // 채팅 헤더 — 본사 채팅창과 같은 모양("채팅" + ✕)으로 둔다.
