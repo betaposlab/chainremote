@@ -220,6 +220,14 @@ class ChatBox: Reactor.Component {
     if (!evt.shortcutKey) {
         if (isEnterKey(evt)) {
             this.send();
+            // ChainRemote: 보낸 뒤 커서를 되돌린다. 없으면 한 줄 보낼 때마다 마우스로
+            //   입력칸을 다시 찍어야 한다(2026-08-14 Chang 실측, Flutter 쪽도 같았다).
+            //   전송이 body.update() 로 DOM 을 다시 그리므로 그 뒤에 잡아야 한다.
+            var me = this;
+            self.timer(200ms, function() {
+                var el = me.$(input);
+                if (el) view.focus = el;
+            });
         }
     }
   }

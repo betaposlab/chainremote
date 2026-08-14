@@ -445,3 +445,32 @@ div.accept-card .ac-deny:hover {
     background: #2E313A;
     color: #FFFFFF;
 }
+
+/* ChainRemote: 거래처 채팅 헤더 — 본사 채팅창과 같은 모양("채팅" + X).
+   닫을 곳이 안 보이면 사람은 눈에 띄는 빨간 [원격 종료]를 누른다(2026-08-14 실사고). */
+div.banner-chatpane > div.chatpane-head {
+    size: * 26px;
+    flow: horizontal;
+    padding: 0 4px 0 8px;
+}
+div.chatpane-head > .cph-label {
+    size: *;
+    color: #9CA3AF;
+    font-size: 12px;
+    font-weight: bold;
+    margin: * 0;
+    vertical-align: middle;
+}
+div.chatpane-head > .cph-close {
+    background: transparent;
+    border: none;
+    color: #9CA3AF;
+    font-size: 13px;
+    padding: 3px 6px;
+    margin: * 0;
+}
+div.chatpane-head > .cph-close:hover {
+    background: #374151;
+    border-radius: 4px;
+    color: #FFFFFF;
+}

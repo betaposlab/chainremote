@@ -222,6 +222,7 @@ class ConnectionManagerState extends State<ConnectionManager>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _agentChatIdleTimer?.cancel();
+    _agentChatFocus.dispose();
     _agentChatInput.dispose();
     super.dispose();
   }
@@ -452,6 +453,11 @@ class ConnectionManagerState extends State<ConnectionManager>
   // reconcile 루프를 다시 킥할지 판단하려고 마지막으로 반영한 채팅 상태를 들고 있는다.
   bool _agentGeomChatShown = false;
   final TextEditingController _agentChatInput = TextEditingController();
+  // 엔터로 보낸 뒤에도 커서를 붙들어 둔다. TextField 는 onSubmitted 뒤 포커스를 놓기
+  //   때문에, 없으면 한 줄 보낼 때마다 마우스로 입력칸을 다시 찍어야 한다(Chang 실측).
+  //   ★이건 포커스 "강탈"이 아니다 — 사장님이 이미 입력칸에 들어와 타이핑 중일 때만
+  //     되돌려 주는 것이라 포스 스캐너를 건드리지 않는다.
+  final FocusNode _agentChatFocus = FocusNode();
 
   // 조용해지면 채팅을 스스로 접는다.
   //
@@ -848,6 +854,40 @@ class ConnectionManagerState extends State<ConnectionManager>
           ),
           child: Column(
             children: [
+              // 채팅 헤더 — 본사 채팅창과 같은 모양("채팅" + ✕)으로 둔다.
+              //   ★닫을 곳이 안 보이면 사람은 눈에 띄는 빨간 버튼을 누른다. 실제로
+              //     채팅을 닫으려다 원격이 끊긴 일이 있었다(2026-08-14). 본사 쪽에
+              //     이미 익숙한 자리에 같은 ✕ 를 두는 게 안내문보다 확실하다.
+              SizedBox(
+                height: 26,
+                child: Row(
+                  children: [
+                    const SizedBox(width: 10),
+                    const Icon(Icons.chat_bubble_outline_rounded,
+                        size: 12, color: Color(0xFF9CA3AF)),
+                    const SizedBox(width: 5),
+                    const Text('채팅',
+                        style: TextStyle(
+                            color: Color(0xFF9CA3AF),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    InkWell(
+                      onTap: () {
+                        setState(() => _agentChatOpen = false);
+                        _agentChatIdleTimer?.cancel();
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: const Padding(
+                        padding: EdgeInsets.all(5),
+                        child: Icon(Icons.close_rounded,
+                            size: 14, color: Color(0xFF9CA3AF)),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                  ],
+                ),
+              ),
               Expanded(
                 child: msgs.isEmpty
                     ? const Center(
@@ -909,6 +949,7 @@ class ConnectionManagerState extends State<ConnectionManager>
           Expanded(
             child: TextField(
               controller: _agentChatInput,
+              focusNode: _agentChatFocus,
               autofocus: false,
               style: const TextStyle(color: Colors.white, fontSize: 12.5),
               cursorColor: Colors.white,
@@ -961,6 +1002,8 @@ class ConnectionManagerState extends State<ConnectionManager>
       createdAt: DateTime.now(),
     ));
     _agentChatInput.clear();
+    // 연달아 칠 수 있게 커서를 되돌린다(본사 채팅창과 같은 감각).
+    _agentChatFocus.requestFocus();
   }
 
   // 종료 버튼. 피지원자가 지금 원격 세션을 직접 끊는다(RustDesk CM 의 cmCloseConnection).
@@ -975,7 +1018,10 @@ class ConnectionManagerState extends State<ConnectionManager>
           borderRadius: BorderRadius.circular(6),
         ),
         child: const Text(
-          '종료',
+          // ★"종료"만 쓰면 채팅창 닫기로 오해한다 — 실제로 Chang 이 채팅을 닫으려다
+          //   원격을 끊었다(2026-08-14). Sciter 는 원래 translate('Disconnect')로
+          //   "원격 종료"였다. 무엇이 끝나는지 라벨에 박는다.
+          '원격 종료',
           style: TextStyle(
             color: Colors.white,
             fontSize: 13,

@@ -64,6 +64,13 @@ class Body: Reactor.Component
                 </div>
                 {show_chat ?
                     <div .banner-chatpane>
+                        {/* 채팅 헤더 — 본사 채팅창과 같은 모양("채팅" + X).
+                            ★닫을 곳이 안 보이면 사람은 눈에 띄는 빨간 버튼을 누른다.
+                              실제로 채팅을 닫으려다 원격이 끊긴 일이 있었다(2026-08-14). */}
+                        <div .chatpane-head>
+                            <span .cph-label>{translate('Chat')}</span>
+                            <button #chatclose .cph-close>{"\u2715"}</button>
+                        </div>
                         <ChatBox msgs={c.msgs} callback={callback} />
                     </div> : ""}
             </div>;
@@ -262,6 +269,14 @@ class Body: Reactor.Component
         } else {
             chat_idle_timer_gen++;    // 직접 접었으면 대기 중인 타이머 무효화
         }
+        applyCmBanner();
+        body.update();
+    }
+
+    // ChainRemote: 채팅 헤더의 X — 채팅만 접는다(원격은 그대로).
+    event click $(button#chatclose) {
+        chat_idle_timer_gen++;   // 대기 중인 접기 타이머 무효화
+        show_chat = false;
         applyCmBanner();
         body.update();
     }
