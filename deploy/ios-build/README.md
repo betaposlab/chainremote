@@ -13,8 +13,8 @@
 | Bundle ID (PRODUCT_BUNDLE_IDENTIFIER ×3) | `com.betaposlab.chainremote` |
 | URL scheme | `rustdesk://` 유지 (딥링크 호환, macOS 동일 정책) |
 | 아이콘 | `res/icon.png` (ChainRemote 마크) → 자동 생성 설정 완료 |
-| hbbs/relay 서버 | `sepani.synology.me` (코어 `hbb_common` 컴파일 타임 하드코딩 → 자동 상속) |
-| API base | `sepani.synology.me:3443` (`src/chainremote_auth.rs` → 자동 상속) |
+| hbbs/relay 서버 | `rs.626.kr` (코어 `hbb_common` 컴파일 타임 하드코딩 → 자동 상속) |
+| API base | `https://api.626.kr` (`src/chainremote_auth.rs` → 자동 상속) |
 
 ## Chang 가 Mac 에서 할 일
 

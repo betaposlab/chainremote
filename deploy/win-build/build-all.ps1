@@ -229,6 +229,6 @@ if ($mainExe) {
 }
 Write-Host ""
 Write-Host "  검증: 인스톨러를 더블클릭 → 자동 설치 → ChainRemote 실행 →" -ForegroundColor Cyan
-Write-Host "        config 파일 없이도 sepani.synology.me NAS에 자동 등록되어야 함" -ForegroundColor Cyan
+Write-Host "        config 파일 없이도 rs.626.kr 에 자동 등록되어야 함" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  빌드 로그: $buildLog" -ForegroundColor Gray

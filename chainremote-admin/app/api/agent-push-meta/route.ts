@@ -1,6 +1,6 @@
 // GET /api/agent-push-meta — 푸시 다이얼로그 [최신 가져오기] 서버사이드 프록시.
 //
-// NAS Web Station 의 agent-push.json 은 패널(:3443)과 포트가 달라 브라우저에선
+// NAS Web Station 의 agent-push.json 은 패널(626.kr)과 출처가 달라 브라우저에선
 // cross-origin — 파일은 200 이지만 ACAO 헤더가 없어 브라우저만 CORS 로 막는다.
 // 서버↔서버 fetch 는 CORS 무관이라 여기서 받아 같은 출처로 되돌려준다.
 //

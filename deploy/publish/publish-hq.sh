@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# HQ(본사 앱) 새 버전 발행 — latest.json 의 hq 채널 갱신 + NAS exe 업로드 + 스텝 자료실.
+# HQ(본사 앱) 새 버전 발행 — latest.json 의 hq 채널 갱신 + NAS exe 업로드.
 # 각 HQ 가 24h 폴링 + 버튼으로 이 latest.json 을 보고 스스로 사일런트 자동업뎃한다.
 #
 # ⚠★ latest.json 은 2채널 포맷 { "hq": {...}, "agent": {...} } 이다. 이 스크립트는 hq 채널만
@@ -8,7 +8,6 @@
 #   교훈(2026-07-09 그 release.sh 삭제). 이 스크립트는 절대 agent 채널을 건드리지 않는다.
 #
 # 사용: ./deploy/publish/publish-hq.sh <ChainRemote_HQ_Setup_vX.Y.Z.exe> ["릴리즈노트"]
-#   스텝 자료실 비번 = 환경변수 STAFF_PW 또는 deploy/publish/.staff-pw. 없으면 자료실만 스킵.
 
 set -euo pipefail
 
@@ -43,7 +42,7 @@ REMOTE_PATH="$NAS_WEB_DIR/$EXPECTED_NAME"
 echo "[검증] HQ v$VERSION sha256=$SHA256 size=$SIZE"
 
 # 1. exe 원자적 업로드(.partial + NAS측 sha 재검증 + mv).
-echo "[1/4] NAS 업로드 (atomic)..."
+echo "[1/3] NAS 업로드 (atomic)..."
 TMP="$REMOTE_PATH.partial"
 ssh "$NAS_HOST" "cat > $TMP && chmod 644 $TMP" < "$EXE"
 NAS_SHA=$(ssh "$NAS_HOST" "sha256sum $TMP | awk '{print \$1}'")
@@ -54,7 +53,7 @@ ssh "$NAS_HOST" "mv -f $TMP $REMOTE_PATH"
 echo "    OK"
 
 # 2. latest.json 의 hq 채널만 갱신 (★agent 채널 보존). 현재 파일을 받아 python 으로 .hq 교체.
-echo "[2/4] latest.json hq 채널 갱신 (agent 채널 보존)..."
+echo "[2/3] latest.json hq 채널 갱신 (agent 채널 보존)..."
 CUR_JSON=$(curl -sS --max-time 10 "$PUBLIC_BASE_URL/latest.json" || echo "")
 NEW_JSON=$(EXE_URL="$PUBLIC_BASE_URL/$EXPECTED_NAME" VER="$VERSION" SHA="$SHA256" SZ="$SIZE" \
   RAT="$RELEASED_AT" NT="$NOTES" python3 - "$CUR_JSON" <<'PY'
@@ -104,7 +103,7 @@ ssh "$NAS_HOST" "cat > $NAS_WEB_DIR/push.json.tmp && mv -f $NAS_WEB_DIR/push.jso
 echo "    OK (push timestamp 갱신 — 각 HQ 5분 내 반응)"
 
 # 3. 공개 URL 검증 (hq 버전 반영 + agent 채널 생존).
-echo "[3/4] 공개 latest.json 검증..."
+echo "[3/3] 공개 latest.json 검증..."
 for attempt in 1 2 3; do
   sleep 1
   LIVE=$(curl -sS --max-time 10 "$PUBLIC_BASE_URL/latest.json" || echo "")
@@ -120,62 +119,6 @@ if [[ "$OK" != "Y" ]]; then
 fi
 echo "    OK"
 
-# 4. 스텝 자료실 업로드 + 옛 HQ 버전 정리.
-echo "[4/4] 스텝 자료실 업로드..."
-STAFF_PW="${STAFF_PW:-}"
-if [[ -z "$STAFF_PW" && -f "$SCRIPT_DIR/.staff-pw" ]]; then
-  STAFF_PW="$(tr -d '[:space:]' < "$SCRIPT_DIR/.staff-pw")"
-fi
-if [[ -z "$STAFF_PW" ]]; then
-  echo "  ⚠ STAFF_PW 없음 → 자료실 스킵 (NAS+latest.json 은 완료)."
-else
-  export LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
-  STAFF="https://betaposlab.com/staff/index.php"
-  JAR=$(mktemp); RESP=$(mktemp); trap 'rm -f "$JAR" "$RESP"' EXIT
-  curl -s -c "$JAR" -d "action=login&pw=$STAFF_PW" "$STAFF" -o "$RESP"
-  if ! grep -q '"status":"success"' "$RESP"; then
-    echo "  ✗ 자료실 로그인 실패 → 스킵 (NAS+latest.json 은 완료)." >&2
-  else
-    OLD=$(curl -s -b "$JAR" https://betaposlab.com/staff/ \
-      | grep -oE 'ChainRemote_HQ_Setup_v[0-9.]+\.exe' | sort -u | grep -v "v${VERSION}\.exe" || true)
-    curl -s -b "$JAR" --max-time 300 -F "action=upload" -F "file=@$EXE" "$STAFF" -o "$RESP"
-    # ★판정은 업로드 응답이 아니라 **목록에 실제로 떴는가**로만 한다.
-    #   2026-08-13 실측: 25MB 업로드가 멀쩡히 끝나 파일이 자료실에 올라갔는데도 응답에
-    #   '"status":"success"' 가 없어 "업로드 실패/미확인"으로 찍혔다. 그 거짓 음성 때문에
-    #   옛 버전 삭제까지 건너뛰어 1.4.108 과 1.4.112 가 자료실에 나란히 남았다.
-    #   응답 문자열은 서버 사정으로 얼마든지 달라지지만 목록은 사실이다.
-    # ★목록 반영에 시차가 있다. 2026-08-14 실측: 업로드는 멀쩡히 끝나 파일이 올라갔는데
-    #   직후 조회에는 안 떠서 옛 버전 삭제를 건너뛰었고, 1.4.114 와 1.4.115 가 나란히 남았다.
-    #   응답 문자열 대신 목록을 믿는 건 맞지만, **한 번만 보고 단정하면 안 된다** — 몇 초
-    #   기다렸다 다시 본다. 그래도 없으면 그때는 진짜 실패다.
-    UPLOADED=""
-    for _ in 1 2 3 4 5; do
-      if curl -s -b "$JAR" https://betaposlab.com/staff/ | grep -q "$EXPECTED_NAME"; then
-        UPLOADED=1
-        break
-      fi
-      sleep 2
-    done
-    if [[ -n "$UPLOADED" ]]; then
-      echo "  ✓ 업로드: $EXPECTED_NAME"
-      if [[ -n "$OLD" ]]; then
-        while IFS= read -r o; do
-          [[ -z "$o" ]] && continue
-          curl -s -b "$JAR" -F "action=delete" -F "filename=$o" "$STAFF" -o "$RESP" </dev/null
-          # 삭제도 목록으로 확인한다 — 응답 문자열을 믿었다가 업로드에서 이미 한 번 데었다.
-          if curl -s -b "$JAR" https://betaposlab.com/staff/ | grep -q "$o"; then
-            echo "    ⚠ 삭제 실패(아직 목록에 있음): $o"
-          else
-            echo "    옛 HQ 삭제: $o"
-          fi
-        done <<< "$OLD"
-      fi
-    else
-      echo "  ⚠ 업로드 실패/미확인 → 옛 버전 유지(안전)." >&2
-    fi
-  fi
-fi
-
 echo ""
 echo "✅ HQ v$VERSION 발행 완료 — 각 HQ 가 24h 폴링/버튼으로 자동업뎃."
-echo "   latest.json hq=$VERSION (agent 채널 보존), NAS exe, 스텝 자료실."
+echo "   latest.json hq=$VERSION (agent 채널 보존), NAS exe."

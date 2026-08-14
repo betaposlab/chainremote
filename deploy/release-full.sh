@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# ChainRemote 릴리즈 원커맨드 — 4단계 배포 룰의 [1·3·4] 완전 자동, [2]는 명확히 안내.
+# ChainRemote 릴리즈 원커맨드 — 3단계 배포 룰의 [1·3] 완전 자동, [2]는 명확히 안내.
 #
 #   실행 하나로: 윈컴 깨움(WoL) → 원격빌드(x64+ISCC) → 산출물 회수+sha검증
-#   → 발행(NAS+agent-push.json/latest.json+스텝자료실) 까지 사람 개입 0.
+#   → 발행(NAS + agent-push.json/latest.json + 영업 랜딩) 까지 사람 개입 0.
 #   유일하게 사람이 하는 것 = ②관리패널 [전체 일괄 푸시] 클릭(의도적 — 살아있는
 #   거래처 플릿 전체에 즉시 영향이라 마지막 방아쇠는 항상 사람, feedback_
 #   deploy_ai_runs_after_approval 의 대량조작 게이트와 동일 원칙). 스크립트가
@@ -186,7 +186,7 @@ fi
 echo "    ✓ 무결성 확인"
 
 # ── [4/5] 발행 (기존 검증된 스크립트 재사용) ─────────────────────────────────
-echo "[4/5] 발행 (NAS + 채널 + 스텝자료실)..."
+echo "[4/5] 발행 (NAS + 채널 + 랜딩)..."
 if [[ "$KIND" == "agent" ]]; then
   NAS_HOST=chang@100.93.42.91 bash "$REPO/deploy/publish/release-agent.sh" "$DEST" "$NOTES"
 else
@@ -196,7 +196,7 @@ else
   if ! bash "$REPO/deploy/publish/release-chaingo.sh"; then
     echo "⚠ ChainGo 동반 빌드 실패 — HQ 발행은 완료. deploy/publish/release-chaingo.sh 단독 재실행 필요." >&2
   fi
-  # ★영업 랜딩(배포처 4번). 이걸 파이프라인 밖에 두는 한 반드시 잊는다 — v1.4.16 으로 6주
+  # ★영업 랜딩. 이걸 파이프라인 밖에 두는 한 반드시 잊는다 — v1.4.16 으로 6주
   #   방치된 게 그래서였고, 그 교훈으로 publish-landing.sh 를 만들고도 **호출을 안 걸어**
   #   2026-08-13 에 또 1.4.108 로 남아 있었다. 사람이 기억해야 하는 단계는 단계가 아니다.
   #   Agent 는 여기 안 온다(랜딩 게재 금지) — hq 분기 안이라 구조적으로 걸릴 일이 없다.

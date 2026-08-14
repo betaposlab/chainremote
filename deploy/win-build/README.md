@@ -4,9 +4,12 @@
 
 ## 빌드되는 ChainRemote.exe의 특성
 
-- **하드코딩된 NAS 서버**: `sepani.synology.me` (`libs/hbb_common/src/config.rs:159`)
-- **하드코딩된 공개키**: `C2bqeqG0Nb0EQgmtomhzcykw69gRvbSLKfm019r1C8Y=` (`config.rs:160`)
-- **결과**: 거래처가 `RustDesk2.toml` 같은 config 파일 없이 .exe 더블클릭만 해도 우리 NAS에 등록됨
+- **하드코딩된 시그널링 서버**: `rs.626.kr` (`libs/hbb_common/src/config.rs` `RENDEZVOUS_SERVERS`)
+- **하드코딩된 공개키**: `C2bqeqG0Nb0EQgmtomhzcykw69gRvbSLKfm019r1C8Y=` (같은 파일 `RS_PUB_KEY`)
+- **결과**: 거래처가 `RustDesk2.toml` 같은 config 파일 없이 .exe 더블클릭만 해도 우리 서버에 등록됨
+
+> 줄 번호 대신 상수 이름으로 적어 둔다 — 종전엔 `config.rs:159` 로 적혀 있었는데 그 사이
+> 파일이 밀려 엉뚱한 줄을 가리켰고, 값도 NAS 시절 `sepani.synology.me` 로 굳어 있었다.
 
 ## 사용
 
