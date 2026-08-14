@@ -165,8 +165,9 @@ class _DesktopHomePageState extends State<DesktopHomePage>
           Padding(
             padding: const EdgeInsets.only(bottom: 22),
             // 이스터에그: 사이드바 로고를 길게 누르면 크레딧 크롤.
-            //   ★설정 안 로고에도 걸어 뒀지만, 사람이 본능적으로 누르는 자리는 여기다
-            //     (2026-08-15 Chang 이 여기부터 눌렀다). 두 곳 다 열리게 둔다.
+            //   ★여기 하나만 둔다. 설정 정보창엔 이미 다른 이스터에그(버전 7연타 =
+            //     함께한 시간)가 있어 한 화면에 둘을 겹칠 이유가 없고, 사람이 로고를
+            //     누르는 자리는 사이드바다(2026-08-15 Chang 이 여기부터 눌렀다).
             //   ClipRect 가 로고를 잘라 놔서 GestureDetector 를 바깥에 두고
             //   opaque 로 잡아야 잘린 여백까지 눌린다.
             child: GestureDetector(

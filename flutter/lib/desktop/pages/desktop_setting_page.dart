@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_easter.dart';
-import 'package:flutter_hbb/common/widgets/chainremote_easter_crawl.dart';
 import 'package:flutter_hbb/common/chainremote_update_check.dart';
 import 'package:flutter_hbb/common/widgets/audio_input.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_auth_gate.dart';
@@ -353,8 +352,8 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
               color: Colors.white.withOpacity(0.18),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.tune_rounded,
-                color: Colors.white, size: 24),
+            child:
+                const Icon(Icons.tune_rounded, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 14),
           Column(
@@ -419,8 +418,7 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: selected ? brandBlue : CrColors.of(context).chipBg,
                 borderRadius: BorderRadius.circular(10),
@@ -439,16 +437,17 @@ class _DesktopSettingPageState extends State<DesktopSettingPage>
                 children: [
                   Icon(selected ? tab.selected : tab.unselected,
                       size: 17,
-                      color:
-                          selected ? Colors.white : CrColors.of(context).textMuted),
+                      color: selected
+                          ? Colors.white
+                          : CrColors.of(context).textMuted),
                   const SizedBox(width: 8),
                   Text(
                     translate(tab.label),
                     style: TextStyle(
-                      color:
-                          selected ? Colors.white : CrColors.of(context).textMuted,
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500,
+                      color: selected
+                          ? Colors.white
+                          : CrColors.of(context).textMuted,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       fontSize: 13,
                     ),
                   ),
@@ -590,23 +589,26 @@ class _GeneralState extends State<_General> {
     }
 
     final isOptFixed = isOptionFixed(kCommConfKeyTheme);
-    return _Card(context, title: 'Theme', hint: '취향대로 고르세요. 밝은 사무실에서는 라이트 모드가 눈에 덜 피로합니다.', children: [
-      _Radio<String>(context,
-          value: 'light',
-          groupValue: current,
-          label: 'Light',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio<String>(context,
-          value: 'dark',
-          groupValue: current,
-          label: 'Dark',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio<String>(context,
-          value: 'system',
-          groupValue: current,
-          label: 'Follow System',
-          onChanged: isOptFixed ? null : onChanged),
-    ]);
+    return _Card(context,
+        title: 'Theme',
+        hint: '취향대로 고르세요. 밝은 사무실에서는 라이트 모드가 눈에 덜 피로합니다.',
+        children: [
+          _Radio<String>(context,
+              value: 'light',
+              groupValue: current,
+              label: 'Light',
+              onChanged: isOptFixed ? null : onChanged),
+          _Radio<String>(context,
+              value: 'dark',
+              groupValue: current,
+              label: 'Dark',
+              onChanged: isOptFixed ? null : onChanged),
+          _Radio<String>(context,
+              value: 'system',
+              groupValue: current,
+              label: 'Follow System',
+              onChanged: isOptFixed ? null : onChanged),
+        ]);
   }
 
   Widget service() {
@@ -622,18 +624,21 @@ class _GeneralState extends State<_General> {
         return const Offstage();
       }
 
-      return _Card(context, title: 'Service', hint: '항상 켜둬야 본사에서 접속 가능합니다. 중지하면 원격 지원 불가.', children: [
-        _Button(context, serviceStop.value ? 'Start' : 'Stop', () {
-          () async {
-            serviceBtnEnabled.value = false;
-            await start_service(serviceStop.value);
-            // enable the button after 1 second
-            Future.delayed(const Duration(seconds: 1), () {
-              serviceBtnEnabled.value = true;
-            });
-          }();
-        }, enabled: serviceBtnEnabled.value)
-      ]);
+      return _Card(context,
+          title: 'Service',
+          hint: '항상 켜둬야 본사에서 접속 가능합니다. 중지하면 원격 지원 불가.',
+          children: [
+            _Button(context, serviceStop.value ? 'Start' : 'Stop', () {
+              () async {
+                serviceBtnEnabled.value = false;
+                await start_service(serviceStop.value);
+                // enable the button after 1 second
+                Future.delayed(const Duration(seconds: 1), () {
+                  serviceBtnEnabled.value = true;
+                });
+              }();
+            }, enabled: serviceBtnEnabled.value)
+          ]);
     });
   }
 
@@ -831,79 +836,84 @@ class _GeneralState extends State<_General> {
       String root_dir = map['root_dir']!;
       bool root_dir_exists = map['root_dir_exists']!;
       bool user_dir_exists = map['user_dir_exists']!;
-      return _Card(context, title: 'Recording', hint: '원격 화면을 영상으로 남깁니다. 모든 세션을 자동 녹화하면 디스크가 빠르게 찹니다 — 평소엔 꺼두고, 남겨야 할 세션만 원격 중 툴바의 [녹화] 버튼으로 켜세요.', children: [
-        if (!bind.isOutgoingOnly())
-          _OptionCheckBox(context, 'Automatically record incoming sessions',
-              kOptionAllowAutoRecordIncoming),
-        if (!bind.isIncomingOnly())
-          _OptionCheckBox(context, 'Automatically record outgoing sessions',
-              kOptionAllowAutoRecordOutgoing,
-              isServer: false),
-        if (showRootDir && !bind.isOutgoingOnly())
-          Row(
-            children: [
-              Text(
-                  '${translate(bind.isIncomingOnly() ? "Directory" : "Incoming")}:'),
-              Expanded(
-                child: GestureDetector(
-                    onTap: root_dir_exists
-                        ? () => launchUrl(Uri.file(root_dir))
-                        : null,
-                    child: Text(
-                      root_dir,
-                      softWrap: true,
-                      style: root_dir_exists
-                          ? const TextStyle(
-                              decoration: TextDecoration.underline)
-                          : null,
-                    )).marginOnly(left: 10),
-              ),
-            ],
-          ).marginOnly(left: _kContentHMargin),
-        if (!(showRootDir && bind.isIncomingOnly()))
-          Row(
-            children: [
-              Text(
-                  '${translate((showRootDir && !bind.isOutgoingOnly()) ? "Outgoing" : "Directory")}:'),
-              Expanded(
-                child: GestureDetector(
-                    onTap: user_dir_exists
-                        ? () => launchUrl(Uri.file(user_dir))
-                        : null,
-                    child: Text(
-                      user_dir,
-                      softWrap: true,
-                      style: user_dir_exists
-                          ? const TextStyle(
-                              decoration: TextDecoration.underline)
-                          : null,
-                    )).marginOnly(left: 10),
-              ),
-              ElevatedButton(
-                      onPressed: isOptionFixed(kOptionVideoSaveDirectory)
-                          ? null
-                          : () async {
-                              String? initialDirectory;
-                              if (await Directory.fromUri(
-                                      Uri.directory(user_dir))
-                                  .exists()) {
-                                initialDirectory = user_dir;
-                              }
-                              String? selectedDirectory =
-                                  await FilePicker.platform.getDirectoryPath(
-                                      initialDirectory: initialDirectory);
-                              if (selectedDirectory != null) {
-                                await bind.mainSetLocalOption(
-                                    key: kOptionVideoSaveDirectory,
-                                    value: selectedDirectory);
-                                setState(() {});
-                              }
-                            },
-                      child: Text(translate('Change')))
-                  .marginOnly(left: 5),
-            ],
-          ).marginOnly(left: _kContentHMargin),
-      ]);
+      return _Card(context,
+          title: 'Recording',
+          hint:
+              '원격 화면을 영상으로 남깁니다. 모든 세션을 자동 녹화하면 디스크가 빠르게 찹니다 — 평소엔 꺼두고, 남겨야 할 세션만 원격 중 툴바의 [녹화] 버튼으로 켜세요.',
+          children: [
+            if (!bind.isOutgoingOnly())
+              _OptionCheckBox(context, 'Automatically record incoming sessions',
+                  kOptionAllowAutoRecordIncoming),
+            if (!bind.isIncomingOnly())
+              _OptionCheckBox(context, 'Automatically record outgoing sessions',
+                  kOptionAllowAutoRecordOutgoing,
+                  isServer: false),
+            if (showRootDir && !bind.isOutgoingOnly())
+              Row(
+                children: [
+                  Text(
+                      '${translate(bind.isIncomingOnly() ? "Directory" : "Incoming")}:'),
+                  Expanded(
+                    child: GestureDetector(
+                        onTap: root_dir_exists
+                            ? () => launchUrl(Uri.file(root_dir))
+                            : null,
+                        child: Text(
+                          root_dir,
+                          softWrap: true,
+                          style: root_dir_exists
+                              ? const TextStyle(
+                                  decoration: TextDecoration.underline)
+                              : null,
+                        )).marginOnly(left: 10),
+                  ),
+                ],
+              ).marginOnly(left: _kContentHMargin),
+            if (!(showRootDir && bind.isIncomingOnly()))
+              Row(
+                children: [
+                  Text(
+                      '${translate((showRootDir && !bind.isOutgoingOnly()) ? "Outgoing" : "Directory")}:'),
+                  Expanded(
+                    child: GestureDetector(
+                        onTap: user_dir_exists
+                            ? () => launchUrl(Uri.file(user_dir))
+                            : null,
+                        child: Text(
+                          user_dir,
+                          softWrap: true,
+                          style: user_dir_exists
+                              ? const TextStyle(
+                                  decoration: TextDecoration.underline)
+                              : null,
+                        )).marginOnly(left: 10),
+                  ),
+                  ElevatedButton(
+                          onPressed: isOptionFixed(kOptionVideoSaveDirectory)
+                              ? null
+                              : () async {
+                                  String? initialDirectory;
+                                  if (await Directory.fromUri(
+                                          Uri.directory(user_dir))
+                                      .exists()) {
+                                    initialDirectory = user_dir;
+                                  }
+                                  String? selectedDirectory = await FilePicker
+                                      .platform
+                                      .getDirectoryPath(
+                                          initialDirectory: initialDirectory);
+                                  if (selectedDirectory != null) {
+                                    await bind.mainSetLocalOption(
+                                        key: kOptionVideoSaveDirectory,
+                                        value: selectedDirectory);
+                                    setState(() {});
+                                  }
+                                },
+                          child: Text(translate('Change')))
+                      .marginOnly(left: 5),
+                ],
+              ).marginOnly(left: _kContentHMargin),
+          ]);
     });
   }
 
@@ -987,10 +997,10 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
   /// 등록해 다른 본사 PC 가 내 PC 를 원격으로 볼 수 있다. 기본값은 안전하게 OFF.
   /// 영구비번은 HQ 인스톨러가 박아두므로 사용자가 따로 설정할 필요 없다.
   Widget _chainremoteAllowIncomingCard() {
-    return _Card(context, 
+    return _Card(
+      context,
       title: '외부 원격 접속 허용',
-      hint:
-          'ON 하면 다른 본사 직원이 내 PC 를 원격으로 볼 수 있습니다 (예: 내가 컴맹이라 동료 도움 필요한 경우).\n'
+      hint: 'ON 하면 다른 본사 직원이 내 PC 를 원격으로 볼 수 있습니다 (예: 내가 컴맹이라 동료 도움 필요한 경우).\n'
           '디폴트 OFF — 안전 디폴트. 1회 ON 하면 영구 유지.\n'
           '※ 토글 즉시 적용 — ChainRemote 자동 재시작 신호가 박혀 1~2초 안에 발효됩니다.',
       children: [
@@ -1024,7 +1034,8 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
                 Expanded(
                   child: Text(
                     '이 PC 에 외부 본사 PC 가 원격 접속하도록 허용',
-                    style: TextStyle(color: disabledTextColor(context, !locked)),
+                    style:
+                        TextStyle(color: disabledTextColor(context, !locked)),
                   ),
                 ),
               ],
@@ -1193,56 +1204,64 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           break;
       }
 
-      return _Card(context, title: 'Permissions', hint: '★거래처 PC 가 아니라 이 PC 기준입니다. 다른 본사 직원이 내 PC 를 원격으로 볼 때 무엇을 허용할지 정합니다. 아래 [외부 원격 접속 허용]이 꺼져 있으면 아무도 못 들어오니 무의미합니다.', children: [
-        ComboBox(
-            keys: [
-              defaultOptionAccessMode,
-              'full',
-              'view',
-            ],
-            values: [
-              translate('Custom'),
-              translate('Full Access'),
-              translate('Screen Share'),
-            ],
-            enabled: enabled && !isOptionFixed(kOptionAccessMode),
-            initialKey: initialKey,
-            onChanged: (mode) async {
-              await bind.mainSetOption(key: kOptionAccessMode, value: mode);
-              setState(() {});
-            }).marginOnly(left: _kContentHMargin),
-        Column(
+      return _Card(context,
+          title: 'Permissions',
+          hint:
+              '★거래처 PC 가 아니라 이 PC 기준입니다. 다른 본사 직원이 내 PC 를 원격으로 볼 때 무엇을 허용할지 정합니다. 아래 [외부 원격 접속 허용]이 꺼져 있으면 아무도 못 들어오니 무의미합니다.',
           children: [
-            _OptionCheckBox(
-                context, 'Enable keyboard/mouse', kOptionEnableKeyboard,
-                enabled: enabled, fakeValue: fakeValue),
-            if (isWindows)
-              _OptionCheckBox(
-                  context, 'Enable remote printer', kOptionEnableRemotePrinter,
-                  enabled: enabled, fakeValue: fakeValue),
-            _OptionCheckBox(context, 'Enable clipboard', kOptionEnableClipboard,
-                enabled: enabled, fakeValue: fakeValue),
-            _OptionCheckBox(
-                context, 'Enable file transfer', kOptionEnableFileTransfer,
-                enabled: enabled, fakeValue: fakeValue),
-            _OptionCheckBox(context, 'Enable audio', kOptionEnableAudio,
-                enabled: enabled, fakeValue: fakeValue),
-            _OptionCheckBox(
-                context, 'Enable remote restart', kOptionEnableRemoteRestart,
-                enabled: enabled, fakeValue: fakeValue),
-            _OptionCheckBox(
-                context, 'Enable recording session', kOptionEnableRecordSession,
-                enabled: enabled, fakeValue: fakeValue),
-            if (isWindows)
-              _OptionCheckBox(context, 'Enable blocking user input',
-                  kOptionEnableBlockInput,
-                  enabled: enabled, fakeValue: fakeValue),
-            _OptionCheckBox(context, 'Enable remote configuration modification',
-                kOptionAllowRemoteConfigModification,
-                enabled: enabled, fakeValue: fakeValue),
-          ],
-        ),
-      ]);
+            ComboBox(
+                keys: [
+                  defaultOptionAccessMode,
+                  'full',
+                  'view',
+                ],
+                values: [
+                  translate('Custom'),
+                  translate('Full Access'),
+                  translate('Screen Share'),
+                ],
+                enabled: enabled && !isOptionFixed(kOptionAccessMode),
+                initialKey: initialKey,
+                onChanged: (mode) async {
+                  await bind.mainSetOption(key: kOptionAccessMode, value: mode);
+                  setState(() {});
+                }).marginOnly(left: _kContentHMargin),
+            Column(
+              children: [
+                _OptionCheckBox(
+                    context, 'Enable keyboard/mouse', kOptionEnableKeyboard,
+                    enabled: enabled, fakeValue: fakeValue),
+                if (isWindows)
+                  _OptionCheckBox(context, 'Enable remote printer',
+                      kOptionEnableRemotePrinter,
+                      enabled: enabled, fakeValue: fakeValue),
+                _OptionCheckBox(
+                    context, 'Enable clipboard', kOptionEnableClipboard,
+                    enabled: enabled, fakeValue: fakeValue),
+                _OptionCheckBox(
+                    context, 'Enable file transfer', kOptionEnableFileTransfer,
+                    enabled: enabled, fakeValue: fakeValue),
+                _OptionCheckBox(context, 'Enable audio', kOptionEnableAudio,
+                    enabled: enabled, fakeValue: fakeValue),
+                _OptionCheckBox(context, 'Enable remote restart',
+                    kOptionEnableRemoteRestart,
+                    enabled: enabled, fakeValue: fakeValue),
+                _OptionCheckBox(context, 'Enable recording session',
+                    kOptionEnableRecordSession,
+                    enabled: enabled, fakeValue: fakeValue),
+                if (isWindows)
+                  _OptionCheckBox(context, 'Enable blocking user input',
+                      kOptionEnableBlockInput,
+                      enabled: enabled, fakeValue: fakeValue),
+                _OptionCheckBox(
+                    context,
+                    'Enable remote configuration modification',
+                    kOptionAllowRemoteConfigModification,
+                    enabled: enabled,
+                    fakeValue: fakeValue),
+              ],
+            ),
+          ]);
     }
 
     return tmpWrapper();
@@ -1382,55 +1401,62 @@ class _SafetyState extends State<_Safety> with AutomaticKeepAliveClientMixin {
           final usePassword = model.approveMode != 'click';
 
           final isApproveModeFixed = isOptionFixed(kOptionApproveMode);
-          return _Card(context, title: 'Password', hint: '원격 접속 수락 방식 — 기본 "클릭 수락". 본사가 접속하면 이 PC 화면에 뜨는 수락 버튼을 눌러야 연결됩니다. (영구 비밀번호 미사용)', children: [
-            ComboBox(
-              enabled: !locked && !isApproveModeFixed,
-              keys: modeKeys,
-              values: modeValues,
-              initialKey: modeInitialKey,
-              onChanged: (key) => model.setApproveMode(key),
-            ).marginOnly(left: _kContentHMargin),
-            if (usePassword) radios[0],
-            if (usePassword)
-              _SubLabeledWidget(
-                  context,
-                  'One-time password length',
-                  Row(
-                    children: [
-                      ...lengthRadios,
-                    ],
-                  ),
-                  enabled: tmpEnabled && !locked),
-            if (usePassword) numericOneTimePassword,
-            // 영구 비밀번호는 기본적으로 없는 기능이다 (2026-06-06 Chang 지시 — 무인
-            // 영구비번 0클릭 전면 폐기, 무조건 클릭 수락). 거래처 설치본에서는 radios[1]
-            // (영구 사용) · 설정 버튼 · radios[2](둘 다) 가 전부 안 보인다.
-            //
-            // ★단 하나의 예외: 무인접속 전용 빌드(custom.txt 최상위 unattended=Y). 그
-            //   빌드는 수락을 눌러 줄 사람이 없는 자기 PC 라 영구비번이 유일한 수단이다.
-            //   판별을 Rust 의 is_unattended_agent() 에 그대로 위임한다 — 화면과 접속
-            //   판정이 서로 다른 근거를 보면 "설정은 됐는데 안 붙는다" 가 된다.
-            if (isUnattendedAgent) radios[1],
-            if (isUnattendedAgent)
-              _SubButton(context, 'Set permanent password',
-                  () => setPasswordDialog(), permEnabled && !locked),
-          ]);
+          return _Card(context,
+              title: 'Password',
+              hint:
+                  '원격 접속 수락 방식 — 기본 "클릭 수락". 본사가 접속하면 이 PC 화면에 뜨는 수락 버튼을 눌러야 연결됩니다. (영구 비밀번호 미사용)',
+              children: [
+                ComboBox(
+                  enabled: !locked && !isApproveModeFixed,
+                  keys: modeKeys,
+                  values: modeValues,
+                  initialKey: modeInitialKey,
+                  onChanged: (key) => model.setApproveMode(key),
+                ).marginOnly(left: _kContentHMargin),
+                if (usePassword) radios[0],
+                if (usePassword)
+                  _SubLabeledWidget(
+                      context,
+                      'One-time password length',
+                      Row(
+                        children: [
+                          ...lengthRadios,
+                        ],
+                      ),
+                      enabled: tmpEnabled && !locked),
+                if (usePassword) numericOneTimePassword,
+                // 영구 비밀번호는 기본적으로 없는 기능이다 (2026-06-06 Chang 지시 — 무인
+                // 영구비번 0클릭 전면 폐기, 무조건 클릭 수락). 거래처 설치본에서는 radios[1]
+                // (영구 사용) · 설정 버튼 · radios[2](둘 다) 가 전부 안 보인다.
+                //
+                // ★단 하나의 예외: 무인접속 전용 빌드(custom.txt 최상위 unattended=Y). 그
+                //   빌드는 수락을 눌러 줄 사람이 없는 자기 PC 라 영구비번이 유일한 수단이다.
+                //   판별을 Rust 의 is_unattended_agent() 에 그대로 위임한다 — 화면과 접속
+                //   판정이 서로 다른 근거를 보면 "설정은 됐는데 안 붙는다" 가 된다.
+                if (isUnattendedAgent) radios[1],
+                if (isUnattendedAgent)
+                  _SubButton(context, 'Set permanent password',
+                      () => setPasswordDialog(), permEnabled && !locked),
+              ]);
         })));
   }
 
   Widget more(BuildContext context) {
     bool enabled = !locked;
-    return _Card(context, title: 'Security', hint: '이것도 이 PC 기준입니다. 평소엔 "내가 원격당하는 동안 내 화면 안 꺼짐" 만 켜두면 됩니다.', children: [
-      shareRdp(context, enabled),
-      // 2026-08-06 제거: LAN 검색 차단 / 직접 IP 액세스 / IP 화이트리스트.
-      //   우리는 모든 연결이 hbbs(rs.626.kr) 를 거친다. 직접 IP 는 쓸 일이 없고,
-      //   잘못 켜면 방화벽·포트 문제로 사고만 난다. LAN 검색도 ID 로만 접속하니 무의미.
-      ...autoDisconnect(context),
-      _OptionCheckBox(context, 'keep-awake-during-incoming-sessions-label',
-          kOptionKeepAwakeDuringIncomingSessions,
-          reverse: false, enabled: enabled),
-      // 2026-05-27: "창 열려있을 때만 연결 허용" + PIN 잠금 해제 제거. 거래처는 트레이만 있고 본사엔 의미 없다.
-    ]);
+    return _Card(context,
+        title: 'Security',
+        hint: '이것도 이 PC 기준입니다. 평소엔 "내가 원격당하는 동안 내 화면 안 꺼짐" 만 켜두면 됩니다.',
+        children: [
+          shareRdp(context, enabled),
+          // 2026-08-06 제거: LAN 검색 차단 / 직접 IP 액세스 / IP 화이트리스트.
+          //   우리는 모든 연결이 hbbs(rs.626.kr) 를 거친다. 직접 IP 는 쓸 일이 없고,
+          //   잘못 켜면 방화벽·포트 문제로 사고만 난다. LAN 검색도 ID 로만 접속하니 무의미.
+          ...autoDisconnect(context),
+          _OptionCheckBox(context, 'keep-awake-during-incoming-sessions-label',
+              kOptionKeepAwakeDuringIncomingSessions,
+              reverse: false, enabled: enabled),
+          // 2026-05-27: "창 열려있을 때만 연결 허용" + PIN 잠금 해제 제거. 거래처는 트레이만 있고 본사엔 의미 없다.
+        ]);
   }
 
   shareRdp(BuildContext context, bool enabled) {
@@ -1828,9 +1854,11 @@ class _NetworkState extends State<_Network> with AutomaticKeepAliveClientMixin {
     final outgoingOnly = bind.isOutgoingOnly();
 
     final divider = const Divider(height: 1, indent: 16, endIndent: 16);
-    return _Card(context, 
+    return _Card(
+      context,
       title: 'Network',
-      hint: '⚠️ 본사 서버는 설치할 때 자동으로 박혀있습니다. 절대 손대지 마세요. 프록시·웹소켓 등은 특수 망 환경에서만 사용.',
+      hint:
+          '⚠️ 본사 서버는 설치할 때 자동으로 박혀있습니다. 절대 손대지 마세요. 프록시·웹소켓 등은 특수 망 환경에서만 사용.',
       children: [
         Container(
           child: Column(
@@ -1938,18 +1966,21 @@ class _DisplayState extends State<_Display> {
     }
 
     final groupValue = bind.mainGetUserDefaultOption(key: kOptionViewStyle);
-    return _Card(context, title: 'Default View Style', hint: '권장: "본사 창 크기에 맞춤". 4K 거래처 PC 도 내 창 크기로 맞춤.', children: [
-      _Radio(context,
-          value: kRemoteViewStyleOriginal,
-          groupValue: groupValue,
-          label: 'Scale original',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteViewStyleAdaptive,
-          groupValue: groupValue,
-          label: 'Scale adaptive',
-          onChanged: isOptFixed ? null : onChanged),
-    ]);
+    return _Card(context,
+        title: 'Default View Style',
+        hint: '권장: "본사 창 크기에 맞춤". 4K 거래처 PC 도 내 창 크기로 맞춤.',
+        children: [
+          _Radio(context,
+              value: kRemoteViewStyleOriginal,
+              groupValue: groupValue,
+              label: 'Scale original',
+              onChanged: isOptFixed ? null : onChanged),
+          _Radio(context,
+              value: kRemoteViewStyleAdaptive,
+              groupValue: groupValue,
+              label: 'Scale adaptive',
+              onChanged: isOptFixed ? null : onChanged),
+        ]);
   }
 
   Widget scrollStyle(BuildContext context) {
@@ -2008,32 +2039,35 @@ class _DisplayState extends State<_Display> {
 
     final isOptFixed = isOptionFixed(kOptionImageQuality);
     final groupValue = bind.mainGetUserDefaultOption(key: kOptionImageQuality);
-    return _Card(context, title: 'Default Image Quality', hint: '권장: "빠른 반응". 살짝 흐려도 끊김 없이 빠르게 — 매장 환경에서 답답함 적음.', children: [
-      _Radio(context,
-          value: kRemoteImageQualityBest,
-          groupValue: groupValue,
-          label: 'Good image quality',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteImageQualityBalanced,
-          groupValue: groupValue,
-          label: 'Balanced',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteImageQualityLow,
-          groupValue: groupValue,
-          label: 'Optimize reaction time',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: kRemoteImageQualityCustom,
-          groupValue: groupValue,
-          label: 'Custom',
-          onChanged: isOptFixed ? null : onChanged),
-      Offstage(
-        offstage: groupValue != kRemoteImageQualityCustom,
-        child: customImageQualitySetting(),
-      )
-    ]);
+    return _Card(context,
+        title: 'Default Image Quality',
+        hint: '권장: "빠른 반응". 살짝 흐려도 끊김 없이 빠르게 — 매장 환경에서 답답함 적음.',
+        children: [
+          _Radio(context,
+              value: kRemoteImageQualityBest,
+              groupValue: groupValue,
+              label: 'Good image quality',
+              onChanged: isOptFixed ? null : onChanged),
+          _Radio(context,
+              value: kRemoteImageQualityBalanced,
+              groupValue: groupValue,
+              label: 'Balanced',
+              onChanged: isOptFixed ? null : onChanged),
+          _Radio(context,
+              value: kRemoteImageQualityLow,
+              groupValue: groupValue,
+              label: 'Optimize reaction time',
+              onChanged: isOptFixed ? null : onChanged),
+          _Radio(context,
+              value: kRemoteImageQualityCustom,
+              groupValue: groupValue,
+              label: 'Custom',
+              onChanged: isOptFixed ? null : onChanged),
+          Offstage(
+            offstage: groupValue != kRemoteImageQualityCustom,
+            child: customImageQualitySetting(),
+          )
+        ]);
   }
 
   Widget trackpadSpeed(BuildContext context) {
@@ -2088,29 +2122,32 @@ class _DisplayState extends State<_Display> {
     } catch (e) {
       debugPrint("failed to parse supported hwdecodings, err=$e");
     }
-    return _Card(context, title: 'Default Codec', hint: '자동 권장. 본사·거래처 환경에 따라 알아서 최선 선택.', children: [
-      _Radio(context,
-          value: 'auto',
-          groupValue: groupValue,
-          label: 'Auto',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: 'vp8',
-          groupValue: groupValue,
-          label: 'VP8',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: 'vp9',
-          groupValue: groupValue,
-          label: 'VP9',
-          onChanged: isOptFixed ? null : onChanged),
-      _Radio(context,
-          value: 'av1',
-          groupValue: groupValue,
-          label: 'AV1',
-          onChanged: isOptFixed ? null : onChanged),
-      ...hwRadios,
-    ]);
+    return _Card(context,
+        title: 'Default Codec',
+        hint: '자동 권장. 본사·거래처 환경에 따라 알아서 최선 선택.',
+        children: [
+          _Radio(context,
+              value: 'auto',
+              groupValue: groupValue,
+              label: 'Auto',
+              onChanged: isOptFixed ? null : onChanged),
+          _Radio(context,
+              value: 'vp8',
+              groupValue: groupValue,
+              label: 'VP8',
+              onChanged: isOptFixed ? null : onChanged),
+          _Radio(context,
+              value: 'vp9',
+              groupValue: groupValue,
+              label: 'VP9',
+              onChanged: isOptFixed ? null : onChanged),
+          _Radio(context,
+              value: 'av1',
+              groupValue: groupValue,
+              label: 'AV1',
+              onChanged: isOptFixed ? null : onChanged),
+          ...hwRadios,
+        ]);
   }
 
   Widget privacyModeImpl(BuildContext context) {
@@ -2136,7 +2173,8 @@ class _DisplayState extends State<_Display> {
     if (groupValue.isEmpty) {
       groupValue = bind.mainDefaultPrivacyModeImpl();
     }
-    return _Card(context, 
+    return _Card(
+      context,
       title: 'Privacy mode',
       children: privacyModeImpls.map((impl) {
         final d = impl as List<dynamic>;
@@ -2197,13 +2235,15 @@ class _AccountState extends State<_Account> {
     return ListView(
       controller: scrollController,
       children: [
-        _Card(context, title: 'Account', children: [accountAction(), useInfo()]),
+        _Card(context,
+            title: 'Account', children: [accountAction(), useInfo()]),
       ],
     ).marginOnly(bottom: _kListViewBottomMargin);
   }
 
   Widget accountAction() {
-    return Obx(() => _Button(context, 
+    return Obx(() => _Button(
+        context,
         gFFI.userModel.userName.value.isEmpty
             ? 'Login'
             : '${translate('Logout')} (${gFFI.userModel.accountLabelWithHandle})',
@@ -2360,7 +2400,8 @@ class _PluginState extends State<_Plugin> {
   }
 
   Widget accountAction() {
-    return Obx(() => _Button(context, 
+    return Obx(() => _Button(
+        context,
         gFFI.userModel.userName.value.isEmpty
             ? 'Login'
             : '${translate('Logout')} (${gFFI.userModel.accountLabelWithHandle})',
@@ -2558,13 +2599,16 @@ class _AboutState extends State<_About> {
               const SizedBox(height: 8.0),
               // 브랜드 헤더. 심볼 + 워드마크 + 부제 (2026-05-27 Chang 피드백).
               Container(
-                padding: const EdgeInsets.symmetric(
-                    vertical: 20, horizontal: 20),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [CrColors.of(context).tileAccent, CrColors.of(context).okFg],
+                    colors: [
+                      CrColors.of(context).tileAccent,
+                      CrColors.of(context).okFg
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -2573,15 +2617,10 @@ class _AboutState extends State<_About> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // 심볼만 (체인 아이콘) — 흰 배경 원 안에.
-                      // 이스터에그: 로고를 길게 누르면 크레딧 크롤(chainremote_easter_crawl.dart).
-                      //   ★바깥 SelectionArea 가 길게누르기도 가져가므로 여기서 빼 준다.
-                      SelectionContainer.disabled(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onLongPress: () => showCrCreditsCrawl(context),
-                          child: const _BrandMark(),
-                        ),
-                      ),
+                      // 이스터에그는 이 화면에 이미 하나 있다(버전 7연타 = 함께한 시간).
+                      //   크레딧 크롤은 홈 사이드바 로고로 옮겼다 — 한 화면에 둘을 겹칠
+                      //   이유가 없고, 사람이 로고를 누르는 자리는 사이드바다(2026-08-15 Chang).
+                      const _BrandMark(),
                       const SizedBox(width: 16),
                       Expanded(
                         child: Column(
@@ -2628,8 +2667,8 @@ class _AboutState extends State<_About> {
                 ),
               ),
               SelectionArea(
-                  child: Text('빌드 날짜: $buildDate')
-                      .marginSymmetric(vertical: 4.0)),
+                  child:
+                      Text('빌드 날짜: $buildDate').marginSymmetric(vertical: 4.0)),
               const SizedBox(height: 4),
               const ChainRemoteUpdateCheckRow(),
               const SizedBox(height: 4),
@@ -2730,8 +2769,8 @@ class _OpenSourceLicenseSectionState extends State<_OpenSourceLicenseSection> {
           _link('ChainRemote 변경 내역 (RustDesk 대비)',
               'https://github.com/betaposlab/chainremote/blob/master/CHAINREMOTE_CHANGES.md',
               color: accent),
-          _link('AGPL v3 라이선스 전문',
-              'https://www.gnu.org/licenses/agpl-3.0.html'),
+          _link(
+              'AGPL v3 라이선스 전문', 'https://www.gnu.org/licenses/agpl-3.0.html'),
           const SizedBox(height: 8),
           _link('RustDesk 원본 저장소', 'https://github.com/rustdesk/rustdesk'),
           _link('RustDesk 원본 웹사이트', 'https://rustdesk.com'),
@@ -2762,7 +2801,8 @@ Widget _Card(BuildContext context,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                    color: CrColors.of(context).neuShadowDark, // 더 진한 그림자(확실히 솟게)
+                    color:
+                        CrColors.of(context).neuShadowDark, // 더 진한 그림자(확실히 솟게)
                     offset: const Offset(7, 7),
                     blurRadius: 18),
                 BoxShadow(
@@ -2851,12 +2891,6 @@ Widget _Card(BuildContext context,
 //   _Radio:          라디오를 알약 칩으로 (활성 = brand 채움, 비활성 = 보더만)
 // 함수 시그니처는 그대로라 호출부 30여 곳은 손 안 대고 시각만 바꿨다.
 
-
-
-
-
-
-
 Widget _OptionCheckBox(
   BuildContext context,
   String label,
@@ -2929,8 +2963,7 @@ Widget _OptionCheckBox(
               enabled: canToggle,
               onChanged: canToggle ? () => onChanged(!on) : null,
             ),
-            if (checkedIcon != null && on)
-              checkedIcon.marginOnly(left: 6),
+            if (checkedIcon != null && on) checkedIcon.marginOnly(left: 6),
           ],
         ),
       ),
@@ -2957,7 +2990,9 @@ class _ChainSwitch extends StatelessWidget {
         ? (enabled
             ? CrColors.of(context).accentFill
             : CrColors.of(context).accentFill.withOpacity(0.4))
-        : (enabled ? CrColors.of(context).border : CrColors.of(context).border.withOpacity(0.5));
+        : (enabled
+            ? CrColors.of(context).border
+            : CrColors.of(context).border.withOpacity(0.5));
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: GestureDetector(
@@ -3015,9 +3050,12 @@ Widget _Radio<T>(BuildContext context,
       : CrColors.of(context).segmentBg;
   final fgColor = selected
       ? Colors.white
-      : (canTap ? CrColors.of(context).textStrong : CrColors.of(context).textStrong.withOpacity(0.4));
+      : (canTap
+          ? CrColors.of(context).textStrong
+          : CrColors.of(context).textStrong.withOpacity(0.4));
   return Padding(
-    padding: const EdgeInsets.only(left: _kRadioLeftMargin, right: 8, bottom: 6),
+    padding:
+        const EdgeInsets.only(left: _kRadioLeftMargin, right: 8, bottom: 6),
     child: Align(
       alignment: Alignment.centerLeft,
       child: MouseRegion(
@@ -3032,7 +3070,9 @@ Widget _Radio<T>(BuildContext context,
               color: bgColor,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: selected ? CrColors.of(context).tileAccent : CrColors.of(context).border,
+                color: selected
+                    ? CrColors.of(context).tileAccent
+                    : CrColors.of(context).border,
                 width: 1,
               ),
               boxShadow: selected
@@ -3164,7 +3204,8 @@ class _WaylandCardState extends State<WaylandCard> {
                   onPressed: () => gFFI.dialogManager.dismissAll())
             ]);
 
-    return _Button(context, 
+    return _Button(
+      context,
       'Clear Wayland screen selection',
       showConfirmMsgBox,
       tip: 'clear_Wayland_screen_selection_tip',
@@ -3207,7 +3248,8 @@ class _WaylandCardState extends State<WaylandCard> {
                             .copyWith(color: Colors.red))
                     .marginOnly(bottom: 10.0)),
       ),
-      _Button(context, 
+      _Button(
+        context,
         'Reset keyboard shortcuts permission',
         showConfirmMsgBox,
         tip: 'clear-shortcuts-inhibitor-permission-tip',
@@ -3242,7 +3284,8 @@ Widget _Button(BuildContext context, String label, Function() onPressed,
 }
 
 // ignore: non_constant_identifier_names
-Widget _SubButton(BuildContext context, String label, Function() onPressed, [bool enabled = true]) {
+Widget _SubButton(BuildContext context, String label, Function() onPressed,
+    [bool enabled = true]) {
   return Row(
     children: [
       ElevatedButton(
