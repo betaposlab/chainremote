@@ -4,7 +4,9 @@ import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { Suspense } from "react";
 import { SessionTable } from "./_session-table";
+import { SessionFilterBar } from "./_filter-bar";
 import { searchSessions, countSessionsAllPeriods } from "@/lib/data/sessions";
 
 export const dynamic = "force-dynamic";
@@ -101,57 +103,12 @@ export default async function SessionsPage({
         </div>
       </header>
 
-      {/* ★label 을 "필터"에서 "조회"로 바꿨다. 사람들이 '필터'를 안 누르고 왜 안 바뀌냐고
-          한다(2026-08-15 Chang). 그리고 "초기화"는 옆에 두면 **기록을 지우는 것**으로
-          읽힌다 — 실제로는 조건만 푸는 링크인데 만든 사람조차 그렇게 읽었다.
-          "전체 보기"로 바꿔 무엇이 일어나는지 이름에 박는다. */}
-      <form className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-        <input
-          type="search"
-          name="q"
-          defaultValue={q}
-          placeholder="내용 · 거래처 · 응대자 검색"
-          className="rounded-md border border-[#566999] bg-transparent px-2.5 py-1.5 w-56 placeholder:text-[#8b93ab]"
-        />
-        <select
-          name="period"
-          defaultValue={period}
-          className="rounded-md border border-[#566999] px-2 py-1.5"
-        >
-          {(Object.keys(PERIODS) as Period[]).map((k) => (
-            <option key={k} value={k}>
-              {PERIODS[k].label}
-            </option>
-          ))}
-        </select>
-        <select
-          name="customerId"
-          defaultValue={customerId ?? ""}
-          className="rounded-md border border-[#566999] px-2 py-1.5"
-        >
-          <option value="">전체 거래처</option>
-          {customerOptions.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          className="rounded-md bg-[#2f4a86] hover:bg-[#3a5a9e] px-3.5 py-1.5 font-medium text-white"
-        >
-          조회
-        </button>
-        {(periodParam || customerId || q) && (
-          <Link
-            href="/sessions"
-            className="text-xs text-[#ccd2e3] hover:text-white underline"
-            title="검색 조건만 지웁니다. 기록은 삭제되지 않습니다."
-          >
-            전체 보기
-          </Link>
-        )}
-      </form>
+      {/* 조회 줄은 클라이언트 컴포넌트다 — 글자를 치는 즉시 걸러지고, 기간·거래처도
+          고르는 즉시 반영된다. 그래서 [조회] 버튼이 없다(누를 것이 없다).
+          자세한 이유는 _filter-bar.tsx 머리말 참조. */}
+      <Suspense fallback={<div className="mb-4 h-9" />}>
+        <SessionFilterBar customers={customerOptions} />
+      </Suspense>
 
       {tableRows.length === 0 ? (
         <div className="rounded-lg border border-[#2b3a5f] bg-white/[0.02] px-5 py-10 text-center">
