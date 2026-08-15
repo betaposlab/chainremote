@@ -8,7 +8,7 @@ import {
   listCustomerSessions,
   listRecentSessions,
 } from "@/lib/data/sessions";
-import { tenants, users, customers, supportSessions } from "@/lib/schema";
+import { activeLoginSessions, tenants, users, customers, supportSessions } from "@/lib/schema";
 import { signApiToken } from "@/lib/api-auth";
 import { POST as startSessionRoute } from "@/app/api/sessions/route";
 
@@ -162,6 +162,16 @@ describe("POST /api/sessions — remoteId 시작 + 내부기기/미등록 스킵
       },
       "22222222-2222-2222-2222-222222222222",
     );
+    // 좌석 행 필요(A2-03 수정 이후) — 실 발급 경로도 좌석을 먼저 잡는다.
+    await testDb()
+      .insert(activeLoginSessions)
+      .values({
+        userId: s.operatorId,
+        jti: "22222222-2222-2222-2222-222222222222",
+        deviceId: "test-dev",
+        deviceLabel: "test",
+      })
+      .onConflictDoNothing();
     return token;
   }
   async function post(token: string, remoteId: string, connDirect?: boolean) {

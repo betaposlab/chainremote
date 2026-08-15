@@ -7,7 +7,7 @@
 //   stateless 경로 차단)라 모든 발급 토큰에 jti → "한 아이디 = 동시 1대" 빈틈 없음.
 //   옛 jti 없는 토큰은 TTL 24h 로 자연 소멸.
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
@@ -15,7 +15,7 @@ import { users, tenants } from "@/lib/schema";
 import { signApiToken, jsonError, ApiAuthError } from "@/lib/api-auth";
 import { claimSeat, countLiveTenantSessions } from "@/lib/data/active-sessions";
 import { clientIp } from "@/lib/request-ip";
-import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { rateLimit, rateLimitPeek, rateLimitRecord, rateLimitReset, tooManyRequests } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
@@ -27,9 +27,11 @@ export async function POST(req: Request) {
     };
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const password = typeof body.password === "string" ? body.password : "";
-    const deviceId = typeof body.deviceId === "string" ? body.deviceId.trim() : "";
+    // 길이 상한(A2-09) — 없으면 200KB 라벨이 그대로 좌석·세션 기기 스탬프까지 흘러간다.
+    const deviceId =
+      typeof body.deviceId === "string" ? body.deviceId.trim().slice(0, 128) : "";
     const deviceLabel =
-      typeof body.deviceLabel === "string" ? body.deviceLabel.trim() : "";
+      typeof body.deviceLabel === "string" ? body.deviceLabel.trim().slice(0, 128) : "";
     if (!email || !password) throw new ApiAuthError(400, "email/password 필요");
     // deviceId 없으면 거부 — 옛 stateless 경로 차단(§8). takeover 라우트와 동일.
     if (!deviceId) throw new ApiAuthError(400, "deviceId 필요");
@@ -38,7 +40,10 @@ export async function POST(req: Request) {
     const ip = clientIp(req) ?? "unknown";
     const ipRl = rateLimit(`login:ip:${ip}`, 15, 60_000);
     if (!ipRl.allowed) return tooManyRequests(ipRl.retryAfterSec);
-    const emailRl = rateLimit(`login:email:${email.toLowerCase()}`, 6, 60_000);
+    // 아이디 키는 **실패만** 센다(A2-08). 성공 시도까지 세면 아이디만 아는 사람이
+    //   1분에 6번 틀려서 그 계정 로그인을 계속 잠글 수 있었다(IP 무관 서비스 거부).
+    const emailKey = `login:email:${email.toLowerCase()}`;
+    const emailRl = rateLimitPeek(emailKey, 20, 600_000);
     if (!emailRl.allowed) return tooManyRequests(emailRl.retryAfterSec);
 
     // email 전역 유니크(마이그 012)라 단독 조회 안전 + 테넌트 상태도 같이 join.
@@ -58,14 +63,24 @@ export async function POST(req: Request) {
       })
       .from(users)
       .innerJoin(tenants, eq(users.tenantId, tenants.id))
-      .where(and(eq(users.email, email), eq(users.isActive, true)))
+      // 아이디는 대소문자를 가리지 않는다(A2-06) — 유니크 인덱스가 lower(email)(마이그012)
+      //   인데 조회만 정확일치라, "Chang" 으로 만든 계정에 "chang" 으로는 못 들어가고
+      //   같은 이름을 새로 만들 수도 없어 출구가 없었다.
+      .where(
+        and(
+          sql`lower(${users.email}) = ${email.toLowerCase()}`,
+          eq(users.isActive, true),
+        ),
+      )
       .limit(1);
     if (rows.length === 0) throw new ApiAuthError(401, "자격 실패");
 
     const u = rows[0];
     if (!bcrypt.compareSync(password, u.passwordHash)) {
+      rateLimitRecord(emailKey, 600_000);
       throw new ApiAuthError(401, "자격 실패");
     }
+    rateLimitReset(emailKey);
     // 정지/해지 테넌트 차단. super_admin 은 구독 대상이 아니라 예외(자기잠금 방지).
     if (
       u.role !== "super_admin" &&

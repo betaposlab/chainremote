@@ -158,6 +158,11 @@ export async function resetPassword(id: string, formData: FormData) {
     .update(users)
     .set({ passwordHash, updatedAt: new Date() })
     .where(and(eq(users.id, id), eq(users.tenantId, me.tenantId)));
+  // 비번을 바꾸면 기존 세션도 끊는다(A2-04, 2026-08-16). 종전엔 해시만 갈아서, 계정이
+  //   털려 비번을 바꿔도 침입자 HQ 는 heartbeat 200 + 롤링 재발급으로 앱을 안 끄는 한
+  //   영구히 살아 있었고 좌석까지 물고 있어 정당한 사용자가 409 를 맞았다.
+  //   좌석을 비우면 그 HQ 는 ~5초 뒤 REVOKED 로 스스로 로그아웃한다.
+  await revokeSeat(id);
   // 비번 자체는 절대 안 남긴다 — 누가 누구 것을 언제 리셋했는지만.
   await writeAudit({
     action: "user.password_reset",

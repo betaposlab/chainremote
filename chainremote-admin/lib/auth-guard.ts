@@ -16,7 +16,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { users } from "@/lib/schema";
+import { tenants, users } from "@/lib/schema";
 import type { Role } from "@/lib/roles";
 
 export interface LiveUser {
@@ -40,11 +40,20 @@ export async function getLiveUser(): Promise<LiveUser | null> {
       role: users.role,
       tenantId: users.tenantId,
       isActive: users.isActive,
+      tenantActive: tenants.isActive,
+      subscriptionStatus: tenants.subscriptionStatus,
     })
     .from(users)
+    .innerJoin(tenants, eq(tenants.id, users.tenantId))
     .where(eq(users.id, id))
     .limit(1);
   if (!u || !u.isActive) return null;
+  // 정지·해지 대리점 차단(A2-07, 2026-08-16). HQ 는 requireApiAuth 가 즉시 막는데 패널만
+  //   세션 쿠키 수명(7일) 동안 열려 있었다 — 거래처 관리도, **enroll-key 가 박힌 에이전트
+  //   다운로드**도 그대로 됐다. super_admin(본사)은 구독 대상이 아니라 예외(자기잠금 방지).
+  if (u.role !== "super_admin" && (!u.tenantActive || u.subscriptionStatus !== "active")) {
+    return null;
+  }
   return {
     id: u.id,
     email: u.email,

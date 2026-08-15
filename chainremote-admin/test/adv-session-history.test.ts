@@ -12,7 +12,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { SignJWT } from "jose";
 
 import { testDb } from "./helpers/db";
-import { tenants, users, customers, supportSessions } from "@/lib/schema";
+import { activeLoginSessions, tenants, users, customers, supportSessions } from "@/lib/schema";
 import { signApiToken } from "@/lib/api-auth";
 import {
   startSession,
@@ -77,12 +77,24 @@ async function mkCustomer(
   return c.id;
 }
 
+// ★jti 를 박은 토큰은 좌석 행이 있어야 한다(2026-08-16, A2-03 수정 이후).
+//   requireApiAuth 가 active_login_sessions 의 jti 를 대조하기 때문이다 — 인계당한 토큰이
+//   heartbeat 밖 API 에서 24h 살아 있던 구멍을 막으면서 생긴 계약이다. 실 발급 경로
+//   (/api/auth/token·takeover)도 항상 좌석을 먼저 잡으므로, 좌석 없는 jti 토큰은 원래 없다.
+async function seatFor(userId: string, jti: string) {
+  await testDb()
+    .insert(activeLoginSessions)
+    .values({ userId, jti, deviceId: "test-dev", deviceLabel: "test", ip: null })
+    .onConflictDoUpdate({ target: activeLoginSessions.userId, set: { jti } });
+}
+
 async function bearer(uid: string, tenantId: string, role: Role = "operator"): Promise<string> {
+  const jti = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
   const { token } = await signApiToken(
     { uid, email: `${uid}@x`, displayName: uid, role, tenantId },
-    // jti 는 좌석 enforcement 용 — 세션 라우트엔 무관하나 실 발급과 동일하게 박아둔다.
-    "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    jti,
   );
+  await seatFor(uid, jti);
   return token;
 }
 

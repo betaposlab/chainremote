@@ -4,6 +4,7 @@
 // 검증: 현재 비번 bcrypt.compareSync 통과해야 새 hash 저장.
 
 import bcrypt from "bcryptjs";
+import { revokeSeat } from "@/lib/data/active-sessions";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/lib/schema";
@@ -45,6 +46,11 @@ export async function POST(req: Request) {
       .update(users)
       .set({ passwordHash: newHash, updatedAt: new Date() })
       .where(eq(users.id, me.uid));
+  // 비번을 바꾸면 기존 세션도 끊는다(A2-04, 2026-08-16). 종전엔 해시만 갈아서, 계정이
+  //   털려 비번을 바꿔도 침입자 HQ 는 heartbeat 200 + 롤링 재발급으로 앱을 안 끄는 한
+  //   영구히 살아 있었고 좌석까지 물고 있어 정당한 사용자가 409 를 맞았다.
+  //   좌석을 비우면 그 HQ 는 ~5초 뒤 REVOKED 로 스스로 로그아웃한다.
+    await revokeSeat(me.uid);
 
     return Response.json({ ok: true });
   } catch (e) {

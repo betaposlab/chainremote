@@ -21,7 +21,7 @@ import bcrypt from "bcryptjs";
 process.env.AUTH_SECRET ||= "test-secret-subscription-enforcement";
 
 import { testDb } from "./helpers/db";
-import { tenants, users, customers } from "@/lib/schema";
+import { activeLoginSessions, tenants, users, customers } from "@/lib/schema";
 import { isTenantActive } from "@/lib/data/tenants";
 import { signApiToken } from "@/lib/api-auth";
 import { POST as tokenPOST } from "@/app/api/auth/token/route";
@@ -201,10 +201,16 @@ describe("H1 구독/테넌트 정지 enforcement", () => {
   // ── POST /api/auth/heartbeat — 24h 토큰이 정지 후에도 살아있는 공백 메움 ─
   describe("POST /api/auth/heartbeat — 정지 후 heartbeat 401", () => {
     async function bearer(uid: string, tenantId: string, role: ApiRole) {
+      const jti = "11111111-1111-1111-1111-111111111111";
       const { token } = await signApiToken(
         { uid, email: `${uid}@x`, displayName: uid, role, tenantId },
-        "11111111-1111-1111-1111-111111111111",
+        jti,
       );
+      // 좌석 행 필요(A2-03 수정 이후) — 실 발급 경로도 좌석을 먼저 잡는다.
+      await testDb()
+        .insert(activeLoginSessions)
+        .values({ userId: uid, jti, deviceId: "test-dev", deviceLabel: "test" })
+        .onConflictDoNothing();
       return token;
     }
 
@@ -235,6 +241,11 @@ describe("H1 구독/테넌트 정지 enforcement", () => {
         { uid, email: "gap-co@x", displayName: "gap", role: "owner", tenantId: tid },
         "22222222-2222-2222-2222-222222222222",
       );
+      // 좌석 행 필요(A2-03 수정 이후) — 실 발급 경로도 좌석을 먼저 잡는다.
+      await db
+        .insert(activeLoginSessions)
+        .values({ userId: uid, jti: "22222222-2222-2222-2222-222222222222", deviceId: "test-dev", deviceLabel: "test" })
+        .onConflictDoNothing();
 
       // 이제 테넌트를 정지시킨다.
       await db
@@ -256,11 +267,18 @@ describe("H1 구독/테넌트 정지 enforcement", () => {
     it("super_admin(본사)은 자기잠금 방지로 정지 상태에서도 리소스 접근 유지", async () => {
       const db = testDb();
       const tid = await makeTenant("hq-co", { subscriptionStatus: "suspended" });
-      const uid = await makeUser(tid, "hq@x");
+      // ★DB 계정도 super_admin 이어야 한다(2026-08-16, A2-05) — requireApiAuth 가 토큰의
+      //   role 이 아니라 DB 현재값을 믿는다. 종전엔 토큰만 super_admin 이면 통과했다.
+      const uid = await makeUser(tid, "hq@x", "super_admin");
       const { token } = await signApiToken(
         { uid, email: "hq@x", displayName: "hq", role: "super_admin", tenantId: tid },
         "33333333-3333-3333-3333-333333333333",
       );
+      // 좌석 행 필요(A2-03 수정 이후) — 실 발급 경로도 좌석을 먼저 잡는다.
+      await db
+        .insert(activeLoginSessions)
+        .values({ userId: uid, jti: "33333333-3333-3333-3333-333333333333", deviceId: "test-dev", deviceLabel: "test" })
+        .onConflictDoNothing();
       const req = new Request("http://t/api/customers", {
         method: "GET",
         headers: { authorization: `Bearer ${token}` },

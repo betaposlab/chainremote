@@ -7,7 +7,7 @@
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { tenants, users } from "@/lib/schema";
+import { activeLoginSessions, tenants, users } from "@/lib/schema";
 import { canWrite } from "@/lib/roles";
 
 const ALG = "HS256";
@@ -98,23 +98,38 @@ export async function requireApiAuth(req: Request): Promise<ApiTokenClaims> {
   //   uid 형식 검사를 먼저 — uuid 컬럼에 비-UUID 를 넘기면 Postgres 22P02 로 쿼리가 터지고
   //   그 에러 문구에 SQL 이 실려 500 바디로 샌다(CWE-209). 형식이 틀린 토큰은 그냥 죽은 것이다.
   if (!isUuid(claims.uid)) throw new ApiAuthError(401, "REVOKED", true);
-  const [u] = await db
-    .select({ isActive: users.isActive })
+  //   계정 생존 + 테넌트 상태 + **좌석 대조**를 한 번의 조회로 끝낸다.
+  //   좌석 대조(A2-03, 2026-08-16): 종전엔 heartbeat 라우트 한 곳만 jti 를 봤다. 그래서
+  //   인계당한(takeover 로 좌석을 뺏긴) 토큰이 heartbeat 밖 API 에서는 24h 동안 멀쩡했고,
+  //   heartbeat 를 안 보내는 클라이언트라면 좌석 enforcement 를 통째로 우회했다.
+  //   이제 관문에서 막으므로 "동시 1세션"이 클라이언트 협조 없이 성립한다.
+  const [row] = await db
+    .select({
+      isActive: users.isActive,
+      role: users.role,
+      tenantActive: tenants.isActive,
+      subscriptionStatus: tenants.subscriptionStatus,
+      seatJti: activeLoginSessions.jti,
+    })
     .from(users)
+    .innerJoin(tenants, eq(tenants.id, users.tenantId))
+    .leftJoin(activeLoginSessions, eq(activeLoginSessions.userId, users.id))
     .where(eq(users.id, claims.uid))
     .limit(1);
-  if (!u || !u.isActive) throw new ApiAuthError(401, "REVOKED", true);
+  if (!row || !row.isActive) throw new ApiAuthError(401, "REVOKED", true);
+
+  //   role 은 DB 현재값을 신뢰한다(A2-05) — 토큰 안의 role 은 최대 12h 낡을 수 있어
+  //   강등이 그동안 안 먹었다. 패널 관문(auth-guard)이 이미 DB 를 믿는 것과 짝을 맞춘다.
+  claims.role = row.role as ApiTokenClaims["role"];
+
+  //   jti 없는 옛 토큰은 발급 경로가 사라졌지만, 남아 있다면 좌석 대조를 건너뛴다
+  //   (§8 백워드 호환 — 24h 뒤 자연 소멸).
+  if (claims.jti && row.seatJti !== claims.jti) {
+    throw new ApiAuthError(401, "REVOKED", true);
+  }
 
   if (claims.role !== "super_admin") {
-    const [t] = await db
-      .select({
-        isActive: tenants.isActive,
-        subscriptionStatus: tenants.subscriptionStatus,
-      })
-      .from(tenants)
-      .where(eq(tenants.id, claims.tenantId))
-      .limit(1);
-    if (!t || !t.isActive || t.subscriptionStatus !== "active") {
+    if (!row.tenantActive || row.subscriptionStatus !== "active") {
       throw new ApiAuthError(401, "구독이 정지된 회사입니다");
     }
   }

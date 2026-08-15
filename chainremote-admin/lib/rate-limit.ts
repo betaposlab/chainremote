@@ -37,6 +37,43 @@ export function rateLimit(
   return { allowed: true, retryAfterSec: 0 };
 }
 
+/**
+ * 세지 않고 보기만 한다(A2-08). 로그인 아이디 키는 **실패만** 세야 한다 —
+ * 성공 시도까지 세면 아이디만 아는 사람이 남의 로그인을 잠글 수 있다(IP 무관 DoS).
+ */
+export function rateLimitPeek(
+  key: string,
+  limit: number,
+  windowMs: number,
+): { allowed: boolean; retryAfterSec: number } {
+  const now = Date.now();
+  sweep(now);
+  const arr = (buckets.get(key) ?? []).filter((t) => now - t < windowMs);
+  if (arr.length >= limit) {
+    buckets.set(key, arr);
+    return {
+      allowed: false,
+      retryAfterSec: Math.max(1, Math.ceil((windowMs - (now - arr[0])) / 1000)),
+    };
+  }
+  buckets.set(key, arr);
+  return { allowed: true, retryAfterSec: 0 };
+}
+
+/** 실패 1회 기록. */
+export function rateLimitRecord(key: string, windowMs: number): void {
+  const now = Date.now();
+  sweep(now);
+  const arr = (buckets.get(key) ?? []).filter((t) => now - t < windowMs);
+  arr.push(now);
+  buckets.set(key, arr);
+}
+
+/** 성공했으니 그 계정의 실패 기록을 지운다. */
+export function rateLimitReset(key: string): void {
+  buckets.delete(key);
+}
+
 /** 429 Too Many Requests 응답 헬퍼. */
 export function tooManyRequests(retryAfterSec: number): Response {
   return Response.json(
