@@ -34,6 +34,9 @@ export type SessionRow = {
   discardedAt: string | null;
   /** 원격 없이 손으로 남긴 기록(마이그045). */
   manual: boolean;
+  /** 세션을 시작한 HQ 의 호스트명·IP(마이그046). 옛 기록·수동 기록은 없다. */
+  operatorDevice: string | null;
+  operatorIp: string | null;
 };
 
 export function SessionTable({ rows }: { rows: SessionRow[] }) {
@@ -181,6 +184,16 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                           <Field label="담당 직원" value={r.operatorName} />
                           <Field label="거래처 응대자" value={r.contactName} />
                           <Field label="원격 ID" value={r.remoteId} />
+                          {/* 접속 기기(마이그046) — 낯선 호스트명·IP 가 보이면 계정 오사용을
+                              그 자리에서 알아챈다. 옛 기록엔 없어서 있을 때만 보여준다. */}
+                          {(r.operatorDevice || r.operatorIp) && (
+                            <Field
+                              label="접속 기기"
+                              value={[r.operatorDevice, r.operatorIp]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            />
+                          )}
                         </dl>
 
                         {cats.length > 0 && (

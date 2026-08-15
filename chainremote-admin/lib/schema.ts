@@ -323,6 +323,11 @@ export const supportSessions = pgTable(
     discardedAt: timestamp("discarded_at", { withTimezone: true }),
     // 수동 기록(마이그045) — 원격 없이 사람이 손으로 남긴 행(전화 처리, 지워진 기록 복원).
     manual: boolean("manual").notNull().default(false),
+    // 접속 기기 스탬프(마이그046) — 세션을 시작한 HQ 의 호스트명·IP. 좌석(active_login_sessions)
+    //   에 이미 있는 값을 시작 시점에 복사한 것(그쪽은 계정당 한 줄이라 덮어써진다).
+    //   ★정황이지 증거가 아니다: 호스트명은 사용자가 바꿀 수 있고 IP 는 공유기 단위다.
+    operatorDevice: text("operator_device"),
+    operatorIp: text("operator_ip"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

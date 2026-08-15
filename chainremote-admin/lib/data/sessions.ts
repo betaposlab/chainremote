@@ -2,7 +2,7 @@
 
 import { and, desc, eq, gte, ilike, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { customers, supportSessions, users } from "@/lib/schema";
+import { activeLoginSessions, customers, supportSessions, users } from "@/lib/schema";
 
 /**
  * 내가 최근에 접속한 세션들 + 거래처 정보.
@@ -112,6 +112,18 @@ export async function startSession(input: {
   /** 이 연결이 직결(P2P)인가(마이그038). undefined = 미보고(구버전 HQ). */
   connDirect?: boolean;
 }) {
+  // 접속 기기 스탬프(마이그046) — 이 직원이 지금 앉아 있는 좌석의 호스트명·IP 를 복사한다.
+  //   좌석은 계정당 한 줄이라 다음 로그인에 덮어써지므로, 세션마다 그때의 값을 남겨야
+  //   나중에 "어느 PC 에서 봤나"를 답할 수 있다. HQ 는 아무것도 더 안 보낸다(발행 불필요).
+  //   좌석이 없으면(옛 경로 로그인) null — 스탬프가 없다고 세션 기록을 막지는 않는다.
+  const [seat] = await db
+    .select({
+      label: activeLoginSessions.deviceLabel,
+      ip: activeLoginSessions.ip,
+    })
+    .from(activeLoginSessions)
+    .where(eq(activeLoginSessions.userId, input.operatorId))
+    .limit(1);
   const existing = await db
     .select()
     .from(supportSessions)
@@ -138,6 +150,8 @@ export async function startSession(input: {
       remoteId: input.remoteId,
       resolution: "in_progress",
       connDirect: input.connDirect,
+      operatorDevice: seat?.label ?? null,
+      operatorIp: seat?.ip ?? null,
     })
     .onConflictDoNothing()
     .returning();
@@ -449,6 +463,8 @@ export async function searchSessions(opts: {
       contactName: supportSessions.contactName,
       remoteId: supportSessions.remoteId,
       operatorName: users.displayName,
+      operatorDevice: supportSessions.operatorDevice,
+      operatorIp: supportSessions.operatorIp,
     })
     .from(supportSessions)
     .leftJoin(customers, eq(customers.id, supportSessions.customerId))
