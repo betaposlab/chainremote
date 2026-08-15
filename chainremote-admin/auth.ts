@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
 import { db } from "./lib/db";
 import { users, tenants } from "./lib/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -37,7 +37,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           })
           .from(users)
           .innerJoin(tenants, eq(users.tenantId, tenants.id))
-          .where(and(eq(users.email, username), eq(users.isActive, true)))
+          // 아이디는 대소문자를 가리지 않는다(A2-06) — 유니크 인덱스가 lower(email) 이라
+          //   단일 행이 보장된다. 패널 로그인도 HQ(/api/auth/token)와 같은 규칙이어야 한다.
+          .where(
+            and(
+              sql`lower(${users.email}) = ${username.toLowerCase()}`,
+              eq(users.isActive, true),
+            ),
+          )
           .limit(1);
         if (rows.length === 0) return null;
 
