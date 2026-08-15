@@ -4,11 +4,9 @@
 // 폼 POST → server action → auth.signIn("credentials", ...) → 성공 시 next 또는 / 로 리디렉트.
 
 import { redirect } from "next/navigation";
-import { signIn, auth } from "@/auth";
+import { signIn } from "@/auth";
+import { getLiveUser } from "@/lib/auth-guard";
 import { AuthError } from "next-auth";
-import { eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import { users } from "@/lib/schema";
 
 export default async function LoginPage({
   searchParams,
@@ -18,19 +16,10 @@ export default async function LoginPage({
   // 이미 로그인됐으면 / 로.
   //
   // ★단, 세션이 가리키는 계정이 아직 살아 있을 때만이다. JWT 는 자체 서명이라 계정이나
-  //   회사가 사라져도 유효해 보이는데, 그 상태로 / 에 보내면 홈이 tenant 를 못 찾아 다시
-  //   /login 으로 보낸다 → **무한 리다이렉트**로 로그인도 로그아웃도 못 하는 상태가 된다
-  //   (쿠키를 손으로 지우는 것 말곤 방법이 없다). 회사 삭제·계정 삭제·DB 복원 뒤에 실제로
-  //   생길 수 있는 경로다. 계정이 없으면 그냥 로그인 폼을 보여줘 스스로 빠져나오게 한다.
-  const session = await auth();
-  if (session?.user?.id) {
-    const [alive] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.id, session.user.id))
-      .limit(1);
-    if (alive) redirect("/");
-  }
+  //   회사가 사라져도 유효해 보이는데, 그 상태로 / 에 보내면 홈이 다시 /login 으로 보내
+  //   **무한 리다이렉트**가 된다(로그인도 로그아웃도 못 하고 쿠키를 손으로 지워야 한다).
+  //   삭제·비활성 계정이면 그냥 로그인 폼을 보여줘 스스로 빠져나오게 한다.
+  if (await getLiveUser()) redirect("/");
 
   const params = await searchParams;
   const next = params.next ?? "/";

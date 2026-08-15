@@ -5,17 +5,19 @@ import { users } from "@/lib/schema";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { writeAudit } from "@/lib/data/audit";
+import { revokeSeat } from "@/lib/data/active-sessions";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
-import { auth } from "@/auth";
+import { requireLiveUserOrThrow } from "@/lib/auth-guard";
 import { assertEmailAvailable, assertSeatAvailable } from "@/lib/data/users";
 import { canManageAccounts, STORABLE_ROLES, type Role } from "@/lib/roles";
 
 // 계정 관리 게이트 — 대표자·관리자만. 직원은 거래처 작업을 다 하되 여기서만 막힌다
 // (3역할 체계, 2026-07-25 Chang 확정). 다른 회사 사용자는 tenantId 격리로 애초에 안 보인다.
 async function requireAccountManager() {
-  const session = await auth();
-  if (!session?.user) throw new Error("로그인 필요");
+  // 쿠키의 존재가 아니라 **계정이 지금도 살아 있는지**를 본다(퇴사자 즉시 차단).
+  //   role 도 DB 현재값이라 권한 강등이 다음 클릭부터 바로 먹는다.
+  const session = { user: await requireLiveUserOrThrow() };
   if (!canManageAccounts(session.user.role)) {
     throw new Error("대표자·관리자만 직원 계정을 관리할 수 있습니다");
   }
@@ -125,6 +127,10 @@ export async function updateUser(id: string, formData: FormData) {
     .update(users)
     .set({ displayName, role, isActive, updatedAt: new Date() })
     .where(and(eq(users.id, id), eq(users.tenantId, me.tenantId)));
+  // 비활성으로 내렸으면 좌석까지 회수한다 — 안 그러면 그 사람 HQ 가 다음 토큰 롤링(수명
+  // 절반, 최대 12h)까지 멀쩡히 돈다. 좌석을 비우면 ~5초 뒤 heartbeat 가 REVOKED 를 받는다.
+  // 삭제는 좌석 FK 가 cascade 라 따로 할 일이 없다.
+  if (!isActive) await revokeSeat(id);
   // 이름만 고친 저장은 남기지 않는다 — 권한·활성 상태가 실제로 달라졌을 때만.
   if (before && (before.role !== role || before.isActive !== isActive)) {
     await writeAudit({

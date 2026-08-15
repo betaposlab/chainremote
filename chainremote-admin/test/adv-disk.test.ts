@@ -32,7 +32,7 @@ import {
   requestCleanup,
   getCleanupRequest,
 } from "@/lib/data/customers";
-import { tenants, customers } from "@/lib/schema";
+import { tenants, customers, users } from "@/lib/schema";
 import { signApiToken } from "@/lib/api-auth";
 import { POST as cleanupPOST } from "@/app/api/customers/cleanup/route";
 import { POST as heartbeatPOST } from "@/app/api/customers/heartbeat/route";
@@ -90,14 +90,27 @@ async function row(remoteId: string) {
   return r;
 }
 
-// Bearer 토큰 발급 — requireApiAuth 는 tenant 상태만 검사하고 user row 를 조회하지 않으므로
-// user 삽입 없이 claims 만 서명하면 된다.
+// Bearer 토큰 발급 — ★실제 user 행을 만들어 그 id 로 서명한다.
+//   requireApiAuth 가 "이 계정이 지금도 살아 있나"를 조회하기 때문이다(퇴사자 즉시 차단,
+//   2026-08-15). 종전엔 uid 를 "u-owner" 같은 가짜로 넣어도 통과했는데, 그건 삭제된 계정의
+//   토큰이 24h 동안 살아 있던 시절의 계약이다.
 async function bearer(
   tenantId: string,
   role: "owner" | "admin" | "operator" | "viewer" | "super_admin",
 ): Promise<string> {
+  const db = testDb();
+  const [u] = await db
+    .insert(users)
+    .values({
+      tenantId,
+      email: `${role}-${tenantId.slice(0, 8)}@x`,
+      displayName: role,
+      passwordHash: "x",
+      role,
+    })
+    .returning({ id: users.id });
   const { token } = await signApiToken({
-    uid: "u-" + role,
+    uid: u.id,
     email: role + "@x",
     displayName: role,
     role,

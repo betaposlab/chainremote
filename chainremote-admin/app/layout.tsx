@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
-import { auth, signOut } from "@/auth";
+import { signOut } from "@/auth";
+import { getLiveUser } from "@/lib/auth-guard";
 import { roleLabel, canManageAccounts } from "@/lib/roles";
 import { Shell } from "./_shell";
 import { countFeedbackBadge } from "@/lib/data/feedback";
@@ -16,8 +17,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
-  const user = session?.user;
+  // 사이드바(이름·권한 메뉴)도 계정 생존 기준으로 그린다 — 퇴사자 쿠키로 껍데기 화면이
+  //   뜨면 "아직 되는 줄" 알게 되고, 강등된 사람에게 관리 메뉴가 계속 보인다.
+  const user = await getLiveUser();
 
   // 사이드바 배지. 미인증이면 아예 안 물어본다(아래에서 early return).
   //   레이아웃은 모든 페이지에 렌더되므로 쿼리 하나가 매 요청에 얹힌다 — count 한 번이고

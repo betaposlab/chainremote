@@ -16,7 +16,7 @@
 // 베이스로 쓴다 — 별도 "Base" 파일 자체를 없애 이 채널이 다시는 안 뒤처지게 한다.
 
 import { createHash } from "crypto";
-import { auth } from "@/auth";
+import { getLiveUser } from "@/lib/auth-guard";
 import { getTenant, getOrCreateEnrollKey } from "@/lib/data/tenants";
 import { fetchAgentPushMetaServer } from "@/lib/agent-push-meta";
 import { canWrite } from "@/lib/roles";
@@ -37,7 +37,9 @@ function jsonError(status: number, error: string): Response {
 
 export async function POST(_req: Request, ctx: Ctx) {
   // 브라우저 세션 게이트. super_admin(Chang) 또는 *자기 회사* owner(대리점) 만.
-  const session = await auth();
+  // 세션 쿠키의 존재가 아니라 계정 생존을 본다 — 퇴사자가 설치파일을 계속 받아가면
+  //   차단이 반쪽이다(에이전트 exe 에는 대리점 enroll-key 가 박힌다).
+  const session = { user: await getLiveUser() };
   const me = session?.user;
   if (!me) return jsonError(403, "로그인이 필요합니다");
   const { id } = await ctx.params;

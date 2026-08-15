@@ -6,7 +6,7 @@
 
 import { readFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { getLiveUser } from "@/lib/auth-guard";
 import { getImageForServe } from "@/lib/data/feedback";
 import { resolveStoredPath } from "@/lib/feedback-upload";
 
@@ -14,7 +14,9 @@ export async function GET(
   _req: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth();
+  // 세션 쿠키의 존재가 아니라 계정 생존을 본다 — 퇴사자가 설치파일을 계속 받아가면
+  //   차단이 반쪽이다(에이전트 exe 에는 대리점 enroll-key 가 박힌다).
+  const session = { user: await getLiveUser() };
   if (!session?.user) {
     return new NextResponse("Unauthorized", { status: 401 });
   }

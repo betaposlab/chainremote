@@ -7,7 +7,7 @@
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { tenants } from "@/lib/schema";
+import { tenants, users } from "@/lib/schema";
 import { canWrite } from "@/lib/roles";
 
 const ALG = "HS256";
@@ -63,7 +63,11 @@ export async function verifyApiToken(token: string): Promise<ApiTokenClaims> {
 }
 
 export class ApiAuthError extends Error {
-  constructor(public status: number, message: string) {
+  /**
+   * revoked=true 면 응답 바디에 `revoked: true` 가 실린다 — HQ 는 이걸 "인계당함/차단"으로
+   * 보고 **즉시 세션을 끊고 로그아웃**한다. 일반 401 은 재로그인 시도로 처리된다.
+   */
+  constructor(public status: number, message: string, public revoked = false) {
     super(message);
   }
 }
@@ -85,6 +89,22 @@ export async function requireApiAuth(req: Request): Promise<ApiTokenClaims> {
   //   ★상태코드 401(403 아님): /api/auth/heartbeat 이 정지에 401 을 쓰는 기존 설계와 일관되게 —
   //     앱은 non-revoked 401 을 "재로그인" 으로 처리하고, 그 재로그인은 token 라우트가 403 으로 막아
   //     깔끔히 로그아웃된다. 403 을 내면 앱의 heartbeat 401 흐름과 어긋나 세션이 limbo 에 빠진다.
+  // 퇴사자 즉시 차단(2026-08-15) — 삭제·비활성 계정의 토큰은 그 즉시 죽는다.
+  //   토큰은 24h 짜리 자체 서명이라 이 조회가 없으면 해고한 직원이 하루를 더 쓴다.
+  //   삭제는 좌석 행이 cascade 로 사라져 heartbeat 가 걸러 주지만, **비활성(isActive=false)은
+  //   좌석이 남아** 토큰 롤링 시점(수명 절반)까지 통과하던 구멍이 있었다. 여기서 막는다.
+  //   ★revoked:true — 앱이 "인계당함"과 같은 경로로 즉시 세션을 끊고 로그아웃한다.
+  //     (일반 401 은 재로그인 시도로 처리되는데, 그 재로그인은 어차피 막히지만 화면이 지저분하다.)
+  //   uid 형식 검사를 먼저 — uuid 컬럼에 비-UUID 를 넘기면 Postgres 22P02 로 쿼리가 터지고
+  //   그 에러 문구에 SQL 이 실려 500 바디로 샌다(CWE-209). 형식이 틀린 토큰은 그냥 죽은 것이다.
+  if (!isUuid(claims.uid)) throw new ApiAuthError(401, "REVOKED", true);
+  const [u] = await db
+    .select({ isActive: users.isActive })
+    .from(users)
+    .where(eq(users.id, claims.uid))
+    .limit(1);
+  if (!u || !u.isActive) throw new ApiAuthError(401, "REVOKED", true);
+
   if (claims.role !== "super_admin") {
     const [t] = await db
       .select({
@@ -137,7 +157,10 @@ function errorMessageChain(e: unknown): string {
 // 라우트에서 에러 응답 통일.
 export function jsonError(e: unknown): Response {
   if (e instanceof ApiAuthError) {
-    return Response.json({ error: e.message }, { status: e.status });
+    return Response.json(
+      e.revoked ? { error: e.message, revoked: true } : { error: e.message },
+      { status: e.status },
+    );
   }
   // remote_id 전역 partial-unique(011) 충돌은 원시 SQL 500 대신 409 로.
   // (다른 거래처와 같은 ID 등록 시도 — 오타/복붙/멀티테넌트 중복.)

@@ -2,9 +2,9 @@
 // super_admin(Chang) 은 회사별 아코디언(CompanyAccordion), owner 는 tenant 격리로 자기 회사 직원만 본다.
 
 import { db } from "@/lib/db";
+import { requireLiveUser } from "@/lib/auth-guard";
 import { users, tenants } from "@/lib/schema";
 import { eq, desc } from "drizzle-orm";
-import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { UserRow } from "./_user-row";
 import { CreateUserForm } from "./_create-form";
@@ -33,8 +33,9 @@ async function getTargetHqVersion(): Promise<string | null> {
 }
 
 export default async function UsersPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+  // 쿠키가 아니라 **계정이 지금도 살아 있는지**를 본다 — 삭제·비활성 계정은 즉시 막힌다.
+  //   role 역시 DB 현재값이라 권한 강등이 곧바로 반영된다(lib/auth-guard.ts).
+  const session = { user: await requireLiveUser() };
   if (!canManageAccounts(session.user.role)) {
     return (
       <div className="px-4 py-5 md:px-8 md:py-6">

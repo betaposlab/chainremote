@@ -11,7 +11,7 @@
 // 호스팅이 NAS 가 아니라 랜딩(Cafe24)인 이유: ChainGo 는 자동업뎃 경로가 없는 무설치
 // exe 라 랜딩·자료실로만 배포된다. NAS `/chainremote/` 에는 올라가지 않는다(404).
 
-import { auth } from "@/auth";
+import { getLiveUser } from "@/lib/auth-guard";
 import { getTenant } from "@/lib/data/tenants";
 import { fetchHqLatestServer } from "@/lib/hq-latest";
 
@@ -31,7 +31,9 @@ type Ctx = { params: Promise<{ id: string }> };
 export async function GET(_req: Request, ctx: Ctx) {
   // 브라우저 세션 게이트 — HQ 와 같은 기준(super_admin 또는 그 회사 소속 누구나).
   // ChainGo 는 직원이 쓰는 도구라 owner 로 좁히지 않는다.
-  const session = await auth();
+  // 세션 쿠키의 존재가 아니라 계정 생존을 본다 — 퇴사자가 설치파일을 계속 받아가면
+  //   차단이 반쪽이다(에이전트 exe 에는 대리점 enroll-key 가 박힌다).
+  const session = { user: await getLiveUser() };
   const me = session?.user;
   if (!me) return jsonError(403, "로그인이 필요합니다");
   const { id } = await ctx.params;

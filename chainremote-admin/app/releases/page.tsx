@@ -4,7 +4,7 @@
 //   오히려 알려야 "업데이트하니 뭐가 좋아졌냐"는 문의가 준다.
 
 import type { Metadata } from "next";
-import { auth } from "@/auth";
+import { requireLiveUser } from "@/lib/auth-guard";
 import { KIND_LABEL, listReleases } from "@/lib/data/releases";
 
 export const metadata: Metadata = { title: "업데이트 내역 — ChainRemote 관리 패널" };
@@ -18,8 +18,9 @@ function fmt(d: Date) {
 }
 
 export default async function ReleasesPage() {
-  const session = await auth();
-  if (!session?.user) return null;
+  // 쿠키가 아니라 **계정이 지금도 살아 있는지**를 본다 — 삭제·비활성 계정은 즉시 막힌다.
+  //   role 역시 DB 현재값이라 권한 강등이 곧바로 반영된다(lib/auth-guard.ts).
+  const session = { user: await requireLiveUser() };
 
   const rows = await listReleases();
 

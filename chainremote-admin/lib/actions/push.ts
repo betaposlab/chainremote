@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
+import { requireLiveUserOrThrow } from "@/lib/auth-guard";
 import * as data from "@/lib/data/pending-updates";
 import { canWrite } from "@/lib/roles";
 import { writeAudit } from "@/lib/data/audit";
@@ -10,8 +10,9 @@ import { writeAudit } from "@/lib/data/audit";
 // 막는다. 다른 액션(alerts.ts 등)은 처음부터 canWrite 로 걸러왔는데 여기만 빠져 있었다.
 // 하필 푸시는 살아있는 플릿 전체에 설치를 거는 동작이라, 읽기 전용 계정이 닿으면 안 된다.
 async function requireSession() {
-  const session = await auth();
-  if (!session?.user) throw new Error("로그인 필요");
+  // 쿠키의 존재가 아니라 **계정이 지금도 살아 있는지**를 본다(퇴사자 즉시 차단).
+  //   role 도 DB 현재값이라 권한 강등이 다음 클릭부터 바로 먹는다.
+  const session = { user: await requireLiveUserOrThrow() };
   if (!canWrite(session.user.role)) {
     throw new Error("읽기 전용 계정은 이 작업 권한이 없습니다");
   }

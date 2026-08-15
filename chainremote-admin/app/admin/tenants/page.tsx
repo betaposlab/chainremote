@@ -2,8 +2,8 @@
 // 등록일/요금/구독상태/비번 리셋만 다룬다.
 
 import Link from "next/link";
+import { requireLiveUser } from "@/lib/auth-guard";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import { listTenants, tenantUserCounts } from "@/lib/data/tenants";
 import { TenantRowActions } from "./_tenant-row-actions";
 // 회사명 클릭 → 수정 페이지. 행 우측 [수정] 버튼도 동일.
@@ -11,8 +11,9 @@ import { TenantRowActions } from "./_tenant-row-actions";
 export const dynamic = "force-dynamic";
 
 export default async function TenantsPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+  // 쿠키가 아니라 **계정이 지금도 살아 있는지**를 본다 — 삭제·비활성 계정은 즉시 막힌다.
+  //   role 역시 DB 현재값이라 권한 강등이 곧바로 반영된다(lib/auth-guard.ts).
+  const session = { user: await requireLiveUser() };
   if (session.user.role !== "super_admin") {
     return (
       <div className="px-4 py-5 md:px-8 md:py-6">

@@ -11,15 +11,16 @@ import { users } from "@/lib/schema";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
-import { auth } from "@/auth";
+import { requireLiveUserOrThrow } from "@/lib/auth-guard";
 import { assertEmailAvailable } from "@/lib/data/users";
 
 const BCRYPT_COST = 10;
 type Role = "owner" | "admin" | "operator" | "viewer";
 
 async function requireSuperAdmin() {
-  const session = await auth();
-  if (!session?.user) throw new Error("로그인 필요");
+  // 쿠키의 존재가 아니라 **계정이 지금도 살아 있는지**를 본다(퇴사자 즉시 차단).
+  //   role 도 DB 현재값이라 권한 강등이 다음 클릭부터 바로 먹는다.
+  const session = { user: await requireLiveUserOrThrow() };
   if (session.user.role !== "super_admin") {
     throw new Error("플랫폼 운영자(super_admin) 만 회사별 사용자 관리 가능");
   }

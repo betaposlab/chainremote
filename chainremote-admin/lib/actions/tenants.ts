@@ -7,7 +7,7 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { writeAudit } from "@/lib/data/audit";
-import { auth } from "@/auth";
+import { requireLiveUserOrThrow } from "@/lib/auth-guard";
 import {
   createTenantWithOwner,
   deleteTenantCascade,
@@ -26,8 +26,9 @@ const PASSWORD_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz234567
 const PASSWORD_LEN = 8;
 
 async function requireSuperAdmin() {
-  const session = await auth();
-  if (!session?.user) throw new Error("로그인 필요");
+  // 쿠키의 존재가 아니라 **계정이 지금도 살아 있는지**를 본다(퇴사자 즉시 차단).
+  //   role 도 DB 현재값이라 권한 강등이 다음 클릭부터 바로 먹는다.
+  const session = { user: await requireLiveUserOrThrow() };
   if (session.user.role !== "super_admin") {
     throw new Error("super_admin 권한만 회사 관리 가능");
   }

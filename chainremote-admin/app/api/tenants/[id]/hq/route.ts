@@ -7,7 +7,7 @@
 // 대리점 온보딩이 이걸로 끝난다: 계정 발급 → 패널 로그인 → 에이전트·HQ 둘 다 여기서.
 // 종전엔 HQ 만 받을 곳이 없어 카톡·메일로 손수 보내야 했다.
 
-import { auth } from "@/auth";
+import { getLiveUser } from "@/lib/auth-guard";
 import { getTenant } from "@/lib/data/tenants";
 import { fetchHqLatestServer } from "@/lib/hq-latest";
 
@@ -25,7 +25,9 @@ function jsonError(status: number, error: string): Response {
 export async function GET(_req: Request, ctx: Ctx) {
   // 브라우저 세션 게이트. super_admin(Chang) 또는 그 회사 소속이면 누구나 —
   // HQ 는 직원이 쓰는 앱이라 owner 로 좁히지 않는다(에이전트와 다른 점).
-  const session = await auth();
+  // 세션 쿠키의 존재가 아니라 계정 생존을 본다 — 퇴사자가 설치파일을 계속 받아가면
+  //   차단이 반쪽이다(에이전트 exe 에는 대리점 enroll-key 가 박힌다).
+  const session = { user: await getLiveUser() };
   const me = session?.user;
   if (!me) return jsonError(403, "로그인이 필요합니다");
   const { id } = await ctx.params;

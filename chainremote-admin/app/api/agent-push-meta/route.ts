@@ -15,11 +15,13 @@
 // 라우트(/api/tenants/[id]/agent 등)와 동일하게 auth() 세션 체크로 되돌린다. 로그인만 돼
 // 있으면 role 무관 허용(정보 노출 위험 없는 공개 빌드 메타).
 
-import { auth } from "@/auth";
+import { getLiveUser } from "@/lib/auth-guard";
 import { fetchAgentPushMetaServer } from "@/lib/agent-push-meta";
 
 export async function GET() {
-  const session = await auth();
+  // 세션 쿠키의 존재가 아니라 계정 생존을 본다 — 퇴사자가 설치파일을 계속 받아가면
+  //   차단이 반쪽이다(에이전트 exe 에는 대리점 enroll-key 가 박힌다).
+  const session = { user: await getLiveUser() };
   if (!session?.user) {
     return Response.json({ error: "로그인이 필요합니다" }, { status: 403 });
   }

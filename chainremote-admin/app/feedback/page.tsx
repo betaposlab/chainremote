@@ -5,7 +5,7 @@
 //
 // 목록은 접힌 한 줄이 기본이다(_row.tsx). 카드로 다 펼쳐 두면 몇 건만 쌓여도 훑을 수 없다.
 
-import { auth } from "@/auth";
+import { requireLiveUser } from "@/lib/auth-guard";
 import {
   listFeedbackForPlatform,
   listFeedbackForTenant,
@@ -28,8 +28,9 @@ function fmt(d: Date | null) {
 }
 
 export default async function FeedbackPage() {
-  const session = await auth();
-  if (!session?.user) return null;
+  // 쿠키가 아니라 **계정이 지금도 살아 있는지**를 본다 — 삭제·비활성 계정은 즉시 막힌다.
+  //   role 역시 DB 현재값이라 권한 강등이 곧바로 반영된다(lib/auth-guard.ts).
+  const session = { user: await requireLiveUser() };
   const me = session.user;
   const isPlatform = me.role === "super_admin";
 

@@ -184,3 +184,13 @@ export async function releaseSeat(userId: string, jti: string): Promise<void> {
       and(eq(activeLoginSessions.userId, userId), eq(activeLoginSessions.jti, jti)),
     );
 }
+
+/**
+ * 계정 차단용 강제 좌석 회수(2026-08-15) — jti 를 따지지 않고 그 계정의 좌석을 비운다.
+ * 비활성화(isActive=false)에 쓴다: 삭제는 FK cascade 로 좌석이 알아서 사라지지만 비활성은
+ * 행이 남아 HQ heartbeat 가 계속 200 을 받았다. 좌석을 비우면 다음 heartbeat(~5초)에
+ * REVOKED 가 나가 앱이 스스로 세션을 끊는다.
+ */
+export async function revokeSeat(userId: string): Promise<void> {
+  await db.delete(activeLoginSessions).where(eq(activeLoginSessions.userId, userId));
+}

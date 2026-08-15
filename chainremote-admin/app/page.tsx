@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
+import { requireLiveUser } from "@/lib/auth-guard";
 import Link from "next/link";
-import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { customers, supportSessions, tenants } from "@/lib/schema";
 import { and, count, eq, gte, sql } from "drizzle-orm";
@@ -14,8 +14,9 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   // 테넌트 격리: 로그인 사용자 회사로 한정. 대리점은 자기 회사 현황만 봐야 한다.
   // chang=betaposlab 이라 본사 화면은 그대로.
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+  // 쿠키가 아니라 **계정이 지금도 살아 있는지**를 본다 — 삭제·비활성 계정은 즉시 막힌다.
+  //   role 역시 DB 현재값이라 권한 강등이 곧바로 반영된다(lib/auth-guard.ts).
+  const session = { user: await requireLiveUser() };
   const tenant = (
     await db.select().from(tenants).where(eq(tenants.id, session.user.tenantId)).limit(1)
   )[0];

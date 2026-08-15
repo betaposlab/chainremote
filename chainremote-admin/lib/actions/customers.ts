@@ -3,16 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { writeAudit } from "@/lib/data/audit";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { requireLiveUserOrThrow } from "@/lib/auth-guard";
 import * as data from "@/lib/data/customers";
 import * as favData from "@/lib/data/favorites";
 import { listTenantStaff } from "@/lib/data/users";
 import { createFolder } from "@/lib/data/folders";
 
 async function requireSession() {
-  const session = await auth();
-  if (!session?.user) throw new Error("로그인 필요");
-  return session.user;
+  // 쿠키의 존재가 아니라 **계정이 지금도 살아 있는지**를 본다(퇴사자 즉시 차단).
+  return requireLiveUserOrThrow();
 }
 
 // 폼의 folderName(자유 입력)을 folderId 로 푼다 — 같은 이름이 있으면 그 폴더, 없으면 새로

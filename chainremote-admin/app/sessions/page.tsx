@@ -1,9 +1,9 @@
 import { db } from "@/lib/db";
+import { requireLiveUser } from "@/lib/auth-guard";
 import { customers, supportSessions, tenants, users } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import { Suspense } from "react";
 import { SessionTable } from "./_session-table";
 import { SessionFilterBar } from "./_filter-bar";
@@ -36,8 +36,9 @@ export default async function SessionsPage({
   const q = (qParam ?? "").trim().slice(0, 60);
 
   // 테넌트 격리: 로그인 사용자 회사로 한정.
-  const session = await auth();
-  if (!session?.user) redirect("/login");
+  // 쿠키가 아니라 **계정이 지금도 살아 있는지**를 본다 — 삭제·비활성 계정은 즉시 막힌다.
+  //   role 역시 DB 현재값이라 권한 강등이 곧바로 반영된다(lib/auth-guard.ts).
+  const session = { user: await requireLiveUser() };
   const tenant = (
     await db.select().from(tenants).where(eq(tenants.id, session.user.tenantId)).limit(1)
   )[0];
