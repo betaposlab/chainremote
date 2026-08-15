@@ -23,6 +23,8 @@ export interface TenantFields {
   businessType?: string | null;
   businessItem?: string | null;
   companyPhone?: string | null;
+  /** 세금계산서·구독 안내를 받는 주소(마이그047). 로그인 아이디와 다른 값. */
+  contactEmail?: string | null;
   representativePhone?: string | null;
   contactPhone?: string | null;
   bankName?: string | null;

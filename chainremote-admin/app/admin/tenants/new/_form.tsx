@@ -75,6 +75,17 @@ export function NewTenantForm() {
         <Field label="담당자 휴대폰" required>
           <FormattedInput type="phone" name="contactPhone" required className={inp} placeholder="010-0000-0000" />
         </Field>
+        {/* 세금계산서·구독 안내가 가는 주소. 로그인 아이디와는 별개다(아이디는 이메일이
+            아닐 수 있고, 청구는 대개 경리 담당자에게 간다). */}
+        <Field label="이메일" hint="세금계산서·안내 메일이 가는 주소. 로그인 아이디와 별개">
+          <input
+            type="email"
+            name="contactEmail"
+            className={inp}
+            placeholder="billing@example.com"
+            autoComplete="off"
+          />
+        </Field>
       </Section>
 
       <Section title="결제 계좌 (통장사본)">

@@ -16,6 +16,7 @@ type TenantData = {
   businessType: string | null;
   businessItem: string | null;
   companyPhone: string | null;
+  contactEmail: string | null;
   representativePhone: string | null;
   contactPhone: string | null;
   bankName: string | null;
@@ -92,6 +93,17 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
         </Field>
         <Field label="담당자 휴대폰">
           <FormattedInput type="phone" name="contactPhone" defaultValue={v(tenant.contactPhone)} className={inp} />
+        </Field>
+        {/* 세금계산서·구독 안내가 가는 주소. 로그인 아이디와는 별개다. */}
+        <Field label="이메일" hint="세금계산서·안내 메일이 가는 주소. 로그인 아이디와 별개">
+          <input
+            type="email"
+            name="contactEmail"
+            defaultValue={v(tenant.contactEmail)}
+            className={inp}
+            placeholder="billing@example.com"
+            autoComplete="off"
+          />
         </Field>
       </Section>
 

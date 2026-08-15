@@ -111,6 +111,11 @@ export default async function TenantsPage() {
                 </td>
                 <td className="hidden md:table-cell px-4 py-3 text-[#eef1f7]">
                   {t.contactPhone ?? "—"}
+                  {/* 이메일은 칸을 새로 만들지 않고 아래 줄로 — 칸을 늘리면 좁은 화면에서
+                      표가 먼저 깨진다. 없으면 아무것도 안 그린다. */}
+                  {t.contactEmail && (
+                    <div className="text-xs text-[#9aa3ba]">{t.contactEmail}</div>
+                  )}
                 </td>
                 <td className="hidden md:table-cell px-4 py-3 text-[#eef1f7]">
                   {t.monthlyFeeKrw != null

@@ -76,6 +76,10 @@ export const tenants = pgTable("tenants", {
 
   // 연락처
   companyPhone: text("company_phone"),
+  // 대리점 연락 이메일(마이그047) — 세금계산서·구독 안내를 받는 주소.
+  //   로그인 아이디(users.email)와 다른 값이다: 아이디는 'chang' 처럼 이메일이 아닐 수 있고
+  //   청구는 대개 경리 담당자 주소로 간다.
+  contactEmail: text("contact_email"),
   representativePhone: text("representative_phone"),
   contactPhone: text("contact_phone"),
 

@@ -56,6 +56,7 @@ export default async function EditTenantPage({
           businessType: t.businessType,
           businessItem: t.businessItem,
           companyPhone: t.companyPhone,
+          contactEmail: t.contactEmail,
           representativePhone: t.representativePhone,
           contactPhone: t.contactPhone,
           bankName: t.bankName,
