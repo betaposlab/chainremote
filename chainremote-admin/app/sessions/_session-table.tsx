@@ -5,7 +5,8 @@
 //   기록의 존재 이유가 "무엇을 해줬는지 나중에 읽는 것" 이라 잘리면 기능이 없는 셈이다(2026-07-31 Chang).
 //   목록은 훑는 화면, 펼침은 읽는 화면으로 역할을 나눴다. HQ 의 카드형 이력과 같은 정보를 보여준다.
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   CATEGORY_LABELS,
   ISSUE_TYPE_LABELS,
@@ -13,6 +14,8 @@ import {
   type IssueType,
   type Resolution,
 } from "@/lib/session-labels";
+import { updateSession, restoreSession, discardSession } from "@/lib/actions/sessions";
+import { RecordFields } from "./_record-fields";
 
 export type SessionRow = {
   id: string;
@@ -27,10 +30,25 @@ export type SessionRow = {
   contactName: string | null;
   operatorName: string | null;
   remoteId: string | null;
+  /** 폐기 시각(마이그045). 있으면 폐기된 기록 — "폐기 포함"으로만 목록에 나온다. */
+  discardedAt: string | null;
+  /** 원격 없이 손으로 남긴 기록(마이그045). */
+  manual: boolean;
 };
 
 export function SessionTable({ rows }: { rows: SessionRow[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+
+  function saveEdit(id: string, fd: FormData) {
+    start(async () => {
+      await updateSession(id, fd);
+      setEditId(null);
+      router.refresh();
+    });
+  }
 
   return (
     <div className="panel-table-wrap">
@@ -74,6 +92,22 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                         ▸
                       </span>
                       {r.customerName ?? <span className="text-[#ccd2e3]">(삭제됨)</span>}
+                      {r.discardedAt && (
+                        <span
+                          className="inline-block rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[#b9bfd2] line-through"
+                          title="폐기된 기록 — 접속 사실은 남아 있습니다"
+                        >
+                          폐기
+                        </span>
+                      )}
+                      {r.manual && (
+                        <span
+                          className="inline-block rounded bg-[#4C7DFF]/15 px-1.5 py-0.5 text-[10px] text-[#C3D3FF]"
+                          title="원격 없이 손으로 남긴 기록"
+                        >
+                          수동
+                        </span>
+                      )}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-[#cbd1e0] whitespace-nowrap">
@@ -154,20 +188,118 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                           </div>
                         )}
 
-                        <div>
-                          <div className="text-xs text-[#ccd2e3] mb-1">내용</div>
-                          {r.description?.trim() ? (
-                            <p className="text-sm text-[#eef1f7] whitespace-pre-wrap leading-relaxed">
-                              {r.description}
-                            </p>
-                          ) : (
-                            <p className="text-sm text-[#ccd2e3]">
-                              {ongoing
-                                ? "원격이 진행 중입니다. 종료하면서 기록할 수 있습니다."
-                                : "기록된 내용이 없습니다. 본사 앱의 지원기록에서 채울 수 있습니다."}
-                            </p>
-                          )}
-                        </div>
+                        {editId === r.id ? (
+                          <form
+                            action={(fd) => saveEdit(r.id, fd)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded-md border border-[#566999] bg-[#2b364f] p-3"
+                          >
+                            <RecordFields
+                              defaults={{
+                                issueType: r.issueType,
+                                resolution: r.resolution,
+                                contactName: r.contactName,
+                                categories: r.categories,
+                                description: r.description,
+                              }}
+                            />
+                            <div className="mt-3 flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditId(null)}
+                                className="btn btn-ghost"
+                                disabled={pending}
+                              >
+                                취소
+                              </button>
+                              <button type="submit" className="btn btn-primary" disabled={pending}>
+                                {pending ? "저장 중…" : "저장"}
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div>
+                            <div className="text-xs text-[#ccd2e3] mb-1">내용</div>
+                            {r.description?.trim() ? (
+                              <p className="text-sm text-[#eef1f7] whitespace-pre-wrap leading-relaxed">
+                                {r.description}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-[#ccd2e3]">
+                                {ongoing
+                                  ? "원격이 진행 중입니다. 종료하면서 기록할 수 있습니다."
+                                  : "기록된 내용이 없습니다. [기록 편집]으로 지금 채울 수 있습니다."}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 행 동작 — 편집은 언제든(끝났든 미기록이든 폐기됐든), 폐기/복원은 토글. */}
+                        {editId !== r.id && (
+                          <div
+                            className="flex items-center justify-between gap-2 pt-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="text-[11px] text-[#8b93ab]">
+                              {r.discardedAt
+                                ? `폐기됨 · ${formatDateFull(r.discardedAt)} — 접속 사실은 남아 있습니다`
+                                : r.manual
+                                  ? "수동 기록 — 원격 세션이 아닙니다"
+                                  : ""}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {r.discardedAt ? (
+                                <button
+                                  type="button"
+                                  disabled={pending}
+                                  onClick={() =>
+                                    start(async () => {
+                                      await restoreSession(r.id);
+                                      router.refresh();
+                                    })
+                                  }
+                                  className="text-xs text-[#ccd2e3] underline hover:text-white"
+                                >
+                                  폐기 취소
+                                </button>
+                              ) : (
+                                !ongoing && (
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    onClick={() => {
+                                      if (
+                                        !confirm(
+                                          "이 기록을 폐기할까요?\n\n" +
+                                            "목록에서 숨겨질 뿐 지워지지 않습니다 — 접속 사실은 남고, " +
+                                            "'폐기 포함'으로 다시 볼 수 있습니다.",
+                                        )
+                                      )
+                                        return;
+                                      start(async () => {
+                                        await discardSession(r.id);
+                                        router.refresh();
+                                      });
+                                    }}
+                                    className="text-xs text-[#ccd2e3] underline hover:text-[#ff9a9e]"
+                                  >
+                                    기록 폐기
+                                  </button>
+                                )
+                              )}
+                              {!ongoing && (
+                                <button
+                                  type="button"
+                                  disabled={pending}
+                                  onClick={() => setEditId(r.id)}
+                                  className="btn btn-ghost !py-1 !px-2.5 text-xs"
+                                >
+                                  기록 편집
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

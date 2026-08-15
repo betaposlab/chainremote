@@ -24,6 +24,7 @@ export async function listMyRecentSessions(
       and(
         eq(supportSessions.operatorId, operatorId),
         eq(supportSessions.tenantId, tenantId),
+        isNull(supportSessions.discardedAt),
       ),
     )
     .orderBy(desc(supportSessions.startedAt))
@@ -199,13 +200,122 @@ export async function endSession(
     );
 }
 
-/** 아주 짧은 오접속(모달도 안 뜬 <N초)이나 취소된 세션 삭제 — 노이즈 이력 방지. */
+/**
+ * 아주 짧은 오접속(모달도 안 뜬 <15초) 삭제 — HQ 전용. 노이즈 이력 방지.
+ * ★규칙(2026-08-15 Chang): **15초 미만 원격은 기록을 남기지 않는다.** 이건 정말 지운다.
+ *   15초 이상은 어떤 경우에도 지우지 않는다 — 패널의 [기록 폐기]는 아래 discardSessionSoft.
+ */
 export async function discardSession(sessionId: string, tenantId: string): Promise<void> {
   await db
     .delete(supportSessions)
     .where(
       and(eq(supportSessions.id, sessionId), eq(supportSessions.tenantId, tenantId)),
     );
+}
+
+/**
+ * 패널 [기록 폐기] — 지우지 않고 폐기 표식만(마이그045). 기본 목록에선 숨고 "폐기 포함"으로
+ * 볼 수 있다. 진행 중이던 세션이면 지금 시각으로 끝낸다(활성 표시가 남지 않게).
+ * 왜 삭제가 아닌가: 대리점과 분쟁이 나면 "누가 언제 어디를 원격했나"는 15초 이상이면
+ * 반드시 찾을 수 있어야 한다. 폐기는 사람이 잘못 누른 A/S 기록을 치우는 것이지 접속 사실을
+ * 없애는 게 아니다.
+ */
+export async function discardSessionSoft(sessionId: string, tenantId: string): Promise<void> {
+  await db
+    .update(supportSessions)
+    .set({
+      discardedAt: sql`now()`,
+      endedAt: sql`COALESCE(${supportSessions.endedAt}, now())`,
+    })
+    .where(
+      and(eq(supportSessions.id, sessionId), eq(supportSessions.tenantId, tenantId)),
+    );
+}
+
+/** 폐기 취소 — 잘못 폐기한 기록을 되살린다. */
+export async function restoreSession(sessionId: string, tenantId: string): Promise<void> {
+  await db
+    .update(supportSessions)
+    .set({ discardedAt: null })
+    .where(
+      and(eq(supportSessions.id, sessionId), eq(supportSessions.tenantId, tenantId)),
+    );
+}
+
+export type SessionRecordFields = {
+  issueType?: "config" | "hardware" | "software" | "network" | "training" | "other" | null;
+  resolution?: "resolved" | "pending" | "escalated" | "in_progress" | null;
+  contactName?: string | null;
+  categories?: string | null;
+  description?: string | null;
+};
+
+/**
+ * 사후 편집 — 패널 지원기록의 [기록 편집]. 끝났든 미기록이든 폐기됐든 내용을 채우거나 고친다.
+ * 시간(started/ended)은 여기서 안 건드린다 — 원격 시간은 사실 기록이라 편집 대상이 아니다.
+ * undefined = 그대로, null/빈문자 = 비움.
+ */
+export async function updateSessionRecord(
+  sessionId: string,
+  tenantId: string,
+  f: SessionRecordFields,
+): Promise<void> {
+  const norm = (v: string | null | undefined) =>
+    v === undefined ? undefined : v?.trim() ? v.trim() : null;
+  await db
+    .update(supportSessions)
+    .set({
+      ...(f.issueType !== undefined ? { issueType: f.issueType } : {}),
+      ...(f.resolution !== undefined ? { resolution: f.resolution } : {}),
+      ...(f.contactName !== undefined ? { contactName: norm(f.contactName) } : {}),
+      ...(f.categories !== undefined ? { categories: norm(f.categories) } : {}),
+      ...(f.description !== undefined ? { description: norm(f.description) } : {}),
+    })
+    .where(
+      and(eq(supportSessions.id, sessionId), eq(supportSessions.tenantId, tenantId)),
+    );
+}
+
+/**
+ * 수동 기록 추가 — 원격 없이 손으로 남기는 A/S(전화 처리, 실수로 지운 기록 복원).
+ * manual=true 로 표시돼 원격 세션과 구분된다. 시작·종료 시각은 사람이 준 값 그대로.
+ */
+export async function createManualSession(input: {
+  tenantId: string;
+  operatorId: string;
+  customerId: string;
+  startedAt: Date;
+  endedAt: Date;
+  fields?: SessionRecordFields;
+}) {
+  if (!(input.endedAt.getTime() >= input.startedAt.getTime()))
+    throw new Error("종료 시각이 시작보다 앞섭니다");
+  const [cust] = await db
+    .select({ id: customers.id, remoteId: customers.remoteId })
+    .from(customers)
+    .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, input.tenantId)))
+    .limit(1);
+  if (!cust) throw new Error("거래처가 없습니다");
+  const f = input.fields ?? {};
+  const norm = (v: string | null | undefined) => (v?.trim() ? v.trim() : null);
+  const [row] = await db
+    .insert(supportSessions)
+    .values({
+      tenantId: input.tenantId,
+      operatorId: input.operatorId,
+      customerId: cust.id,
+      remoteId: cust.remoteId,
+      startedAt: input.startedAt,
+      endedAt: input.endedAt,
+      manual: true,
+      issueType: f.issueType ?? null,
+      resolution: f.resolution ?? "resolved",
+      contactName: norm(f.contactName),
+      categories: norm(f.categories),
+      description: norm(f.description),
+    })
+    .returning();
+  return row;
 }
 
 /** 거래처별 지원 이력 — HQ 거래처 카드 "지원이력" + 상세. 최신순. */
@@ -223,6 +333,7 @@ export async function listCustomerSessions(
       and(
         eq(supportSessions.customerId, customerId),
         eq(supportSessions.tenantId, tenantId),
+        isNull(supportSessions.discardedAt),
       ),
     )
     .orderBy(desc(supportSessions.startedAt))
@@ -236,7 +347,10 @@ export async function listRecentSessions(
   remoteId?: string,
 ) {
   await closeOrphanSessions(tenantId);
-  const conds = [eq(supportSessions.tenantId, tenantId)];
+  const conds = [
+    eq(supportSessions.tenantId, tenantId),
+    isNull(supportSessions.discardedAt),
+  ];
   // remoteId 주면 그 거래처만 (HQ 거래처 카드 "지원이력"). 없으면 전체 타임라인.
   if (remoteId) conds.push(eq(customers.remoteId, remoteId));
   return db
@@ -276,8 +390,11 @@ function searchConds(opts: {
   period: SessionPeriod;
   customerId?: string | null;
   q?: string | null;
+  /** 폐기된 기록도 포함(마이그045). 기본은 숨김. */
+  includeDiscarded?: boolean;
 }) {
   const conds = [eq(supportSessions.tenantId, opts.tenantId)];
+  if (!opts.includeDiscarded) conds.push(isNull(supportSessions.discardedAt));
   if (opts.period === "thisMonth") {
     // 대시보드 "이번 달 지원" 카드와 100% 같은 숫자가 나오도록 동일 식.
     conds.push(gte(supportSessions.startedAt, sql`date_trunc('month', now())`));
@@ -311,12 +428,15 @@ export async function searchSessions(opts: {
   period: SessionPeriod;
   customerId?: string | null;
   q?: string | null;
+  includeDiscarded?: boolean;
   limit?: number;
 }) {
   await closeOrphanSessions(opts.tenantId);
   return db
     .select({
       id: supportSessions.id,
+      discardedAt: supportSessions.discardedAt,
+      manual: supportSessions.manual,
       customerId: supportSessions.customerId,
       customerName: customers.name,
       startedAt: supportSessions.startedAt,
@@ -343,6 +463,7 @@ export async function countSessionsAllPeriods(opts: {
   tenantId: string;
   customerId?: string | null;
   q?: string | null;
+  includeDiscarded?: boolean;
 }) {
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })

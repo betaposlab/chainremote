@@ -36,6 +36,7 @@ export function SessionFilterBar({
   const urlQ = sp.get("q") ?? "";
   const urlPeriod = sp.get("period") ?? "month";
   const urlCustomer = sp.get("customerId") ?? "";
+  const urlDiscarded = sp.get("discarded") === "1";
 
   const [text, setText] = useState(urlQ);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,14 +47,16 @@ export function SessionFilterBar({
     setText(urlQ);
   }, [urlQ]);
 
-  function apply(next: { q?: string; period?: string; customerId?: string }) {
+  function apply(next: { q?: string; period?: string; customerId?: string; discarded?: boolean }) {
     const p = new URLSearchParams();
     const q = next.q ?? urlQ;
     const period = next.period ?? urlPeriod;
     const customerId = next.customerId ?? urlCustomer;
+    const discarded = next.discarded ?? urlDiscarded;
     if (q.trim()) p.set("q", q.trim());
     if (period && period !== "month") p.set("period", period);
     if (customerId) p.set("customerId", customerId);
+    if (discarded) p.set("discarded", "1");
     const qs = p.toString();
     // replace — 글자마다 뒤로가기 기록이 쌓이면 뒤로 가기가 못 쓰게 된다.
     // scroll:false — 결과가 바뀔 때마다 맨 위로 튀면 읽던 자리를 잃는다.
@@ -71,7 +74,7 @@ export function SessionFilterBar({
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
-  const dirty = Boolean(urlQ || urlCustomer || sp.get("period"));
+  const dirty = Boolean(urlQ || urlCustomer || sp.get("period") || urlDiscarded);
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
@@ -154,6 +157,17 @@ export function SessionFilterBar({
       >
         조회
       </button>
+
+      {/* 폐기된 기록은 지워진 게 아니라 숨겨진 것 — 분쟁 때 "그때 원격했나"를 여기서 확인한다. */}
+      <label className="inline-flex items-center gap-1.5 text-xs text-[#ccd2e3] cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={urlDiscarded}
+          onChange={(e) => apply({ discarded: e.target.checked })}
+          className="accent-[#4C7DFF]"
+        />
+        폐기 포함
+      </label>
 
       {dirty && (
         <button

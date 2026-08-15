@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { Suspense } from "react";
 import { SessionTable } from "./_session-table";
 import { SessionFilterBar } from "./_filter-bar";
+import { AddRecordButton } from "./_add-record";
 import { searchSessions, countSessionsAllPeriods } from "@/lib/data/sessions";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +26,11 @@ type Period = keyof typeof PERIODS;
 export default async function SessionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: Period; customerId?: string; q?: string }>;
+  searchParams: Promise<{ period?: Period; customerId?: string; q?: string; discarded?: string }>;
 }) {
-  const { period: periodParam, customerId, q: qParam } = await searchParams;
+  const { period: periodParam, customerId, q: qParam, discarded } = await searchParams;
+  // "폐기 포함" — 폐기된 기록은 지워진 게 아니라 숨겨진 것이다(마이그045). 켜면 같이 나온다.
+  const includeDiscarded = discarded === "1";
   const period: Period = periodParam && periodParam in PERIODS ? periodParam : "month";
   // 검색어. 앞뒤 공백을 떼고 길이를 자른다 — 긴 문자열로 LIKE 를 때리면 느려진다.
   const q = (qParam ?? "").trim().slice(0, 60);
@@ -53,6 +56,7 @@ export default async function SessionsPage({
     period,
     customerId,
     q,
+    includeDiscarded,
     limit: 200,
   });
 
@@ -67,7 +71,7 @@ export default async function SessionsPage({
   //   사람은 "검색이 안 되네"로 읽는다. 0건일 때만 기간을 풀어 다시 세어 알려 준다.
   const outsidePeriod =
     rows.length === 0 && q && period !== "all"
-      ? await countSessionsAllPeriods({ tenantId: tenant.id, customerId, q })
+      ? await countSessionsAllPeriods({ tenantId: tenant.id, customerId, q, includeDiscarded })
       : 0;
 
   // Date → ISO 문자열. 클라이언트 컴포넌트 경계를 넘길 땐 직렬화 가능한 값이어야 한다.
@@ -84,6 +88,8 @@ export default async function SessionsPage({
     contactName: r.contactName,
     operatorName: r.operatorName,
     remoteId: r.remoteId,
+    discardedAt: r.discardedAt ? new Date(r.discardedAt).toISOString() : null,
+    manual: r.manual,
   }));
 
   return (
@@ -99,8 +105,14 @@ export default async function SessionsPage({
             {rows.length}건
             {/* 200건 상한에 걸리면 그 사실을 알린다 — 말 안 하면 "이게 전부"로 읽힌다. */}
             {rows.length >= 200 ? " (최근 200건까지)" : ""}
+            {includeDiscarded ? " · 폐기 포함" : ""}
+          </p>
+          <p className="text-xs text-[#8b93ab] mt-1">
+            원격이 15초 이상이면 내용을 안 적어도 접속 사실은 반드시 남습니다(폐기해도 숨길 뿐).
+            15초 미만 오접속은 기록하지 않습니다.
           </p>
         </div>
+        <AddRecordButton customers={customerOptions} />
       </header>
 
       {/* 조회 줄은 클라이언트 컴포넌트다 — 글자를 치는 즉시 걸러지고, 기간·거래처도

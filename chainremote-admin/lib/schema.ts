@@ -317,6 +317,12 @@ export const supportSessions = pgTable(
     //   릴레이는 화면·파일이 전부 우리 서버를 거쳐 트래픽 비용이 된다 — 이 값이 쌓여야
     //   홀펀치 개선이 실제로 몇 %를 회수했는지 증명할 수 있다.
     connDirect: boolean("conn_direct"),
+    // 폐기 표식(마이그045). 패널 [기록 폐기]는 행을 지우지 않고 이 시각만 박는다 — 15초 이상
+    //   원격한 사실은 분쟁 근거라 반드시 남는다. 기본 조회에선 숨기고 "폐기 포함"으로만 보인다.
+    //   HQ 의 15초 미만 오접속 자동 폐기는 여전히 DELETE(규칙: 15초 미만은 기록 안 남김).
+    discardedAt: timestamp("discarded_at", { withTimezone: true }),
+    // 수동 기록(마이그045) — 원격 없이 사람이 손으로 남긴 행(전화 처리, 지워진 기록 복원).
+    manual: boolean("manual").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
