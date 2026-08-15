@@ -7,6 +7,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createManualSession } from "@/lib/actions/sessions";
 import { RecordFields } from "./_record-fields";
+import { CustomerPicker } from "./_customer-picker";
+import type { SearchableCustomer } from "@/lib/customer-search";
 
 /** datetime-local 기본값 — 브라우저 로컬 시각을 "YYYY-MM-DDTHH:MM" 로. */
 function localInput(d: Date): string {
@@ -14,12 +16,9 @@ function localInput(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-export function AddRecordButton({
-  customers,
-}: {
-  customers: { id: string; name: string }[];
-}) {
+export function AddRecordButton({ customers }: { customers: SearchableCustomer[] }) {
   const [open, setOpen] = useState(false);
+  const [customerId, setCustomerId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -41,6 +40,7 @@ export function AddRecordButton({
         return;
       }
       setOpen(false);
+      setCustomerId("");
       router.refresh();
     });
   }
@@ -69,19 +69,17 @@ export function AddRecordButton({
               </p>
             </div>
 
-            <label className="block">
+            <div>
               <span className="block text-xs text-[#ccd2e3] mb-1">거래처</span>
-              <select name="customerId" required className="input" defaultValue="">
-                <option value="" disabled>
-                  거래처 선택
-                </option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              {/* 2,000곳이라도 치면서 좁힌다 — 상호·원격 ID·초성. */}
+              <CustomerPicker
+                customers={customers}
+                value={customerId}
+                onChange={setCustomerId}
+                name="customerId"
+                required
+              />
+            </div>
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block">

@@ -44,7 +44,7 @@ export default async function SessionsPage({
   if (!tenant) redirect("/login");
 
   const customerOptions = await db
-    .select({ id: customers.id, name: customers.name })
+    .select({ id: customers.id, name: customers.name, remoteId: customers.remoteId })
     .from(customers)
     .where(eq(customers.tenantId, tenant.id))
     .orderBy(customers.name);

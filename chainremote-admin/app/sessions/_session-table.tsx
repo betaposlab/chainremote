@@ -5,7 +5,7 @@
 //   기록의 존재 이유가 "무엇을 해줬는지 나중에 읽는 것" 이라 잘리면 기능이 없는 셈이다(2026-07-31 Chang).
 //   목록은 훑는 화면, 펼침은 읽는 화면으로 역할을 나눴다. HQ 의 카드형 이력과 같은 정보를 보여준다.
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   CATEGORY_LABELS,
@@ -69,6 +69,14 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
             const ongoing = !r.endedAt;
             // 미기록 = 끝났는데 A/S 내용(설명·종류)을 아무것도 안 적은 것(바빠서 [닫기]만).
             const unlogged = !ongoing && !r.description?.trim() && !r.categories?.trim();
+            // 끝난 세션의 "진행 중"은 거짓말이다 — 해결 여부를 아무도 안 고른 것뿐이다.
+            //   자동 마감된 고아 세션(HQ 가 죽어 종료 보고를 못 한 것)이 정확히 이 모습이라
+            //   그대로 두면 "아직 원격 중"으로 읽힌다. 비워서 미기록임이 드러나게 한다.
+            const resolution = ongoing
+              ? r.resolution
+              : r.resolution === "in_progress"
+                ? null
+                : r.resolution;
             const open = openId === r.id;
             const cats = (r.categories ?? "")
               .split(",")
@@ -76,9 +84,10 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
               .filter(Boolean);
 
             return (
-              <>
+              // key 는 Fragment 에 — map 의 자식이 이것이다. 안쪽 <tr> 에 달면 React 가
+              //   목록을 못 맞춰(경고 발생) 새로고침 뒤 펼침·편집 상태가 엉뚱한 행에 붙는다.
+              <Fragment key={r.id}>
                 <tr
-                  key={r.id}
                   onClick={() => setOpenId(open ? null : r.id)}
                   className="cursor-pointer"
                   style={open ? {background:"rgba(255,255,255,.035)"} : undefined}
@@ -129,17 +138,17 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                     {r.issueType ? ISSUE_TYPE_LABELS[r.issueType] : "-"}
                   </td>
                   <td className="px-4 py-3 text-[#cbd1e0]">
-                    {r.resolution ? (
+                    {resolution ? (
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-xs ${
-                          r.resolution === "resolved"
+                          resolution === "resolved"
                             ? "chip chip-ok"
-                            : r.resolution === "in_progress"
+                            : resolution === "in_progress"
                               ? "bg-amber-500/12 text-amber-300"
                               : "bg-white/[0.06] text-[#eef1f7]"
                         }`}
                       >
-                        {RESOLUTION_LABELS[r.resolution]}
+                        {RESOLUTION_LABELS[resolution]}
                       </span>
                     ) : (
                       "-"
@@ -197,7 +206,7 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                             <RecordFields
                               defaults={{
                                 issueType: r.issueType,
-                                resolution: r.resolution,
+                                resolution: resolution,
                                 contactName: r.contactName,
                                 categories: r.categories,
                                 description: r.description,
@@ -304,7 +313,7 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                     </td>
                   </tr>
                 )}
-              </>
+              </Fragment>
             );
           })}
         </tbody>

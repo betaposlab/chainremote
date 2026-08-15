@@ -14,6 +14,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { CustomerPicker } from "./_customer-picker";
+import type { SearchableCustomer } from "@/lib/customer-search";
 
 const PERIOD_OPTIONS = [
   { value: "thisMonth", label: "이번 달" },
@@ -25,11 +27,7 @@ const PERIOD_OPTIONS = [
 /** 글자를 칠 때마다 서버를 두들기지 않도록 잠깐 기다린다. 사람이 한 글자 더 칠 여유. */
 const DEBOUNCE_MS = 250;
 
-export function SessionFilterBar({
-  customers,
-}: {
-  customers: { id: string; name: string }[];
-}) {
+export function SessionFilterBar({ customers }: { customers: SearchableCustomer[] }) {
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -128,19 +126,15 @@ export function SessionFilterBar({
         ))}
       </select>
 
-      <select
-        value={urlCustomer}
-        onChange={(e) => apply({ customerId: e.target.value })}
-        aria-label="거래처"
-        className="rounded-md border border-[#566999] px-2 py-1.5"
-      >
-        <option value="">전체 거래처</option>
-        {customers.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
+      {/* 거래처가 수천 곳이면 목록을 훑을 수 없다 — 치면서 좁히는 콤보박스(초성 포함). */}
+      <div className="w-56">
+        <CustomerPicker
+          customers={customers}
+          value={urlCustomer}
+          onChange={(id) => apply({ customerId: id })}
+          emptyLabel="전체 거래처"
+        />
+      </div>
 
       {/*
         조회 버튼 — 즉시 반영이라 없어도 결과는 같지만, 버튼이 없으면 "다 쳤는데 왜 아무
