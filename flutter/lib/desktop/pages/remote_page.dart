@@ -424,6 +424,14 @@ class _RemotePageState extends State<RemotePage>
                         }
                       }(),
                 _ffi.ffiModel.pi.isSet.isFalse ? emptyOverlay() : Offstage(),
+                // 전체화면 상단 hover 툴바 (2026-08-15 A안 2차). ★항상 마운트 —
+                // 전체화면 여부로 이 슬롯의 위젯 타입을 갈아끼우면 형제 Element 가
+                // 재생성될 수 있다. 켜고 끄기는 위젯 '안'의 Obx 가 한다.
+                _FullscreenToolbarReveal(
+                  id: widget.id,
+                  ffi: _ffi,
+                  toolbarState: widget.toolbarState,
+                ),
               ],
             );
     }
@@ -1042,6 +1050,156 @@ class CursorPaint extends StatelessWidget {
         y: y,
         scale: scale,
       ),
+    );
+  }
+}
+
+/// 전체화면 상단 hover 툴바 (2026-08-15, Chang A안 — 2차 시도).
+///
+/// ★1차 시도는 DesktopTab 전체를 Stack 으로 '감쌌다'가 원격 화면을 검게 죽였다.
+///   전체화면 진입 때 body 의 조상 구조가 바뀌면(직계 자식 → Stack 자식) RemotePage
+///   서브트리의 Element/State 가 통째로 재생성되는데, 세션 렌더 경로(특히
+///   use texture render:false)는 그걸 못 살아남는다. 연결 로그는 fps30 까지 전부
+///   정상이라 "연결 문제"로 오진하기도 쉽다. → [feedback_never_wrap_remote_view_in_stack]
+///
+/// 그래서 이번엔 아무것도 감싸지 않는다. RemotePage 의 body Stack(원본 RustDesk 의
+/// 전체화면 툴바가 원래 살던 자리)에 자식을 '맨 뒤에 덧붙이기'만 했고, 이 자식은
+/// 전체화면 여부와 무관하게 항상 마운트다 — 형제(영상)의 슬롯이 절대 안 흔들린다.
+///
+/// 동작: 전체화면에서 화면 맨 위 12px 에 마우스가 닿으면 툴바 필이 내려오고, 필을
+/// 벗어나면 0.8초 뒤 접힌다(즉시 접으면 드롭다운을 여는 순간 같이 닫혀 못 쓴다).
+/// 트리거 띠는 hover 만 읽는다(opaque:false) — 클릭·이동은 아래 원격 화면으로 그대로
+/// 통과해 맨 윗줄의 원격 조작이 보존된다.
+class _FullscreenToolbarReveal extends StatefulWidget {
+  final String id;
+  final FFI ffi;
+  final ToolbarState toolbarState;
+  const _FullscreenToolbarReveal({
+    required this.id,
+    required this.ffi,
+    required this.toolbarState,
+  });
+
+  @override
+  State<_FullscreenToolbarReveal> createState() =>
+      _FullscreenToolbarRevealState();
+}
+
+class _FullscreenToolbarRevealState extends State<_FullscreenToolbarReveal> {
+  final _revealed = false.obs;
+  Timer? _hideTimer;
+
+  /// macOS 전체화면은 상단 hover 에 OS 메뉴바가 같이 내려온다(실측). 겹치면 우리
+  /// 필이 그 밑에 깔리므로 메뉴바 높이만큼 내려 앉힌다. Windows 는 그런 게 없다.
+  double get _topInset => isMacOS ? 28.0 : 0.0;
+
+  void _show() {
+    _hideTimer?.cancel();
+    _revealed.value = true;
+  }
+
+  void _scheduleHide() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(milliseconds: 800), () {
+      if (mounted) _revealed.value = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      height: _topInset + kDesktopRemoteTabBarHeight + 42,
+      child: Obx(() {
+        if (stateGlobal.fullscreen.isFalse) {
+          // 전체화면을 나가면 꺼낸 상태도 접는다. Rx 쓰기는 build 중 금지라 다음 프레임에.
+          _hideTimer?.cancel();
+          if (_revealed.isTrue) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _revealed.value = false;
+            });
+          }
+          return const SizedBox.shrink();
+        }
+        final shown = _revealed.isTrue;
+        return Stack(children: [
+          // ① 트리거 띠 — 화면 최상단 12px. hover 만 감지, 포인터는 원격으로 통과.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 12,
+            child: MouseRegion(
+              opaque: false,
+              onEnter: (_) => _show(),
+              onExit: (_) => _scheduleHide(),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          // ② 툴바 필 — 창 모드 탭바 라인의 툴바와 같은 물건을 top-center 필로.
+          Positioned(
+            top: _topInset,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              ignoring: !shown,
+              child: AnimatedOpacity(
+                opacity: shown ? 1 : 0,
+                duration: const Duration(milliseconds: 140),
+                child: AnimatedSlide(
+                  offset: shown ? Offset.zero : const Offset(0, -0.4),
+                  duration: const Duration(milliseconds: 140),
+                  curve: Curves.easeOut,
+                  // ★MouseRegion 은 Align 안(필 크기)에만 — 밖에 두면 full-width 띠가
+                  //   되어 그 높이의 원격 hover 를 통째로 가로챈다.
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: MouseRegion(
+                      onEnter: (_) => _show(),
+                      onExit: (_) => _scheduleHide(),
+                      child: Material(
+                        elevation: 6,
+                        color: Theme.of(context).colorScheme.background,
+                        borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(10)),
+                        clipBehavior: Clip.antiAlias,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              RemoteToolbar(
+                                id: widget.id,
+                                ffi: widget.ffi,
+                                state: widget.toolbarState,
+                                onEnterOrLeaveImageSetter: (_, __) {},
+                                onEnterOrLeaveImageCleaner: (_) {},
+                                setRemoteState: (_) {},
+                                // 전체화면에선 탭바가 없어 tail 툴바도 없다 — 이게 유일한
+                                // 툴바라 initialized 게이트를 건너뛰고 바로 그린다.
+                                alwaysShow: true,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ]);
+      }),
     );
   }
 }
