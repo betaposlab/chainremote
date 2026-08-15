@@ -87,7 +87,13 @@ const AUTOCLEAN_AT_KEY: &str = "chainremote-autoclean-at";
 /// (Chang/재성이 PC 처럼 HQ 이면서 거래처 풀에도 등록되는 경우 — custom.txt "option-b-plus":"Y").
 pub fn start_in_service() {
     let is_agent = hbb_common::config::is_incoming_only();
-    let is_b_plus = hbb_common::config::is_option_b_plus();
+    // 런타임 토글과 빌드 마커 둘 다 본다 — rendezvous_mediator::start_all() 의 조건과 같은 짝이다.
+    // 마커만 보던 시절이 아니라 토글만 보던 시절이 있었고(2026-08-15 발견), 그 탓에 HQ 는
+    // hbbs 에는 마커로 등록되면서 패널 보고만 조용히 빠졌다. 화면의 체크박스는 값이 없을 때
+    // 켜진 것으로 보이므로(option2bool 의 마지막 갈래) 눈으로는 영영 안 잡히는 종류였다.
+    // 둘을 갈라 두면 "원격은 되는데 패널엔 안 뜬다" 가 다시 생긴다 — 같이 움직여야 한다.
+    let is_b_plus = hbb_common::config::is_option_b_plus()
+        || hbb_common::config::is_option_b_plus_build();
     if !is_agent && !is_b_plus {
         log::info!(
             "[chainremote_heartbeat] not agent and not option-B+ → skip heartbeat loop"

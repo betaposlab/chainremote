@@ -139,6 +139,22 @@ export function SessionFilterBar({
         ))}
       </select>
 
+      {/*
+        조회 버튼 — 즉시 반영이라 없어도 결과는 같지만, 버튼이 없으면 "다 쳤는데 왜 아무
+        일도 안 일어나지" 하고 기다리는 사람이 생긴다. 누르면 대기 시간을 건너뛰고 바로
+        적용하니 장식이 아니다(엔터와 같은 동작).
+      */}
+      <button
+        type="button"
+        onClick={() => {
+          if (timer.current) clearTimeout(timer.current);
+          apply({ q: text });
+        }}
+        className="rounded-md bg-[#2f4b8f] px-3 py-1.5 font-medium text-white hover:bg-[#3a5aa8]"
+      >
+        조회
+      </button>
+
       {dirty && (
         <button
           type="button"
