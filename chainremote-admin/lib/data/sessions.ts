@@ -1,6 +1,6 @@
 // 지원 세션 데이터 레이어 — 본사 앱(내 최근 세션) + 패널(전체 이력) 공유.
 
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customers, supportSessions, users } from "@/lib/schema";
 
@@ -205,4 +205,103 @@ export async function listRecentSessions(
     .where(and(...conds))
     .orderBy(desc(supportSessions.startedAt))
     .limit(limit);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 패널 지원기록 조회 — 기간·거래처·검색어.
+//
+// ★페이지(app/sessions/page.tsx)에 인라인으로 두지 않고 여기 둔다. 테넌트 격리가
+//   걸린 쿼리라 조용히 깨지면 남의 회사 기록이 보인다 — 테스트가 닿을 수 있는 자리에
+//   있어야 한다(test/adv-session-search.test.ts 가 이 함수를 직접 친다).
+// ────────────────────────────────────────────────────────────────────────────
+
+export type SessionPeriod = "thisMonth" | "week" | "month" | "all";
+
+const PERIOD_DAYS: Record<SessionPeriod, number> = {
+  thisMonth: 0, // date_trunc 로 계산 — 아래 참조
+  week: 7,
+  month: 30,
+  all: 0,
+};
+
+/** 기간·거래처·검색어 조건을 만든다. 세는 것과 목록을 뽑는 것이 같은 조건을 쓰도록 분리. */
+function searchConds(opts: {
+  tenantId: string;
+  period: SessionPeriod;
+  customerId?: string | null;
+  q?: string | null;
+}) {
+  const conds = [eq(supportSessions.tenantId, opts.tenantId)];
+  if (opts.period === "thisMonth") {
+    // 대시보드 "이번 달 지원" 카드와 100% 같은 숫자가 나오도록 동일 식.
+    conds.push(gte(supportSessions.startedAt, sql`date_trunc('month', now())`));
+  } else if (opts.period !== "all") {
+    const since = new Date(Date.now() - PERIOD_DAYS[opts.period] * 86400_000);
+    conds.push(gte(supportSessions.startedAt, since));
+  }
+  if (opts.customerId) conds.push(eq(supportSessions.customerId, opts.customerId));
+
+  const q = (opts.q ?? "").trim().slice(0, 60);
+  if (q) {
+    // 사람이 기억하는 건 대개 "누구네 무슨 증상"이라 이 넷이면 충분하다.
+    //   ilike = 대소문자 무시(영문 상호 okpos 등). 값은 drizzle 이 파라미터로 넘기므로
+    //   SQL 주입이 안 된다 — 문자열로 조립하지 말 것.
+    const like = `%${q}%`;
+    conds.push(
+      or(
+        ilike(supportSessions.description, like),
+        ilike(customers.name, like),
+        ilike(supportSessions.contactName, like),
+        ilike(users.displayName, like),
+      )!,
+    );
+  }
+  return conds;
+}
+
+/** 패널 지원기록 목록. limit 상한을 넘으면 화면이 "이게 전부"로 읽히므로 호출부가 알린다. */
+export async function searchSessions(opts: {
+  tenantId: string;
+  period: SessionPeriod;
+  customerId?: string | null;
+  q?: string | null;
+  limit?: number;
+}) {
+  return db
+    .select({
+      id: supportSessions.id,
+      customerId: supportSessions.customerId,
+      customerName: customers.name,
+      startedAt: supportSessions.startedAt,
+      endedAt: supportSessions.endedAt,
+      durationSec: supportSessions.durationSec,
+      issueType: supportSessions.issueType,
+      resolution: supportSessions.resolution,
+      description: supportSessions.description,
+      categories: supportSessions.categories,
+      contactName: supportSessions.contactName,
+      remoteId: supportSessions.remoteId,
+      operatorName: users.displayName,
+    })
+    .from(supportSessions)
+    .leftJoin(customers, eq(customers.id, supportSessions.customerId))
+    .leftJoin(users, eq(users.id, supportSessions.operatorId))
+    .where(and(...searchConds(opts)))
+    .orderBy(desc(supportSessions.startedAt))
+    .limit(opts.limit ?? 200);
+}
+
+/** 같은 검색어를 기간 제한 없이 세어 본다. "기간 밖에 N건" 안내용. */
+export async function countSessionsAllPeriods(opts: {
+  tenantId: string;
+  customerId?: string | null;
+  q?: string | null;
+}) {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(supportSessions)
+    .leftJoin(customers, eq(customers.id, supportSessions.customerId))
+    .leftJoin(users, eq(users.id, supportSessions.operatorId))
+    .where(and(...searchConds({ ...opts, period: "all" })));
+  return row?.n ?? 0;
 }

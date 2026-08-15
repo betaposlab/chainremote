@@ -18,14 +18,14 @@ const DOCS = [
   {
     href: "/help/hq",
     title: "HQ 사용법",
-    desc: "원격 접속, 즐겨찾기, 파일 전송, 지원기록 남기기.",
-    ready: false,
+    desc: "화면 구성, 세 개의 탭, 원격 접속, 도구 모음, 지원기록 남기기, 자주 막히는 곳.",
+    ready: true,
   },
   {
     href: "/help/panel",
     title: "관리 패널 사용법",
-    desc: "거래처 등록, 일괄 업데이트, 디스크·방화벽 관제, 문의함.",
-    ready: false,
+    desc: "대시보드, 거래처 등록과 배포, 지원기록 검색, 사용자 권한, 자주 막히는 곳.",
+    ready: true,
   },
   {
     href: "/help/customer",
