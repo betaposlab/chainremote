@@ -32,6 +32,67 @@ const DEFAULT_OPTIONS: Required<PushOptions> = {
   randomizeMaxSec: 600,
 };
 
+/** 푸시 입력이 잘못됐을 때 — 라우트/액션이 사람에게 그대로 보여 준다. */
+export class PushValidationError extends Error {}
+
+const VERSION_RE = /^\d+\.\d+\.\d+$/;
+const SHA256_RE = /^[0-9a-f]{64}$/i;
+
+/**
+ * 푸시 값 검증 — **여기 한 곳**에서만 한다(A1-2·A1-3, 2026-08-16).
+ *
+ * 왜 서버가 막아야 하나: 에이전트의 `PendingResponse` 는 시각·지연을 부호 없는 정수로 받는다.
+ * 음수나 범위 밖 값이 내려가면 JSON 파싱이 **통째로** 실패해 5분마다 같은 실패를 반복하고,
+ * 실패 보고조차 못 하므로 그 행은 영원히 "대기"로 남는다. 게다가 사람이 건 pending 이 있으면
+ * 자동 롤아웃까지 침묵하므로(manualPin 가드) **그 거래처는 업데이트가 통째로 멎는다.**
+ * 화면에 아무 이상이 안 보이는 종류라 서버에서 애초에 못 들어가게 막는 게 유일한 방어다.
+ *
+ * `start === end` 도 같은 이유로 막는다 — 에이전트의 창은 [start, end) 라 빈 구간이 되어
+ * 영업시간이 영원히 안 열린다(대기 영구, 보고 없음).
+ */
+function validatePush(asset: PushAsset, opts: Required<PushOptions>): void {
+  if (!VERSION_RE.test(asset.targetVersion))
+    throw new PushValidationError("버전 형식이 잘못됐습니다 (예: 1.4.132)");
+  if (!/^https?:\/\//i.test(asset.assetUrl))
+    throw new PushValidationError("설치파일 주소가 잘못됐습니다");
+  if (!SHA256_RE.test(asset.assetSha256))
+    throw new PushValidationError("sha256 은 64자리 16진수여야 합니다");
+  if (!Number.isInteger(asset.assetSize) || asset.assetSize <= 0)
+    throw new PushValidationError("설치파일 크기가 잘못됐습니다");
+  for (const [label, v] of [
+    ["시작 시각", opts.windowStartHour],
+    ["종료 시각", opts.windowEndHour],
+  ] as const) {
+    if (!Number.isInteger(v) || v < 0 || v > 24)
+      throw new PushValidationError(`${label}은 0~24 사이 정수여야 합니다`);
+  }
+  if (opts.windowStartHour === opts.windowEndHour)
+    throw new PushValidationError(
+      "시작과 종료 시각이 같으면 업데이트 창이 열리지 않습니다 (예: 0시~7시)",
+    );
+  if (
+    !Number.isInteger(opts.randomizeMaxSec) ||
+    opts.randomizeMaxSec < 0 ||
+    opts.randomizeMaxSec > 86400
+  )
+    throw new PushValidationError("분산 시간은 0~86400초 사이여야 합니다");
+}
+
+/** "1.4.9" < "1.4.10" — 자릿수 비교(문자열 비교 아님). 형식이 아니면 null. */
+function parseVer(v: string | null | undefined): number[] | null {
+  if (!v || !VERSION_RE.test(v.trim())) return null;
+  return v.trim().split(".").map(Number);
+}
+
+/** a < b 인가. 둘 중 하나라도 형식 밖이면 판단 보류(false). */
+function isOlder(a: number[] | null, b: number[] | null): boolean {
+  if (!a || !b) return false;
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] < b[i];
+  }
+  return false;
+}
+
 /**
  * 단일 거래처 푸시. 같은 거래처·같은 버전이 이미 대기 중이면 conflict 로 skip.
  * 생성된 행 반환, skip 이면 null.
@@ -43,13 +104,22 @@ export async function pushToCustomer(
   ctx: { tenantId: string; requestedBy: string },
 ): Promise<{ id: string } | null> {
   const merged = { ...DEFAULT_OPTIONS, ...opts };
+  validatePush(asset, merged);
   // tenant 격리 — customer 가 정말 이 tenant 소속인지 확인.
   const owned = await db
-    .select({ id: customers.id })
+    .select({ id: customers.id, lastVersion: customers.lastVersion })
     .from(customers)
     .where(and(eq(customers.id, customerId), eq(customers.tenantId, ctx.tenantId)))
     .limit(1);
   if (owned.length === 0) return null;
+  // 다운그레이드 거부(A1-1) — 에이전트는 현재보다 낮은 버전이면 설치하지 않고 "이미 최신"으로
+  //   applied 를 보낸다. 그럼 패널엔 초록 "적용됨"이 뜨는데 거래처 PC 는 아무 일도 안 일어난다.
+  //   ★같은 버전 재푸시는 막지 않는다 — 설치가 깨진 기기를 같은 버전으로 되살리는 복구 경로다.
+  if (isOlder(parseVer(asset.targetVersion), parseVer(owned[0].lastVersion))) {
+    throw new PushValidationError(
+      `이 거래처는 이미 더 높은 버전(${owned[0].lastVersion})입니다. 에이전트는 낮은 버전을 설치하지 않습니다.`,
+    );
+  }
 
   try {
     const [row] = await db
@@ -85,6 +155,7 @@ export async function pushBulk(
   ctx: { tenantId: string; requestedBy: string },
 ): Promise<{ bulkBatchId: string; inserted: number; eligible: number }> {
   const merged = { ...DEFAULT_OPTIONS, ...opts };
+  validatePush(asset, merged);
   const bulkBatchId = crypto.randomUUID();
 
   // 2026-06-20: 새 일괄푸시는 이전 대기 행을 supersede 한다. 전엔 새 버전만 INSERT 해서
@@ -123,6 +194,15 @@ export async function pushBulk(
       --   무관하게 최신을 유지해야 한다. '확인'은 과금/명명/관리용일 뿐 업뎃 게이트가 아니다.
       --   대리점이 패널 관리를 안 하는 게 현실 → 확정 안 해도 모든 거래처 자동 업뎃(Chang 합의).
       AND c.enroll_status IN ('active', 'pending')
+      -- 이미 더 높은 버전인 기기는 제외(A1-1) — 넣어 봐야 에이전트가 무동작 applied 를
+      --   보내 패널만 "적용됨"으로 물들고, 그 무동작이 다운그레이드 복귀 재큐잉 한도까지
+      --   깎아먹는다. 형식이 x.y.z 가 아닌 옛 보고는 판단을 보류하고 대상에 남긴다.
+      AND (
+        c.last_version IS NULL
+        OR c.last_version !~ '^[0-9]+\\.[0-9]+\\.[0-9]+$'
+        OR string_to_array(c.last_version, '.')::int[]
+           <= string_to_array(${asset.targetVersion}::text, '.')::int[]
+      )
     ON CONFLICT (customer_id, target_version)
       WHERE (applied_at IS NULL AND cancelled_at IS NULL AND failed_at IS NULL)
       DO NOTHING
@@ -221,7 +301,16 @@ export async function markApplied(
     .set({ appliedAt: new Date(), updatedAt: new Date() })
     .where(and(eq(pendingUpdates.id, pushId), isNull(pendingUpdates.appliedAt)))
     .returning({ id: pendingUpdates.id });
-  return result.length > 0;
+  if (result.length > 0) return true;
+  // 이미 applied 인 행에 같은 보고가 또 왔다면 성공으로 친다(A1-5, 멱등).
+  //   에이전트는 보고가 서버에 닿았는지 응답으로만 아는데, 응답이 유실되면 저장해 뒀다가
+  //   5분마다 재전송한다. 종전엔 그게 계속 403 이라 재전송 슬롯이 영원히 안 비워졌다.
+  const [already] = await db
+    .select({ appliedAt: pendingUpdates.appliedAt })
+    .from(pendingUpdates)
+    .where(eq(pendingUpdates.id, pushId))
+    .limit(1);
+  return !!already?.appliedAt;
 }
 
 export async function markFailed(
@@ -249,7 +338,14 @@ export async function markFailed(
     .set({ failedAt: new Date(), failureReason: reason.slice(0, 1000), updatedAt: new Date() })
     .where(and(eq(pendingUpdates.id, pushId), isNull(pendingUpdates.failedAt)))
     .returning({ id: pendingUpdates.id });
-  return result.length > 0;
+  if (result.length > 0) return true;
+  // 같은 실패 재보고도 멱등(A1-5).
+  const [already] = await db
+    .select({ failedAt: pendingUpdates.failedAt })
+    .from(pendingUpdates)
+    .where(eq(pendingUpdates.id, pushId))
+    .limit(1);
+  return !!already?.failedAt;
 }
 
 /** 관리 패널 — 단일 푸시 취소. 대기 중인 것만 취소 가능. */
@@ -302,9 +398,13 @@ export async function getBulkProgress(
   const rows = await db
     .select({
       total: count(),
+      // 한 행에 두 상태가 겹칠 수 있다(A1-6): pull 모델이라 취소한 뒤에도 이미 내려받은
+      //   에이전트는 설치하고 applied 를 보낸다 — 막을 방법이 없고 그게 정상이다. 종전엔
+      //   상태별로 따로 세어 pending 이 음수로 나왔다. 우선순위(applied > failed > cancelled)로
+      //   배타 집계해 합이 total 을 넘지 않게 한다.
       applied: sql<number>`count(*) filter (where ${pendingUpdates.appliedAt} is not null)`,
-      cancelled: sql<number>`count(*) filter (where ${pendingUpdates.cancelledAt} is not null)`,
-      failed: sql<number>`count(*) filter (where ${pendingUpdates.failedAt} is not null)`,
+      failed: sql<number>`count(*) filter (where ${pendingUpdates.appliedAt} is null and ${pendingUpdates.failedAt} is not null)`,
+      cancelled: sql<number>`count(*) filter (where ${pendingUpdates.appliedAt} is null and ${pendingUpdates.failedAt} is null and ${pendingUpdates.cancelledAt} is not null)`,
     })
     .from(pendingUpdates)
     .where(
@@ -318,7 +418,13 @@ export async function getBulkProgress(
   const applied = Number(r.applied);
   const cancelled = Number(r.cancelled);
   const failed = Number(r.failed);
-  return { total, applied, cancelled, failed, pending: total - applied - cancelled - failed };
+  return {
+    total,
+    applied,
+    cancelled,
+    failed,
+    pending: Math.max(0, total - applied - cancelled - failed),
+  };
 }
 
 /**
@@ -401,6 +507,11 @@ export async function autoQueueIfBehind(
   try {
     if (!meta || !meta.autoRollout) return false;
     if (customer.isInternal || !reportedVersion.trim()) return false;
+    // ★비활성·정지 거래처도 자동 롤아웃 대상이다 — pushBulk 와 집합이 다른 건 **의도**다
+    //   (정책 확정 2026-07-21: 과금과 무관하게 에이전트는 최신을 유지한다. 재개할 때 이미
+    //   최신이라 공백이 없다). 2026-08-16 감사가 이걸 "pushBulk 와 불일치 = 결함"으로 봤지만
+    //   test/adv-auto-rollout.test.ts AR-04 · adv-heartbeat-integration HBI-2 가 정책으로
+    //   못박아 둔 자리다. 게이트를 넣지 말 것.
     if (!isVersionNewer(meta.version, reportedVersion)) return false;
     // 운영자 수동 핀/롤백(requested_by 있음)이 미완료로 걸려 있으면 자동 큐잉하지 않는다.
     //   에이전트는 desc(createdAt) 최신 1건만 집으므로, 자동 큐가 나중에 얹히면 운영자가 의도적으로

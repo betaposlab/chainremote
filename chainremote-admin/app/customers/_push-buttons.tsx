@@ -97,8 +97,14 @@ function validate(state: PushFormState): string | null {
   if (!Number.isFinite(size) || size <= 0) return "asset size 가 유효하지 않음";
   const ws = Number(state.windowStartHour);
   const we = Number(state.windowEndHour);
-  if (!Number.isInteger(ws) || ws < 0 || ws > 23) return "시작 시간 0~23";
-  if (!Number.isInteger(we) || we < 0 || we > 23) return "종료 시간 0~23";
+  // 0~24 (24 = 자정까지). 종전엔 23 이 상한이라 "하루 종일"을 사람이 만들 수 없었다.
+  if (!Number.isInteger(ws) || ws < 0 || ws > 24) return "시작 시간 0~24";
+  if (!Number.isInteger(we) || we < 0 || we > 24) return "종료 시간 0~24";
+  // ★같은 값이면 업데이트 창이 영원히 안 열린다(A1-2) — 에이전트의 창은 [시작, 종료) 라
+  //   빈 구간이 되고, 그 상태로 대기 행이 남으면 그 거래처는 자동 롤아웃까지 멎는다.
+  if (ws === we) return "시작·종료 시각이 같으면 창이 안 열립니다 (예: 0시~7시)";
+  const rnd = Number(state.randomizeMaxSec);
+  if (!Number.isInteger(rnd) || rnd < 0 || rnd > 86400) return "분산 시간 0~86400초";
   return null;
 }
 
