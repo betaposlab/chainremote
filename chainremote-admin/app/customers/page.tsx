@@ -4,6 +4,7 @@ import { customers, pendingUpdates, supportSessions, tenants, users } from "@/li
 import { eq, desc, asc, and, isNull, isNotNull, or } from "drizzle-orm";
 import { listOrphanFavorites } from "@/lib/data/favorites";
 import { listOpenAlerts, parseAlertDetail } from "@/lib/data/alerts";
+import { closeOrphanSessions } from "@/lib/data/sessions";
 import { AlertBanner } from "./_alert-banner";
 import { formatRemoteId } from "@/lib/id-formatter";
 import { DiscoveredPeerBanner } from "./_discovered";
@@ -193,6 +194,8 @@ export default async function CustomersPage({
     return h?.kind === "brick" || h?.kind === "failed";
   });
 
+  // HQ 가 죽어 종료 보고를 못 보낸 세션을 먼저 닫는다 — 안 그러면 "지원 중"이 영원히 빨갛다.
+  await closeOrphanSessions(tenant.id);
   const activeSessions = await db
     .select({
       id: supportSessions.id,

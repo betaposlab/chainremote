@@ -31,10 +31,54 @@ export async function listMyRecentSessions(
 }
 
 /**
+ * 고아 세션 자동 마감 — 직원의 HQ 가 죽었는데(강제 종료·PC 절전·크래시) 종료 보고를 못 보낸
+ * `in_progress` 세션을 서버가 닫는다. 판정 기준은 좌석 하트비트(active_login_sessions,
+ * 5초 주기·orphan TTL 2분 = 좌석 enforcement 와 같은 잣대): 그 직원의 살아있는 좌석이 없으면
+ * HQ 도 없는 것이고, HQ 가 없으면 그 원격 창도 없다.
+ *
+ * ★2026-08-15 토니피자 건이 계기 — 재성 HQ 가 14:53 에 사라졌는데 세션은 한 시간 넘게
+ *   "지원 중"으로 빨갛게 남았다. 사람이 새로고침해 손으로 마감하기 전엔 영원히 그대로였다.
+ *
+ * - ended_at = 좌석의 마지막 하트비트(= HQ 가 마지막으로 살아 있던 시각). 좌석 행이 이미
+ *   지워졌으면(정상 로그아웃) 알 길이 없어 now() — 그래도 시작보다 앞서진 않게 GREATEST.
+ * - resolution 은 건드리지 않는다 → 끝났는데 내용 없는 "미기록" 상태가 되고, HQ 의
+ *   [나중에]와 똑같이 지원기록에서 나중에 채울 수 있다. 자동 마감이라고 따로 표시하지 않는 건
+ *   기록이 없다는 사실이 이미 화면에 있어서다.
+ * - 시작 2분 미만은 건너뛴다 — 로그인 직후 좌석 행과 세션 생성 사이의 경합에 대한 안전 여유.
+ * - 읽는 자리(진행 중 표시가 나가는 조회들)에서 매번 호출한다. 열린 세션이 몇 개 없어
+ *   UPDATE 비용은 무시할 수준이고, 별도 크론이 없는 Next.js 에선 이게 가장 정직한 자리다.
+ * - 나중에 HQ 가 뒤늦게 /end 를 보내와도 endSession 의 COALESCE 가 여기서 박은 ended_at 을
+ *   지키고 내용만 보강한다.
+ *
+ * @returns 닫은 세션 수
+ */
+export async function closeOrphanSessions(tenantId: string): Promise<number> {
+  const result = await db.execute(sql`
+    UPDATE support_sessions s
+       SET ended_at = GREATEST(
+             s.started_at,
+             COALESCE(
+               (SELECT a.last_seen_at FROM active_login_sessions a
+                 WHERE a.user_id = s.operator_id),
+               now()))
+     WHERE s.tenant_id = ${tenantId}::uuid
+       AND s.ended_at IS NULL
+       AND s.started_at < now() - interval '2 minutes'
+       AND NOT EXISTS (
+             SELECT 1 FROM active_login_sessions a
+              WHERE a.user_id = s.operator_id
+                AND a.last_seen_at > now() - interval '2 minutes')
+    RETURNING s.id
+  `);
+  return (result as unknown as { rows: unknown[] }).rows.length;
+}
+
+/**
  * 아직 안 끝난(endedAt 없음) 세션 목록 — 테넌트 전체 presence 표시용.
  * "재성이가 진희씨컴 접속 중" 같은 UI.
  */
 export async function listActiveSessions(tenantId: string) {
+  await closeOrphanSessions(tenantId);
   return db
     .select({
       session: supportSessions,
@@ -170,6 +214,7 @@ export async function listCustomerSessions(
   tenantId: string,
   limit = 100,
 ) {
+  await closeOrphanSessions(tenantId);
   return db
     .select({ session: supportSessions, operatorName: users.displayName })
     .from(supportSessions)
@@ -190,6 +235,7 @@ export async function listRecentSessions(
   limit = 100,
   remoteId?: string,
 ) {
+  await closeOrphanSessions(tenantId);
   const conds = [eq(supportSessions.tenantId, tenantId)];
   // remoteId 주면 그 거래처만 (HQ 거래처 카드 "지원이력"). 없으면 전체 타임라인.
   if (remoteId) conds.push(eq(customers.remoteId, remoteId));
@@ -267,6 +313,7 @@ export async function searchSessions(opts: {
   q?: string | null;
   limit?: number;
 }) {
+  await closeOrphanSessions(opts.tenantId);
   return db
     .select({
       id: supportSessions.id,
