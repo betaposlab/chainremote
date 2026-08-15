@@ -1,151 +1,212 @@
-# ChainRemote / RustDesk 흔적 완전 제거 — fresh install 직전에 한 번 실행.
+# ChainRemote / RustDesk traces - full wipe. Run once before a fresh install.
 #
-# 사용:
-#   관리자 권한 PowerShell 에서:
+# Usage (elevated PowerShell):
 #   Set-ExecutionPolicy -Scope Process Bypass; .\uninstall-clean.ps1
 #
-# 제거 대상:
-#   - RustDesk 서비스 (stop + delete)
-#   - 잔여 rustdesk.exe / ChainRemote.exe 프로세스
-#   - HKLM Run 자동시작 entry (RustDesk + ChainRemote 둘 다)
-#   - C:\Program Files\RustDesk\
-#   - C:\ProgramData\ChainRemote\ (pending, updater.log 포함)
-#   - %APPDATA%\RustDesk\ (현재 사용자)
-#   - C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk\
-#   - 시작 메뉴 / 바탕화면 단축아이콘 (RustDesk / ChainRemote 모두)
-#   - 프로그램 추가/제거 reg key
+# 2026-08-16 rewrite. The previous version was wrong in two ways at once and would have
+# invalidated the "clean install" premise of any test that leaned on it:
+#   1. It used `*>$null` (PowerShell 3+) in nine places. Windows 7 ships PowerShell 2.0,
+#      where that is a parse error - the whole script dies before its first statement, so
+#      it silently did nothing at all on exactly the machines it was written for.
+#   2. Even on PowerShell 5 it only knew the old RustDesk names. The service is called
+#      ChainRemote, the program lives in Program Files\ChainRemote, the config sits under
+#      %APPDATA%\ChainRemote, and there is a watchdog scheduled task that recreates the
+#      service - none of which it touched. It reported success while leaving a working
+#      install (and the device identity) in place.
 #
-# 안 건드리는 것: 다른 사용자 프로필의 %APPDATA%\RustDesk (있어도 무해하고 새 설치 후 자동 정리됨)
+# ASCII only, no BOM, PS 2.0 syntax - PowerShell reads a BOM-less .ps1 as the system ANSI
+# codepage, so one non-ASCII byte breaks the parser on Korean Windows.
+#
+# Order matters: the watchdog task is disarmed first, because it exists to bring the
+# service back after someone deletes it.
 
 $ErrorActionPreference = 'Continue'
 
-function Step($msg) { Write-Host "[uninstall-clean] $msg" -ForegroundColor Cyan }
-function Ok($msg)   { Write-Host "  OK $msg" -ForegroundColor Green }
-function Skip($msg) { Write-Host "  -- $msg (없음)" -ForegroundColor DarkGray }
+function Step($msg) { Write-Host ("[clean] " + $msg) -ForegroundColor Cyan }
+function Ok($msg)   { Write-Host ("  ok   " + $msg) -ForegroundColor Green }
+function Skip($msg) { Write-Host ("  --   " + $msg + " (none)") -ForegroundColor DarkGray }
+function Warn($msg) { Write-Host ("  !    " + $msg) -ForegroundColor Yellow }
 
-# 0. 관리자 확인
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "ERROR: 관리자 권한 PowerShell 에서 실행해야 합니다." -ForegroundColor Red
+$isAdmin = ([Security.Principal.WindowsPrincipal] `
+    [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+        [Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    Write-Host "ERROR: run this from an elevated PowerShell." -ForegroundColor Red
     exit 1
 }
 
-# 1. 서비스 정지
-Step "서비스 정지"
-$svc = Get-Service RustDesk -ErrorAction SilentlyContinue
-if ($svc) {
-    Stop-Service RustDesk -Force -ErrorAction SilentlyContinue
+# Both generations of names. ChainRemote is what ships today; RustDesk is the pre-rebrand
+# leftover that can still be sitting on a machine from 2026-05 or earlier.
+$svcNames  = @('ChainRemote', 'RustDesk')
+$procNames = @('ChainRemote', 'rustdesk')
+$taskNames = @('ChainRemoteServiceWatchdog')
+
+# 1) Disarm the watchdog first - it recreates the service.
+Step "watchdog scheduled task"
+foreach ($t in $taskNames) {
+    & schtasks.exe /Delete /TN $t /F 2>&1 | Out-Null
+}
+Ok "watchdog task deleted (if present)"
+
+# 2) Stop services, bounded. Stop-Service has no timeout and a service holding a live
+#    remote session can sit in STOP_PENDING forever.
+Step "services"
+foreach ($n in $svcNames) {
+    $svc = Get-Service $n -ErrorAction SilentlyContinue
+    if (-not $svc) { Skip ("service " + $n); continue }
+    & sc.exe stop $n 2>&1 | Out-Null
     for ($i = 0; $i -lt 30; $i++) {
-        $svc = Get-Service RustDesk -ErrorAction SilentlyContinue
+        $svc = Get-Service $n -ErrorAction SilentlyContinue
         if ($null -eq $svc -or $svc.Status -eq 'Stopped') { break }
         Start-Sleep -Seconds 1
     }
-    Ok "RustDesk 서비스 정지"
-} else {
-    Skip "RustDesk 서비스"
+    & sc.exe delete $n 2>&1 | Out-Null
+    if (Get-Service $n -ErrorAction SilentlyContinue) { Warn ("service " + $n + " still registered") }
+    else { Ok ("service " + $n + " stopped and deleted") }
 }
 
-# 2. 서비스 삭제
-Step "서비스 삭제"
-sc.exe delete RustDesk *>$null
-if ($LASTEXITCODE -eq 0) { Ok "sc delete RustDesk" } else { Skip "sc delete (이미 없음)" }
+# 3) Leftover processes.
+Step "processes"
+foreach ($p in $procNames) {
+    & taskkill.exe /F /IM ($p + ".exe") /T 2>&1 | Out-Null
+}
+Ok "processes killed (if any)"
 
-# 3. 잔여 프로세스 강제 종료
-Step "잔여 프로세스 종료"
-taskkill /F /IM rustdesk.exe /T *>$null
-taskkill /F /IM ChainRemote.exe /T *>$null
-Ok "rustdesk.exe / ChainRemote.exe taskkill"
+# 4) Autostart registry values.
+Step "autostart registry"
+foreach ($v in @('ChainRemote', 'RustDesk')) {
+    & reg.exe delete "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v $v /f 2>&1 | Out-Null
+}
+Ok "HKLM Run values"
 
-# 4. HKLM Run reg
-Step "자동시작 reg 제거"
-reg delete "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v RustDesk /f *>$null
-reg delete "HKLM\Software\Microsoft\Windows\CurrentVersion\Run" /v ChainRemote /f *>$null
-Ok "HKLM Run RustDesk / ChainRemote"
-
-# 5. 프로그램 추가/제거 등록 (Inno Setup AppId)
-Step "프로그램 추가/제거 reg 제거"
+# 5) Add/Remove Programs entries (Inno AppId + the hidden core entry).
+Step "add/remove programs registry"
 $uninstallKeys = @(
     "HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\{8B6F7E2A-1D4C-4A3F-9E5B-3F2C1D7E8B4A}_is1",
+    "HKLM\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{8B6F7E2A-1D4C-4A3F-9E5B-3F2C1D7E8B4A}_is1",
+    "HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\ChainRemote",
+    "HKLM\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\ChainRemote",
     "HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\RustDesk",
     "HKLM\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\RustDesk"
 )
-foreach ($k in $uninstallKeys) {
-    reg delete $k /f *>$null
-}
-Ok "Uninstall reg keys"
+foreach ($k in $uninstallKeys) { & reg.exe delete $k /f 2>&1 | Out-Null }
+Ok "uninstall keys"
 
-# 6. 단축아이콘 (Public Desktop / 현재 사용자 Desktop / 시작 메뉴)
-Step "단축아이콘 제거"
-$shortcuts = @(
-    "$env:PUBLIC\Desktop\RustDesk.lnk",
+# 6) Customer name - a reused machine must not come back under its old shop name.
+Step "customer name registry"
+& reg.exe delete "HKLM\SOFTWARE\ChainRemote" /v CustomerName /f /reg:64 2>&1 | Out-Null
+& reg.exe delete "HKLM\SOFTWARE\ChainRemote" /v CustomerName /f /reg:32 2>&1 | Out-Null
+Ok "HKLM\SOFTWARE\ChainRemote CustomerName"
+
+# 7) Shortcuts (every profile, not just the one running this) and start menu folders.
+Step "shortcuts"
+$removed = 0
+foreach ($pattern in @(
+    "C:\Users\*\Desktop\ChainRemote.lnk",
+    "C:\Users\*\Desktop\RustDesk.lnk",
     "$env:PUBLIC\Desktop\ChainRemote.lnk",
-    "$env:USERPROFILE\Desktop\RustDesk.lnk",
-    "$env:USERPROFILE\Desktop\ChainRemote.lnk"
-)
-foreach ($s in $shortcuts) {
-    if (Test-Path $s) { Remove-Item $s -Force -ErrorAction SilentlyContinue }
-}
-$startMenuFolders = @(
-    "$env:PROGRAMDATA\Microsoft\Windows\Start Menu\Programs\RustDesk",
-    "$env:PROGRAMDATA\Microsoft\Windows\Start Menu\Programs\ChainRemote"
-)
-foreach ($f in $startMenuFolders) {
-    if (Test-Path $f) { Remove-Item $f -Recurse -Force -ErrorAction SilentlyContinue }
-}
-Ok "단축아이콘 + 시작 메뉴 폴더"
-
-# 7. Program Files 폴더
-Step "Program Files\RustDesk 폴더 제거"
-$pf = "$env:ProgramFiles\RustDesk"
-if (Test-Path $pf) {
-    # 파일 lock 대비 — 한 번 더 잔여 프로세스 종료 후 삭제
-    taskkill /F /IM rustdesk.exe /T *>$null
-    Start-Sleep -Seconds 1
-    Remove-Item $pf -Recurse -Force -ErrorAction SilentlyContinue
-    if (Test-Path $pf) {
-        Write-Host "  ! $pf 일부 파일이 lock 되어 다음 부팅 시 삭제 예약" -ForegroundColor Yellow
-    } else {
-        Ok "$pf 제거"
+    "$env:PUBLIC\Desktop\RustDesk.lnk"
+)) {
+    foreach ($f in @(Get-ChildItem $pattern -ErrorAction SilentlyContinue)) {
+        Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path $f.FullName)) { $removed = $removed + 1 }
     }
-} else {
-    Skip "$pf"
+}
+# A renamed desktop icon is a supported thing for customers to do ("POS remote"), so match
+# on the shortcut target as well, not just the file name.
+$wsh = New-Object -ComObject WScript.Shell
+foreach ($lnk in @(Get-ChildItem "C:\Users\*\Desktop\*.lnk" -ErrorAction SilentlyContinue)) {
+    $target = ""
+    try { $target = [string]$wsh.CreateShortcut($lnk.FullName).TargetPath } catch { }
+    if ($target -and ($target -match 'ChainRemote\.exe$' -or $target -match 'rustdesk\.exe$')) {
+        Remove-Item -LiteralPath $lnk.FullName -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path $lnk.FullName)) { $removed = $removed + 1 }
+    }
+}
+foreach ($f in @(
+    "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote",
+    "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\RustDesk"
+)) {
+    if (Test-Path $f) { Remove-Item -LiteralPath $f -Recurse -Force -ErrorAction SilentlyContinue }
+}
+Ok ("shortcuts removed=" + $removed + ", start menu folders cleared")
+
+# 8) Program folders. Both Program Files views, both generations of names.
+Step "program folders"
+$progDirs = @(
+    (Join-Path $env:ProgramFiles "ChainRemote"),
+    (Join-Path $env:ProgramFiles "RustDesk")
+)
+$pf86 = ${env:ProgramFiles(x86)}
+if ($pf86) {
+    $progDirs = $progDirs + (Join-Path $pf86 "ChainRemote") + (Join-Path $pf86 "RustDesk")
+}
+foreach ($d in $progDirs) {
+    if (-not (Test-Path $d)) { Skip $d; continue }
+    Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path $d) { Warn ($d + " partially locked - reboot and rerun") } else { Ok $d }
 }
 
-# 8. ProgramData\ChainRemote
-Step "ProgramData\ChainRemote 폴더 제거"
-$pd = "$env:ProgramData\ChainRemote"
-if (Test-Path $pd) {
-    Remove-Item $pd -Recurse -Force -ErrorAction SilentlyContinue
-    Ok "$pd"
-} else {
-    Skip "$pd"
+# 9) Config and state. This is what makes a reinstall a genuinely new device: the remote
+#    ID and the heartbeat token live here. Every profile plus the service accounts.
+Step "config and state"
+$stateDirs = New-Object System.Collections.ArrayList
+foreach ($pattern in @(
+    "C:\Users\*\AppData\Roaming\ChainRemote",
+    "C:\Users\*\AppData\Roaming\RustDesk"
+)) {
+    foreach ($d in @(Get-ChildItem $pattern -ErrorAction SilentlyContinue)) {
+        $null = $stateDirs.Add($d.FullName)
+    }
 }
-
-# 9. 현재 사용자 %APPDATA%\RustDesk
-Step "사용자 RustDesk config 제거"
-$ua = "$env:APPDATA\RustDesk"
-if (Test-Path $ua) {
-    Remove-Item $ua -Recurse -Force -ErrorAction SilentlyContinue
-    Ok "$ua"
-} else {
-    Skip "$ua"
+foreach ($d in @(
+    "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote",
+    "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk",
+    "C:\Windows\ServiceProfiles\NetworkService\AppData\Roaming\ChainRemote",
+    "$env:ProgramData\ChainRemote"
+)) {
+    if (Test-Path $d) { $null = $stateDirs.Add($d) }
 }
-
-# 10. LocalService RustDesk config
-Step "LocalService RustDesk config 제거"
-$ls = "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\RustDesk"
-if (Test-Path $ls) {
-    Remove-Item $ls -Recurse -Force -ErrorAction SilentlyContinue
-    Ok "$ls"
-} else {
-    Skip "$ls"
+$stateOk = 0
+foreach ($d in $stateDirs) {
+    Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path $d) { Warn ($d + " left behind") } else { $stateOk = $stateOk + 1 }
 }
+Ok ("state dirs removed=" + $stateOk + " of " + $stateDirs.Count)
 
-# 11. 방화벽 규칙
-Step "방화벽 규칙 제거"
-netsh advfirewall firewall delete rule name="RustDesk Service" *>$null
-netsh advfirewall firewall delete rule name="ChainRemote Service" *>$null
-Ok "방화벽 규칙"
+# 10) Firewall rules.
+Step "firewall rules"
+foreach ($r in @('ChainRemote Service', 'RustDesk Service', 'ChainRemote', 'RustDesk')) {
+    & netsh.exe advfirewall firewall delete rule name="$r" 2>&1 | Out-Null
+}
+Ok "firewall rules"
 
+# Verify rather than claim. A wipe that reports success while the service is still
+# registered is worse than one that fails loudly.
 Write-Host ""
-Write-Host "[uninstall-clean] 완료. 이제 ChainRemote_Setup_v1.2.4.exe 더블클릭으로 fresh 설치 가능." -ForegroundColor Green
-Write-Host ""
+Step "verification"
+$leftovers = New-Object System.Collections.ArrayList
+foreach ($n in $svcNames) {
+    if (Get-Service $n -ErrorAction SilentlyContinue) { $null = $leftovers.Add("service " + $n) }
+}
+foreach ($p in $procNames) {
+    if (Get-Process $p -ErrorAction SilentlyContinue) { $null = $leftovers.Add("process " + $p) }
+}
+foreach ($d in $progDirs) {
+    if (Test-Path $d) { $null = $leftovers.Add($d) }
+}
+foreach ($d in @("$env:ProgramData\ChainRemote")) {
+    if (Test-Path $d) { $null = $leftovers.Add($d) }
+}
+$taskList = & schtasks.exe /Query /TN ChainRemoteServiceWatchdog 2>&1
+if ($LASTEXITCODE -eq 0) { $null = $leftovers.Add("task ChainRemoteServiceWatchdog") }
+
+if ($leftovers.Count -eq 0) {
+    Write-Host "[clean] done - nothing left behind. Ready for a fresh install." -ForegroundColor Green
+    exit 0
+} else {
+    Write-Host "[clean] NOT fully clean. Still present:" -ForegroundColor Red
+    foreach ($l in $leftovers) { Write-Host ("  - " + $l) -ForegroundColor Red }
+    Write-Host "Reboot and run this again before installing." -ForegroundColor Yellow
+    exit 1
+}

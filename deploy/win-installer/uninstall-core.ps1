@@ -117,5 +117,40 @@ if (Test-Path $startMenu) {
     Write-Log "start menu already gone"
 }
 
+# 8) Config directories. Chang decided on 2026-08-16 that uninstall means uninstall:
+#    the device ID and heartbeat token live here, so leaving them behind makes a
+#    "clean reinstall" silently inherit the old identity - the machine comes back as the
+#    same customer row with the same remote ID. Removing them means a reinstall enrolls
+#    as a genuinely new device, which is what an operator expects after a full removal.
+#
+#    Every user profile is swept, not just the one running the uninstaller: the agent runs
+#    in the logged-in POS user's session while the uninstall is typically launched by an
+#    admin, so $env:APPDATA points at the wrong profile.
+$cfgRemoved = 0
+$cfgLeft = 0
+$cfgDirs = New-Object System.Collections.ArrayList
+foreach ($d in @(Get-ChildItem "C:\Users\*\AppData\Roaming\ChainRemote" -ErrorAction SilentlyContinue)) {
+    $null = $cfgDirs.Add($d.FullName)
+}
+# Service-side config. The service runs as LocalService; older builds wrote under
+# NetworkService, so both are swept.
+foreach ($svcCfg in @(
+    "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote",
+    "C:\Windows\ServiceProfiles\NetworkService\AppData\Roaming\ChainRemote"
+)) {
+    if (Test-Path $svcCfg) { $null = $cfgDirs.Add($svcCfg) }
+}
+foreach ($cfg in $cfgDirs) {
+    Remove-Item -LiteralPath $cfg -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path $cfg) { $cfgLeft = $cfgLeft + 1 } else { $cfgRemoved = $cfgRemoved + 1 }
+}
+Write-Log ("config dirs removed=" + $cfgRemoved + " left=" + $cfgLeft)
+
+# 9) Customer name registry value - the same cleanup the installer does from [UninstallRun],
+#    repeated here so a manual run of this script is enough on its own.
+& reg.exe delete "HKLM\SOFTWARE\ChainRemote" /v CustomerName /f /reg:64 2>&1 | Out-Null
+& reg.exe delete "HKLM\SOFTWARE\ChainRemote" /v CustomerName /f /reg:32 2>&1 | Out-Null
+Write-Log "customer name registry cleared"
+
 Write-Log "done"
 exit 0
