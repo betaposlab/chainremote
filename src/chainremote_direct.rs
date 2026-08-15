@@ -84,3 +84,62 @@ pub fn is_retry_due(config: &PeerConfig) -> bool {
     let now = now_secs();
     now < at || now - at >= RETRY_AFTER_SECS
 }
+
+/// A3 감사(2026-08-16) — `stamp`/`is_retry_due` 는 전역 상태·파일·네트워크에 기대지 않는
+/// 순수 로직(입력 PeerConfig 하나만 건드림)이라 회귀 테스트로 안전하게 잠글 수 있다.
+#[cfg(test)]
+mod audit_a3_tests {
+    use super::*;
+
+    #[test]
+    fn is_retry_due_true_when_never_stamped() {
+        // "옛 설정"(키 없음) — 근거가 없는 기록은 회복 쪽으로 기운다: true.
+        let config = PeerConfig::default();
+        assert!(is_retry_due(&config));
+    }
+
+    #[test]
+    fn stamp_keep_true_then_not_due_immediately() {
+        let mut config = PeerConfig::default();
+        stamp(&mut config, true);
+        assert!(config.ui_flutter.contains_key(KEY));
+        // 방금 찍었으니 RETRY_AFTER_SECS 가 지나지 않아 아직 온전한 창을 줄 때가 아니다.
+        assert!(!is_retry_due(&config));
+    }
+
+    #[test]
+    fn stamp_keep_false_removes_key_and_becomes_due_again() {
+        let mut config = PeerConfig::default();
+        stamp(&mut config, true);
+        assert!(config.ui_flutter.contains_key(KEY));
+        stamp(&mut config, false);
+        assert!(!config.ui_flutter.contains_key(KEY));
+        assert!(is_retry_due(&config));
+    }
+
+    #[test]
+    fn is_retry_due_true_after_retry_after_secs_elapsed() {
+        let mut config = PeerConfig::default();
+        let old = now_secs().saturating_sub(RETRY_AFTER_SECS + 1);
+        config.ui_flutter.insert(KEY.to_owned(), old.to_string());
+        assert!(is_retry_due(&config));
+    }
+
+    #[test]
+    fn is_retry_due_false_just_before_retry_after_secs() {
+        let mut config = PeerConfig::default();
+        // 방금(0초 전) 찍힌 것과 동일 — 유효기간 안이므로 아직 창을 넓히지 않는다.
+        let recent = now_secs();
+        config.ui_flutter.insert(KEY.to_owned(), recent.to_string());
+        assert!(!is_retry_due(&config));
+    }
+
+    #[test]
+    fn is_retry_due_true_when_clock_went_backwards() {
+        // 시계가 뒤로 간 경우(now < at) — 판단이 애매하면 회복 쪽으로 기운다: true.
+        let mut config = PeerConfig::default();
+        let future = now_secs() + 3600;
+        config.ui_flutter.insert(KEY.to_owned(), future.to_string());
+        assert!(is_retry_due(&config));
+    }
+}

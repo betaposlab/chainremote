@@ -332,3 +332,49 @@ pub fn run_once_blocking() -> String {
         "점검 완료 — 직결 {direct}곳 · 서버 경유 {relay}곳 · 연결 안 됨 {failed}곳 ({saved})"
     )
 }
+
+/// A3 감사(2026-08-16) — `to_json` 은 입력 슬라이스만 보는 순수 직렬화라 안전하게 잠글 수
+/// 있다. 나머지 함수(probe_one/probe_all/fetch_ids/upload/run_once_blocking/peer_config_exists)
+/// 는 네트워크·파일시스템·tokio 런타임에 기대므로 이 규칙(전역 상태 의존 테스트 금지) 밖이다.
+#[cfg(test)]
+mod audit_a3_tests {
+    use super::*;
+
+    #[test]
+    fn to_json_encodes_direct_relay_and_failure() {
+        let results = vec![
+            ProbeResult {
+                id: "AB1234".to_owned(),
+                direct: Some(true),
+                ms: 309,
+                error: String::new(),
+            },
+            ProbeResult {
+                id: "AB5678".to_owned(),
+                direct: Some(false),
+                ms: 1200,
+                error: String::new(),
+            },
+            ProbeResult {
+                id: "AB9999".to_owned(),
+                direct: None,
+                ms: 12_000,
+                error: "시간 초과".to_owned(),
+            },
+        ];
+        let json = to_json(&results);
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid json");
+        let arr = parsed.as_array().expect("array");
+        assert_eq!(arr.len(), 3);
+        assert_eq!(arr[0]["id"], "AB1234");
+        assert_eq!(arr[0]["direct"], serde_json::json!(true));
+        assert_eq!(arr[1]["direct"], serde_json::json!(false));
+        assert_eq!(arr[2]["direct"], serde_json::Value::Null);
+        assert_eq!(arr[2]["error"], "시간 초과");
+    }
+
+    #[test]
+    fn to_json_empty_slice_is_empty_array() {
+        assert_eq!(to_json(&[]), "[]");
+    }
+}
