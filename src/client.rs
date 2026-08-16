@@ -3573,7 +3573,18 @@ pub async fn handle_hash(
 
     let password = if password.is_empty() {
         // login without password, the remote side can click accept
-        interface.msgbox("input-password", "Password Required", "", "");
+        //
+        // ★ChainRemote: 창 이름을 갈랐다(2026-08-16). 이 호출은 **아직 상대가 비번을 요구했는지
+        //   모르는 상태**에서 미리 띄우는 낙관적 물음이다. 우리 거래처는 100% 클릭 수락이라
+        //   곧바로 NO_PASSWORD_ACCESS 가 와서 "수락을 기다려주세요"로 교체되는데, 그 사이
+        //   "비밀번호를 입력하세요" 창이 한 번 번쩍인다. 사장님에게 비번을 묻는 창이 스쳐
+        //   지나가는 건 오해만 부른다(2026-08-16 Chang 보고).
+        //
+        //   이름만 바꾼다 — 전송하는 로그인(빈 비번)은 그대로다. 화면 쪽에서 이 이름일 때만
+        //   잠깐 미뤘다가 띄우고, 그 사이 응답이 오면 취소한다.
+        //   상대가 **진짜로** 비번을 요구해서 오는 창(LOGIN_MSG_PASSWORD_EMPTY → "input-password")
+        //   은 이름이 달라 종전대로 즉시 뜬다. 영구비번을 쓰는 무인접속 세트가 영향받지 않는다.
+        interface.msgbox("input-password-pending", "Password Required", "", "");
         Vec::new()
     } else {
         let mut hasher = Sha256::new();

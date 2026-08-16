@@ -1587,7 +1587,9 @@ void msgBox(SessionID sessionId, String type, String title, String text,
 }
 
 Color? _msgboxColor(String type) {
-  if (type == "input-password" || type == "custom-os-password") {
+  if (type == "input-password" ||
+      type == "input-password-pending" ||
+      type == "custom-os-password") {
     return Color(0xFFAD448E);
   }
   if (type.contains("success")) {

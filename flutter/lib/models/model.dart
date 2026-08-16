@@ -134,6 +134,9 @@ class FfiModel with ChangeNotifier {
 
   RxBool waitForImageDialogShow = true.obs;
   Timer? waitForImageTimer;
+  /// 아직 상대가 비번을 요구했는지 모르는 상태에서 미리 뜨는 "비밀번호 입력" 창을 잠깐 미뤄
+  /// 두는 타이머. 그 사이 다른 응답(대개 "수락을 기다려주세요")이 오면 취소한다.
+  Timer? _pendingPasswordTimer;
   RxBool waitForFirstImage = true.obs;
   bool isRefreshing = false;
 
@@ -258,6 +261,9 @@ class FfiModel with ChangeNotifier {
     _timer = null;
     clearPermissions();
     waitForImageTimer?.cancel();
+    // 세션이 끝났는데 미뤄 둔 비번 창이 뒤늦게 튀어나오면 유령 창이 된다.
+    _pendingPasswordTimer?.cancel();
+    _pendingPasswordTimer = null;
     timerScreenshot?.cancel();
   }
 
@@ -914,7 +920,26 @@ class FfiModel with ChangeNotifier {
       parent.target?.inputModel.setRelativeMouseMode(false);
     }
 
-    if (type == 're-input-password') {
+    // ★어떤 메시지든 새로 오면, 미뤄 둔 비번 창은 의미가 없어진다 — 상대가 이미 답을 했다는
+    //   뜻이기 때문이다. 아래 분기보다 먼저 취소해야 한다.
+    if (type != 'input-password-pending') {
+      _pendingPasswordTimer?.cancel();
+      _pendingPasswordTimer = null;
+    }
+
+    if (type == 'input-password-pending') {
+      // ChainRemote(2026-08-16): 이건 "상대가 비번을 요구했다"가 아니라 **저장된 비번이 없어서
+      //   일단 물어보는** 창이다(client.rs handle_hash). 우리 거래처는 100% 클릭 수락이라
+      //   곧 "수락을 기다려주세요"가 와서 이 창을 밀어낸다 — 그 사이 번쩍이는 게 전부였고,
+      //   사장님에게 비번을 묻는 창이 스쳐 지나가는 건 오해만 부른다.
+      //   잠깐 기다렸다가, 그때까지 아무 응답도 없으면 그제야 띄운다. 비번이 진짜 필요한
+      //   상대(영구비번 무인접속)는 이 지연 뒤 정상적으로 물어본다.
+      _pendingPasswordTimer?.cancel();
+      _pendingPasswordTimer = Timer(const Duration(milliseconds: 1500), () {
+        _pendingPasswordTimer = null;
+        enterPasswordDialog(sessionId, dialogManager);
+      });
+    } else if (type == 're-input-password') {
       wrongPasswordDialog(sessionId, dialogManager, type, title, text);
     } else if (type == 'input-2fa') {
       enter2FaDialog(sessionId, dialogManager);
