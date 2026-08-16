@@ -18,9 +18,18 @@
 #   Guard: only files that actually carry tenant data are preserved (a non-empty
 #   enroll-key, or unattended=Y). The bundle ships an empty key, so ordinary agents keep
 #   taking the fresh bundled settings exactly as before.
+#
+# The result is also recorded as a flag file so the installer can TELL A HUMAN when the
+# install would end up with no enroll-key (2026-08-16 audit S2). Until now that case was
+# completely silent: a per-tenant .exe whose tail was lost in transit still installs and
+# runs perfectly on the PC, but can never auto-enroll, so the store never appears in the
+# panel and nobody finds out until someone needs remote support. The overlay sits AFTER
+# the Inno payload, so losing it does not break the installer's own integrity check -
+# there is nothing else that would notice.
 param([string]$Setup, [string]$Stage, [string]$Existing)
 $ErrorActionPreference = 'SilentlyContinue'
 $log = 'C:\ProgramData\ChainRemote\updater.log'
+$flag = 'C:\ProgramData\ChainRemote\no-enroll-key.flag'
 function Log($m) {
   try {
     $dir = Split-Path $log
@@ -77,3 +86,18 @@ try {
 } finally {
   if ($fs -ne $null) { try { $fs.Close() } catch {} }
 }
+
+# Verdict: does the file we are about to install actually carry a tenant enroll-key?
+#   No key means no auto-enroll, which means the panel will never see this PC.
+#   We only leave a flag here; the installer decides whether a human is present to tell.
+try {
+  $staged = ''
+  if (Test-Path $Stage) { $staged = [System.IO.File]::ReadAllText($Stage) }
+  if ($staged -match '"enroll-key"\s*:\s*"[^"]+"') {
+    if (Test-Path $flag) { Remove-Item $flag -Force }
+    Log 'verdict: enroll-key present'
+  } else {
+    Set-Content -Path $flag -Value 'no enroll-key' -Force
+    Log 'verdict: NO ENROLL-KEY - this install cannot auto-enroll (panel will not see it)'
+  }
+} catch { Log 'verdict check failed' }

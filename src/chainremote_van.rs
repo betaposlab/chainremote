@@ -82,6 +82,9 @@ static GAVE_UP: AtomicBool = AtomicBool::new(false);
 static NOT_INSTALLED: AtomicBool = AtomicBool::new(false);
 /// 연속 복구 실패 횟수. 정상으로 돌아오면 0.
 static FAILURES: AtomicU32 = AtomicU32::new(0);
+/// 연속으로 "확실히 비정상"이었던 점검 횟수. 정상이거나 판정 불가면 0으로 돌아간다.
+///   손대기 전에 이게 BAD_STREAK_NEEDED 에 닿아야 한다 — 아래 상수 주석 참조.
+static BAD_STREAK: AtomicU32 = AtomicU32::new(0);
 /// 이 시각까지는 복구를 시도하지 않는다(포기 후 휴지, 재실행 직후 유예).
 static QUIET_UNTIL: Mutex<Option<Instant>> = Mutex::new(None);
 
@@ -93,6 +96,17 @@ const WATCH_INTERVAL: Duration = Duration::from_secs(30);
 const START_GRACE: Duration = Duration::from_secs(60);
 /// 이만큼 연속 실패하면 손을 뗀다. 재실행으로 안 낫는 원인(리더기 케이블·COM 불일치 등)이다.
 const MAX_FAILURES: u32 = 3;
+/// 손대기 전에 요구하는 연속 비정상 횟수 = **디바운스**.
+///
+/// ★왜 필요한가(2026-08-16 감사 A6): 종전엔 단 한 번의 점검에서 LISTEN 이 안 보이면 곧바로
+///   프로세스를 죽이고 다시 띄웠다. 이건 **영업 중인 POS 의 카드결제 데몬**이다. 데몬이
+///   포트를 잠깐 다시 여는 순간(재바인딩)이나 netstat 이 한 번 어긋나게 읽히는 순간에
+///   걸리면, 멀쩡한 결제 프로그램을 손님 앞에서 죽이는 셈이 된다.
+///
+///   2회를 요구하면 그런 한 순간짜리 흔들림은 통과하지 못한다. 대가는 복구가 한 주기(30초)
+///   늦어지는 것뿐이고, 이 관제의 목표는 "결제 한 건 실패하고 다시 긁으면 된다" 수준이라
+///   충분히 감당된다. 죽이는 쪽의 손해가 훨씬 크므로 늦는 편을 택한다.
+const BAD_STREAK_NEEDED: u32 = 2;
 
 /// 관제 종류 로컬 캐시 — 재부팅 직후 heartbeat 를 기다리지 않고 바로 무장한다.
 const KIND_CACHE_KEY: &str = "chainremote-van-kind";
@@ -200,7 +214,13 @@ fn current_daemon() -> Option<&'static Daemon> {
 }
 
 fn tick(d: &'static Daemon) {
-    let state = probe_port(d.port);
+    // 관측 자체가 실패하면 판단하지 않는다. 연속 카운트도 늘리지 않는다 — netstat 이
+    //   계속 실패하는 기기에서 "실패 2회 = 비정상 2회"로 쌓여 결국 손대는 걸 막는다.
+    let Some(state) = probe_port(d.port) else {
+        log::warn!("[chainremote_van] netstat 실패 — 이번 주기는 판정하지 않는다");
+        BAD_STREAK.store(0, Ordering::Relaxed);
+        return;
+    };
 
     // 포트를 듣고 있으면 정상. 프로세스가 살아 있다는 뜻이기도 하니 경로 캐시도 여기서 채운다.
     if state.listening {
@@ -208,6 +228,7 @@ fn tick(d: &'static Daemon) {
             log::info!("[chainremote_van] {} daemon healthy (port {})", d.kind, d.port);
         }
         FAILURES.store(0, Ordering::Relaxed);
+        BAD_STREAK.store(0, Ordering::Relaxed);
         GAVE_UP.store(false, Ordering::Relaxed);
         NOT_INSTALLED.store(false, Ordering::Relaxed);
         EVER_OK.store(true, Ordering::Relaxed);
@@ -221,6 +242,7 @@ fn tick(d: &'static Daemon) {
     // 카드가 긁히는 중에 프로세스를 죽이는 사고보다는 한 주기 늦게 고치는 편이 낫다.
     if state.established > 0 {
         log::info!("[chainremote_van] port {} busy ({} conn) — deferring", d.port, state.established);
+        BAD_STREAK.store(0, Ordering::Relaxed);
         return;
     }
 
@@ -256,6 +278,19 @@ fn tick(d: &'static Daemon) {
         }
         return;
     }
+
+    // 여기까지 왔으면 "이번 점검은 확실히 비정상"이다. 그래도 연속으로 그래야 손을 댄다.
+    let streak = BAD_STREAK.fetch_add(1, Ordering::Relaxed) + 1;
+    if streak < BAD_STREAK_NEEDED {
+        log::info!(
+            "[chainremote_van] {} 비정상 {}/{} — 한 주기 더 보고 판단한다",
+            d.kind,
+            streak,
+            BAD_STREAK_NEEDED
+        );
+        return;
+    }
+    BAD_STREAK.store(0, Ordering::Relaxed);
 
     recover(d);
 }
@@ -365,11 +400,13 @@ struct PortState {
 /// netstat 으로 포트 상태를 읽는다. 소켓을 열지 않는 순수 관찰이라 데몬의 통신을 방해할
 /// 여지가 없다(연결을 시도하면 단일 연결만 받는 데몬의 승인을 가로챌 수 있다).
 /// 상태 문자열은 한국어 윈도우에서도 영어로 나온다 — Win7 ko 실측 확인.
-fn probe_port(port: u16) -> PortState {
+/// ★None 은 "안 듣고 있다"가 아니라 **"모르겠다"**이다(2026-08-16 감사 A6).
+///   종전엔 netstat 이 실패해도 listening=false 를 돌려줘, 관측이 실패한 것과 데몬이 죽은
+///   것이 똑같이 보였다 — 그 상태로 복구 경로를 타면 멀쩡한 결제 데몬을 죽인다.
+///   판정 근거를 못 얻었으면 아무것도 하지 않고 다음 주기를 기다리는 게 맞다.
+fn probe_port(port: u16) -> Option<PortState> {
     let mut st = PortState { listening: false, established: 0 };
-    let Some(out) = run_capture("netstat", &["-an"]) else {
-        return st;
-    };
+    let out = run_capture("netstat", &["-an"])?;
     for line in out.lines() {
         let f: Vec<&str> = line.split_whitespace().collect();
         // UDP 줄은 상태 칸이 없다. TCP 4칸(프로토콜/로컬/외부/상태)만 본다.
@@ -389,7 +426,7 @@ fn probe_port(port: u16) -> PortState {
             st.established += 1;
         }
     }
-    st
+    Some(st)
 }
 
 /// 프로세스 이름으로 PID. 없으면 None.

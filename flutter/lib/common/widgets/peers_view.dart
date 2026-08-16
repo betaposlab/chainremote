@@ -5,6 +5,7 @@ import 'package:dynamic_layouts/dynamic_layouts.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/consts.dart';
+import 'package:flutter_hbb/common/shared_state.dart';
 import 'package:flutter_hbb/models/ab_model.dart';
 import 'package:flutter_hbb/models/peer_tab_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -267,27 +268,59 @@ class _PeersViewState extends State<_PeersView>
       child: Consumer<Peers>(builder: (context, peers, child) {
         if (peers.peers.isEmpty) {
           gFFI.peerTabModel.setCurrentTabCachedPeers([]);
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.sentiment_very_dissatisfied_rounded,
-                  color: Theme.of(context).tabBarTheme.labelColor,
-                  size: 40,
-                ).paddingOnly(bottom: 10),
-                Text(
-                  translate(
-                    _emptyMessages[widget.peers.loadEvent] ?? 'Empty',
-                  ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(context).tabBarTheme.labelColor,
-                  ),
+          // ★"거래처가 없다"와 "패널에 못 붙었다"를 갈라 보여 준다(2026-08-16 감사 A5).
+          //   종전엔 둘 다 똑같이 "비어 있음"이라, 관리 패널이 통째로 죽어도 화면상으로는
+          //   평온해 보였다. 앞은 아무 일도 없는 것이고 뒤는 당장 손봐야 하는 사고다.
+          return Obx(() {
+            final err = crPanelDataError.value;
+            if (err.isNotEmpty) {
+              final c = CrColors.of(context);
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.cloud_off_rounded, size: 40, color: c.warnFg)
+                        .paddingOnly(bottom: 10),
+                    Text(
+                      '관리 패널에 연결하지 못했습니다',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700, color: c.warnFg),
+                    ),
+                    Text(
+                      '거래처가 없는 게 아니라 목록을 못 받아온 상태입니다.\n'
+                      '잠시 뒤 새로고침하거나, 계속 이러면 알려 주세요.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).tabBarTheme.labelColor),
+                    ).paddingOnly(top: 6),
+                  ],
                 ),
-              ],
-            ),
-          );
+              );
+            }
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.sentiment_very_dissatisfied_rounded,
+                    color: Theme.of(context).tabBarTheme.labelColor,
+                    size: 40,
+                  ).paddingOnly(bottom: 10),
+                  Text(
+                    translate(
+                      _emptyMessages[widget.peers.loadEvent] ?? 'Empty',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Theme.of(context).tabBarTheme.labelColor,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          });
         } else {
           return _buildPeersView(peers);
         }

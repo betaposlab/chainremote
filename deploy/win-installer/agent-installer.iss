@@ -466,6 +466,20 @@ begin
     //   자동업뎃(/VERYSILENT)은 WizardSilent=True 라 스킵 = 기존 CustomerName 보존(상호가 안 지워짐).
     if (not WizardSilent()) and Assigned(EnrollPage) then
       CRWriteCustomerName(Trim(EnrollPage.Values[0]));
+    // ★설치는 됐지만 대리점 식별자가 없는 경우를 사람에게 알린다(2026-08-16 감사 S2).
+    //   extract-enroll-overlay.ps1 이 남긴 표식이다. 이 상태의 PC 는 로컬에선 멀쩡히 돌지만
+    //   관리 패널에 **영영 안 뜬다** — 자동 등록도, 자동 업데이트도 못 받는다. 여태 이 실패는
+    //   아무 흔적 없이 지나갔고, 나중에 원격이 필요할 때에야 "목록에 없다"로 드러났다.
+    //   원인은 대개 파일이 받아지다 끝이 잘린 것이다(오버레이는 인스톨러 본체 뒤에 붙어 있어
+    //   Inno 자체 무결성 검사에 안 걸린다).
+    //   ★조용한 설치(/VERYSILENT = 자동 업데이트)에서는 절대 띄우지 않는다 — 아무도 못 누르는
+    //   모달이 뜨면 업데이트가 그 자리에서 멈춘다. 그 경로는 기존 설정을 물려받으므로 해당 없음.
+    if (not WizardSilent()) and FileExists('C:\ProgramData\ChainRemote\no-enroll-key.flag') then
+      MsgBox('설치는 끝났지만 대리점 식별 정보가 들어 있지 않습니다.' + #13#10#13#10 +
+             '이 상태로 두면 이 PC 는 관리 패널에 등록되지 않아, 원격 지원도 자동 업데이트도 받을 수 없습니다.' + #13#10#13#10 +
+             '설치 파일이 받아지는 도중 손상됐을 가능성이 큽니다.' + #13#10 +
+             '관리 패널의 [에이전트 다운로드] 에서 파일을 다시 받아 설치해 주세요.',
+             mbError, MB_OK);
   end;
 end;
 

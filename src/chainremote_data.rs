@@ -513,6 +513,8 @@ fn spawn_warm_with_retry(name: &'static str, f: fn() -> bool) {
     std::thread::spawn(move || {
         for attempt in 0..10u32 {
             if f() {
+                // 되살아났다 = 화면에 띄워 둔 경고를 거둔다.
+                push_event("cr_data_error", String::new());
                 return;
             }
             if attempt < 9 {
@@ -523,6 +525,11 @@ fn spawn_warm_with_retry(name: &'static str, f: fn() -> bool) {
             "ChainRemote {} 워밍 10회 재시도 모두 실패 — 마지막 목록 유지(새로고침/재로그인으로 복구)",
             name
         );
+        // ★로그만 남기고 끝내지 않는다(2026-08-16 감사 A5). 여태 패널 API 가 완전히 죽어도
+        //   HQ 는 조용히 빈 목록을 보여 줬다 — "거래처가 0곳"과 "패널에 못 붙었다"가 화면에서
+        //   똑같이 생겼다는 뜻이다. 앞은 아무 일도 없는 것이고 뒤는 당장 손봐야 하는 사고인데,
+        //   구분이 안 되니 사람이 알 방법이 없었다. 목록 대신 이유를 보여 준다.
+        push_event("cr_data_error", name.to_owned());
     });
 }
 

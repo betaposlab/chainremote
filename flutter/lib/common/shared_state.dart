@@ -374,3 +374,10 @@ removeSharedStates(String id) {
 //   null 이 아니라 단순 bool 인 이유: 옛 HQ 는 이 신호를 아예 안 보내고, 그때는 거래처가
 //   자기 타이머(120초)로만 접히면 되므로 "신호 없음 = 아무 일도 안 함"이면 충분하다.
 final crAgentChatPanelOpen = false.obs;
+
+// ChainRemote: 관리 패널 API 를 못 불렀다 — 빈 문자열이면 정상, 아니면 실패한 목록 이름
+//   ("customers" | "favorites"). Rust chainremote_data 의 워밍 재시도가 10회 다 실패하면
+//   'cr_data_error' 이벤트로 들어오고, 성공하면 빈 문자열로 지워진다.
+//   ★있는 그대로를 보여 주기 위한 값이다. 이게 없으면 "거래처가 0곳"과 "패널에 못 붙었다"가
+//   화면에서 똑같이 생긴다 — 앞은 정상이고 뒤는 사고인데 구분할 방법이 없었다(감사 A5).
+final crPanelDataError = ''.obs;

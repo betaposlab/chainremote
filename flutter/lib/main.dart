@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_hbb/common/shared_state.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -608,6 +609,11 @@ _registerEventHandler() {
   }
   // Register native handlers.
   if (isDesktop) {
+    // ChainRemote: 관리 패널 API 워밍이 끝내 실패했다(또는 되살아났다).
+    platformFFI.registerEventHandler(
+        'cr_data_error', 'cr_data_error', (evt) async {
+      crPanelDataError.value = (evt['peers'] as String?) ?? '';
+    });
     platformFFI.registerEventHandler('native_ui', 'native_ui', (evt) async {
       NativeUiHandler.instance.onEvent(evt);
     });
