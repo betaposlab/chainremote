@@ -371,6 +371,8 @@ class _CrRocketPageState extends State<_CrRocketPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c;
   final List<_Spark> _sparks = [];
+  /// 날아가다 다시 터지는 2차 폭탄. 자식 파편을 자기 안에 들고 있다.
+  final List<_Spark> _shells = [];
   final _rnd = Random();
   // 슈웅 + 착탄 폭죽. 애니메이션 2.6초에 타이밍을 통째로 구워 넣은 한 파일이라
   //   시작만 맞추면 착탄 순간(1.43s)까지 저절로 들어맞는다.
@@ -380,24 +382,78 @@ class _CrRocketPageState extends State<_CrRocketPage>
   @override
   void initState() {
     super.initState();
+    // ★6.0초로 늘렸다(2026-08-16 Chang, 2차). 비행 구간은 종전과 똑같이 1.43초에 착탄하고
+    //   (_kImpact 를 같은 절대시각으로 맞춰 뒀다), 늘어난 만큼은 전부 폭죽이 쓴다 —
+    //   파편이 화면 아래까지 내려가고 2차 폭발이 터질 시간이 필요하다.
+    //   효과음 파일은 2.6초짜리 그대로다. 굉음은 착탄 순간에 이미 끝나므로 뒤쪽 폭죽이
+    //   조용한 건 어색하지 않다(실제 불꽃놀이도 빛이 먼저고 소리가 나중이다).
     _c = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2600),
+      duration: const Duration(milliseconds: 6000),
     )..forward();
     _audio.start();
     _c.addStatusListener((s) {
       if (s == AnimationStatus.completed && mounted) Navigator.of(context).pop();
     });
-    // 폭죽 파티클 — 착탄(0.55) 시점에 한꺼번에 태어난다.
-    for (var i = 0; i < 54; i++) {
+    // 폭죽 파티클 — 착탄 시점에 한꺼번에 태어난다.
+    //   ★2026-08-16 확장: 54 → 130. 일부(_kShellCount)는 날아가다 **다시 터지는 2차 폭탄**이다.
+    //   전부 원(circle) 하나씩이라 수가 늘어도 비용은 거의 그대로다 — 이미지도 셰이더도 없다.
+    // ★speed·drift 는 픽셀이 아니라 **화면 크기에 대한 비율**이다(2026-08-16 2차 수정).
+    //   처음엔 픽셀 고정값(최대 330)이라, 넓은 창에서는 모니터 주변 한 뼘만 반짝이고
+    //   화면 대부분이 비어 있었다(Chang 스샷). 창 크기를 모르는 생성부에서 픽셀을 정하면
+    //   어떤 화면에선 좁고 어떤 화면에선 넘친다 — 그리는 쪽에서 곱해야 한다.
+    for (var i = 0; i < 280; i++) {
       final a = _rnd.nextDouble() * pi * 2;
-      final v = 60 + _rnd.nextDouble() * 190;
+      // 위로 솟는 쪽에 힘을 더 준다. 아래로만 퍼지면 그냥 흘러내리는 것처럼 보인다.
+      final up = sin(a) < 0 ? 1.35 : 1.0;
+      final v = (0.10 + _rnd.nextDouble() * 0.62) * up;
       _sparks.add(_Spark(
         angle: a,
         speed: v,
-        size: 1.6 + _rnd.nextDouble() * 2.6,
+        size: 2.0 + _rnd.nextDouble() * 4.2,
         hue: _rnd.nextDouble(),
-        life: 0.5 + _rnd.nextDouble() * 0.5,
+        life: 0.55 + _rnd.nextDouble() * 0.45,
+        drift: (_rnd.nextDouble() - 0.5) * 0.18, // 옆바람
+        twinkle: _rnd.nextDouble() * pi * 2,
+      ));
+    }
+    // 2차 폭발 — 큰 파편 몇 개가 날아가다 자기 자리에서 다시 터진다.
+    //   실제 불꽃놀이의 "펑 …… 파파팟" 이 두 번째 소리를 눈으로 흉내 낸 것.
+    // ★2차 폭탄은 **화면 곳곳을 목표로** 쏘아 올린다(2026-08-16 2차 수정).
+    //   종전엔 모니터에서 아무 각도로만 날려서 전부 그 주변에서 터졌다. 목표 지점을
+    //   가로로 고르게 흩어 놓으면 화면 전체에서 펑펑 터지는 그림이 된다.
+    const shellHues = [42.0, 12.0, 190.0, 128.0, 305.0, 55.0, 210.0, 30.0];
+    for (var i = 0; i < 14; i++) {
+      // 가로는 0.06~0.94 를 고르게 나눠 갖고, 세로는 위쪽 절반에 흩는다.
+      final tx = 0.06 + (i + 0.5) / 14 * 0.88 + (_rnd.nextDouble() - 0.5) * 0.05;
+      final ty = 0.10 + _rnd.nextDouble() * 0.45;
+      // 터지는 시각을 넓게 흩어 6초 내내 연발이 이어지게 한다.
+      final at = 0.16 + _rnd.nextDouble() * 0.46;
+      final hue = shellHues[i % shellHues.length];
+      final kids = <_Spark>[];
+      for (var k = 0; k < 34; k++) {
+        final ka = _rnd.nextDouble() * pi * 2;
+        kids.add(_Spark(
+          angle: ka,
+          speed: 0.06 + _rnd.nextDouble() * 0.30,
+          size: 1.6 + _rnd.nextDouble() * 3.2,
+          hue: hue,
+          life: 0.4 + _rnd.nextDouble() * 0.35,
+          drift: (_rnd.nextDouble() - 0.5) * 0.16,
+          twinkle: _rnd.nextDouble() * pi * 2,
+        ));
+      }
+      _shells.add(_Spark(
+        angle: 0,
+        speed: 0,
+        size: 4.5 + _rnd.nextDouble() * 2.0,
+        hue: hue,
+        life: 1.0,
+        twinkle: 0,
+        burstAt: at,
+        tx: tx,
+        ty: ty,
+        children: kids,
       ));
     }
   }
@@ -417,7 +473,8 @@ class _CrRocketPageState extends State<_CrRocketPage>
         child: AnimatedBuilder(
           animation: _c,
           builder: (context, _) => CustomPaint(
-            painter: _RocketPainter(t: _c.value, sparks: _sparks),
+            painter:
+                _RocketPainter(t: _c.value, sparks: _sparks, shells: _shells),
             child: const SizedBox.expand(),
           ),
         ),
@@ -428,22 +485,48 @@ class _CrRocketPageState extends State<_CrRocketPage>
 
 class _Spark {
   final double angle, speed, size, hue, life;
+
+  /// 옆바람(px/s 상당). 파편이 수직으로만 떨어지면 기계처럼 보인다.
+  final double drift;
+
+  /// 반짝임 위상. 같은 주기로 깜빡이면 줄 맞춘 것처럼 보여서 하나씩 어긋나게 준다.
+  final double twinkle;
+
+  /// 2차 폭발 시점(폭죽 구간 0..1). null 이면 그냥 파편이다.
+  final double? burstAt;
+
+  /// 2차 폭탄이 날아가 터질 목표 지점(화면 비율 0..1). 화면 전체로 흩어 놓기 위한 값.
+  final double tx, ty;
+
+  /// 2차 폭발로 태어나는 자식 파편들. burstAt 이 있을 때만 채워진다.
+  final List<_Spark> children;
+
   _Spark({
     required this.angle,
     required this.speed,
     required this.size,
     required this.hue,
     required this.life,
+    this.drift = 0,
+    this.twinkle = 0,
+    this.burstAt,
+    this.tx = 0,
+    this.ty = 0,
+    this.children = const [],
   });
 }
 
 class _RocketPainter extends CustomPainter {
   final double t;
   final List<_Spark> sparks;
+  final List<_Spark> shells;
 
-  _RocketPainter({required this.t, required this.sparks});
+  _RocketPainter({required this.t, required this.sparks, required this.shells});
 
-  static const double _kImpact = 0.55; // 착탄 시점
+  /// 착탄 시점(전체 6.0초 중 0.238 = 1.43초).
+  ///   ★재생 시간을 2.6초에서 4.2초로 늘리면서 이 값을 같이 낮췄다 — **비행 구간의 절대
+  ///   시각을 종전 그대로 유지**하기 위해서다. 늘어난 시간은 전부 폭죽이 쓴다.
+  static const double _kImpact = 0.238;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -493,7 +576,7 @@ class _RocketPainter extends CustomPainter {
         final f = 1 - e / 0.28;
         canvas.drawCircle(
           to,
-          20 + f * 90,
+          28 + f * size.shortestSide * 0.34,
           Paint()
             ..color = Colors.white.withOpacity(f * 0.85)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18),
@@ -504,26 +587,103 @@ class _RocketPainter extends CustomPainter {
         final f = e / 0.6;
         canvas.drawCircle(
           to,
-          20 + f * 150,
+          24 + f * size.shortestSide * 0.62,
           Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 3 * (1 - f)
+            ..strokeWidth = 5 * (1 - f)
             ..color = _kGold.withOpacity((1 - f) * 0.7),
         );
       }
-      // 불꽃 파편
+      // ── 불꽃 파편 ──────────────────────────────────────────────────────
+      //
+      // ★2026-08-16 Chang 요청으로 키웠다: "폭죽이 화면 아래까지 쭈욱 내려가고, 잔해가
+      //   다시 터지면 좋겠다."
+      //
+      //   중력을 **화면 높이에 비례**하게 준다(고정 90px 이 아니라). 착탄 지점이 높이의
+      //   0.24 라 남은 0.76 을 파편이 실제로 다 내려가야 "아래까지 쏟아지는" 그림이 되는데,
+      //   고정값으로 두면 창 크기에 따라 어떤 화면에선 중간에 멈춰 버린다.
       final p = Paint()..style = PaintingStyle.fill;
-      for (final s in sparks) {
-        final le = e / s.life;
-        if (le >= 1) continue;
-        final d = s.speed * le;
-        final gravity = 90 * le * le; // 아래로 처지게
-        final pos = to + Offset(cos(s.angle) * d, sin(s.angle) * d + gravity);
-        final o = (1 - le) * (1 - le);
+      final g = size.height * 1.15; // 낙하 가속(화면 비례)
+      // 퍼지는 거리의 기준자. 가로로 긴 창에서도 세로로 긴 창에서도 화면을 채우도록
+      //   두 변의 평균을 쓴다(한쪽만 쓰면 반대쪽이 비거나 넘친다).
+      final unit = (size.width + size.height) * 0.5;
+
+      /// 파편 하나를 그린다. [origin] 에서 태어나 [le] 만큼 산 상태.
+      void drawSpark(_Spark s, Offset origin, double le) {
+        if (le < 0 || le >= 1) return;
+        final d = s.speed * unit * le;
+        final pos = origin +
+            Offset(cos(s.angle) * d + s.drift * unit * le * le,
+                sin(s.angle) * d + g * le * le);
+        if (pos.dy > size.height + 20) return; // 화면 밖은 그리지 않는다
+        // 꺼져가며 반짝인다 — 끝물에 깜빡여야 잿불처럼 보인다.
+        final fade = (1 - le) * (1 - le);
+        final tw = 0.72 + 0.28 * sin(s.twinkle + le * 22);
         p.color = HSVColor.fromAHSV(
-                o, 20 + s.hue * 45, 0.85, 1.0) // 금빛~주황
+                (fade * tw).clamp(0.0, 1.0), s.hue, 0.85, 1.0)
             .toColor();
-        canvas.drawCircle(pos, s.size * (1 - le * 0.4), p);
+        canvas.drawCircle(pos, s.size * (1 - le * 0.45), p);
+      }
+
+      // 1차 파편 — 금빛~주황(브랜드 톤).
+      for (final s in sparks) {
+        drawSpark(
+            _Spark(
+              angle: s.angle,
+              speed: s.speed,
+              size: s.size,
+              hue: 20 + s.hue * 45,
+              life: s.life,
+              drift: s.drift,
+              twinkle: s.twinkle,
+            ),
+            to,
+            e / s.life);
+      }
+
+      // 2차 폭발 — 큰 파편이 날아가다 자기 자리에서 다시 터진다.
+      for (final sh in shells) {
+        final at = sh.burstAt!;
+        final target = Offset(sh.tx * size.width, sh.ty * size.height);
+        // 모니터에서 목표 지점까지 날아간다. 감속(easeOut)에 살짝 처지는 호를 얹어
+        //   쏘아 올린 것처럼 보이게 한다.
+        Offset flightAt(double u) {
+          final k = Curves.easeOutQuad.transform(u.clamp(0.0, 1.0));
+          final base = Offset.lerp(to, target, k)!;
+          return base + Offset(0, g * 0.05 * k * k);
+        }
+
+        // 터지기 전: 꼬리를 달고 날아간다.
+        if (e < at) {
+          final le = e / at;
+          for (var i = 0; i < 6; i++) {
+            final f = 1 - i / 6.0;
+            final tp = flightAt(le - i * 0.035);
+            p.color =
+                HSVColor.fromAHSV(f * 0.55, sh.hue, 0.6, 1.0).toColor();
+            canvas.drawCircle(tp, sh.size * f * 0.8, p);
+          }
+          p.color = HSVColor.fromAHSV(0.95, sh.hue, 0.35, 1.0).toColor();
+          canvas.drawCircle(flightAt(le), sh.size, p);
+          continue;
+        }
+        // 터지는 자리 = 목표 지점. 거기서 자식들이 태어난다.
+        final burstPos = flightAt(1.0);
+        final ce = e - at;
+        // 2차 섬광(짧게)
+        if (ce < 0.09) {
+          final f = 1 - ce / 0.09;
+          canvas.drawCircle(
+            burstPos,
+            12 + f * unit * 0.11,
+            Paint()
+              ..color = HSVColor.fromAHSV(f * 0.6, sh.hue, 0.25, 1.0).toColor()
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+          );
+        }
+        for (final k in sh.children) {
+          drawSpark(k, burstPos, ce / k.life);
+        }
       }
     }
   }
