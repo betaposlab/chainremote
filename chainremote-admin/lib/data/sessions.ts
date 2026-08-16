@@ -46,6 +46,8 @@ export async function listMyRecentSessions(
  *   [나중에]와 똑같이 지원기록에서 나중에 채울 수 있다. 자동 마감이라고 따로 표시하지 않는 건
  *   기록이 없다는 사실이 이미 화면에 있어서다.
  * - 시작 2분 미만은 건너뛴다 — 로그인 직후 좌석 행과 세션 생성 사이의 경합에 대한 안전 여유.
+ * - 좌석이 살아 있어도 **12시간**을 넘긴 세션은 닫는다(2026-08-16 A5): 시작 직후 창을 닫아
+ *   클라이언트가 sessionId 를 놓친 경우, 좌석만 보는 규칙으로는 영영 안 닫혔다.
  * - 읽는 자리(진행 중 표시가 나가는 조회들)에서 매번 호출한다. 열린 세션이 몇 개 없어
  *   UPDATE 비용은 무시할 수준이고, 별도 크론이 없는 Next.js 에선 이게 가장 정직한 자리다.
  * - 나중에 HQ 가 뒤늦게 /end 를 보내와도 endSession 의 COALESCE 가 여기서 박은 ended_at 을
@@ -65,10 +67,20 @@ export async function closeOrphanSessions(tenantId: string): Promise<number> {
      WHERE s.tenant_id = ${tenantId}::uuid
        AND s.ended_at IS NULL
        AND s.started_at < now() - interval '2 minutes'
-       AND NOT EXISTS (
-             SELECT 1 FROM active_login_sessions a
-              WHERE a.user_id = s.operator_id
-                AND a.last_seen_at > now() - interval '2 minutes')
+       AND (
+         -- ① HQ 가 죽었다: 좌석 하트비트가 끊겼으면 그 앱도 원격 창도 없다.
+         NOT EXISTS (
+           SELECT 1 FROM active_login_sessions a
+            WHERE a.user_id = s.operator_id
+              AND a.last_seen_at > now() - interval '2 minutes')
+         -- ② HQ 는 살아 있는데 세션만 고아가 됐다(2026-08-16 감사 A5).
+         --    원격 시작 직후(<3초) 창을 닫으면 클라이언트가 sessionId 를 못 받고 놓치는데
+         --    서버엔 행이 남는다. ①은 좌석만 보므로 HQ 를 켜 둔 동안 영원히 안 닫혔다.
+         --    실제 A/S 는 길어야 수십 분이라 12시간이면 "사람이 끝냈는데 보고가 유실된 것"으로
+         --    보는 게 맞다. 진짜 장시간 세션을 자르는 위험보다, 빨간 '지원 중'이 며칠 남아
+         --    지원기록을 못 믿게 되는 쪽이 크다.
+         OR s.started_at < now() - interval '12 hours'
+       )
     RETURNING s.id
   `);
   return (result as unknown as { rows: unknown[] }).rows.length;

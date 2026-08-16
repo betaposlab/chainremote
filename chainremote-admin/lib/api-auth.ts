@@ -169,6 +169,16 @@ function errorMessageChain(e: unknown): string {
   return out;
 }
 
+/**
+ * 저장 전에 NUL(U+0000) 을 없앤다. Postgres text 컬럼은 NUL 을 못 담아 쿼리가 통째로 터지고,
+ * 그 에러 메시지에 SQL 과 파라미터가 실려 나간다(CWE-209). jsonError 가 심층 방어를 하지만
+ * 애초에 안 들어가게 하는 게 먼저다. 소스에 리터럴 제어문자를 두지 않으려 fromCharCode 사용.
+ */
+export function stripNul<T>(v: T): T {
+  if (typeof v !== "string") return v;
+  return v.split(String.fromCharCode(0)).join("") as unknown as T;
+}
+
 // 라우트에서 에러 응답 통일.
 export function jsonError(e: unknown): Response {
   if (e instanceof ApiAuthError) {
@@ -194,6 +204,34 @@ export function jsonError(e: unknown): Response {
   if (/invalid input syntax for (type )?uuid/i.test(chain)) {
     return Response.json({ error: "잘못된 ID 형식입니다." }, { status: 400 });
   }
+  // NUL(U+0000) 은 Postgres text 에 못 들어가 쿼리가 통째로 터진다. 입력에서 걸러야 하지만
+  //   빠뜨린 경로가 또 생길 수 있으니 여기서도 사람이 읽을 말로 바꾼다.
+  if (/unsupported Unicode escape|invalid byte sequence|\\u0000|null character/i.test(chain)) {
+    return Response.json({ error: "입력에 사용할 수 없는 문자가 있습니다." }, { status: 400 });
+  }
+  // ★여기서부터는 우리가 모르는 에러다. 종전엔 `e.message` 를 그대로 실어 보냈는데, drizzle 의
+  //   DB 에러 메시지에는 **쿼리 전문과 바인딩 파라미터**(tenantId·UUID 등)가 들어 있어 그대로
+  //   응답 바디로 샜다(CWE-209, 2026-08-16 감사에서 거래처 생성 NUL 입력으로 실증).
+  //   패턴을 하나씩 막는 방식은 다음 패턴에서 또 뚫린다 — 기본을 "안 보낸다"로 뒤집는다.
+  //   진짜 원인은 서버 로그에만 남긴다(운영자는 docker logs 로 본다).
+  const detail = e instanceof Error ? e.message : String(e);
+  if (isDbError(chain)) {
+    console.error("[jsonError] DB error (bodyless):", detail);
+    return Response.json({ error: "처리 중 오류가 발생했습니다." }, { status: 500 });
+  }
   const msg = e instanceof Error ? e.message : "internal error";
   return Response.json({ error: msg }, { status: 500 });
+}
+
+/**
+ * 이 에러가 DB 계층에서 왔나 — 그렇다면 메시지에 SQL·파라미터가 실려 있을 수 있어
+ * 응답에 그대로 담으면 안 된다. drizzle 은 DrizzleQueryError 로 감싸며 message 를
+ * "Failed query: ..." 로 바꾸고 원문은 cause 로 내려보낸다.
+ */
+function isDbError(chain: string): boolean {
+  return (
+    /Failed query|DrizzleQueryError|postgres|pg_|syntax error at or near|column .* does not exist|relation .* does not exist|violates .* constraint|invalid input syntax/i.test(
+      chain,
+    ) || /\bselect\b[\s\S]*\bfrom\b|\binsert into\b|\bupdate\b[\s\S]*\bset\b/i.test(chain)
+  );
 }

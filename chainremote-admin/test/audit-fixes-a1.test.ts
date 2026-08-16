@@ -213,3 +213,92 @@ describe("A1-6 일괄 진행률이 음수가 되지 않는다", () => {
     expect(p.cancelled).toBe(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2026-08-16 감사 A5·S4 수정의 회귀 가드 (같은 날 배치라 이 파일에 함께 둔다).
+// ─────────────────────────────────────────────────────────────────────────────
+import { closeOrphanSessions, startSession } from "@/lib/data/sessions";
+import { activeLoginSessions, supportSessions } from "@/lib/schema";
+import { jsonError, stripNul } from "@/lib/api-auth";
+import { sql } from "drizzle-orm";
+
+describe("A5 고아 세션 — HQ 가 살아 있어도 12시간 넘으면 마감", () => {
+  it("좌석이 멀쩡해도 12시간 넘은 세션은 닫힌다(종전엔 영원히 '지원 중')", async () => {
+    const s = await seed();
+    const sess = await startSession({
+      tenantId: s.tenantId,
+      operatorId: s.userId,
+      customerId: s.customerId,
+      remoteId: "211191101",
+    });
+    // HQ 는 켜져 있다 — 좌석 하트비트가 방금 들어왔다.
+    await testDb().insert(activeLoginSessions).values({
+      userId: s.userId,
+      jti: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      deviceId: "d",
+      deviceLabel: "d",
+      lastSeenAt: sql`now()`,
+    });
+    // 13시간 전에 시작된 세션.
+    await testDb()
+      .update(supportSessions)
+      .set({ startedAt: sql`now() - interval '13 hours'` })
+      .where(eq(supportSessions.id, sess.id));
+
+    expect(await closeOrphanSessions(s.tenantId)).toBe(1);
+    const [row] = await testDb()
+      .select({ endedAt: supportSessions.endedAt })
+      .from(supportSessions)
+      .where(eq(supportSessions.id, sess.id));
+    expect(row.endedAt).not.toBeNull();
+  });
+
+  it("좌석이 살아 있고 12시간 안 지난 세션은 그대로 둔다(정상 원격 보호)", async () => {
+    const s = await seed();
+    const sess = await startSession({
+      tenantId: s.tenantId,
+      operatorId: s.userId,
+      customerId: s.customerId,
+      remoteId: "211191101",
+    });
+    await testDb().insert(activeLoginSessions).values({
+      userId: s.userId,
+      jti: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      deviceId: "d",
+      deviceLabel: "d",
+      lastSeenAt: sql`now()`,
+    });
+    await testDb()
+      .update(supportSessions)
+      .set({ startedAt: sql`now() - interval '3 hours'` })
+      .where(eq(supportSessions.id, sess.id));
+    expect(await closeOrphanSessions(s.tenantId)).toBe(0);
+  });
+});
+
+describe("S4 DB 에러가 응답으로 새지 않는다 (CWE-209)", () => {
+  it("SQL·파라미터가 실린 에러는 일반 문구로 바뀐다", async () => {
+    const leaky = new Error(
+      'Failed query: insert into "customers" ("tenant_id","name") values ($1,$2) ' +
+        "-- params: 9a1d5fe4-e616-42c0-9e23-87b1bbd69b1f, 가게",
+    );
+    const res = jsonError(leaky);
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("처리 중 오류가 발생했습니다.");
+    expect(body.error).not.toContain("insert into");
+    expect(body.error).not.toContain("9a1d5fe4");
+  });
+
+  it("NUL 은 저장 전에 걸러진다", () => {
+    const nul = String.fromCharCode(0);
+    expect(stripNul(`가게${nul}이름`)).toBe("가게이름");
+    expect(stripNul(null)).toBeNull();
+  });
+
+  it("사람에게 보여줘야 하는 에러는 그대로 나간다(회귀 방지)", async () => {
+    const res = jsonError(new Error("이미 등록된 원격 ID"));
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toContain("이미 등록된");
+  });
+});

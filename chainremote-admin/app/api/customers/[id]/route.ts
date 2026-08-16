@@ -9,6 +9,7 @@ import {
   requireNotViewer,
   jsonError,
   ApiAuthError,
+  stripNul,
 } from "@/lib/api-auth";
 import * as data from "@/lib/data/customers";
 import { writeAudit } from "@/lib/data/audit";
@@ -33,7 +34,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     requireNotViewer(me);
     const { id } = await ctx.params;
     const body = (await req.json().catch(() => ({}))) as Partial<data.CustomerFields>;
-    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const name = typeof body.name === "string" ? stripNul(body.name).trim() : "";
     if (!name) throw new ApiAuthError(400, "name 필수");
     const row = await data.updateCustomer(
       id,
@@ -85,6 +86,7 @@ export async function DELETE(req: Request, ctx: Ctx) {
 
 function nullable(v: unknown): string | null {
   if (typeof v !== "string") return null;
-  const t = v.trim();
+  // NUL 제거(2026-08-16) — 넣으면 INSERT 가 터지며 응답에 SQL 이 샜다(CWE-209).
+  const t = stripNul(v).trim();
   return t === "" ? null : t;
 }
