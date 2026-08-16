@@ -649,7 +649,28 @@ function deviceAlive(lastHeartbeatAt: Date | null): boolean {
  * machine_uuid 앵커는 클론이미지 지문충돌 사고(2026-07-07)로 전면 비활성 유지.
  */
 export async function enrollCustomer(
-  input: { remoteId: string; name?: string; hostname?: string; machineUuid?: string },
+  input: {
+    remoteId: string;
+    name?: string;
+    hostname?: string;
+    machineUuid?: string;
+    /**
+     * 설치하는 사람이 "이 PC 는 **다른 매장**에 놓는다"고 명시한 경우(2026-08-16 Chang).
+     *
+     * 폐업 매장 포스를 수거해 다른 가맹점에 넣는 건 이 업계에서 흔한 일이다. 종전엔 서버가
+     * 상호만 보고 짐작해야 했고, 새 이름이 패널에 없으면(신규 가맹점) 판단을 못 해 옛 매장
+     * 이름을 그대로 둔 채 마스터에게 알림만 올렸다 — 그동안 패널은 틀린 이름을 보여주고,
+     * 알림 처리를 잊으면 그대로 굳는다.
+     *
+     * 현장에서 설치하는 사람이 그 PC 사정을 아는 유일한 사람이므로, 그 사람이 고르면
+     * 그 자리에서 정리한다. **기기 ID 는 바꾸지 않는다** — ID 는 랜카드에서 계산되는 지문이라
+     * 인위적으로 갈면 다음 재설치 때 되돌아가고, 이력·즐겨찾기·푸시 기록이 전부 그 값으로
+     * 묶여 있다. 바뀌는 건 "어느 거래처 행에 붙어 있나" 뿐이고, 사람 눈엔 그게 전부다.
+     *
+     * 인스톨러 UI 는 다음 사이클(화요일 이후)에 붙인다 — 서버만 먼저 받아 둔다.
+     */
+    newSite?: boolean;
+  },
   ctx: { tenantId: string },
 ): Promise<{ token: string; created: boolean } | "cross_tenant"> {
   const remoteId = input.remoteId.trim();
@@ -701,6 +722,57 @@ export async function enrollCustomer(
   }
 
   if (byId) {
+    // ★설치자가 "다른 매장"이라고 명시했다 — 짐작할 필요가 없다.
+    //   기기를 옛 행에서 떼어 **새 거래처 행**으로 옮긴다. 옛 행과 그 지원 이력은 남는다
+    //   (폐업 매장에 뭘 해줬는지는 나중에 정산·분쟁에서 필요하다).
+    //   상호가 비었으면 판단 근거가 없으니 평소 흐름으로 떨어뜨린다.
+    if (input.newSite && nameKey) {
+      const sameAsNow =
+        byId.name && normalizeCustomerNameKey(byId.name) === nameKey;
+      if (!sameAsNow) {
+        await db.transaction(async (tx) => {
+          await tx
+            .update(customers)
+            .set({ remoteId: null, heartbeatToken: null, updatedAt: new Date() })
+            .where(eq(customers.id, byId.id));
+          const [dst] = await tx
+            .insert(customers)
+            .values({
+              tenantId: ctx.tenantId,
+              name: explicitName,
+              remoteId,
+              enrollStatus: "pending", // 자가등록이라 확정은 마스터 몫(기존 규칙과 같다)
+              heartbeatToken: tokenHash,
+              ...(input.machineUuid ? { machineUuid: input.machineUuid } : {}),
+            })
+            .returning({ id: customers.id });
+          await tx
+            .update(userFavorites)
+            .set({ customerId: dst.id })
+            .where(
+              and(
+                eq(userFavorites.remoteId, remoteId),
+                eq(userFavorites.tenantId, ctx.tenantId),
+              ),
+            );
+          await tx.insert(customerAlerts).values({
+            tenantId: ctx.tenantId,
+            customerId: dst.id,
+            type: "device_moved",
+            detail: JSON.stringify({
+              remoteId,
+              from: byId.name,
+              to: explicitName,
+              bySetup: true, // 설치 화면에서 사람이 고른 것 — 알림이 아니라 감사 기록이다
+            }),
+            resolvedAt: new Date(),
+          });
+        });
+        return { token: plaintext, created: true };
+      }
+      // "다른 매장"이라면서 지금과 같은 상호를 넣었다 — 재설치로 본다(아래 평소 흐름).
+    }
+
     const sameName =
       !nameKey || (byId.name && normalizeCustomerNameKey(byId.name) === nameKey);
     if (sameName) {

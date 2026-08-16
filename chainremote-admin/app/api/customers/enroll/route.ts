@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       name?: unknown;
       hostname?: unknown;
       machineUuid?: unknown;
+      newSite?: unknown;
     };
     const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
     const remoteId = str(body.remoteId);
@@ -37,6 +38,9 @@ export async function POST(req: Request) {
     const hostname = str(body.hostname) || undefined;
     // 기기지문 앵커 — 빈값/미전송이면 undefined(매칭 제외).
     const machineUuid = str(body.machineUuid) || undefined;
+    // 설치 화면에서 "다른 매장에 설치합니다"를 고른 경우(2026-08-16). 옛 인스톨러는 이 값을
+    //   안 보내므로 undefined = 지금까지와 똑같이 동작한다(하위호환).
+    const newSite = body.newSite === true || body.newSite === "true";
 
     if (!remoteId) {
       return Response.json({ error: "remoteId 필수" }, { status: 400 });
@@ -50,7 +54,10 @@ export async function POST(req: Request) {
       return Response.json({ error: "tenant 인증 실패" }, { status: 403 });
     }
 
-    const result = await data.enrollCustomer({ remoteId, name, hostname, machineUuid }, { tenantId });
+    const result = await data.enrollCustomer(
+      { remoteId, name, hostname, machineUuid, newSite },
+      { tenantId },
+    );
     if (result === "cross_tenant") {
       return Response.json(
         { error: "다른 tenant 에 이미 등록된 remote_id" },
