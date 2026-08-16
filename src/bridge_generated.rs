@@ -5085,36 +5085,38 @@ fn wire_main_max_encrypt_len_impl() -> support::WireSyncReturn {
     )
 }
 fn wire_chainremote_login_impl(
+    port_: MessagePort,
     email: impl Wire2Api<String> + UnwindSafe,
     password: impl Wire2Api<String> + UnwindSafe,
-) -> support::WireSyncReturn {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, String>(
         WrapInfo {
             debug_name: "chainremote_login",
-            port: None,
-            mode: FfiCallMode::Sync,
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
         },
         move || {
             let api_email = email.wire2api();
             let api_password = password.wire2api();
-            Ok(chainremote_login(api_email, api_password))
+            move |task_callback| Ok(chainremote_login(api_email, api_password))
         },
     )
 }
 fn wire_chainremote_takeover_impl(
+    port_: MessagePort,
     email: impl Wire2Api<String> + UnwindSafe,
     password: impl Wire2Api<String> + UnwindSafe,
-) -> support::WireSyncReturn {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, String>(
         WrapInfo {
             debug_name: "chainremote_takeover",
-            port: None,
-            mode: FfiCallMode::Sync,
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
         },
         move || {
             let api_email = email.wire2api();
             let api_password = password.wire2api();
-            Ok(chainremote_takeover(api_email, api_password))
+            move |task_callback| Ok(chainremote_takeover(api_email, api_password))
         },
     )
 }
@@ -5194,33 +5196,36 @@ fn wire_chainremote_set_api_base_impl(
     )
 }
 fn wire_chainremote_change_password_impl(
+    port_: MessagePort,
     current_password: impl Wire2Api<String> + UnwindSafe,
     new_password: impl Wire2Api<String> + UnwindSafe,
-) -> support::WireSyncReturn {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, String>(
         WrapInfo {
             debug_name: "chainremote_change_password",
-            port: None,
-            mode: FfiCallMode::Sync,
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
         },
         move || {
             let api_current_password = current_password.wire2api();
             let api_new_password = new_password.wire2api();
-            Ok(chainremote_change_password(
-                api_current_password,
-                api_new_password,
-            ))
+            move |task_callback| {
+                Ok(chainremote_change_password(
+                    api_current_password,
+                    api_new_password,
+                ))
+            }
         },
     )
 }
-fn wire_chainremote_probe_routes_impl() -> support::WireSyncReturn {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+fn wire_chainremote_probe_routes_impl(port_: MessagePort) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, String>(
         WrapInfo {
             debug_name: "chainremote_probe_routes",
-            port: None,
-            mode: FfiCallMode::Sync,
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
         },
-        move || Ok(chainremote_probe_routes()),
+        move || move |task_callback| Ok(chainremote_probe_routes()),
     )
 }
 fn wire_chainremote_load_customers_impl(port_: MessagePort) {
@@ -5244,47 +5249,50 @@ fn wire_chainremote_load_favorites_impl(port_: MessagePort) {
     )
 }
 fn wire_chainremote_add_favorite_impl(
+    port_: MessagePort,
     remote_id: impl Wire2Api<String> + UnwindSafe,
-) -> support::WireSyncReturn {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, bool>(
         WrapInfo {
             debug_name: "chainremote_add_favorite",
-            port: None,
-            mode: FfiCallMode::Sync,
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
         },
         move || {
             let api_remote_id = remote_id.wire2api();
-            Ok(chainremote_add_favorite(api_remote_id))
+            move |task_callback| Ok(chainremote_add_favorite(api_remote_id))
         },
     )
 }
 fn wire_chainremote_remove_favorite_impl(
+    port_: MessagePort,
     remote_id: impl Wire2Api<String> + UnwindSafe,
-) -> support::WireSyncReturn {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, bool>(
         WrapInfo {
             debug_name: "chainremote_remove_favorite",
-            port: None,
-            mode: FfiCallMode::Sync,
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
         },
         move || {
             let api_remote_id = remote_id.wire2api();
-            Ok(chainremote_remove_favorite(api_remote_id))
+            move |task_callback| Ok(chainremote_remove_favorite(api_remote_id))
         },
     )
 }
 fn wire_chainremote_confirm_customer_impl(
+    port_: MessagePort,
     remote_id: impl Wire2Api<String> + UnwindSafe,
-) -> support::WireSyncReturn {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, bool>(
         WrapInfo {
             debug_name: "chainremote_confirm_customer",
-            port: None,
-            mode: FfiCallMode::Sync,
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
         },
         move || {
             let api_remote_id = remote_id.wire2api();
-            Ok(chainremote_confirm_customer(api_remote_id))
+            move |task_callback| Ok(chainremote_confirm_customer(api_remote_id))
         },
     )
 }
@@ -5353,17 +5361,18 @@ fn wire_chainremote_session_discard_impl(
     )
 }
 fn wire_chainremote_rename_customer_impl(
+    port_: MessagePort,
     payload: impl Wire2Api<String> + UnwindSafe,
-) -> support::WireSyncReturn {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, bool>(
         WrapInfo {
             debug_name: "chainremote_rename_customer",
-            port: None,
-            mode: FfiCallMode::Sync,
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
         },
         move || {
             let api_payload = payload.wire2api();
-            Ok(chainremote_rename_customer(api_payload))
+            move |task_callback| Ok(chainremote_rename_customer(api_payload))
         },
     )
 }

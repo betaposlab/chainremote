@@ -41,11 +41,13 @@ class ChainRemoteAuth {
 
   /// 본인 비밀번호 변경. 현재 비번을 검증한 뒤 새 비번 해시로 DB 를 갱신한다.
   /// (ok, error) 를 돌려준다. 토큰은 그대로 유효해서 다시 로그인할 필요 없다.
-  static ({bool ok, String? error}) changePassword(
+  // 2026-08-16: 네트워크를 타므로 Future 다(감사 S3-F1). 종전엔 동기 FFI 라 서버가 느리면
+  //   비번 변경을 누른 순간 앱 전체가 얼어붙었다.
+  static Future<({bool ok, String? error})> changePassword(
     String currentPassword,
     String newPassword,
-  ) {
-    final raw = bind.chainremoteChangePassword(
+  ) async {
+    final raw = await bind.chainremoteChangePassword(
       currentPassword: currentPassword,
       newPassword: newPassword,
     );
@@ -339,7 +341,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
       _busy = true;
       _errorText = null;
     });
-    final raw = bind.chainremoteLogin(email: email, password: password);
+    final raw = await bind.chainremoteLogin(email: email, password: password);
     if (!mounted) return;
     await _handleAuthResult(raw, email, password, isTakeover: false);
   }
@@ -392,7 +394,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
 
   /// "강제 종료하고 사용" = 좌석 인계. busy 를 유지한 채 진행한다.
   Future<void> _takeover(String email, String password) async {
-    final raw = bind.chainremoteTakeover(email: email, password: password);
+    final raw = await bind.chainremoteTakeover(email: email, password: password);
     if (!mounted) return;
     await _handleAuthResult(raw, email, password, isTakeover: true);
   }

@@ -1715,14 +1715,14 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kMainMaxEncryptLenConstMeta;
 
-  String chainremoteLogin(
+  Future<String> chainremoteLogin(
       {required String email, required String password, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteLoginConstMeta;
 
   /// 좌석 인계("강제 종료하고 사용"). 자격을 다시 검증하고 좌석을 덮어쓴 뒤 새 토큰을 발급한다.
   /// 반환: `{"ok":true,"user":{...}}` 또는 `{"ok":false,"error":"..."}`.
-  String chainremoteTakeover(
+  Future<String> chainremoteTakeover(
       {required String email, required String password, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteTakeoverConstMeta;
@@ -1764,7 +1764,7 @@ abstract class Rustdesk {
   /// 본인 비번 변경. 현재 비번을 검증한 뒤 새 비번을 저장한다.
   /// 반환: `{"ok": true}` 또는 `{"ok": false, "error": "..."}` JSON 문자열.
   /// 별도 thread 에서 실행 — http_request_sync 의 tokio runtime 과 충돌을 피한다.
-  String chainremoteChangePassword(
+  Future<String> chainremoteChangePassword(
       {required String currentPassword,
       required String newPassword,
       dynamic hint});
@@ -1776,7 +1776,7 @@ abstract class Rustdesk {
   /// 거래처 화면엔 아무것도 안 뜬다: 수락 카드는 로그인 요청을 받아야 뜨는데 그 전에 끊는다.
   /// 오래 걸리므로(거래처당 최대 12초) 별도 thread — http_request_sync 의 tokio runtime 과도
   /// 충돌하면 안 되는 자리다. 반환은 사람이 읽을 요약 한 줄.
-  String chainremoteProbeRoutes({dynamic hint});
+  Future<String> chainremoteProbeRoutes({dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteProbeRoutesConstMeta;
 
@@ -1794,17 +1794,19 @@ abstract class Rustdesk {
   /// 즐겨찾기 토글. peer_card 의 별표/메뉴 클릭 핸들러에서 부른다.
   /// remote_id 는 RustDesk peer.id (숫자 또는 AB 형식 커스텀 ID). 2026-05-27 개편으로 서버가 remote_id 기준으로 처리.
   /// 동기 blocking(~300ms) — 토스트 메시지를 정확히 띄우려면 UI thread 가 결과를 기다려야 한다.
-  bool chainremoteAddFavorite({required String remoteId, dynamic hint});
+  Future<bool> chainremoteAddFavorite({required String remoteId, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteAddFavoriteConstMeta;
 
-  bool chainremoteRemoveFavorite({required String remoteId, dynamic hint});
+  Future<bool> chainremoteRemoveFavorite(
+      {required String remoteId, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteRemoveFavoriteConstMeta;
 
   /// 자가등록 후보 확정. '전체 거래처' 탭에서 마스터가 미확정 후보를 정식 거래처로 승격한다.
   /// 동기 blocking — 토스트 정확성을 위해 UI thread 가 결과를 기다린다. owner 권한은 서버가 강제.
-  bool chainremoteConfirmCustomer({required String remoteId, dynamic hint});
+  Future<bool> chainremoteConfirmCustomer(
+      {required String remoteId, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteConfirmCustomerConstMeta;
 
@@ -1833,7 +1835,8 @@ abstract class Rustdesk {
 
   /// 거래처명 변경 → 패널 customer.name 에 기록(최근/즐겨찾기/패널 세 화면 일관). payload=JSON {remoteId,name}.
   /// add_favorite 와 같은 1-arg(JSON) 브리지 형태. 등록 거래처면 true(반영), orphan 이면 false.
-  bool chainremoteRenameCustomer({required String payload, dynamic hint});
+  Future<bool> chainremoteRenameCustomer(
+      {required String payload, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kChainremoteRenameCustomerConstMeta;
 
@@ -8091,12 +8094,13 @@ class RustdeskImpl implements Rustdesk {
         argNames: [],
       );
 
-  String chainremoteLogin(
+  Future<String> chainremoteLogin(
       {required String email, required String password, dynamic hint}) {
     var arg0 = _platform.api2wire_String(email);
     var arg1 = _platform.api2wire_String(password);
-    return _platform.executeSync(FlutterRustBridgeSyncTask(
-      callFfi: () => _platform.inner.wire_chainremote_login(arg0, arg1),
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_chainremote_login(port_, arg0, arg1),
       parseSuccessData: _wire2api_String,
       constMeta: kChainremoteLoginConstMeta,
       argValues: [email, password],
@@ -8110,12 +8114,13 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["email", "password"],
       );
 
-  String chainremoteTakeover(
+  Future<String> chainremoteTakeover(
       {required String email, required String password, dynamic hint}) {
     var arg0 = _platform.api2wire_String(email);
     var arg1 = _platform.api2wire_String(password);
-    return _platform.executeSync(FlutterRustBridgeSyncTask(
-      callFfi: () => _platform.inner.wire_chainremote_takeover(arg0, arg1),
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_chainremote_takeover(port_, arg0, arg1),
       parseSuccessData: _wire2api_String,
       constMeta: kChainremoteTakeoverConstMeta,
       argValues: [email, password],
@@ -8242,15 +8247,15 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["url"],
       );
 
-  String chainremoteChangePassword(
+  Future<String> chainremoteChangePassword(
       {required String currentPassword,
       required String newPassword,
       dynamic hint}) {
     var arg0 = _platform.api2wire_String(currentPassword);
     var arg1 = _platform.api2wire_String(newPassword);
-    return _platform.executeSync(FlutterRustBridgeSyncTask(
-      callFfi: () =>
-          _platform.inner.wire_chainremote_change_password(arg0, arg1),
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_chainremote_change_password(port_, arg0, arg1),
       parseSuccessData: _wire2api_String,
       constMeta: kChainremoteChangePasswordConstMeta,
       argValues: [currentPassword, newPassword],
@@ -8264,9 +8269,9 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["currentPassword", "newPassword"],
       );
 
-  String chainremoteProbeRoutes({dynamic hint}) {
-    return _platform.executeSync(FlutterRustBridgeSyncTask(
-      callFfi: () => _platform.inner.wire_chainremote_probe_routes(),
+  Future<String> chainremoteProbeRoutes({dynamic hint}) {
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner.wire_chainremote_probe_routes(port_),
       parseSuccessData: _wire2api_String,
       constMeta: kChainremoteProbeRoutesConstMeta,
       argValues: [],
@@ -8314,10 +8319,12 @@ class RustdeskImpl implements Rustdesk {
         argNames: [],
       );
 
-  bool chainremoteAddFavorite({required String remoteId, dynamic hint}) {
+  Future<bool> chainremoteAddFavorite(
+      {required String remoteId, dynamic hint}) {
     var arg0 = _platform.api2wire_String(remoteId);
-    return _platform.executeSync(FlutterRustBridgeSyncTask(
-      callFfi: () => _platform.inner.wire_chainremote_add_favorite(arg0),
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_chainremote_add_favorite(port_, arg0),
       parseSuccessData: _wire2api_bool,
       constMeta: kChainremoteAddFavoriteConstMeta,
       argValues: [remoteId],
@@ -8331,10 +8338,12 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["remoteId"],
       );
 
-  bool chainremoteRemoveFavorite({required String remoteId, dynamic hint}) {
+  Future<bool> chainremoteRemoveFavorite(
+      {required String remoteId, dynamic hint}) {
     var arg0 = _platform.api2wire_String(remoteId);
-    return _platform.executeSync(FlutterRustBridgeSyncTask(
-      callFfi: () => _platform.inner.wire_chainremote_remove_favorite(arg0),
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_chainremote_remove_favorite(port_, arg0),
       parseSuccessData: _wire2api_bool,
       constMeta: kChainremoteRemoveFavoriteConstMeta,
       argValues: [remoteId],
@@ -8348,10 +8357,12 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["remoteId"],
       );
 
-  bool chainremoteConfirmCustomer({required String remoteId, dynamic hint}) {
+  Future<bool> chainremoteConfirmCustomer(
+      {required String remoteId, dynamic hint}) {
     var arg0 = _platform.api2wire_String(remoteId);
-    return _platform.executeSync(FlutterRustBridgeSyncTask(
-      callFfi: () => _platform.inner.wire_chainremote_confirm_customer(arg0),
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_chainremote_confirm_customer(port_, arg0),
       parseSuccessData: _wire2api_bool,
       constMeta: kChainremoteConfirmCustomerConstMeta,
       argValues: [remoteId],
@@ -8437,10 +8448,12 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["sessionId"],
       );
 
-  bool chainremoteRenameCustomer({required String payload, dynamic hint}) {
+  Future<bool> chainremoteRenameCustomer(
+      {required String payload, dynamic hint}) {
     var arg0 = _platform.api2wire_String(payload);
-    return _platform.executeSync(FlutterRustBridgeSyncTask(
-      callFfi: () => _platform.inner.wire_chainremote_rename_customer(arg0),
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_chainremote_rename_customer(port_, arg0),
       parseSuccessData: _wire2api_bool,
       constMeta: kChainremoteRenameCustomerConstMeta,
       argValues: [payload],
@@ -14641,11 +14654,13 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_main_max_encrypt_len =
       _wire_main_max_encrypt_lenPtr.asFunction<WireSyncReturn Function()>();
 
-  WireSyncReturn wire_chainremote_login(
+  void wire_chainremote_login(
+    int port_,
     ffi.Pointer<wire_uint_8_list> email,
     ffi.Pointer<wire_uint_8_list> password,
   ) {
     return _wire_chainremote_login(
+      port_,
       email,
       password,
     );
@@ -14653,17 +14668,19 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_chainremote_loginPtr = _lookup<
       ffi.NativeFunction<
-          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
               ffi.Pointer<wire_uint_8_list>)>>('wire_chainremote_login');
   late final _wire_chainremote_login = _wire_chainremote_loginPtr.asFunction<
-      WireSyncReturn Function(
-          ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
+      void Function(
+          int, ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_chainremote_takeover(
+  void wire_chainremote_takeover(
+    int port_,
     ffi.Pointer<wire_uint_8_list> email,
     ffi.Pointer<wire_uint_8_list> password,
   ) {
     return _wire_chainremote_takeover(
+      port_,
       email,
       password,
     );
@@ -14671,12 +14688,12 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_chainremote_takeoverPtr = _lookup<
       ffi.NativeFunction<
-          WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
               ffi.Pointer<wire_uint_8_list>)>>('wire_chainremote_takeover');
   late final _wire_chainremote_takeover =
       _wire_chainremote_takeoverPtr.asFunction<
-          WireSyncReturn Function(
-              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_chainremote_heartbeat(
     int port_,
@@ -14758,11 +14775,13 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_chainremote_set_api_base = _wire_chainremote_set_api_basePtr
       .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_chainremote_change_password(
+  void wire_chainremote_change_password(
+    int port_,
     ffi.Pointer<wire_uint_8_list> current_password,
     ffi.Pointer<wire_uint_8_list> new_password,
   ) {
     return _wire_chainremote_change_password(
+      port_,
       current_password,
       new_password,
     );
@@ -14770,23 +14789,27 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
 
   late final _wire_chainremote_change_passwordPtr = _lookup<
           ffi.NativeFunction<
-              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>,
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
                   ffi.Pointer<wire_uint_8_list>)>>(
       'wire_chainremote_change_password');
   late final _wire_chainremote_change_password =
       _wire_chainremote_change_passwordPtr.asFunction<
-          WireSyncReturn Function(
-              ffi.Pointer<wire_uint_8_list>, ffi.Pointer<wire_uint_8_list>)>();
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_chainremote_probe_routes() {
-    return _wire_chainremote_probe_routes();
+  void wire_chainremote_probe_routes(
+    int port_,
+  ) {
+    return _wire_chainremote_probe_routes(
+      port_,
+    );
   }
 
   late final _wire_chainremote_probe_routesPtr =
-      _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
           'wire_chainremote_probe_routes');
   late final _wire_chainremote_probe_routes =
-      _wire_chainremote_probe_routesPtr.asFunction<WireSyncReturn Function()>();
+      _wire_chainremote_probe_routesPtr.asFunction<void Function(int)>();
 
   void wire_chainremote_load_customers(
     int port_,
@@ -14816,52 +14839,58 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_chainremote_load_favorites =
       _wire_chainremote_load_favoritesPtr.asFunction<void Function(int)>();
 
-  WireSyncReturn wire_chainremote_add_favorite(
+  void wire_chainremote_add_favorite(
+    int port_,
     ffi.Pointer<wire_uint_8_list> remote_id,
   ) {
     return _wire_chainremote_add_favorite(
+      port_,
       remote_id,
     );
   }
 
   late final _wire_chainremote_add_favoritePtr = _lookup<
       ffi.NativeFunction<
-          WireSyncReturn Function(
+          ffi.Void Function(ffi.Int64,
               ffi.Pointer<wire_uint_8_list>)>>('wire_chainremote_add_favorite');
   late final _wire_chainremote_add_favorite = _wire_chainremote_add_favoritePtr
-      .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
+      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_chainremote_remove_favorite(
+  void wire_chainremote_remove_favorite(
+    int port_,
     ffi.Pointer<wire_uint_8_list> remote_id,
   ) {
     return _wire_chainremote_remove_favorite(
+      port_,
       remote_id,
     );
   }
 
   late final _wire_chainremote_remove_favoritePtr = _lookup<
           ffi.NativeFunction<
-              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>>(
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>)>>(
       'wire_chainremote_remove_favorite');
   late final _wire_chainremote_remove_favorite =
       _wire_chainremote_remove_favoritePtr
-          .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
+          .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_chainremote_confirm_customer(
+  void wire_chainremote_confirm_customer(
+    int port_,
     ffi.Pointer<wire_uint_8_list> remote_id,
   ) {
     return _wire_chainremote_confirm_customer(
+      port_,
       remote_id,
     );
   }
 
   late final _wire_chainremote_confirm_customerPtr = _lookup<
           ffi.NativeFunction<
-              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>>(
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>)>>(
       'wire_chainremote_confirm_customer');
   late final _wire_chainremote_confirm_customer =
       _wire_chainremote_confirm_customerPtr
-          .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
+          .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_chainremote_session_start(
     int port_,
@@ -14936,21 +14965,23 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_chainremote_session_discardPtr
           .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
-  WireSyncReturn wire_chainremote_rename_customer(
+  void wire_chainremote_rename_customer(
+    int port_,
     ffi.Pointer<wire_uint_8_list> payload,
   ) {
     return _wire_chainremote_rename_customer(
+      port_,
       payload,
     );
   }
 
   late final _wire_chainremote_rename_customerPtr = _lookup<
           ffi.NativeFunction<
-              WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>>(
+              ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>)>>(
       'wire_chainremote_rename_customer');
   late final _wire_chainremote_rename_customer =
       _wire_chainremote_rename_customerPtr
-          .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
+          .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
   WireSyncReturn wire_chainremote_is_favorite(
     ffi.Pointer<wire_uint_8_list> remote_id,

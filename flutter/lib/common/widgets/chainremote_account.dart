@@ -48,7 +48,9 @@ Future<void> showCrChangePasswordDialog(BuildContext context) async {
             busy = true;
             errorText = null;
           });
-          final res = ChainRemoteAuth.changePassword(current, newPw);
+          final res = await ChainRemoteAuth.changePassword(current, newPw);
+          // await 뒤 — 사용자가 그 사이 창을 닫았을 수 있다.
+          if (!ctx.mounted) return;
           if (res.ok) {
             if (ctx.mounted) Navigator.pop(ctx);
             if (context.mounted) {

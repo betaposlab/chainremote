@@ -1608,7 +1608,9 @@ abstract class BasePeerCard extends StatelessWidget {
                   // 유지된다. 성공 시 Rust 가 백그라운드로 캐시를 재워밍해 전 탭이 갱신된다.
                   // 결과를 확인해 정직하게 피드백한다. 종전엔 실패(미등록/네트워크)해도 무조건
                   // '성공'을 띄워 패널에 반영된 것으로 착각하게 만들었다 (2026-07-01 버그수정).
-                  final synced = bind.chainremoteRenameCustomer(
+                  // await — 네트워크를 타므로 Future 다(2026-08-16, S3-F1). 종전엔 동기라
+                  //   서버가 느리면 저장을 누른 순간 앱 전체가 얼어붙었다.
+                  final synced = await bind.chainremoteRenameCustomer(
                       payload: jsonEncode({"remoteId": id, "name": newName}));
                   showToast(synced
                       ? translate('Successful')
@@ -1767,7 +1769,7 @@ abstract class BasePeerCard extends StatelessWidget {
               break;
             case PeerTabIndex.fav:
               // user_favorites DB (Phase 2-D).
-              bind.chainremoteRemoveFavorite(remoteId: id);
+              bind.chainremoteRemoveFavorite(remoteId: id); // fire-and-forget (결과 미사용)
               bind.chainremoteLoadFavorites();
               break;
             case PeerTabIndex.lan:
@@ -1843,7 +1845,7 @@ abstract class BasePeerCard extends StatelessWidget {
         () async {
           // user_favorites DB (Phase 2-D). 반환값 확인 필수 — 서버 POST 실패 시에도
           // 무조건 "성공" 토스트를 띄우면 저장 안 된 즐겨찾기를 사용자가 성공으로 오인한다.
-          final ok = bind.chainremoteAddFavorite(remoteId: id);
+          final ok = await bind.chainremoteAddFavorite(remoteId: id);
           showToast(translate(ok ? 'Successful' : 'Failed'));
         }();
       },
@@ -1875,7 +1877,7 @@ abstract class BasePeerCard extends StatelessWidget {
       proc: () {
         () async {
           // user_favorites DB (Phase 2-D). 반환값 확인 필수(위 _addFavAction과 동일 이유).
-          final ok = bind.chainremoteRemoveFavorite(remoteId: id);
+          final ok = await bind.chainremoteRemoveFavorite(remoteId: id);
           await reloadFunc();
           showToast(translate(ok ? 'Successful' : 'Failed'));
         }();
@@ -2125,8 +2127,8 @@ class AllCustomersPeerCard extends BasePeerCard {
           ).marginOnly(right: 4)),
         ],
       ),
-      proc: () {
-        final ok = bind.chainremoteConfirmCustomer(remoteId: id);
+      proc: () async {
+        final ok = await bind.chainremoteConfirmCustomer(remoteId: id);
         showToast(translate(ok ? 'Successful' : 'Failed'));
       },
       padding: menuPadding,

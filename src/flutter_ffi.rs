@@ -2794,7 +2794,16 @@ pub fn main_max_encrypt_len() -> SyncReturn<usize> {
 // 구현은 src/chainremote_auth.rs.
 // ============================================================================
 
-pub fn chainremote_login(email: String, password: String) -> SyncReturn<String> {
+// ★2026-08-16: 아래 여덟 개는 네트워크를 타므로 **SyncReturn 을 쓰지 않는다**(감사 S3-F1).
+//   SyncReturn 은 Dart 호출 스레드에서 그대로 blocking C 호출이 되어, 서버가 느리면
+//   **앱 전체가 얼어붙는다**(요청 타임아웃 12초 × 재시도 = 최대 30초대, 스피너도 못 그림).
+//   정상 클라우드에선 ~300ms 라 여태 안 걸렸을 뿐이고, 서버 재배포 순간·DNS 순단·대리점이
+//   늘어 부하가 커지면 매일 쓰는 로그인·이름변경이 "버튼이 고장났다"가 된다.
+//   SyncReturn 을 빼면 frb 가 워커 스레드에서 돌리고 Dart 는 Future 를 받는다 —
+//   chainremote_session_start/end/discard 가 이미 그 방식이고, 그걸 본보기로 맞춘 것이다.
+//   ※안쪽 std::thread::spawn().join() 은 그대로 둔다: frb 호출 스레드의 tokio 런타임과
+//     겹쳐 nested runtime panic 이 나던 것을 막던 장치라, 최소 변경으로 그 보장을 유지한다.
+pub fn chainremote_login(email: String, password: String) -> String {
     // reqwest blocking 은 별도 thread 에서 돌린다 — frb 호출 thread 의 tokio runtime 과
     // 겹치면 nested runtime panic 이 난다. device_id/label 은 Rust 안에서 계산.
     use crate::chainremote_auth::LoginOutcome;
@@ -2819,12 +2828,12 @@ pub fn chainremote_login(email: String, password: String) -> SyncReturn<String> 
     })
     .join()
     .unwrap_or_else(|_| r#"{"ok":false,"error":"login thread panic"}"#.to_string());
-    SyncReturn(result)
+    result
 }
 
 /// 좌석 인계("강제 종료하고 사용"). 자격을 다시 검증하고 좌석을 덮어쓴 뒤 새 토큰을 발급한다.
 /// 반환: `{"ok":true,"user":{...}}` 또는 `{"ok":false,"error":"..."}`.
-pub fn chainremote_takeover(email: String, password: String) -> SyncReturn<String> {
+pub fn chainremote_takeover(email: String, password: String) -> String {
     let result = std::thread::spawn(move || {
         match crate::chainremote_auth::takeover(&email, &password) {
             Ok(user) => serde_json::json!({ "ok": true, "user": user }).to_string(),
@@ -2833,7 +2842,7 @@ pub fn chainremote_takeover(email: String, password: String) -> SyncReturn<Strin
     })
     .join()
     .unwrap_or_else(|_| r#"{"ok":false,"error":"takeover thread panic"}"#.to_string());
-    SyncReturn(result)
+    result
 }
 
 /// 좌석 heartbeat (~10초). 반환: `{"status":"ok"|"revoked"|"expired"|"error"}`.
@@ -2889,7 +2898,7 @@ pub fn chainremote_set_api_base(url: String) -> SyncReturn<bool> {
 pub fn chainremote_change_password(
     current_password: String,
     new_password: String,
-) -> SyncReturn<String> {
+) -> String {
     let result = std::thread::spawn(move || {
         match crate::chainremote_auth::change_password(&current_password, &new_password) {
             Ok(()) => r#"{"ok":true}"#.to_string(),
@@ -2898,7 +2907,7 @@ pub fn chainremote_change_password(
     })
     .join()
     .unwrap_or_else(|_| r#"{"ok":false,"error":"change_password thread panic"}"#.to_string());
-    SyncReturn(result)
+    result
 }
 
 /// 연결 경로 점검 한 바퀴(마이그043) — 거래처마다 연결만 해 보고 끊어 직결/경유를 가린다.
@@ -2906,11 +2915,11 @@ pub fn chainremote_change_password(
 /// 거래처 화면엔 아무것도 안 뜬다: 수락 카드는 로그인 요청을 받아야 뜨는데 그 전에 끊는다.
 /// 오래 걸리므로(거래처당 최대 12초) 별도 thread — http_request_sync 의 tokio runtime 과도
 /// 충돌하면 안 되는 자리다. 반환은 사람이 읽을 요약 한 줄.
-pub fn chainremote_probe_routes() -> SyncReturn<String> {
+pub fn chainremote_probe_routes() -> String {
     let result = std::thread::spawn(|| crate::chainremote_probe::run_once_blocking())
         .join()
         .unwrap_or_else(|_| "점검 실패 — 내부 오류".to_string());
-    SyncReturn(result)
+    result
 }
 
 /// 본사 앱 메인 화면용. GET /api/customers 결과를 RustDesk Peer 포맷으로 바꿔
@@ -2927,20 +2936,20 @@ pub fn chainremote_load_favorites() {
 /// 즐겨찾기 토글. peer_card 의 별표/메뉴 클릭 핸들러에서 부른다.
 /// remote_id 는 RustDesk peer.id (숫자 또는 AB 형식 커스텀 ID). 2026-05-27 개편으로 서버가 remote_id 기준으로 처리.
 /// 동기 blocking(~300ms) — 토스트 메시지를 정확히 띄우려면 UI thread 가 결과를 기다려야 한다.
-pub fn chainremote_add_favorite(remote_id: String) -> SyncReturn<bool> {
-    SyncReturn(crate::chainremote_data::add_favorite_blocking_pub(remote_id))
+pub fn chainremote_add_favorite(remote_id: String) -> bool {
+    crate::chainremote_data::add_favorite_blocking_pub(remote_id)
 }
 
-pub fn chainremote_remove_favorite(remote_id: String) -> SyncReturn<bool> {
-    SyncReturn(crate::chainremote_data::remove_favorite_blocking_pub(remote_id))
+pub fn chainremote_remove_favorite(remote_id: String) -> bool {
+    crate::chainremote_data::remove_favorite_blocking_pub(remote_id)
 }
 
 /// 자가등록 후보 확정. '전체 거래처' 탭에서 마스터가 미확정 후보를 정식 거래처로 승격한다.
 /// 동기 blocking — 토스트 정확성을 위해 UI thread 가 결과를 기다린다. owner 권한은 서버가 강제.
-pub fn chainremote_confirm_customer(remote_id: String) -> SyncReturn<bool> {
-    SyncReturn(crate::chainremote_data::confirm_customer_blocking_pub(
+pub fn chainremote_confirm_customer(remote_id: String) -> bool {
+    crate::chainremote_data::confirm_customer_blocking_pub(
         remote_id,
-    ))
+    )
 }
 
 // 지원세션(A/S 이력) 기록 — Phase 2. ★SyncReturn 안 씀(네트워크 POST) → Dart 에선 Future =
@@ -2972,10 +2981,10 @@ pub fn chainremote_session_discard(session_id: String) -> bool {
 
 /// 거래처명 변경 → 패널 customer.name 에 기록(최근/즐겨찾기/패널 세 화면 일관). payload=JSON {remoteId,name}.
 /// add_favorite 와 같은 1-arg(JSON) 브리지 형태. 등록 거래처면 true(반영), orphan 이면 false.
-pub fn chainremote_rename_customer(payload: String) -> SyncReturn<bool> {
-    SyncReturn(crate::chainremote_data::rename_customer_blocking_pub(
+pub fn chainremote_rename_customer(payload: String) -> bool {
+    crate::chainremote_data::rename_customer_blocking_pub(
         payload,
-    ))
+    )
 }
 
 /// "이 거래처가 내 즐겨찾기인가" 빠른 확인용 UI 동기 호출.

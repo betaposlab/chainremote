@@ -651,7 +651,7 @@ class _PeerTabPageState extends State<PeerTabPage>
         // FFI 가 내부에서 별도 thread 를 쓰지만 호출 자체는 블로킹이라 UI 가 멎는다.
         //   compute 대신 짧은 지연 뒤 호출해 토스트가 먼저 그려지게 한다.
         await Future.delayed(const Duration(milliseconds: 300));
-        final summary = bind.chainremoteProbeRoutes();
+        final summary = await bind.chainremoteProbeRoutes();
         showToast(summary);
       },
       child: Row(mainAxisSize: MainAxisSize.min, children: [
