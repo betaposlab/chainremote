@@ -7,6 +7,28 @@ $ErrorActionPreference = "Stop"
 Write-Host "=== ChainRemote 풀 빌드 자동 실행 ===" -ForegroundColor Cyan
 Write-Host ""
 
+# 빌드가 도는 동안만 잠들지 않게 잡아 둔다.
+#
+# ★왜(2026-08-16): 집 윈컴의 대기모드 시간이 AC 30분인데 풀빌드는 30~60분 걸린다. SSH 세션은
+#   "사용자 활동"으로 안 쳐 주므로, Mac 에서 원격으로 돌리면 러스트 컴파일 한복판에서 기계가
+#   잠들고 빌드가 통째로 죽는다(그날 실제로 당했다 — 로그가 pip 줄에서 끊겨 있었다).
+#
+# ★전원 설정은 건드리지 않는다. SetThreadExecutionState 는 이 프로세스가 살아 있는 동안만
+#   유효한 요청이고, 스크립트가 끝나면(또는 죽으면) 저절로 풀린다. 절전을 끄는 것과 다르다 —
+#   Chang 의 전기요금 원칙(절전 켜 두고 WoL 로 깨운다)을 그대로 지킨다.
+#   화면은 안 건드린다(ES_DISPLAY_REQUIRED 없음). 잠들지만 않으면 된다.
+try {
+  Add-Type -Namespace CRBuild -Name Power -MemberDefinition @'
+[DllImport("kernel32.dll", SetLastError = true)]
+public static extern uint SetThreadExecutionState(uint esFlags);
+'@ -ErrorAction Stop
+  # ES_CONTINUOUS(0x80000000) | ES_SYSTEM_REQUIRED(0x00000001)
+  [void][CRBuild.Power]::SetThreadExecutionState(0x80000001)
+  Write-Host "  (빌드 동안 절전 보류 — 전원 설정은 그대로)" -ForegroundColor DarkGray
+} catch {
+  Write-Host "  (절전 보류 실패 — 빌드는 계속하되 30분 절전에 걸릴 수 있음)" -ForegroundColor Yellow
+}
+
 # 0. PATH refresh + 추가 경로 + 환경변수 확인
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 if (-not $env:VCPKG_ROOT) { $env:VCPKG_ROOT = "C:\src\vcpkg" }
@@ -232,3 +254,6 @@ Write-Host "  검증: 인스톨러를 더블클릭 → 자동 설치 → ChainRe
 Write-Host "        config 파일 없이도 rs.626.kr 에 자동 등록되어야 함" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  빌드 로그: $buildLog" -ForegroundColor Gray
+
+# 절전 보류 해제 — 안 풀어도 프로세스가 끝나면 자동으로 풀리지만, 명시하는 편이 읽기 좋다.
+try { [void][CRBuild.Power]::SetThreadExecutionState(0x80000000) } catch { }
