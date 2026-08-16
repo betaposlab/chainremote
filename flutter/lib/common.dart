@@ -2189,8 +2189,11 @@ Future<void> saveWindowPosition(WindowType type,
     }
   }
 
+  // 전체화면 여부는 **원격 창에 한해** 저장하지 않는다(위 복원 쪽 주석 참조).
+  //   메인 창은 종전대로 — 거기선 사용자가 스스로 전체화면을 유지하려는 의도가 분명하다.
+  final bool saveFullscreen = type == WindowType.Main ? isFullscreen : false;
   final pos = LastWindowPosition(sz?.width, sz?.height, position?.dx,
-      position?.dy, isMaximized, isFullscreen);
+      position?.dy, isMaximized, saveFullscreen);
 
   final WindowKey key = (type: type, windowId: windowId);
 
@@ -2488,21 +2491,15 @@ Future<bool> restoreWindowPosition(WindowType type,
           await wc.setFrame(frame);
         }
       }
-      if (lpos.isFullscreen == true) {
-        if (!isMacOS) {
-          await restoreFrame();
-        }
-        // An duration is needed to avoid the window being restored after fullscreen.
-        Future.delayed(Duration(milliseconds: 300), () async {
-          if (kWindowId == windowId) {
-            stateGlobal.setFullscreen(true);
-          } else {
-            // If is not current window, we need to send a fullscreen message to `windowId`
-            DesktopMultiWindow.invokeMethod(
-                windowId, kWindowEventSetFullscreen, 'true');
-          }
-        });
-      } else if (lpos.isMaximized == true) {
+      // ★원격 창은 전체화면 상태를 되살리지 않는다(2026-08-16 Chang 결정).
+      //   크기·위치는 기억하는 게 유용하지만 전체화면까지 기억하면, 거래처를 더블클릭할
+      //   때마다 화면이 통째로 덮여 놀란다. 게다가 해제해도 저장에 반영되지 않아
+      //   (저장 시점의 stateGlobal.fullscreen 을 읽는데 macOS 네이티브 전체화면은 그 값을
+      //   갱신하지 않는다) 한 번 쓰면 그 거래처는 영원히 전체화면으로 열렸다.
+      //   기억을 고치는 대신 아예 안 하기로 했다 — 전체화면 진입 경로가 둘(우리 툴바·OS
+      //   초록 버튼)이라 저장을 고쳐도 계속 새는 자리다. 필요하면 그때 켜면 된다.
+      //   ※크기·위치·최대화는 그대로 기억한다.
+      if (lpos.isMaximized == true) {
         await restoreFrame();
         // An duration is needed to avoid the window being restored after maximized.
         Future.delayed(Duration(milliseconds: 300), () async {
