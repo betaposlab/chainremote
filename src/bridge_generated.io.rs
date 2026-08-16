@@ -2245,18 +2245,20 @@ pub extern "C" fn wire_main_max_encrypt_len() -> support::WireSyncReturn {
 
 #[no_mangle]
 pub extern "C" fn wire_chainremote_login(
+    port_: i64,
     email: *mut wire_uint_8_list,
     password: *mut wire_uint_8_list,
-) -> support::WireSyncReturn {
-    wire_chainremote_login_impl(email, password)
+) {
+    wire_chainremote_login_impl(port_, email, password)
 }
 
 #[no_mangle]
 pub extern "C" fn wire_chainremote_takeover(
+    port_: i64,
     email: *mut wire_uint_8_list,
     password: *mut wire_uint_8_list,
-) -> support::WireSyncReturn {
-    wire_chainremote_takeover_impl(email, password)
+) {
+    wire_chainremote_takeover_impl(port_, email, password)
 }
 
 #[no_mangle]
@@ -2298,15 +2300,16 @@ pub extern "C" fn wire_chainremote_set_api_base(
 
 #[no_mangle]
 pub extern "C" fn wire_chainremote_change_password(
+    port_: i64,
     current_password: *mut wire_uint_8_list,
     new_password: *mut wire_uint_8_list,
-) -> support::WireSyncReturn {
-    wire_chainremote_change_password_impl(current_password, new_password)
+) {
+    wire_chainremote_change_password_impl(port_, current_password, new_password)
 }
 
 #[no_mangle]
-pub extern "C" fn wire_chainremote_probe_routes() -> support::WireSyncReturn {
-    wire_chainremote_probe_routes_impl()
+pub extern "C" fn wire_chainremote_probe_routes(port_: i64) {
+    wire_chainremote_probe_routes_impl(port_)
 }
 
 #[no_mangle]
@@ -2320,24 +2323,18 @@ pub extern "C" fn wire_chainremote_load_favorites(port_: i64) {
 }
 
 #[no_mangle]
-pub extern "C" fn wire_chainremote_add_favorite(
-    remote_id: *mut wire_uint_8_list,
-) -> support::WireSyncReturn {
-    wire_chainremote_add_favorite_impl(remote_id)
+pub extern "C" fn wire_chainremote_add_favorite(port_: i64, remote_id: *mut wire_uint_8_list) {
+    wire_chainremote_add_favorite_impl(port_, remote_id)
 }
 
 #[no_mangle]
-pub extern "C" fn wire_chainremote_remove_favorite(
-    remote_id: *mut wire_uint_8_list,
-) -> support::WireSyncReturn {
-    wire_chainremote_remove_favorite_impl(remote_id)
+pub extern "C" fn wire_chainremote_remove_favorite(port_: i64, remote_id: *mut wire_uint_8_list) {
+    wire_chainremote_remove_favorite_impl(port_, remote_id)
 }
 
 #[no_mangle]
-pub extern "C" fn wire_chainremote_confirm_customer(
-    remote_id: *mut wire_uint_8_list,
-) -> support::WireSyncReturn {
-    wire_chainremote_confirm_customer_impl(remote_id)
+pub extern "C" fn wire_chainremote_confirm_customer(port_: i64, remote_id: *mut wire_uint_8_list) {
+    wire_chainremote_confirm_customer_impl(port_, remote_id)
 }
 
 #[no_mangle]
@@ -2370,10 +2367,8 @@ pub extern "C" fn wire_chainremote_session_discard(port_: i64, session_id: *mut 
 }
 
 #[no_mangle]
-pub extern "C" fn wire_chainremote_rename_customer(
-    payload: *mut wire_uint_8_list,
-) -> support::WireSyncReturn {
-    wire_chainremote_rename_customer_impl(payload)
+pub extern "C" fn wire_chainremote_rename_customer(port_: i64, payload: *mut wire_uint_8_list) {
+    wire_chainremote_rename_customer_impl(port_, payload)
 }
 
 #[no_mangle]
