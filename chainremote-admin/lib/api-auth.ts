@@ -232,6 +232,12 @@ function isDbError(chain: string): boolean {
   return (
     /Failed query|DrizzleQueryError|postgres|pg_|syntax error at or near|column .* does not exist|relation .* does not exist|violates .* constraint|invalid input syntax/i.test(
       chain,
-    ) || /\bselect\b[\s\S]*\bfrom\b|\binsert into\b|\bupdate\b[\s\S]*\bset\b/i.test(chain)
+    ) ||
+    // DB 가 죽었을 때의 연결 계열 에러(2026-08-16 감사 S1). 호스트·포트·내부 경로가 그대로
+    //   실려 나가고, SQL 구문 패턴만 보던 검사에는 안 걸렸다.
+    /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EHOSTUNREACH|ECONNRESET|EPIPE|Connection terminated|timeout exceeded when trying to connect|too many clients|password authentication failed/i.test(
+      chain,
+    ) ||
+    /\bselect\b[\s\S]*\bfrom\b|\binsert into\b|\bupdate\b[\s\S]*\bset\b/i.test(chain)
   );
 }

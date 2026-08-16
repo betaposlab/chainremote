@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { testDb } from "./helpers/db";
 import {
@@ -300,5 +300,62 @@ describe("S4 DB 에러가 응답으로 새지 않는다 (CWE-209)", () => {
     const res = jsonError(new Error("이미 등록된 원격 ID"));
     const body = (await res.json()) as { error: string };
     expect(body.error).toContain("이미 등록된");
+  });
+});
+
+describe("S2-S8 스테이징 버전은 일괄 푸시로 못 나간다", () => {
+  it("auto_rollout:false 버전의 일괄 푸시는 거부된다", async () => {
+    const s = await seed();
+    const mod = await import("@/lib/agent-push-meta");
+    const spy = vi
+      .spyOn(mod, "getAgentPushMetaCached")
+      .mockResolvedValue({
+        version: ASSET.targetVersion,
+        url: ASSET.assetUrl,
+        sha256: ASSET.assetSha256,
+        size: ASSET.assetSize,
+        autoRollout: false,
+      });
+    await expect(pushBulk(ASSET, {}, ctxOf(s))).rejects.toBeInstanceOf(PushValidationError);
+    spy.mockRestore();
+  });
+
+  it("단건 푸시는 스테이징이어도 통과한다 — 실기기 검증 경로다", async () => {
+    const s = await seed();
+    const mod = await import("@/lib/agent-push-meta");
+    const spy = vi.spyOn(mod, "getAgentPushMetaCached").mockResolvedValue({
+      version: ASSET.targetVersion,
+      url: ASSET.assetUrl,
+      sha256: ASSET.assetSha256,
+      size: ASSET.assetSize,
+      autoRollout: false,
+    });
+    const row = await pushToCustomer(s.customerId, ASSET, {}, ctxOf(s));
+    expect(row?.id).toBeTruthy();
+    spy.mockRestore();
+  });
+
+  it("검증이 끝난(auto_rollout:true) 버전은 일괄 푸시가 정상 동작한다(회귀 방지)", async () => {
+    const s = await seed();
+    const mod = await import("@/lib/agent-push-meta");
+    const spy = vi.spyOn(mod, "getAgentPushMetaCached").mockResolvedValue({
+      version: ASSET.targetVersion,
+      url: ASSET.assetUrl,
+      sha256: ASSET.assetSha256,
+      size: ASSET.assetSize,
+      autoRollout: true,
+    });
+    const r = await pushBulk(ASSET, {}, ctxOf(s));
+    expect(r.inserted).toBe(1);
+    spy.mockRestore();
+  });
+});
+
+describe("S1 DB 연결 장애도 응답으로 안 샌다", () => {
+  it("ECONNREFUSED 원문(호스트·포트)이 바디에 안 실린다", async () => {
+    const res = jsonError(new Error("connect ECONNREFUSED 127.0.0.1:5432"));
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("처리 중 오류가 발생했습니다.");
+    expect(body.error).not.toContain("5432");
   });
 });

@@ -8,7 +8,7 @@
 import { and, eq, inArray, isNull, isNotNull, sql, desc, count } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { pendingUpdates, customers } from "@/lib/schema";
-import type { AgentPushMeta } from "@/lib/agent-push-meta";
+import { getAgentPushMetaCached, type AgentPushMeta } from "@/lib/agent-push-meta";
 import { hashHeartbeatToken } from "@/lib/heartbeat-token";
 
 export interface PushAsset {
@@ -152,10 +152,26 @@ export async function pushToCustomer(
 export async function pushBulk(
   asset: PushAsset,
   opts: PushOptions,
-  ctx: { tenantId: string; requestedBy: string },
+  ctx: { tenantId: string; requestedBy: string; allowStaging?: boolean },
 ): Promise<{ bulkBatchId: string; inserted: number; eligible: number }> {
   const merged = { ...DEFAULT_OPTIONS, ...opts };
   validatePush(asset, merged);
+  // ★검증 안 끝난 스테이징 버전을 플릿 전체에 거는 것을 막는다(2026-08-16 감사 S2-S8).
+  //   `auto_rollout:false` 는 자동 롤아웃만 세우는 킬스위치라 [푸시] 버튼은 그대로 동작한다
+  //   — 단건은 그게 맞다(실기기 검증이 그 경로다). 하지만 **일괄**은 다르다: 실물 확인 전
+  //   빌드가 거래처 전체에 깔리면 되돌릴 방법이 방문뿐이다.
+  //   정상 발행 순서(검증 → AUTO_ROLLOUT=1 로 발행 → 일괄 푸시)에서는 이 시점에 이미
+  //   auto_rollout 이 true 라 이 가드에 걸리지 않는다. 걸린다면 순서를 건너뛴 것이다.
+  if (ctx.allowStaging !== true) {
+    const meta = await getAgentPushMetaCached();
+    if (meta && meta.version === asset.targetVersion && !meta.autoRollout) {
+      throw new PushValidationError(
+        `v${asset.targetVersion} 은 아직 검증이 끝나지 않은 스테이징 버전입니다. ` +
+          `실기기 확인을 마친 뒤 AUTO_ROLLOUT=1 로 다시 발행하고 일괄 푸시하세요. ` +
+          `(한 대만 확인하려면 거래처 행의 [푸시] 를 쓰세요.)`,
+      );
+    }
+  }
   const bulkBatchId = crypto.randomUUID();
 
   // 2026-06-20: 새 일괄푸시는 이전 대기 행을 supersede 한다. 전엔 새 버전만 INSERT 해서
