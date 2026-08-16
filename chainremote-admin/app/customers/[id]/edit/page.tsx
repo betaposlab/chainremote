@@ -9,6 +9,7 @@ import { listTenantStaff } from "@/lib/data/users";
 import { listFolders } from "@/lib/data/folders";
 import { DeleteButton } from "./_delete";
 import { MoveDeviceCard } from "../_move-device";
+import { canWrite } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -64,8 +65,9 @@ export default async function EditCustomerPage({
         />
       </div>
       {/* 수거한 포스를 다른 가맹점에 재사용할 때 — 이름만 바꾸면 두 매장 이력이 섞인다.
-          마스터만 보인다(기기 소속을 바꾸는 일이라 되돌리기가 번거롭다). */}
-      {session.user.role === "owner" || session.user.role === "super_admin" ? (
+          권한은 알림의 [새 거래처로 이동] 과 **같은 기준**(canWrite)을 쓴다. 똑같은 동작인데
+          한쪽에선 보이고 한쪽에선 안 보이면 "왜 여긴 없지"가 된다. 서버도 canWrite 로 막는다. */}
+      {canWrite(session.user.role) ? (
         <MoveDeviceCard
           customerId={row.id}
           customerName={row.name}
