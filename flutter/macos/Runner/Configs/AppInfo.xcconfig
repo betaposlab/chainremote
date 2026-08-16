@@ -11,6 +11,18 @@ PRODUCT_NAME = ChainRemote
 // The application's bundle identifier
 // ChainRemote: 베타포스랩 자체 도메인의 bundle id. 옛 com.carriez.flutterHbb 와는 다른 앱으로
 // macOS 가 인식하므로 첫 실행 시 권한 (화면 기록 / 입력 모니터링 / 접근성) 재승인 필요.
+//
+// ★여기가 유일한 출처다 (2026-08-16). 종전엔 project.pbxproj 의 세 빌드 구성이
+//   PRODUCT_BUNDLE_IDENTIFIER = com.carriez.rustdesk 를 다시 박아 **이 줄을 덮어썼다.**
+//   Xcode 는 pbxproj 설정이 base xcconfig 를 이기므로, 이 파일을 고친 옛 작업은 처음부터
+//   아무 효과가 없었고 빌드된 앱은 계속 com.carriez.rustdesk 였다. 조용히 안 먹은 것이다.
+//
+//   그 결과 옛 RustDesk 계열 앱이 하나라도 깔려 있으면 macOS LaunchServices 가 같은 번들ID
+//   를 다투게 되고, 설치 스크립트가 앱을 지웠다 다시 넣는 그 짧은 순간에 엉뚱한 앱이 뜬다
+//   (2026-08-16 Chang 맥북에서 실제로 발생 — 5월에 만든 맥용 에이전트 테스트 빌드가 떴다).
+//
+//   pbxproj 의 그 세 줄을 지워 출처를 하나로 만들었다. upstream 을 머지할 때 되살아나면
+//   build.py 의 번들ID 검사가 빌드를 실패시킨다 — 소스가 아니라 **만들어진 .app** 을 본다.
 PRODUCT_BUNDLE_IDENTIFIER = com.betaposlab.chainremote
 
 // The copyright displayed in application information

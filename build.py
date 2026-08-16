@@ -9,6 +9,7 @@ import shutil
 import hashlib
 import argparse
 import sys
+import subprocess
 from pathlib import Path
 
 windows = platform.platform().startswith('Windows')
@@ -418,12 +419,46 @@ def build_flutter_dmg(version, features):
     # ChainRemote (Phase 3-Mac, 2026-05-25): PRODUCT_NAME = ChainRemote 로 변경되어
     # 빌드 출력이 ChainRemote.app. service binary 도 새 경로로.
     system2('cp -rf ../target/release/service ./build/macos/Build/Products/Release/ChainRemote.app/Contents/MacOS/')
+    verify_macos_bundle_id('./build/macos/Build/Products/Release/ChainRemote.app')
     '''
     system2(
         "create-dmg --volname \"RustDesk Installer\" --window-pos 200 120 --window-size 800 400 --icon-size 100 --app-drop-link 600 185 --icon RustDesk.app 200 190 --hide-extension RustDesk.app rustdesk.dmg ./build/macos/Build/Products/Release/RustDesk.app")
     os.rename("rustdesk.dmg", f"../rustdesk-{version}.dmg")
     '''
     os.chdir("..")
+
+
+
+# ★만들어진 .app 의 번들ID 를 직접 읽어 검사한다 (2026-08-16).
+#
+# 소스가 아니라 산출물을 보는 이유: 2026-08-16 에 드러난 사고가 정확히 "소스는 고쳤는데
+#   빌드에는 안 실렸다"였다. AppInfo.xcconfig 에 com.betaposlab.chainremote 를 적어 뒀는데
+#   project.pbxproj 의 세 빌드 구성이 그걸 덮어써서, 몇 달 동안 com.carriez.rustdesk 로
+#   빌드되고 있었다. 소스를 grep 하는 검사로는 절대 못 잡는다 — 두 파일 다 "맞게" 보였다.
+#
+# 그래서 그 결과가 옛 RustDesk 계열 앱과 번들ID 를 다투게 됐고, 설치 스크립트가 앱을 지웠다
+#   넣는 사이 macOS 가 엉뚱한 앱을 띄웠다. 값 하나가 조용히 어긋난 대가치고는 컸다.
+#
+# upstream 머지가 그 줄을 되살리면 여기서 빌드가 멈춘다. 조용히 지나가지 않는다.
+EXPECTED_MACOS_BUNDLE_ID = 'com.betaposlab.chainremote'
+
+
+def verify_macos_bundle_id(app_path):
+    plist = os.path.join(app_path, 'Contents', 'Info.plist')
+    got = subprocess.run(
+        ['/usr/libexec/PlistBuddy', '-c', 'Print :CFBundleIdentifier', plist],
+        capture_output=True, text=True).stdout.strip()
+    if got != EXPECTED_MACOS_BUNDLE_ID:
+        print('')
+        print('  !! 번들ID 가 어긋났습니다 — 설치하면 안 됩니다.')
+        print(f'     기대: {EXPECTED_MACOS_BUNDLE_ID}')
+        print(f'     실제: {got or "(읽지 못함)"}')
+        print('     보통 원인: flutter/macos/Runner.xcodeproj/project.pbxproj 에')
+        print('     PRODUCT_BUNDLE_IDENTIFIER 줄이 되살아난 것(upstream 머지).')
+        print('     그 줄을 지우면 AppInfo.xcconfig 값이 다시 쓰입니다.')
+        print('')
+        sys.exit(1)
+    print(f'  번들ID 확인: {got}')
 
 
 def build_flutter_arch_manjaro(version, features):
