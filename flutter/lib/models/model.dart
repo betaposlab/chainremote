@@ -137,6 +137,18 @@ class FfiModel with ChangeNotifier {
   /// 아직 상대가 비번을 요구했는지 모르는 상태에서 미리 뜨는 "비밀번호 입력" 창을 잠깐 미뤄
   /// 두는 타이머. 그 사이 다른 응답(대개 "수락을 기다려주세요")이 오면 취소한다.
   Timer? _pendingPasswordTimer;
+
+  /// 미뤄 둔 "비밀번호 입력" 창을 취소한다.
+  ///
+  /// ★부르는 곳이 하나면 안 된다(2026-08-16 사고): 처음엔 "다른 msgbox 가 오면 취소"만
+  ///   달아 뒀는데, 파일 전송처럼 **아무 msgbox 없이 곧장 연결되는** 경로가 있었다.
+  ///   그러면 이미 붙은 세션 위로 1.5초 뒤에 비번 창이 떠올라 그대로 남는다 — 종전엔
+  ///   즉시 떴다가 연결 시 dismissAll 로 같이 사라졌으니, 미루는 순간 그 청소를 놓친 것이다.
+  ///   "연결이 성립했다"도 취소 사유다.
+  void cancelPendingPasswordDialog() {
+    _pendingPasswordTimer?.cancel();
+    _pendingPasswordTimer = null;
+  }
   RxBool waitForFirstImage = true.obs;
   bool isRefreshing = false;
 
@@ -262,8 +274,7 @@ class FfiModel with ChangeNotifier {
     clearPermissions();
     waitForImageTimer?.cancel();
     // 세션이 끝났는데 미뤄 둔 비번 창이 뒤늦게 튀어나오면 유령 창이 된다.
-    _pendingPasswordTimer?.cancel();
-    _pendingPasswordTimer = null;
+    cancelPendingPasswordDialog();
     timerScreenshot?.cancel();
   }
 
@@ -923,8 +934,7 @@ class FfiModel with ChangeNotifier {
     // ★어떤 메시지든 새로 오면, 미뤄 둔 비번 창은 의미가 없어진다 — 상대가 이미 답을 했다는
     //   뜻이기 때문이다. 아래 분기보다 먼저 취소해야 한다.
     if (type != 'input-password-pending') {
-      _pendingPasswordTimer?.cancel();
-      _pendingPasswordTimer = null;
+      cancelPendingPasswordDialog();
     }
 
     if (type == 'input-password-pending') {
@@ -934,9 +944,13 @@ class FfiModel with ChangeNotifier {
       //   사장님에게 비번을 묻는 창이 스쳐 지나가는 건 오해만 부른다.
       //   잠깐 기다렸다가, 그때까지 아무 응답도 없으면 그제야 띄운다. 비번이 진짜 필요한
       //   상대(영구비번 무인접속)는 이 지연 뒤 정상적으로 물어본다.
-      _pendingPasswordTimer?.cancel();
+      cancelPendingPasswordDialog();
       _pendingPasswordTimer = Timer(const Duration(milliseconds: 1500), () {
         _pendingPasswordTimer = null;
+        // ★터지는 순간에도 한 번 더 본다. 취소해야 할 자리를 하나라도 빠뜨리면 이미 붙은
+        //   세션 위로 비번 창이 떠올라 그대로 남는다(2026-08-16 파일 전송에서 실제로 났다).
+        //   peer info 가 들어왔다 = 연결이 성립했다 = 물을 이유가 없다.
+        if (_pi.version.isNotEmpty) return;
         enterPasswordDialog(sessionId, dialogManager);
       });
     } else if (type == 're-input-password') {
@@ -1112,6 +1126,7 @@ class FfiModel with ChangeNotifier {
     parent.target?.inputModel.setRelativeMouseMode(false);
     bind.sessionReconnect(sessionId: sessionId, forceRelay: forceRelay);
     clearPermissions();
+    cancelPendingPasswordDialog();
     dialogManager.dismissAll();
     dialogManager.showLoading(translate('Connecting...'),
         onCancel: closeConnection);
@@ -1345,6 +1360,9 @@ class FfiModel with ChangeNotifier {
     // 원격 접속 직후 최근 세션 탭을 갱신한다(네이티브 최근 접속 기록).
     bind.mainLoadRecentPeers();
 
+    // 연결이 성립했다 = 비번을 물을 이유가 사라졌다. dismissAll 은 이미 떠 있는 창만
+    //   지우므로, 아직 안 뜬 예약분은 여기서 따로 취소해야 한다.
+    cancelPendingPasswordDialog();
     parent.target?.dialogManager.dismissAll();
     _pi.version = evt['version'];
     // Note: Relative mouse mode is NOT auto-enabled on connect.

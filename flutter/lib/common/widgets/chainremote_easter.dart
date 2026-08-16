@@ -62,9 +62,25 @@ class CrTogetherStats {
   });
 }
 
+/// 이스터에그 전용 — 지원기록 조회가 실패하면 **빈 목록으로 넘긴다.**
+///
+/// ★왜 여기만 삼키나(2026-08-16): `fetchCrSessions` 는 실패를 예외로 던지도록 바꿨다.
+///   지원기록 창에서는 "기록 없음"과 "못 불러옴"을 반드시 갈라 보여줘야 하기 때문이다.
+///   그런데 이스터에그 셋이 그 예외를 아무도 안 받고 있었다 — [함께한 시간]은 에러를
+///   로딩으로 착각해 **스피너가 영원히 돌았고**, 나머지 둘은 조용히 아무 일도 안 했다.
+///   이쪽은 장식이라 서버를 못 봤다고 사람에게 알릴 이유가 없다. 옛 동작(빈 목록)이 맞다.
+Future<List<CrSession>> _sessionsOrEmpty({int limit = 5000}) async {
+  try {
+    return await fetchCrSessions(limit: limit);
+  } catch (e) {
+    debugPrint('easter egg: 지원기록 조회 실패 — 빈 목록으로 진행 ($e)');
+    return const <CrSession>[];
+  }
+}
+
 Future<CrTogetherStats> crFetchTogether() async {
   // limit 을 크게 잡는다 — 이 카드는 "여태 전부"가 의미인데 300건에서 잘리면 숫자가 거짓이 된다.
-  final sessions = await fetchCrSessions(limit: 5000);
+  final sessions = await _sessionsOrEmpty();
   var totalSec = 0;
   final byCustomer = <String, int>{};
   DateTime? first;
@@ -327,7 +343,7 @@ Future<(int, int, int)?> crYearEndDue([DateTime? now]) async {
   } catch (e) {
     debugPrint('yearend flag read failed: $e');
   }
-  final sessions = await fetchCrSessions(limit: 5000);
+  final sessions = await _sessionsOrEmpty();
   var count = 0;
   var sec = 0;
   for (final s in sessions) {
@@ -405,7 +421,7 @@ Future<void> maybeShowCrYearEnd(BuildContext context) async {
 /// 연말결산 미리보기(개발용). 12월 31일까지 못 기다리므로 숨은 트리거로 확인한다.
 /// 홈 검색창에 "gogo2" 를 치면 호출된다 — 저장 플래그를 건드리지 않는다.
 Future<void> showCrYearEndPreview(BuildContext context) async {
-  final sessions = await fetchCrSessions(limit: 5000);
+  final sessions = await _sessionsOrEmpty();
   final y = DateTime.now().year;
   var count = 0;
   var sec = 0;

@@ -650,12 +650,16 @@ class _ConnectionPageState extends State<ConnectionPage>
                                     // auto-enroll 로 등록된 거래처면 즐겨찾기에서 거래처명이 자동으로 붙는다.
                                     (
                                       'Add to Favorites',
-                                      () {
+                                      () async {
                                         final favId = _idController.id;
                                         if (favId.isNotEmpty) {
-                                          bind.chainremoteAddFavorite(
+                                          // ★await(2026-08-16). SyncReturn 이던 시절엔
+                                          //   다음 줄 전에 끝나 있었는데, 비동기로 바꾼 뒤로는
+                                          //   **추가가 끝나기 전에** 목록을 다시 읽어 와
+                                          //   방금 넣은 즐겨찾기가 안 보였다. 토스트는 "완료".
+                                          await bind.chainremoteAddFavorite(
                                               remoteId: favId);
-                                          bind.chainremoteLoadFavorites();
+                                          await bind.chainremoteLoadFavorites();
                                           showToast(translate('Successful'));
                                         }
                                       }

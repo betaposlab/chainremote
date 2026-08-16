@@ -1187,6 +1187,9 @@ class _FullscreenToolbarRevealState extends State<_FullscreenToolbarReveal> {
                                 // 전체화면에선 탭바가 없어 tail 툴바도 없다 — 이게 유일한
                                 // 툴바라 initialized 게이트를 건너뛰고 바로 그린다.
                                 alwaysShow: true,
+                                // 숨김 옵션도 여기서만 무시한다. 전체화면엔 그 옵션을
+                                // 되돌릴 우클릭 메뉴가 없어, 켠 채로 들어오면 갇힌다.
+                                ignoreHideOption: true,
                               ),
                             ],
                           ),

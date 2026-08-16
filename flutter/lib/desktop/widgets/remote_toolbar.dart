@@ -242,6 +242,18 @@ class RemoteToolbar extends StatefulWidget {
   // init() 이 로드되면 반영한다(hide 기본값이 false 라 즉시 표시해도 안전).
   final bool alwaysShow;
 
+  /// "툴바 숨기기" 옵션(hide)까지 무시할지.
+  ///
+  /// ★alwaysShow 와 갈라 놓은 이유(2026-08-16): 처음엔 alwaysShow 하나로 두 게이트를 다
+  ///   건너뛰게 했는데, alwaysShow 는 **전체화면 hover 필과 창 모드의 탭바 툴바 둘 다**가
+  ///   쓰는 값이었다. 그래서 우클릭 메뉴의 "툴바 숨기기"가 아무 데서도 안 먹게 됐다 —
+  ///   라벨만 "툴바 보이기"로 바뀌고 툴바는 그대로 남는, 거짓말하는 메뉴가 됐다.
+  ///
+  ///   전체화면에서만 무시해야 한다. 거기엔 탭바가 없어 이 필이 유일한 툴바이고, 숨김을
+  ///   되돌릴 우클릭 메뉴도 탭바에 있어서 한번 숨기면 스스로 빠져나올 방법이 없다.
+  ///   창 모드에서는 숨김이 원래대로 동작해야 한다 — 사용자가 명시적으로 고른 옵션이다.
+  final bool ignoreHideOption;
+
   RemoteToolbar({
     Key? key,
     required this.id,
@@ -251,6 +263,7 @@ class RemoteToolbar extends StatefulWidget {
     required this.onEnterOrLeaveImageCleaner,
     required this.setRemoteState,
     this.alwaysShow = false,
+    this.ignoreHideOption = false,
   }) : super(key: key);
 
   @override
@@ -338,12 +351,14 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
       }
       // If toolbar is hidden, return empty widget
       //
-      // ★alwaysShow(전체화면 hover 필)는 이 게이트도 건너뛴다(2026-08-16 감사 S3-F2).
+      // ★전체화면 hover 필만 이 게이트를 건너뛴다(2026-08-16 감사 S3-F2).
       //   `hide` 는 창 모드에서 탭바 툴바를 접어 두는 옵션인데, 전체화면에선 그 툴바가
       //   아예 없고 hover 필이 **유일한 툴바**다. 그래서 예전에 "툴바 숨김"을 한 번이라도
       //   켠 세션은 전체화면에서 상단에 마우스를 대도 영원히 아무것도 안 떴다 — 게다가
-      //   그 옵션을 되돌릴 UI 도 툴바 안에 있어서 스스로 빠져나올 수가 없다.
-      if (hide.value && !widget.alwaysShow) {
+      //   그 옵션을 되돌릴 우클릭 메뉴도 탭바에 있어서 스스로 빠져나올 수가 없다.
+      //   ※alwaysShow 가 아니라 ignoreHideOption 을 본다 — alwaysShow 는 창 모드 탭바
+      //     툴바도 함께 쓰는 값이라, 그걸로 판단하면 숨김 옵션이 어디서도 안 먹는다.
+      if (hide.value && !widget.ignoreHideOption) {
         return const SizedBox.shrink();
       }
       // 2026-05-27 v4: toolbar 가 DesktopTab.tail(항상 보이는 탭바 라인)에 박혀 있어

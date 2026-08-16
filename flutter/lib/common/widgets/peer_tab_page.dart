@@ -845,10 +845,14 @@ class _PeerTabPageState extends State<PeerTabPage>
                 break;
               case 1:
                 // user_favorites DB (Phase 2-D).
+                // ★반드시 await 한다(2026-08-16). 이 FFI 들이 SyncReturn 이던 시절엔
+                //   다음 줄 전에 이미 끝나 있었는데, 비동기로 바꾸면서 아래 새로고침이
+                //   **해제가 끝나기도 전에** 옛 목록을 다시 읽어 왔다 — 지운 즐겨찾기가
+                //   그대로 남아 보인다.
                 for (var p in peers) {
-                  bind.chainremoteRemoveFavorite(remoteId: p.id);
+                  await bind.chainremoteRemoveFavorite(remoteId: p.id);
                 }
-                bind.chainremoteLoadFavorites();
+                await bind.chainremoteLoadFavorites();
                 break;
               case 2:
                 for (var p in peers) {
@@ -882,9 +886,11 @@ class _PeerTabPageState extends State<PeerTabPage>
         onTap: () async {
           final peers = model.selectedPeers;
           // user_favorites DB (Phase 2-D).
+          // ★await — 비동기 전환 뒤로는 끝나기 전에 "완료" 토스트가 떴다.
           for (var p in peers) {
-            bind.chainremoteAddFavorite(remoteId: p.id);
+            await bind.chainremoteAddFavorite(remoteId: p.id);
           }
+          await bind.chainremoteLoadFavorites();
           model.setMultiSelectionMode(false);
           showToast(translate('Successful'));
         },
