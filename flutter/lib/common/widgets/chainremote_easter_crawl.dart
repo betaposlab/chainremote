@@ -545,7 +545,7 @@ class _RocketPainter extends CustomPainter {
 
     // ── 목표: 거래처 포스(모니터) ──────────────────────────────────────────
     final lit = t >= _kImpact;
-    _drawMonitor(canvas, to, lit, t);
+    _drawMonitor(canvas, to, lit, t, size);
 
     if (t < _kImpact) {
       // ── 비행 ──────────────────────────────────────────────────────────
@@ -554,7 +554,8 @@ class _RocketPainter extends CustomPainter {
       final ahead = at((u + 0.02).clamp(0.0, 1.0));
       final ang = atan2(ahead.dy - pos.dy, ahead.dx - pos.dx);
 
-      // 꼬리 불꽃
+      // 꼬리 불꽃 — 로켓과 같은 배율로 굵어진다(모니터·로켓만 키우면 꼬리가 실처럼 남는다).
+      final tk = (size.shortestSide * 0.22).clamp(96.0, 320.0) / 78.0;
       final trail = Paint()..style = PaintingStyle.fill;
       for (var i = 1; i <= 14; i++) {
         final tu = (u - i * 0.018).clamp(0.0, 1.0);
@@ -564,10 +565,10 @@ class _RocketPainter extends CustomPainter {
         trail.color = Color.lerp(
                 const Color(0xFFFFD27A), const Color(0xFFFF5A3C), 1 - f)!
             .withOpacity(f * 0.75);
-        canvas.drawCircle(p, 1.5 + f * 5.5, trail);
+        canvas.drawCircle(p, (1.5 + f * 5.5) * tk, trail);
       }
 
-      _drawRocket(canvas, pos, ang);
+      _drawRocket(canvas, pos, ang, size);
     } else {
       // ── 폭죽 ──────────────────────────────────────────────────────────
       final e = (t - _kImpact) / (1 - _kImpact); // 0..1
@@ -688,10 +689,13 @@ class _RocketPainter extends CustomPainter {
     }
   }
 
-  void _drawRocket(Canvas canvas, Offset pos, double ang) {
+  /// ★로켓도 모니터와 같은 배율로 키운다. 모니터만 커지면 로켓이 파리처럼 보인다.
+  void _drawRocket(Canvas canvas, Offset pos, double ang, Size size) {
+    final k = (size.shortestSide * 0.22).clamp(96.0, 320.0) / 78.0;
     canvas.save();
     canvas.translate(pos.dx, pos.dy);
     canvas.rotate(ang);
+    canvas.scale(k);
     final body = Paint()..color = Colors.white;
     final accent = Paint()..color = const Color(0xFFE53935);
     // 몸통(코가 진행 방향)
@@ -724,22 +728,31 @@ class _RocketPainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _drawMonitor(Canvas canvas, Offset c, bool lit, double t) {
-    const w = 78.0, h = 54.0;
+  /// 목표 모니터를 그린다.
+  ///
+  /// ★크기를 **화면 비례**로 잡는다(2026-08-16 Chang: "모니터가 너무 작아서 안 보여").
+  ///   종전엔 78x54 픽셀 고정이라, 1400px 짜리 창에서는 아이콘만 한 크기로 찍혀 로켓이
+  ///   무엇을 맞히는지 알아볼 수가 없었다. 폭죽 파편과 똑같은 실수였다 — 창 크기를 모르는
+  ///   자리에서 픽셀을 정하면 어떤 화면에선 너무 작고 어떤 화면에선 넘친다.
+  ///   짧은 변의 22% 로 잡되, 아주 작은 창에서도 최소치는 지킨다.
+  void _drawMonitor(Canvas canvas, Offset c, bool lit, double t, Size size) {
+    final w = (size.shortestSide * 0.22).clamp(96.0, 320.0);
+    final h = w * 54 / 78; // 원래 비율 유지
+    final k = w / 78.0; // 나머지 치수를 같이 키우는 배율
     final r = Rect.fromCenter(center: c, width: w, height: h);
     // 베젤
     canvas.drawRRect(
-      RRect.fromRectAndRadius(r, const Radius.circular(6)),
+      RRect.fromRectAndRadius(r, Radius.circular(6 * k)),
       Paint()..color = const Color(0xFF2A2F3A),
     );
     // 화면 — 착탄 전엔 꺼져 있고, 맞는 순간 불이 들어온다.
     //   ★꺼진 화면이 그냥 검으면 로켓이 어디로 날아가는지 안 보인다(2026-08-15 Chang).
     //     빨간 OFF 를 띄워 목표를 명확히 하고, 맞으면 ON 으로 바뀐다.
-    final inner = r.deflate(5);
+    final inner = r.deflate(5 * k);
     if (lit) {
       final e = ((t - _kImpact) / 0.25).clamp(0.0, 1.0);
       canvas.drawRRect(
-        RRect.fromRectAndRadius(inner, const Radius.circular(3)),
+        RRect.fromRectAndRadius(inner, Radius.circular(3 * k)),
         Paint()
           ..shader = LinearGradient(
             begin: Alignment.topLeft,
@@ -752,26 +765,28 @@ class _RocketPainter extends CustomPainter {
       );
       // 화면 잔광
       canvas.drawRRect(
-        RRect.fromRectAndRadius(inner.inflate(6), const Radius.circular(8)),
+        RRect.fromRectAndRadius(inner.inflate(6 * k), Radius.circular(8 * k)),
         Paint()
           ..color = const Color(0xFF5A8CFF).withOpacity(0.35 * e)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 12 * k),
       );
       // ON — 켜진 순간 살짝 커졌다 제자리로(툭 켜지는 맛).
       final pop = 1.0 + (1 - e) * 0.5;
-      _drawScreenText(canvas, c, 'ON', const Color(0xFFEAF2FF), 20 * pop, e);
+      _drawScreenText(canvas, c, 'ON', const Color(0xFFEAF2FF), 20 * k * pop, e);
     } else {
       canvas.drawRRect(
         RRect.fromRectAndRadius(inner, const Radius.circular(3)),
         Paint()..color = const Color(0xFF0E1117),
       );
       // OFF — 빨간 글자 + 옅은 잔광. 로켓이 어디로 가는지 한눈에 보이게.
-      _drawScreenText(canvas, c, 'OFF', const Color(0xFFE53935), 18, 1.0);
+      _drawScreenText(canvas, c, 'OFF', const Color(0xFFE53935), 18 * k, 1.0);
     }
     // 받침
     canvas.drawRect(
       Rect.fromCenter(
-          center: Offset(c.dx, c.dy + h / 2 + 6), width: 8, height: 10),
+          center: Offset(c.dx, c.dy + h / 2 + 6 * k),
+          width: 8 * k,
+          height: 10 * k),
       Paint()..color = const Color(0xFF2A2F3A),
     );
     canvas.drawRRect(
