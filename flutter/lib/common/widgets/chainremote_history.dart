@@ -70,12 +70,26 @@ class CrSession {
   }
 }
 
-/// 패널에서 지원기록을 받아온다. remoteId 주면 그 거래처만. 실패 시 빈 목록.
+/// 패널 조회가 실패했음을 화면에 알리기 위한 예외(2026-08-16 감사 S3-F3).
+///   종전엔 실패를 빈 목록으로 삼켜 **"기록 없음"과 "못 불러옴"이 똑같이 보였다.** 사장님이
+///   "지난번에도 이랬다"는데 화면엔 아무것도 없으면, 기록이 없는 건지 서버를 못 본 건지
+///   본사 직원이 알 방법이 없었다.
+class CrHistoryFetchError implements Exception {
+  final String message;
+  CrHistoryFetchError(this.message);
+  @override
+  String toString() => message;
+}
+
+/// 패널에서 지원기록을 받아온다. remoteId 주면 그 거래처만.
+///   ★실패는 던진다 — 호출부가 "없음"과 구분해 보여줘야 한다.
 Future<List<CrSession>> fetchCrSessions({String? remoteId, int limit = 100}) async {
   try {
     final base = bind.chainremoteGetApiBase();
     final token = bind.chainremoteGetToken();
-    if (base.isEmpty || token.isEmpty) return [];
+    if (base.isEmpty || token.isEmpty) {
+      throw CrHistoryFetchError('로그인 정보가 없습니다. 다시 로그인해 주세요.');
+    }
     var url = '$base/api/sessions/recent?limit=$limit';
     if (remoteId != null && remoteId.isNotEmpty) {
       url += '&remoteId=${Uri.encodeQueryComponent(remoteId)}';
@@ -84,15 +98,21 @@ Future<List<CrSession>> fetchCrSessions({String? remoteId, int limit = 100}) asy
       Uri.parse(url),
       headers: {'Authorization': 'Bearer $token'},
     ).timeout(_kFetchTimeout);
-    if (resp.statusCode != 200) return [];
+    if (resp.statusCode != 200) {
+      throw CrHistoryFetchError(
+          '지원기록을 불러오지 못했습니다 (서버 응답 ${resp.statusCode}).');
+    }
     final body = jsonDecode(resp.body) as Map<String, dynamic>;
     final list = (body['sessions'] as List?) ?? const [];
     return list
         .whereType<Map>()
         .map((e) => CrSession.fromJson(e.cast<String, dynamic>()))
         .toList();
-  } catch (_) {
-    return [];
+  } on CrHistoryFetchError {
+    rethrow;
+  } catch (e) {
+    // 네트워크 단절·타임아웃·JSON 깨짐 — 원문은 사람에게 의미 없으니 종류만 알린다.
+    throw CrHistoryFetchError('지원기록을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
   }
 }
 
@@ -424,6 +444,22 @@ Future<void> showCrHistoryDialog(
                 builder: (context, snap) {
                   if (snap.connectionState != ConnectionState.done) {
                     return const Center(child: CircularProgressIndicator());
+                  }
+                  // 못 불러온 것과 기록이 없는 것은 다른 일이다(S3-F3).
+                  if (snap.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.cloud_off_outlined,
+                              size: 42, color: subtle.withOpacity(0.55)),
+                          const SizedBox(height: 10),
+                          Text('${snap.error}',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: subtle)),
+                        ],
+                      ),
+                    );
                   }
                   final all = snap.data ?? const <CrSession>[];
                   final list = _applyFilter(all, query, period);

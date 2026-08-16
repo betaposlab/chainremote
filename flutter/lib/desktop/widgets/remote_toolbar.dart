@@ -337,7 +337,13 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
         return const SizedBox.shrink();
       }
       // If toolbar is hidden, return empty widget
-      if (hide.value) {
+      //
+      // ★alwaysShow(전체화면 hover 필)는 이 게이트도 건너뛴다(2026-08-16 감사 S3-F2).
+      //   `hide` 는 창 모드에서 탭바 툴바를 접어 두는 옵션인데, 전체화면에선 그 툴바가
+      //   아예 없고 hover 필이 **유일한 툴바**다. 그래서 예전에 "툴바 숨김"을 한 번이라도
+      //   켠 세션은 전체화면에서 상단에 마우스를 대도 영원히 아무것도 안 떴다 — 게다가
+      //   그 옵션을 되돌릴 UI 도 툴바 안에 있어서 스스로 빠져나올 수가 없다.
+      if (hide.value && !widget.alwaysShow) {
         return const SizedBox.shrink();
       }
       // 2026-05-27 v4: toolbar 가 DesktopTab.tail(항상 보이는 탭바 라인)에 박혀 있어
