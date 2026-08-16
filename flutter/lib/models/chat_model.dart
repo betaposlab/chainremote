@@ -12,10 +12,8 @@ import 'package:flutter_hbb/models/platform_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
-import 'package:window_manager/window_manager.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../consts.dart';
 import '../common.dart';
 import '../common/widgets/overlay.dart';
 import '../main.dart';
@@ -310,15 +308,24 @@ class ChatModel with ChangeNotifier {
   }
 
   var _togglingCMSidePage = false; // protect order for await
+  // ChainRemote: 창 크기·위치는 **여기서 건드리지 않는다.**
+  //
+  // ★2026-08-16 감사 A4 — 첫 채팅 메시지가 도착하면 `showChatPage` 가 이 함수를 타는데,
+  //   종전엔 여기서 RustDesk 기본 CM 기하( `show()` + 우상단 정렬 700폭 )를 그대로 적용했다.
+  //   우리 CM 은 수락 카드 360x200 → "원격지원 중" 배너 300x34 → 채팅 340x400 으로,
+  //   server_page 의 기하 루프가 **모드별 위치까지 기억하며** 관리한다. 두 주인이 같은 창을
+  //   잡으니 첫 메시지 때 창이 우상단으로 700폭까지 튀었다가 우리 루프가 도로 줄였고,
+  //   그 사이 좌표가 "배너 자리"로 저장돼 채팅을 닫으면 배너가 오른쪽에 가 있었다(첫 1회).
+  //   게다가 `show()` 는 포스의 포커스를 뺏는다 — 배너에서 그토록 피하는 동작이다.
+  //
+  //   상태 플래그(_isShowCMSidePage)는 그대로 둔다. cm_file_model 이 파일 전송 페이지를
+  //   자동으로 띄울지 판단하는 데 쓰고, 그건 창 기하와 무관하다.
   toggleCMSidePage() async {
     if (_togglingCMSidePage) return false;
     _togglingCMSidePage = true;
     if (_isShowCMSidePage) {
       _isShowCMSidePage = !_isShowCMSidePage;
       notifyListeners();
-      await windowManager.show();
-      await windowManager.setSizeAlignment(
-          kConnectionManagerWindowSizeClosedChat, Alignment.topRight);
     } else {
       final currentSelectedTab =
           gFFI.serverModel.tabController.state.value.selectedTabInfo;
@@ -327,10 +334,6 @@ class ChatModel with ChangeNotifier {
       if (client != null) {
         client.unreadChatMessageCount.value = 0;
       }
-      requestChatInputFocus();
-      await windowManager.show();
-      await windowManager.setSizeAlignment(
-          kConnectionManagerWindowSizeOpenChat, Alignment.topRight);
       _isShowCMSidePage = !_isShowCMSidePage;
       notifyListeners();
     }

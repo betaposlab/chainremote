@@ -2208,6 +2208,21 @@ pub fn cm_remove_disconnected_connection(conn_id: i32) {
     crate::ui_cm_interface::remove(conn_id);
 }
 
+/// CM 창이 "원격지원 중" 배너로 바뀔 때 켜고, 수락 카드로 돌아올 때 끈다(Windows 전용).
+///
+/// 배너에 WS_EX_NOACTIVATE 를 걸어 **활성화 자체를 막는다.** POS 의 "바탕화면 보기"가
+/// 배너에 포커스를 주는 바람에 방금 최소화한 POS 가 도로 뜨던 것(태조산 2026-07-25)과
+/// 바코드 스캐너 입력 가로채기를 함께 끊는다. 배경은 platform::windows 의 같은 이름 주석.
+///
+/// x86(Sciter)은 이미 `ui/cm.rs` 에서 부르고 있다. 이건 그 짝을 x64(Flutter)에 맞춘 것으로,
+/// `windowManager.show(inactive: true)` 가 우리가 쓰는 포크에서 무시되는 걸 대신한다.
+pub fn cm_set_banner_style(banner: bool) {
+    #[cfg(target_os = "windows")]
+    crate::platform::windows::set_cm_banner_style_self(banner);
+    #[cfg(not(target_os = "windows"))]
+    let _ = banner;
+}
+
 pub fn cm_check_click_time(conn_id: i32) {
     #[cfg(not(any(target_os = "ios")))]
     crate::ui_cm_interface::check_click_time(conn_id)

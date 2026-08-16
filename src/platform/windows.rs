@@ -3906,6 +3906,38 @@ pub fn set_cm_banner_style(hwnd: HWND, banner: bool) {
     }
 }
 
+/// x64(Flutter) CM 프로세스가 **자기 창을 스스로 찾아** 위 스타일을 적용한다.
+///
+/// ★왜 따로 필요한가(2026-08-16 감사 A4): 1.4.70 에서 "포커스 안 뺏는 복원"을 넣으며
+///   Flutter 쪽은 `windowManager.show(inactive: true)` 로 처리했는데, 우리가 물고 있는
+///   window_manager 포크의 Windows `Show()` 는 **`inactive` 인자를 읽지 않고**
+///   `ShowWindowAsync(SW_SHOW)` + `SetForegroundWindow(hwnd)` 를 그대로 부른다.
+///   즉 x64 거래처에서는 그 수정이 **코드상 무효**였고, 실제로 고쳐진 건 Sciter(x86)뿐이다.
+///   플러그인은 우리 저장소가 아니라 고칠 수 없으니, x86 이 이미 쓰는 정석
+///   (WS_EX_NOACTIVATE 로 활성화 자체를 막는 것)을 x64 에도 그대로 붙인다.
+///   스타일이 걸려 있으면 `SetForegroundWindow` 가 불려도 창이 활성화되지 못한다.
+///
+/// CM 은 `--cm` 으로 뜬 별도 프로세스라, 이 프로세스의 최상위 보이는 창 하나가 곧 CM 창이다.
+pub fn set_cm_banner_style_self(banner: bool) {
+    unsafe extern "system" fn cb(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        let mut pid: DWORD = 0;
+        GetWindowThreadProcessId(hwnd, &mut pid);
+        // 보이는 창만 — Flutter 는 숨은 메시지 전용 창도 만든다.
+        if pid == GetCurrentProcessId() && IsWindowVisible(hwnd) == TRUE {
+            *(lparam as *mut HWND) = hwnd;
+            return FALSE; // 첫 개를 찾으면 멈춘다
+        }
+        TRUE
+    }
+    unsafe {
+        let mut found: HWND = std::ptr::null_mut();
+        EnumWindows(Some(cb), &mut found as *mut HWND as LPARAM);
+        if !found.is_null() {
+            set_cm_banner_style(found, banner);
+        }
+    }
+}
+
 // ChainRemote: cm 창이 카드(380x260)에서 배너(260x48)로 줄어들 때 비워진 자리에 직전 프레임
 //   픽셀이 남는 문제 — Aero(DWM 합성)가 꺼진 구형 Win7 POS 에서만 나타난다. 합성이 있으면
 //   시스템이 알아서 아래 창들을 다시 그리지만, 비합성 환경에선 그 영역이 무효화되지 않아

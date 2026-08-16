@@ -603,38 +603,55 @@ class _PeersViewState extends State<_PeersView>
     );
   }
 
-  // 폴더 안 상단 "◀ 뒤로" 바(전폭). 클릭하면 루트로 나간다.
+  // 폴더 안 상단 "나가기" 바(전폭). 클릭하면 루트로 나간다.
+  //
+  // ★2026-08-16 Chang 지적: 종전엔 배경이 거래처 행과 같은 tileBg 라 **바로 아래 거래처
+  //   줄과 색이 비슷해서 나가기가 어디 있는지 헷갈렸다.** 목록 안의 또 하나의 행처럼
+  //   보였던 것이다. 이건 행이 아니라 "지금 폴더 안에 있다 + 나가는 문" 이라는 머리말이라,
+  //   ①배경을 액센트 톤으로 깔아 대비를 주고 ②동작(나가기)을 **먼저·액센트 색**으로 쓰고
+  //   폴더 이름은 뒤에 흐리게 두고 ③아래에 여백을 둬 목록과 분리했다.
   Widget _buildFolderBackBar(String name) {
+    final c = CrColors.of(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () => crOpenFolder.value = null,
         child: Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          height: 38,
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: CrColors.of(context).tileBg,
+            // 거래처 행(tileBg)과 다른 색이어야 한 눈에 갈린다.
+            color: c.tileAccent.withOpacity(0.16),
             borderRadius: BorderRadius.circular(8),
-            border: Border(
-                left: BorderSide(color: CrColors.of(context).tileAccent, width: 3)),
+            border: Border.all(color: c.tileAccent.withOpacity(0.45)),
           ),
           child: Row(
             children: [
-              Icon(Icons.arrow_back_rounded,
-                  size: 20, color: CrColors.of(context).tileAccent),
+              Icon(Icons.arrow_back_rounded, size: 20, color: c.tileAccent),
               const SizedBox(width: 6),
-              Icon(Icons.folder_open_rounded,
-                  size: 18, color: CrColors.of(context).folderIcon),
-              const SizedBox(width: 6),
+              // 눌러서 하는 일을 먼저 쓴다 — 폴더 이름이 앞에 오면 그게 제목처럼 읽혀
+              //   "나가기"가 꼬리말로 묻힌다.
+              Text(
+                '전체 거래처로 나가기',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: c.tileAccent,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(Icons.folder_open_rounded, size: 16, color: c.folderIcon),
+              const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  '$name  —  전체로 나가기',
+                  name,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: CrColors.of(context).tileText,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: c.textMuted,
                   ),
                 ),
               ),

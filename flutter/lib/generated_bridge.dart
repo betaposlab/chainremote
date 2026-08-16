@@ -1318,6 +1318,18 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kCmRemoveDisconnectedConnectionConstMeta;
 
+  /// CM 창이 "원격지원 중" 배너로 바뀔 때 켜고, 수락 카드로 돌아올 때 끈다(Windows 전용).
+  ///
+  /// 배너에 WS_EX_NOACTIVATE 를 걸어 **활성화 자체를 막는다.** POS 의 "바탕화면 보기"가
+  /// 배너에 포커스를 주는 바람에 방금 최소화한 POS 가 도로 뜨던 것(태조산 2026-07-25)과
+  /// 바코드 스캐너 입력 가로채기를 함께 끊는다. 배경은 platform::windows 의 같은 이름 주석.
+  ///
+  /// x86(Sciter)은 이미 `ui/cm.rs` 에서 부르고 있다. 이건 그 짝을 x64(Flutter)에 맞춘 것으로,
+  /// `windowManager.show(inactive: true)` 가 우리가 쓰는 포크에서 무시되는 걸 대신한다.
+  Future<void> cmSetBannerStyle({required bool banner, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kCmSetBannerStyleConstMeta;
+
   Future<void> cmCheckClickTime({required int connId, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kCmCheckClickTimeConstMeta;
@@ -6569,6 +6581,23 @@ class RustdeskImpl implements Rustdesk {
       const FlutterRustBridgeTaskConstMeta(
         debugName: "cm_remove_disconnected_connection",
         argNames: ["connId"],
+      );
+
+  Future<void> cmSetBannerStyle({required bool banner, dynamic hint}) {
+    var arg0 = banner;
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner.wire_cm_set_banner_style(port_, arg0),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kCmSetBannerStyleConstMeta,
+      argValues: [banner],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kCmSetBannerStyleConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "cm_set_banner_style",
+        argNames: ["banner"],
       );
 
   Future<void> cmCheckClickTime({required int connId, dynamic hint}) {
@@ -13389,6 +13418,22 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_cm_remove_disconnected_connection =
       _wire_cm_remove_disconnected_connectionPtr
           .asFunction<void Function(int, int)>();
+
+  void wire_cm_set_banner_style(
+    int port_,
+    bool banner,
+  ) {
+    return _wire_cm_set_banner_style(
+      port_,
+      banner,
+    );
+  }
+
+  late final _wire_cm_set_banner_stylePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64, ffi.Bool)>>(
+          'wire_cm_set_banner_style');
+  late final _wire_cm_set_banner_style =
+      _wire_cm_set_banner_stylePtr.asFunction<void Function(int, bool)>();
 
   void wire_cm_check_click_time(
     int port_,

@@ -1748,6 +1748,11 @@ pub extern "C" fn wire_cm_remove_disconnected_connection(port_: i64, conn_id: i3
 }
 
 #[no_mangle]
+pub extern "C" fn wire_cm_set_banner_style(port_: i64, banner: bool) {
+    wire_cm_set_banner_style_impl(port_, banner)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_cm_check_click_time(port_: i64, conn_id: i32) {
     wire_cm_check_click_time_impl(port_, conn_id)
 }

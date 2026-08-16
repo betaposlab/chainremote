@@ -513,6 +513,29 @@ class ConnectionManagerState extends State<ConnectionManager>
     }
   }
 
+  // 배너 창 스타일(WS_EX_NOACTIVATE + TOOLWINDOW)의 현재 적용 상태. 같은 값을 반복해서
+  // 넣지 않으려고 들고 있다 — SetWindowPos(FRAMECHANGED) 가 매 틱 도는 건 낭비다.
+  bool? _cmBannerStyleApplied;
+
+  /// x64 CM 창의 "활성화 금지" 스타일을 슬림 배너에서만 켠다.
+  ///
+  /// ★왜 이게 필요한가(2026-08-16 감사 A4): 위 복원 루프의 `show(inactive: true)` 는
+  ///   우리가 물고 있는 window_manager 포크에서 **인자가 통째로 무시된다**
+  ///   (Windows Show() 가 SW_SHOW + SetForegroundWindow 를 그대로 부른다). 그래서
+  ///   1.4.70 의 "포커스 안 뺏는 복원"은 x86(Sciter)에서만 진짜로 동작했고 x64 는
+  ///   여전히 포커스를 뺏었다. 창 스타일로 활성화 자체를 막아 같은 결과를 낸다.
+  ///
+  /// ★채팅을 펼쳤을 때는 끈다. 활성화가 막힌 창에는 키보드 입력이 안 들어가
+  ///   거래처가 답장을 못 친다. 스캐너 보호가 필요한 건 "가만히 떠 있는 배너"쪽이고,
+  ///   채팅은 거래처가 스스로 열어 두드리는 창이라 성격이 다르다.
+  ///   (x86 은 채팅에서도 켜 두는데, 그 상태의 타이핑은 실기기 미검증이다 — 테스트1 확인 대상.)
+  void _applyCmBannerStyle(bool banner) {
+    if (!isWindows) return;
+    if (_cmBannerStyleApplied == banner) return;
+    _cmBannerStyleApplied = banner;
+    bind.cmSetBannerStyle(banner: banner);
+  }
+
   Widget _buildAgentSupportBanner(ServerModel serverModel) {
     final pending = serverModel.clients
         .firstWhereOrNull((c) => !c.authorized && !c.disconnected);
@@ -612,6 +635,8 @@ class ConnectionManagerState extends State<ConnectionManager>
             final target = live
                 ? kAgentAcceptCardSize
                 : (chatMode ? kAgentSupportChatSize : kAgentSupportBannerSize);
+            // 수락 카드·채팅은 거래처가 눌러야 하는 창이라 원복, 슬림 배너만 활성화 금지.
+            _applyCmBannerStyle(!live && !chatMode);
             if (!_agentWindowPlaced) {
               await _placeAgentWindowInitially(target);
               _agentGeomChatMode = live ? null : chatMode;

@@ -3964,6 +3964,19 @@ fn wire_cm_remove_disconnected_connection_impl(
         },
     )
 }
+fn wire_cm_set_banner_style_impl(port_: MessagePort, banner: impl Wire2Api<bool> + UnwindSafe) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
+        WrapInfo {
+            debug_name: "cm_set_banner_style",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_banner = banner.wire2api();
+            move |task_callback| Ok(cm_set_banner_style(api_banner))
+        },
+    )
+}
 fn wire_cm_check_click_time_impl(port_: MessagePort, conn_id: impl Wire2Api<i32> + UnwindSafe) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
         WrapInfo {
