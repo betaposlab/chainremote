@@ -1128,6 +1128,15 @@ class PeerSearchBar extends StatefulWidget {
 }
 
 class _PeerSearchBarState extends State<PeerSearchBar> {
+  /// 검색창 이스터에그 판정을 미뤄 두는 타이머 — 아래 onChanged 주석 참조.
+  Timer? _crEggTimer;
+
+  @override
+  void dispose() {
+    _crEggTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     // 펼침 상태는 전역(peerSearchBarOpen) — 디스크 스트립 점프가 필터를 걸며 강제로 펼친다.
@@ -1180,20 +1189,36 @@ class _PeerSearchBarState extends State<PeerSearchBar> {
                         autofocus: true,
                         controller: peerSearchTextController,
                         onChanged: (searchText) {
+                          // 검색 자체는 즉시 반영한다(실시간 검색).
                           peerSearchText.value = searchText;
                           // 이스터에그: 검색창에 gogo — Chang 의 WoL 명령어 오마주.
                           //   로켓이 날아가 거래처 포스에 닿고 폭죽이 터진다.
                           //   gogo2 는 연말결산 미리보기(12월까지 못 기다리므로).
+                          //
+                          // ★입력이 멈춘 뒤에 판정한다(2026-08-16 Chang 신고).
+                          //   종전엔 글자가 바뀔 때마다 즉시 검사해서, `gogo` 가 되는 순간
+                          //   로켓을 쏘고 입력칸을 비워 버렸다 — **`2` 를 칠 기회 자체가
+                          //   없어 `gogo2` 는 도달 불가능한 기능이었다.**
+                          //   잠깐 기다렸다가 그때의 값으로 판정하면 둘 다 살아난다.
+                          _crEggTimer?.cancel();
                           final t = searchText.trim().toLowerCase();
-                          if (t == 'gogo' || t == 'gogo2') {
+                          if (t != 'gogo' && t != 'gogo2') return;
+                          _crEggTimer =
+                              Timer(const Duration(milliseconds: 700), () {
+                            if (!mounted) return;
+                            // 기다리는 사이 글자가 더 붙었을 수 있으니 지금 값을 다시 본다.
+                            final now = peerSearchTextController.text
+                                .trim()
+                                .toLowerCase();
+                            if (now != 'gogo' && now != 'gogo2') return;
                             peerSearchTextController.clear();
                             peerSearchText.value = '';
-                            if (t == 'gogo') {
+                            if (now == 'gogo') {
                               showCrRocket(context);
                             } else {
                               showCrYearEndPreview(context);
                             }
-                          }
+                          });
                         },
                         focusNode: focusNode,
                         textAlign: TextAlign.start,
