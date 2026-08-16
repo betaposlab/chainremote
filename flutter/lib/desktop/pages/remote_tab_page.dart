@@ -468,7 +468,23 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
     }
   }
 
+  /// 확인창이 떠 있는 동안 또 눌러도 새 창을 안 띄운다(2026-08-16 Chang 발견).
+  ///   창 X·탭 X·툴바 X 는 서로 다른 경로인데 셋 다 이 확인창을 쓴다. 종전엔 누를 때마다
+  ///   창이 하나씩 쌓여 화면이 계속 어두워졌고(각 창이 자기 어둠막을 깐다), 빠져나오려면
+  ///   쌓인 수만큼 [취소]를 눌러야 했다. "종료가 안 먹는다"로 보여 더 누르게 되는 악순환.
+  bool _closeAsking = false;
+
   Future<bool> _chainremoteConfirmCloseDuringSession(int connLength) async {
+    if (_closeAsking) return false;
+    _closeAsking = true;
+    try {
+      return await _chainremoteConfirmCloseDuringSessionInner(connLength);
+    } finally {
+      _closeAsking = false;
+    }
+  }
+
+  Future<bool> _chainremoteConfirmCloseDuringSessionInner(int connLength) async {
     final msg = connLength > 1
         ? '원격 세션 $connLength개가 진행 중입니다. 모두 종료할까요?\n거래처 연결이 끊깁니다.'
         : '원격 세션이 진행 중입니다. 종료할까요?\n거래처 연결이 끊깁니다.';

@@ -2377,11 +2377,25 @@ class _RecordMenu extends StatelessWidget {
   }
 }
 
-class _CloseMenu extends StatelessWidget {
+class _CloseMenu extends StatefulWidget {
   final String id;
   final FFI ffi;
   const _CloseMenu({Key? key, required this.id, required this.ffi})
       : super(key: key);
+
+  @override
+  State<_CloseMenu> createState() => _CloseMenuState();
+}
+
+class _CloseMenuState extends State<_CloseMenu> {
+  /// 확인창이 떠 있는 동안 또 누르는 것을 막는다(2026-08-16 Chang 발견).
+  ///   종전엔 X 를 누를 때마다 확인창이 **새로 하나씩 쌓였다.** 각 창이 자기 어둠막을
+  ///   깔기 때문에 누를수록 화면이 계속 어두워지고, 빠져나오려면 쌓인 수만큼 [취소]를
+  ///   눌러야 했다. 사용자 입장에선 "종료가 안 먹는다"로 보여 더 누르게 되는 악순환이다.
+  bool _asking = false;
+
+  String get id => widget.id;
+  FFI get ffi => widget.ffi;
 
   @override
   Widget build(BuildContext context) {
@@ -2389,17 +2403,24 @@ class _CloseMenu extends StatelessWidget {
       assetName: 'assets/close.svg',
       tooltip: 'Close',
       onPressed: () async {
+        if (_asking) return;
+        _asking = true;
+        try {
         // 툴바 빨간 X 도 경고 없이 끊기지 않도록 확인받는다.
         // 창 X 와는 별개 경로라 둘 다 막아야 코이노식 무경고 끊김을 방지할 수 있다.
         // A/S 기록 모달은 여기서 띄우지 않는다 — 확인 즉시 끊어 거래처 배너를 바로
         // 없애고, 기록은 종료 후 메인 창 모달로 받는다(chainremote_session_record.dart).
-        if (!await _chainremoteConfirmEndSession()) {
-          return;
+          if (!await _chainremoteConfirmEndSession()) {
+            return;
+          }
+          if (await showConnEndAuditDialogCloseCanceled(ffi: ffi)) {
+            return;
+          }
+          closeConnection(id: id);
+        } finally {
+          // 위젯이 이미 사라졌을 수 있다(연결을 끊으면 탭째 없어진다).
+          if (mounted) _asking = false;
         }
-        if (await showConnEndAuditDialogCloseCanceled(ffi: ffi)) {
-          return;
-        }
-        closeConnection(id: id);
       },
       color: _ToolbarTheme.redColor,
       hoverColor: _ToolbarTheme.hoverRedColor,
