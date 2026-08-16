@@ -39,3 +39,18 @@ export async function moveFromAlertAction(id: string): Promise<boolean> {
   revalidatePath("/customers");
   return ok;
 }
+
+/**
+ * 기기 이관 — 이 거래처의 기기를 새 상호의 신규 거래처로 옮긴다(옛 이력은 옛 행에 보존).
+ * 수거한 포스를 다른 가맹점에 재사용할 때 쓴다. 마스터(owner)만.
+ */
+export async function moveDeviceToNewCustomerAction(
+  customerId: string,
+  newName: string,
+): Promise<{ ok: boolean; reason?: string }> {
+  const me = await requireOwnerSession();
+  const r = await data.moveDeviceToNewCustomer(customerId, newName, me.tenantId);
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${customerId}/edit`);
+  return { ok: r.ok, reason: r.reason };
+}

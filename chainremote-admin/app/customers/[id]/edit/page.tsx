@@ -8,6 +8,7 @@ import { updateCustomer } from "@/lib/actions/customers";
 import { listTenantStaff } from "@/lib/data/users";
 import { listFolders } from "@/lib/data/folders";
 import { DeleteButton } from "./_delete";
+import { MoveDeviceCard } from "../_move-device";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,15 @@ export default async function EditCustomerPage({
           folders={folderRows.map((f) => f.name)}
         />
       </div>
+      {/* 수거한 포스를 다른 가맹점에 재사용할 때 — 이름만 바꾸면 두 매장 이력이 섞인다.
+          마스터만 보인다(기기 소속을 바꾸는 일이라 되돌리기가 번거롭다). */}
+      {session.user.role === "owner" || session.user.role === "super_admin" ? (
+        <MoveDeviceCard
+          customerId={row.id}
+          customerName={row.name}
+          remoteId={row.remoteId}
+        />
+      ) : null}
     </div>
   );
 }
