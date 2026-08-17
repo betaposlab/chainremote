@@ -381,3 +381,21 @@ final crAgentChatPanelOpen = false.obs;
 //   ★있는 그대로를 보여 주기 위한 값이다. 이게 없으면 "거래처가 0곳"과 "패널에 못 붙었다"가
 //   화면에서 똑같이 생긴다 — 앞은 정상이고 뒤는 사고인데 구분할 방법이 없었다(감사 A5).
 final crPanelDataError = ''.obs;
+
+/// ChainRemote 예약원격 — 본사가 제안한 시간 창. 거래처 CM 이 카드로 띄운다.
+///   null 이면 제안이 없는 상태다. 사장님이 [수락]/[거부] 를 누르면 다시 null 로 돌아간다.
+///   ★이 값이 있다고 창이 열린 게 아니다. 창은 사장님이 누른 뒤 Rust 쪽에서만 열린다.
+class CrSchedProposal {
+  final int start, end, hqNow;
+  final String label;
+  final bool extend;
+  const CrSchedProposal({
+    required this.start,
+    required this.end,
+    required this.hqNow,
+    required this.label,
+    required this.extend,
+  });
+}
+
+final crSchedProposal = Rx<CrSchedProposal?>(null);

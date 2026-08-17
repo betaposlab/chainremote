@@ -1318,6 +1318,33 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kCmRemoveDisconnectedConnectionConstMeta;
 
+  /// ChainRemote 예약원격 — 사장님이 카드에서 누른 답.
+  ///
+  /// ★창이 실제로 열리는 유일한 입구다. 본사 메시지는 카드를 띄울 뿐이고, 이 호출은
+  /// 사장님이 버튼을 누른 뒤에만 일어난다. 그 경계가 이 기능과 영구 비밀번호를 가르는
+  /// 선이라, 다른 곳에서 창을 여는 길을 만들면 안 된다.
+  Future<void> cmSchedAnswer(
+      {required int connId,
+      required bool accepted,
+      required int start,
+      required int end,
+      required int hqNow,
+      required String label,
+      dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kCmSchedAnswerConstMeta;
+
+  /// 거래처가 트레이에서 [허용 취소]를 눌렀다 — 남은 시간을 즉시 없앤다.
+  Future<void> cmSchedCancel({dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kCmSchedCancelConstMeta;
+
+  /// 지금 열려 있는 창의 사람 말 표기. 없으면 빈 문자열.
+  ///   트레이 카드가 "언제까지 허용 중"인지 보여주는 데 쓴다.
+  Future<String> cmSchedLabel({dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kCmSchedLabelConstMeta;
+
   /// CM 창이 "원격지원 중" 배너로 바뀔 때 켜고, 수락 카드로 돌아올 때 끈다(Windows 전용).
   ///
   /// 배너에 WS_EX_NOACTIVATE 를 걸어 **활성화 자체를 막는다.** POS 의 "바탕화면 보기"가
@@ -6581,6 +6608,68 @@ class RustdeskImpl implements Rustdesk {
       const FlutterRustBridgeTaskConstMeta(
         debugName: "cm_remove_disconnected_connection",
         argNames: ["connId"],
+      );
+
+  Future<void> cmSchedAnswer(
+      {required int connId,
+      required bool accepted,
+      required int start,
+      required int end,
+      required int hqNow,
+      required String label,
+      dynamic hint}) {
+    var arg0 = api2wire_i32(connId);
+    var arg1 = accepted;
+    var arg2 = _platform.api2wire_i64(start);
+    var arg3 = _platform.api2wire_i64(end);
+    var arg4 = _platform.api2wire_i64(hqNow);
+    var arg5 = _platform.api2wire_String(label);
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner
+          .wire_cm_sched_answer(port_, arg0, arg1, arg2, arg3, arg4, arg5),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kCmSchedAnswerConstMeta,
+      argValues: [connId, accepted, start, end, hqNow, label],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kCmSchedAnswerConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "cm_sched_answer",
+        argNames: ["connId", "accepted", "start", "end", "hqNow", "label"],
+      );
+
+  Future<void> cmSchedCancel({dynamic hint}) {
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner.wire_cm_sched_cancel(port_),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kCmSchedCancelConstMeta,
+      argValues: [],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kCmSchedCancelConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "cm_sched_cancel",
+        argNames: [],
+      );
+
+  Future<String> cmSchedLabel({dynamic hint}) {
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner.wire_cm_sched_label(port_),
+      parseSuccessData: _wire2api_String,
+      constMeta: kCmSchedLabelConstMeta,
+      argValues: [],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kCmSchedLabelConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "cm_sched_label",
+        argNames: [],
       );
 
   Future<void> cmSetBannerStyle({required bool banner, dynamic hint}) {
@@ -13418,6 +13507,68 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_cm_remove_disconnected_connection =
       _wire_cm_remove_disconnected_connectionPtr
           .asFunction<void Function(int, int)>();
+
+  void wire_cm_sched_answer(
+    int port_,
+    int conn_id,
+    bool accepted,
+    int start,
+    int end,
+    int hq_now,
+    ffi.Pointer<wire_uint_8_list> label,
+  ) {
+    return _wire_cm_sched_answer(
+      port_,
+      conn_id,
+      accepted,
+      start,
+      end,
+      hq_now,
+      label,
+    );
+  }
+
+  late final _wire_cm_sched_answerPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Int64,
+              ffi.Int32,
+              ffi.Bool,
+              ffi.Int64,
+              ffi.Int64,
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_cm_sched_answer');
+  late final _wire_cm_sched_answer = _wire_cm_sched_answerPtr.asFunction<
+      void Function(
+          int, int, bool, int, int, int, ffi.Pointer<wire_uint_8_list>)>();
+
+  void wire_cm_sched_cancel(
+    int port_,
+  ) {
+    return _wire_cm_sched_cancel(
+      port_,
+    );
+  }
+
+  late final _wire_cm_sched_cancelPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
+          'wire_cm_sched_cancel');
+  late final _wire_cm_sched_cancel =
+      _wire_cm_sched_cancelPtr.asFunction<void Function(int)>();
+
+  void wire_cm_sched_label(
+    int port_,
+  ) {
+    return _wire_cm_sched_label(
+      port_,
+    );
+  }
+
+  late final _wire_cm_sched_labelPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
+          'wire_cm_sched_label');
+  late final _wire_cm_sched_label =
+      _wire_cm_sched_labelPtr.asFunction<void Function(int)>();
 
   void wire_cm_set_banner_style(
     int port_,

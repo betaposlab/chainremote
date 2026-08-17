@@ -385,6 +385,16 @@ class FfiModel with ChangeNotifier {
       } else if (name == 'chat_server_mode') {
         parent.target?.chatModel
             .receive(int.parse(evt['id'] as String), evt['text'] ?? '');
+      } else if (name == 'cr_sched_req') {
+        // ChainRemote 예약원격: 본사가 시간대를 제안했다 → 거래처 CM 이 카드를 띄운다.
+        //   ★여기서 창이 열리는 게 아니다. 사장님이 [수락] 을 눌러야만 Rust 쪽에서 열린다.
+        crSchedProposal.value = CrSchedProposal(
+          start: int.tryParse(evt['start']?.toString() ?? '') ?? 0,
+          end: int.tryParse(evt['end']?.toString() ?? '') ?? 0,
+          hqNow: int.tryParse(evt['hq_now']?.toString() ?? '') ?? 0,
+          label: evt['label']?.toString() ?? '',
+          extend: evt['extend']?.toString() == 'true',
+        );
       } else if (name == 'cr_chat_panel') {
         // ChainRemote: 본사가 자기 채팅창을 열거나 닫았다 — 거래처 CM 의 채팅 영역을
         //   따라 연다/닫는다. 세션엔 영향 없다(화면만 접힌다).

@@ -541,7 +541,12 @@ class ConnectionManagerState extends State<ConnectionManager>
         .firstWhereOrNull((c) => !c.authorized && !c.disconnected);
     final activeClient = serverModel.clients
         .firstWhereOrNull((c) => c.authorized && !c.disconnected);
-    final wantPending = pending != null;
+    // ChainRemote 예약원격: 본사가 시간대를 제안했으면 그 카드를 띄운다.
+    //   ★크기를 수락 카드(360x200)와 **같게** 쓴다. 새 크기를 만들면 CM 창 기하 로직
+    //     (배너 300x34 ↔ 카드 360x200 ↔ 채팅 340x400 + 모드별 위치 기억)에 네 번째 상태가
+    //     생겨, 어제까지 씨름한 그 자리를 다시 흔든다. 내용만 다른 같은 카드로 둔다.
+    final schedProposal = crSchedProposal.value;
+    final wantPending = pending != null || schedProposal != null;
     // 본사가 자기 채팅창을 열거나 닫으면 따라간다(1.4.117+ HQ 만 이 신호를 보낸다).
     //   본사가 닫으면 거래처 화면도 곧바로 접혀 포스 화면이 돌아온다 — 120초를 안 기다린다.
     //   ★값이 바뀐 순간에만 반응한다. 매 build 마다 따라가면 거래처가 말풍선으로 직접
@@ -670,10 +675,94 @@ class ConnectionManagerState extends State<ConnectionManager>
         }
       });
     }
-    if (wantPending) {
+    if (schedProposal != null) {
+      return _buildAgentSchedCard(schedProposal, activeClient ?? pending);
+    }
+    if (pending != null) {
       return _buildAgentAcceptCard(serverModel, pending);
     }
     return _buildAgentIndicator(activeClient);
+  }
+
+  /// ChainRemote 예약원격 — 본사가 제안한 시간대를 사장님이 읽고 누르는 카드.
+  ///
+  /// 사장님은 **시간을 고르지 않는다.** 본사가 만들어 보낸 문구를 읽고 버튼만 누른다.
+  /// 포스 시계가 틀려도 화면 글자는 약속한 그 시각이어야 하므로 label 을 그대로 쓴다
+  /// (여기서 시각을 다시 계산하면 시계가 어긋난 기기에서 엉뚱한 시간이 보인다).
+  Widget _buildAgentSchedCard(CrSchedProposal p, Client? client) {
+    final c = CrColors.of(context);
+    void answer(bool accepted) {
+      // 창은 [수락] 을 눌렀을 때만 열린다 — Rust 쪽 cm_sched_answer 가 유일한 입구다.
+      bind.cmSchedAnswer(
+        connId: client?.id ?? 0,
+        accepted: accepted,
+        start: p.start,
+        end: p.end,
+        hqNow: p.hqNow,
+        label: p.label,
+      );
+      crSchedProposal.value = null;
+    }
+
+    return Container(
+      color: c.cardBg,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Icon(Icons.schedule_rounded, size: 18, color: c.tileAccent),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                p.extend ? '원격 작업 시간 연장 요청' : '원격 작업 시간 요청',
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w700, color: c.tileText),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          // 약속한 시간 — 이 카드에서 사장님이 실제로 읽어야 하는 유일한 정보다.
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            decoration: BoxDecoration(
+              color: c.tileAccent.withOpacity(0.14),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              p.label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 15, fontWeight: FontWeight.w700, color: c.tileAccent),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '이 시간에는 수락 창이 뜨지 않고\n본사가 바로 접속합니다.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: c.textMuted, height: 1.35),
+          ),
+          const Spacer(),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => answer(false),
+                child: const Text('거부'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => answer(true),
+                style: ElevatedButton.styleFrom(backgroundColor: c.accentFill),
+                child: const Text('수락'),
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
   }
 
   // 본사 원격 요청. 거래처가 직접 [수락]/[거부]를 누른다.

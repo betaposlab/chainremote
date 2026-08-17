@@ -1748,6 +1748,29 @@ pub extern "C" fn wire_cm_remove_disconnected_connection(port_: i64, conn_id: i3
 }
 
 #[no_mangle]
+pub extern "C" fn wire_cm_sched_answer(
+    port_: i64,
+    conn_id: i32,
+    accepted: bool,
+    start: i64,
+    end: i64,
+    hq_now: i64,
+    label: *mut wire_uint_8_list,
+) {
+    wire_cm_sched_answer_impl(port_, conn_id, accepted, start, end, hq_now, label)
+}
+
+#[no_mangle]
+pub extern "C" fn wire_cm_sched_cancel(port_: i64) {
+    wire_cm_sched_cancel_impl(port_)
+}
+
+#[no_mangle]
+pub extern "C" fn wire_cm_sched_label(port_: i64) {
+    wire_cm_sched_label_impl(port_)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_cm_set_banner_style(port_: i64, banner: bool) {
     wire_cm_set_banner_style_impl(port_, banner)
 }

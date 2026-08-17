@@ -3964,6 +3964,61 @@ fn wire_cm_remove_disconnected_connection_impl(
         },
     )
 }
+fn wire_cm_sched_answer_impl(
+    port_: MessagePort,
+    conn_id: impl Wire2Api<i32> + UnwindSafe,
+    accepted: impl Wire2Api<bool> + UnwindSafe,
+    start: impl Wire2Api<i64> + UnwindSafe,
+    end: impl Wire2Api<i64> + UnwindSafe,
+    hq_now: impl Wire2Api<i64> + UnwindSafe,
+    label: impl Wire2Api<String> + UnwindSafe,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
+        WrapInfo {
+            debug_name: "cm_sched_answer",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_conn_id = conn_id.wire2api();
+            let api_accepted = accepted.wire2api();
+            let api_start = start.wire2api();
+            let api_end = end.wire2api();
+            let api_hq_now = hq_now.wire2api();
+            let api_label = label.wire2api();
+            move |task_callback| {
+                Ok(cm_sched_answer(
+                    api_conn_id,
+                    api_accepted,
+                    api_start,
+                    api_end,
+                    api_hq_now,
+                    api_label,
+                ))
+            }
+        },
+    )
+}
+fn wire_cm_sched_cancel_impl(port_: MessagePort) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
+        WrapInfo {
+            debug_name: "cm_sched_cancel",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || move |task_callback| Ok(cm_sched_cancel()),
+    )
+}
+fn wire_cm_sched_label_impl(port_: MessagePort) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, String>(
+        WrapInfo {
+            debug_name: "cm_sched_label",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || move |task_callback| Ok(cm_sched_label()),
+    )
+}
 fn wire_cm_set_banner_style_impl(port_: MessagePort, banner: impl Wire2Api<bool> + UnwindSafe) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
         WrapInfo {
