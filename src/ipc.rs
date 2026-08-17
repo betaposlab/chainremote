@@ -254,6 +254,20 @@ pub enum Data {
     CrChatPanel {
         open: bool,
     },
+    // ChainRemote 예약원격: 본사가 제안한 시간 창을 CM 카드로 띄우라는 신호.
+    //   label 은 사장님이 읽을 문구다 — 포스 시계가 틀려도 화면 글자는 약속한 그 시각이어야
+    //   하므로 본사가 만들어 보낸 것을 그대로 쓴다.
+    CrSchedReq {
+        start: i64,
+        end: i64,
+        hq_now: i64,
+        label: String,
+        extend: bool,
+    },
+    // 거래처가 누른 답. CM → 서비스 → 본사로 되돌아간다.
+    CrSchedResp {
+        accepted: bool,
+    },
     SwitchPermission {
         name: String,
         enabled: bool,

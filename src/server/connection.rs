@@ -621,6 +621,17 @@ impl Connection {
                             conn.send(msg_out).await;
                             conn.chat_unanswered = false;
                         }
+                        // ChainRemote 예약원격: 사장님이 누른 답을 본사로 돌려준다.
+                        //   기사가 "눌렀는지"를 모르면 전화를 다시 걸지 판단할 수 없다.
+                        ipc::Data::CrSchedResp{accepted} => {
+                            let mut misc = Misc::new();
+                            let mut r = CrSchedResp::new();
+                            r.accepted = accepted;
+                            misc.set_cr_sched_resp(r);
+                            let mut msg_out = Message::new();
+                            msg_out.set_misc(misc);
+                            conn.send(msg_out).await;
+                        }
                         ipc::Data::SwitchPermission{name, enabled} => {
                             log::info!("Change permission {} -> {}", name, enabled);
                             if &name == "keyboard" {
@@ -3415,6 +3426,18 @@ impl Connection {
                     //   화면만 접었다 폈다 하는 신호라 권한 검사가 필요 없다.
                     Some(misc::Union::CrChatPanel(p)) => {
                         self.send_to_cm(ipc::Data::CrChatPanel { open: p.open });
+                    }
+                    // ChainRemote 예약원격: 본사의 시간 제안을 CM 카드로 넘긴다.
+                    //   ★여기서 창을 열지 않는다. 사장님이 [수락]을 눌러야만 열린다 —
+                    //   본사 메시지만으로 열리면 그건 영구 비밀번호와 같아진다.
+                    Some(misc::Union::CrSchedReq(p)) => {
+                        self.send_to_cm(ipc::Data::CrSchedReq {
+                            start: p.start,
+                            end: p.end,
+                            hq_now: p.hq_now,
+                            label: p.label.clone(),
+                            extend: p.extend,
+                        });
                     }
                     Some(misc::Union::ChatMessage(c)) => {
                         self.send_to_cm(ipc::Data::ChatMessage { text: c.text });

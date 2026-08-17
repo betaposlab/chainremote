@@ -1532,6 +1532,28 @@ pub mod connection_manager {
             );
         }
 
+        fn cr_sched_req(
+            &self,
+            id: i32,
+            start: i64,
+            end: i64,
+            hq_now: i64,
+            label: String,
+            extend: bool,
+        ) {
+            self.push_event(
+                "cr_sched_req",
+                &[
+                    ("id", &id.to_string()),
+                    ("start", &start.to_string()),
+                    ("end", &end.to_string()),
+                    ("hq_now", &hq_now.to_string()),
+                    ("label", &label),
+                    ("extend", &extend.to_string()),
+                ],
+            );
+        }
+
         fn change_theme(&self, dark: String) {
             self.push_event("theme", &[("dark", &dark)]);
         }
