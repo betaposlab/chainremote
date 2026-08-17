@@ -186,6 +186,53 @@ pub fn note_session_end() {
     }
 }
 
+/// 거래처에게 "허용을 취소할까요?"를 묻고, 그렇다면 창을 닫는다.
+///
+/// ★왜 시스템 대화상자인가: 거래처(i686) 트레이엔 컨텍스트 메뉴를 못 단다 — Win7 에서
+/// `TrackPopupMenu` 가 c0000409(스택 버퍼 오버런)로 프로세스를 죽인다. CM 창에 새 상태를
+/// 만드는 것도 피했다(카드↔배너↔채팅 기하가 이미 까다롭다). 시스템 대화상자는 둘 다
+/// 비껴가면서 x86·x64 가 똑같이 동작한다.
+///
+/// 트레이 이벤트 루프를 막지 않으려고 별도 스레드에서 띄운다.
+#[cfg(windows)]
+pub fn ask_cancel_in_thread() {
+    let Some(w) = status() else {
+        return;
+    };
+    std::thread::spawn(move || {
+        use std::os::windows::ffi::OsStrExt;
+        fn wide(s: &str) -> Vec<u16> {
+            std::ffi::OsStr::new(s)
+                .encode_wide()
+                .chain(std::iter::once(0))
+                .collect()
+        }
+        let text = format!(
+            "원격 허용 중입니다.\n\n{}\n\n지금 허용을 취소할까요?\n취소하면 다음부터는 수락 창이 다시 뜹니다.",
+            w.label
+        );
+        const MB_YESNO: u32 = 0x0000_0004;
+        const MB_ICONQUESTION: u32 = 0x0000_0020;
+        const MB_SYSTEMMODAL: u32 = 0x0000_1000;
+        const IDYES: i32 = 6;
+        extern "system" {
+            fn MessageBoxW(hwnd: *mut u16, text: *const u16, caption: *const u16, utype: u32) -> i32;
+        }
+        let r = unsafe {
+            MessageBoxW(
+                std::ptr::null_mut(),
+                wide(&text).as_ptr(),
+                wide("ChainRemote 원격 허용").as_ptr(),
+                MB_YESNO | MB_ICONQUESTION | MB_SYSTEMMODAL,
+            )
+        };
+        if r == IDYES {
+            clear();
+            log::info!("[chainremote_sched] 거래처가 트레이에서 허용을 취소했다");
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
