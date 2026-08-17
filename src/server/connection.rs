@@ -2632,7 +2632,21 @@ impl Connection {
                 && !allow_logon_screen_password)
                 || password::approve_mode() == ApproveMode::Both && !password::has_valid_password()
             {
+                // ChainRemote 예약원격(Case B): 접속 요청에 시간 제안이 실려 왔으면, 평소
+                //   수락 카드 대신 **시간 카드**를 띄운다. 사장님이 [수락] 한 번으로 창을 열고
+                //   세션도 시작되게 하려는 것 — 두 번 누르게 하면 이 기능의 의미가 없다.
+                //   ★카드를 띄우는 것뿐이다. 창은 여전히 사장님이 눌러야만 열린다.
+                let sched = lr.cr_sched_req.clone().into_option();
                 self.try_start_cm(lr.my_id, lr.my_name, false);
+                if let Some(p) = sched {
+                    self.send_to_cm(ipc::Data::CrSchedReq {
+                        start: p.start,
+                        end: p.end,
+                        hq_now: p.hq_now,
+                        label: p.label.clone(),
+                        extend: p.extend,
+                    });
+                }
                 if hbb_common::get_version_number(&lr.version)
                     >= hbb_common::get_version_number("1.2.0")
                 {

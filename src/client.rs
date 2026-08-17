@@ -1813,6 +1813,10 @@ struct ConnToken {
 pub struct LoginConfigHandler {
     id: String,
     pub conn_type: ConnType,
+    /// ChainRemote 예약원격(Case B): 접속과 동시에 보낼 시간 제안.
+    ///   원격 중이 아닌 거래처엔 보낼 세션이 없어 로그인 요청에 실어 보낸다.
+    ///   한 번 쓰고 비운다 — 재접속마다 카드가 다시 뜨면 사장님이 시달린다.
+    pub cr_sched_req: Option<CrSchedReq>,
     pub is_terminal_admin: bool,
     hash: Hash,
     password: Vec<u8>, // remember password for reconnect
@@ -1852,6 +1856,17 @@ impl Deref for LoginConfigHandler {
 }
 
 impl LoginConfigHandler {
+    /// 예약 제안을 걸어 둔다(다음 접속 한 번에 실린다).
+    pub fn set_cr_sched_req(&mut self, p: CrSchedReq) {
+        self.cr_sched_req = Some(p);
+    }
+
+    /// 제안을 비운다. 거래처 답을 받았거나 세션이 끝나면 부른다 — 안 비우면 재접속마다
+    /// 카드가 또 뜬다.
+    pub fn clear_cr_sched_req(&mut self) {
+        self.cr_sched_req = None;
+    }
+
     /// Initialize the login config handler.
     ///
     /// # Arguments
@@ -2800,6 +2815,13 @@ impl LoginConfigHandler {
             avatar,
             ..Default::default()
         };
+        // ChainRemote 예약원격: 제안이 걸려 있으면 이 접속에 실어 보낸다.
+        //   ★여기서 비우지 않는다(이 함수는 &self 다). 비우는 건 응답을 받은 쪽의 몫이라
+        //     `clear_cr_sched_req` 로 따로 뺐다 — 안 비우면 재접속마다 카드가 또 떠서
+        //     사장님이 시달린다.
+        if let Some(p) = self.cr_sched_req.clone() {
+            lr.cr_sched_req = Some(p).into();
+        }
         match self.conn_type {
             ConnType::FILE_TRANSFER => lr.set_file_transfer(FileTransfer {
                 dir: self.get_remote_dir(),

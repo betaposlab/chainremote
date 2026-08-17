@@ -363,6 +363,10 @@ impl InvokeUiSession for SciterHandler {
         self.call("newMessage", &make_args!(msg));
     }
 
+    /// ChainRemote 예약원격 — Sciter 뷰어(옛 본사 UI)는 이 기능을 안 쓴다.
+    ///   본사 HQ 는 Flutter 판이고 Sciter 뷰어로 예약을 보낼 길이 없어 여기 올 일이 없다.
+    fn cr_sched_result(&self, _accepted: bool) {}
+
     fn switch_display(&self, display: &SwitchDisplay) {
         self.call("switchDisplay", &make_args!(display.display));
     }

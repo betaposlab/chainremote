@@ -1773,6 +1773,17 @@ impl<T: InvokeUiSession> Remote<T> {
                     Some(misc::Union::ChatMessage(c)) => {
                         self.handler.new_message(c.text);
                     }
+                    // ChainRemote 예약원격: 거래처가 누른 답이 돌아왔다.
+                    //   기사가 "눌렀는지"를 모르면 전화를 다시 걸지 판단할 수 없다.
+                    //   제안도 여기서 비운다 — 안 비우면 재접속마다 카드가 또 뜬다.
+                    Some(misc::Union::CrSchedResp(r)) => {
+                        self.handler
+                            .lc
+                            .write()
+                            .unwrap()
+                            .clear_cr_sched_req();
+                        self.handler.cr_sched_result(r.accepted);
+                    }
                     Some(misc::Union::PermissionInfo(p)) => {
                         log::info!("Change permission {:?} -> {}", p.permission, p.enabled);
                         // https://github.com/rustdesk/rustdesk/issues/3703#issuecomment-1474734754

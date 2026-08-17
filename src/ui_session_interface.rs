@@ -447,6 +447,23 @@ impl<T: InvokeUiSession> Session<T> {
         self.send(Data::Message(msg_out));
     }
 
+    /// ChainRemote 예약원격(Case A) — 이미 원격 중인 거래처에 시간 제안을 보낸다.
+    ///   원격 중이 아닐 때(Case B)는 세션이 없으므로 이 길이 아니라 로그인 요청에 실린다
+    ///   (`LoginConfigHandler::set_cr_sched_req`).
+    pub fn cr_sched_req(&self, start: i64, end: i64, hq_now: i64, label: String, extend: bool) {
+        let mut p = CrSchedReq::new();
+        p.start = start;
+        p.end = end;
+        p.hq_now = hq_now;
+        p.label = label;
+        p.extend = extend;
+        let mut misc = Misc::new();
+        misc.set_cr_sched_req(p);
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
+        self.send(Data::Message(msg_out));
+    }
+
     pub fn cr_annotate(&self, op: i32, points: Vec<(f32, f32)>, argb: u32, width: f32, end_stroke: bool) {
         let mut a = CrAnnotate::new();
         a.op = match op {
@@ -1722,6 +1739,9 @@ pub trait InvokeUiSession: Send + Sync + Clone + 'static + Sized + Default {
     fn job_done(&self, id: i32, file_num: i32);
     fn clear_all_jobs(&self);
     fn new_message(&self, msg: String);
+
+    /// ChainRemote 예약원격: 거래처가 [수락]/[거부] 중 무엇을 눌렀는지 기사 화면에 알린다.
+    fn cr_sched_result(&self, accepted: bool);
     fn update_transfer_list(&self);
     fn load_last_job(&self, cnt: i32, job_json: &str, auto_start: bool);
     fn update_folder_files(
