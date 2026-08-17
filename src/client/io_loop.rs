@@ -1864,7 +1864,16 @@ impl<T: InvokeUiSession> Remote<T> {
                     }
                     Some(misc::Union::CloseReason(c)) => {
                         self.sent_close_reason = true; // The controlled end will close, no need to send close reason
-                        self.handler.msgbox("error", "Connection Error", &c, "");
+                        // ChainRemote: 거래처가 **스스로 끊은 것**을 오류로 띄우지 않는다(2026-08-17).
+                        //   사장님이 배너의 [원격 종료]를 누르거나 창을 닫은 건 정상적인 일인데,
+                        //   빨간 X 에 "연결 오류"가 뜨면 기사는 사고가 난 줄 안다. 실제로 Chang 이
+                        //   자기 PC 에서 끊고 나서 그 창을 보고 무슨 일인지 물었다.
+                        //   진짜 오류(네트워크·프로토콜)는 다른 사유 문자열로 오므로 그대로 둔다.
+                        if c == "Closed manually by the peer" {
+                            self.handler.msgbox("info-nocancel", "원격 종료", &c, "");
+                        } else {
+                            self.handler.msgbox("error", "Connection Error", &c, "");
+                        }
                         return false;
                     }
                     Some(misc::Union::BackNotification(notification)) => {
