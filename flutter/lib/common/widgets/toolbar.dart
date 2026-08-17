@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_hbb/common/widgets/chainremote_sched.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -93,6 +94,38 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
   final isDefaultConn = ffi.connType == ConnType.defaultConn;
 
   List<TTextMenu> v = [];
+  // ChainRemote 예약원격(Case A) — 이미 원격 중인 거래처에 시간대를 보낸다.
+  //
+  // ★목록 우클릭이 아니라 여기 있는 이유: 원격 창은 별도 프로세스라 목록 화면에서는
+  //   살아 있는 세션에 닿을 수 없다. 원격 중이면 기사는 이 창을 보고 있으므로, 버튼이
+  //   여기 있는 게 손에도 더 맞는다.
+  //   화면제어 세션에만 넣는다 — 파일전송·터미널 창에서 시간 약속을 잡을 일은 없다.
+  if (isDefaultConn && (isDesktop || isWebDesktop)) {
+    v.add(TTextMenu(
+      child: Row(children: [
+        const Icon(Icons.schedule_outlined, size: 16),
+        const SizedBox(width: 6),
+        const Text('예약원격'),
+      ]),
+      onPressed: () {
+        final name = ffi.ffiModel.pi.hostname.isNotEmpty
+            ? ffi.ffiModel.pi.hostname
+            : id;
+        showCrSchedDialog(
+          peerName: name,
+          extend: false,
+          send: (start, end, label) => bind.sessionCrSchedReq(
+            sessionId: sessionId,
+            start: start.millisecondsSinceEpoch ~/ 1000,
+            end: end.millisecondsSinceEpoch ~/ 1000,
+            hqNow: crNowEpoch(),
+            label: label,
+            extend: false,
+          ),
+        );
+      },
+    ));
+  }
   // elevation
   if (isDefaultConn &&
       perms['keyboard'] != false &&
