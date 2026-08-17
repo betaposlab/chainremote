@@ -1813,10 +1813,7 @@ struct ConnToken {
 pub struct LoginConfigHandler {
     id: String,
     pub conn_type: ConnType,
-    /// ChainRemote 예약원격(Case B): 접속과 동시에 보낼 시간 제안.
-    ///   원격 중이 아닌 거래처엔 보낼 세션이 없어 로그인 요청에 실어 보낸다.
-    ///   한 번 쓰고 비운다 — 재접속마다 카드가 다시 뜨면 사장님이 시달린다.
-    pub cr_sched_req: Option<CrSchedReq>,
+
     pub is_terminal_admin: bool,
     hash: Hash,
     password: Vec<u8>, // remember password for reconnect
@@ -1855,16 +1852,34 @@ impl Deref for LoginConfigHandler {
     }
 }
 
-impl LoginConfigHandler {
-    /// 예약 제안을 걸어 둔다(다음 접속 한 번에 실린다).
-    pub fn set_cr_sched_req(&mut self, p: CrSchedReq) {
-        self.cr_sched_req = Some(p);
-    }
+/// ChainRemote 예약원격 — 아직 접속하지 않은 거래처에 걸어 두는 시간 제안.
+///
+/// 기사가 우클릭 [예약원격]을 누르는 시점엔 그 거래처의 세션이 없다. peer id 로 여기 걸어
+/// 뒀다가, 접속이 만들어질 때 로그인 요청에 실린다. 답을 받으면 지운다.
+static PENDING_SCHED: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<String, CrSchedReq>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
 
-    /// 제안을 비운다. 거래처 답을 받았거나 세션이 끝나면 부른다 — 안 비우면 재접속마다
-    /// 카드가 또 뜬다.
+pub fn set_pending_sched(id: &str, p: CrSchedReq) {
+    if let Ok(mut m) = PENDING_SCHED.lock() {
+        m.insert(id.to_owned(), p);
+    }
+}
+
+pub fn get_pending_sched(id: &str) -> Option<CrSchedReq> {
+    PENDING_SCHED.lock().ok().and_then(|m| m.get(id).cloned())
+}
+
+pub fn clear_pending_sched(id: &str) {
+    if let Ok(mut m) = PENDING_SCHED.lock() {
+        m.remove(id);
+    }
+}
+
+impl LoginConfigHandler {
+    /// 제안을 비운다. 거래처 답을 받으면 부른다 — 안 비우면 재접속마다 카드가 또 뜬다.
     pub fn clear_cr_sched_req(&mut self) {
-        self.cr_sched_req = None;
+        clear_pending_sched(&self.id);
     }
 
     /// Initialize the login config handler.
@@ -2815,11 +2830,13 @@ impl LoginConfigHandler {
             avatar,
             ..Default::default()
         };
-        // ChainRemote 예약원격: 제안이 걸려 있으면 이 접속에 실어 보낸다.
-        //   ★여기서 비우지 않는다(이 함수는 &self 다). 비우는 건 응답을 받은 쪽의 몫이라
-        //     `clear_cr_sched_req` 로 따로 뺐다 — 안 비우면 재접속마다 카드가 또 떠서
-        //     사장님이 시달린다.
-        if let Some(p) = self.cr_sched_req.clone() {
+        // ChainRemote 예약원격: 이 거래처에 걸어 둔 제안이 있으면 접속에 실어 보낸다.
+        //   ★보관소가 세션 밖에 있는 이유: 원격 중이 아닌 거래처엔 세션이 없다. 기사가
+        //     우클릭 [예약원격]을 누르는 시점엔 LoginConfigHandler 가 아직 없으므로,
+        //     peer id 로 걸어 뒀다가 접속이 만들어질 때 꺼내 쓴다.
+        //   비우는 건 거래처 답을 받은 쪽의 몫이다(clear_cr_sched_req) — 안 비우면
+        //     재접속마다 카드가 또 떠서 사장님이 시달린다.
+        if let Some(p) = get_pending_sched(&self.id) {
             lr.cr_sched_req = Some(p).into();
         }
         match self.conn_type {

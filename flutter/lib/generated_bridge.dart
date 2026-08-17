@@ -1318,6 +1318,38 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kCmRemoveDisconnectedConnectionConstMeta;
 
+  /// ChainRemote 예약원격(Case B) — 아직 접속 안 한 거래처에 제안을 걸어 둔다.
+  ///
+  /// 걸어 두기만 하고 접속은 호출부가 따로 시작한다. 그 접속의 로그인 요청에 실려 가서
+  /// 거래처가 평소 수락 카드 대신 시간 카드를 띄운다.
+  Future<void> mainSetSchedReq(
+      {required String id,
+      required int start,
+      required int end,
+      required int hqNow,
+      required String label,
+      required bool extend,
+      dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kMainSetSchedReqConstMeta;
+
+  /// 걸어 둔 제안을 취소한다(기사가 다이얼로그를 닫았거나 마음을 바꿨을 때).
+  Future<void> mainClearSchedReq({required String id, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kMainClearSchedReqConstMeta;
+
+  /// ChainRemote 예약원격(Case A) — 이미 원격 중인 거래처에 세션으로 제안을 보낸다.
+  Future<void> sessionCrSchedReq(
+      {required UuidValue sessionId,
+      required int start,
+      required int end,
+      required int hqNow,
+      required String label,
+      required bool extend,
+      dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kSessionCrSchedReqConstMeta;
+
   /// ChainRemote 예약원격 — 사장님이 카드에서 누른 답.
   ///
   /// ★창이 실제로 열리는 유일한 입구다. 본사 메시지는 카드를 띄울 뿐이고, 이 호출은
@@ -6608,6 +6640,84 @@ class RustdeskImpl implements Rustdesk {
       const FlutterRustBridgeTaskConstMeta(
         debugName: "cm_remove_disconnected_connection",
         argNames: ["connId"],
+      );
+
+  Future<void> mainSetSchedReq(
+      {required String id,
+      required int start,
+      required int end,
+      required int hqNow,
+      required String label,
+      required bool extend,
+      dynamic hint}) {
+    var arg0 = _platform.api2wire_String(id);
+    var arg1 = _platform.api2wire_i64(start);
+    var arg2 = _platform.api2wire_i64(end);
+    var arg3 = _platform.api2wire_i64(hqNow);
+    var arg4 = _platform.api2wire_String(label);
+    var arg5 = extend;
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner
+          .wire_main_set_sched_req(port_, arg0, arg1, arg2, arg3, arg4, arg5),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kMainSetSchedReqConstMeta,
+      argValues: [id, start, end, hqNow, label, extend],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kMainSetSchedReqConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "main_set_sched_req",
+        argNames: ["id", "start", "end", "hqNow", "label", "extend"],
+      );
+
+  Future<void> mainClearSchedReq({required String id, dynamic hint}) {
+    var arg0 = _platform.api2wire_String(id);
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_main_clear_sched_req(port_, arg0),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kMainClearSchedReqConstMeta,
+      argValues: [id],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kMainClearSchedReqConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "main_clear_sched_req",
+        argNames: ["id"],
+      );
+
+  Future<void> sessionCrSchedReq(
+      {required UuidValue sessionId,
+      required int start,
+      required int end,
+      required int hqNow,
+      required String label,
+      required bool extend,
+      dynamic hint}) {
+    var arg0 = _platform.api2wire_Uuid(sessionId);
+    var arg1 = _platform.api2wire_i64(start);
+    var arg2 = _platform.api2wire_i64(end);
+    var arg3 = _platform.api2wire_i64(hqNow);
+    var arg4 = _platform.api2wire_String(label);
+    var arg5 = extend;
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner
+          .wire_session_cr_sched_req(port_, arg0, arg1, arg2, arg3, arg4, arg5),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kSessionCrSchedReqConstMeta,
+      argValues: [sessionId, start, end, hqNow, label, extend],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kSessionCrSchedReqConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "session_cr_sched_req",
+        argNames: ["sessionId", "start", "end", "hqNow", "label", "extend"],
       );
 
   Future<void> cmSchedAnswer(
@@ -13507,6 +13617,92 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_cm_remove_disconnected_connection =
       _wire_cm_remove_disconnected_connectionPtr
           .asFunction<void Function(int, int)>();
+
+  void wire_main_set_sched_req(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> id,
+    int start,
+    int end,
+    int hq_now,
+    ffi.Pointer<wire_uint_8_list> label,
+    bool extend,
+  ) {
+    return _wire_main_set_sched_req(
+      port_,
+      id,
+      start,
+      end,
+      hq_now,
+      label,
+      extend,
+    );
+  }
+
+  late final _wire_main_set_sched_reqPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int64,
+              ffi.Int64,
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_main_set_sched_req');
+  late final _wire_main_set_sched_req = _wire_main_set_sched_reqPtr.asFunction<
+      void Function(int, ffi.Pointer<wire_uint_8_list>, int, int, int,
+          ffi.Pointer<wire_uint_8_list>, bool)>();
+
+  void wire_main_clear_sched_req(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> id,
+  ) {
+    return _wire_main_clear_sched_req(
+      port_,
+      id,
+    );
+  }
+
+  late final _wire_main_clear_sched_reqPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_main_clear_sched_req');
+  late final _wire_main_clear_sched_req = _wire_main_clear_sched_reqPtr
+      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
+
+  void wire_session_cr_sched_req(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> session_id,
+    int start,
+    int end,
+    int hq_now,
+    ffi.Pointer<wire_uint_8_list> label,
+    bool extend,
+  ) {
+    return _wire_session_cr_sched_req(
+      port_,
+      session_id,
+      start,
+      end,
+      hq_now,
+      label,
+      extend,
+    );
+  }
+
+  late final _wire_session_cr_sched_reqPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Int64,
+              ffi.Int64,
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_cr_sched_req');
+  late final _wire_session_cr_sched_req =
+      _wire_session_cr_sched_reqPtr.asFunction<
+          void Function(int, ffi.Pointer<wire_uint_8_list>, int, int, int,
+              ffi.Pointer<wire_uint_8_list>, bool)>();
 
   void wire_cm_sched_answer(
     int port_,

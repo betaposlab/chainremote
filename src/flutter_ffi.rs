@@ -2208,6 +2208,46 @@ pub fn cm_remove_disconnected_connection(conn_id: i32) {
     crate::ui_cm_interface::remove(conn_id);
 }
 
+/// ChainRemote 예약원격(Case B) — 아직 접속 안 한 거래처에 제안을 걸어 둔다.
+///
+/// 걸어 두기만 하고 접속은 호출부가 따로 시작한다. 그 접속의 로그인 요청에 실려 가서
+/// 거래처가 평소 수락 카드 대신 시간 카드를 띄운다.
+pub fn main_set_sched_req(
+    id: String,
+    start: i64,
+    end: i64,
+    hq_now: i64,
+    label: String,
+    extend: bool,
+) {
+    let mut p = hbb_common::message_proto::CrSchedReq::new();
+    p.start = start;
+    p.end = end;
+    p.hq_now = hq_now;
+    p.label = label;
+    p.extend = extend;
+    crate::client::set_pending_sched(&id, p);
+}
+
+/// 걸어 둔 제안을 취소한다(기사가 다이얼로그를 닫았거나 마음을 바꿨을 때).
+pub fn main_clear_sched_req(id: String) {
+    crate::client::clear_pending_sched(&id);
+}
+
+/// ChainRemote 예약원격(Case A) — 이미 원격 중인 거래처에 세션으로 제안을 보낸다.
+pub fn session_cr_sched_req(
+    session_id: SessionID,
+    start: i64,
+    end: i64,
+    hq_now: i64,
+    label: String,
+    extend: bool,
+) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.cr_sched_req(start, end, hq_now, label, extend);
+    }
+}
+
 /// ChainRemote 예약원격 — 사장님이 카드에서 누른 답.
 ///
 /// ★창이 실제로 열리는 유일한 입구다. 본사 메시지는 카드를 띄울 뿐이고, 이 호출은

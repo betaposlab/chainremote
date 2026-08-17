@@ -1748,6 +1748,37 @@ pub extern "C" fn wire_cm_remove_disconnected_connection(port_: i64, conn_id: i3
 }
 
 #[no_mangle]
+pub extern "C" fn wire_main_set_sched_req(
+    port_: i64,
+    id: *mut wire_uint_8_list,
+    start: i64,
+    end: i64,
+    hq_now: i64,
+    label: *mut wire_uint_8_list,
+    extend: bool,
+) {
+    wire_main_set_sched_req_impl(port_, id, start, end, hq_now, label, extend)
+}
+
+#[no_mangle]
+pub extern "C" fn wire_main_clear_sched_req(port_: i64, id: *mut wire_uint_8_list) {
+    wire_main_clear_sched_req_impl(port_, id)
+}
+
+#[no_mangle]
+pub extern "C" fn wire_session_cr_sched_req(
+    port_: i64,
+    session_id: *mut wire_uint_8_list,
+    start: i64,
+    end: i64,
+    hq_now: i64,
+    label: *mut wire_uint_8_list,
+    extend: bool,
+) {
+    wire_session_cr_sched_req_impl(port_, session_id, start, end, hq_now, label, extend)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_cm_sched_answer(
     port_: i64,
     conn_id: i32,

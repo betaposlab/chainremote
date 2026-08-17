@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_hbb/common/widgets/chainremote_sched.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -385,6 +386,10 @@ class FfiModel with ChangeNotifier {
       } else if (name == 'chat_server_mode') {
         parent.target?.chatModel
             .receive(int.parse(evt['id'] as String), evt['text'] ?? '');
+      } else if (name == 'cr_sched_result') {
+        // ChainRemote 예약원격: 거래처가 누른 답이 돌아왔다 — 기사에게 알린다.
+        //   없으면 "눌렀는지"를 몰라 전화를 다시 걸지 판단할 수 없다.
+        crSchedShowResult(evt['accepted']?.toString() == 'true');
       } else if (name == 'cr_sched_req') {
         // ChainRemote 예약원격: 본사가 시간대를 제안했다 → 거래처 CM 이 카드를 띄운다.
         //   ★여기서 창이 열리는 게 아니다. 사장님이 [수락] 을 눌러야만 Rust 쪽에서 열린다.
