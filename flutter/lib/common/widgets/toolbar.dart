@@ -137,35 +137,11 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
               showRequestElevationDialog(sessionId, ffi.dialogManager)),
     );
   }
-  // osAccount / osPassword
-  if (isDefaultConn && perms['keyboard'] != false) {
-    v.add(
-      TTextMenu(
-        child: Row(children: [
-          Text(translate(pi.isHeadless ? 'OS Account' : 'OS Password')),
-        ]),
-        trailingIcon: Transform.scale(
-          scale: (isDesktop || isWebDesktop) ? 0.8 : 1,
-          child: IconButton(
-            onPressed: () {
-              if (isMobile && Navigator.canPop(context)) {
-                Navigator.pop(context);
-              }
-              if (pi.isHeadless) {
-                showSetOSAccount(sessionId, ffi.dialogManager);
-              } else {
-                handleOsPasswordEditIcon(sessionId, ffi.dialogManager);
-              }
-            },
-            icon: Icon(Icons.edit, color: isMobile ? MyTheme.accent : null),
-          ),
-        ),
-        onPressed: () => pi.isHeadless
-            ? showSetOSAccount(sessionId, ffi.dialogManager)
-            : handleOsPasswordAction(sessionId, ffi.dialogManager),
-      ),
-    );
-  }
+  // '윈도우 로그인 비번 전송'(OS Password/Account)은 뺐다(2026-08-17).
+  //   거래처가 잠금·로그인 화면일 때 윈도우 계정 비번을 보내 로그인하는 기능인데,
+  //   우리는 거래처 PC 의 윈도우 비번을 **모른다.** 잠금 화면이면 전화로 "아무 키나 누르고
+  //   수락"을 안내하는 게 우리 방식이고, 그걸 위해 _LOCKED 신호를 따로 만들어 뒀다.
+  //   쓸 일이 없는데다 비번을 다루는 표면이라 없는 편이 낫다.
   // paste
   if (isDefaultConn &&
       pi.platform != kPeerPlatformAndroid &&
@@ -210,11 +186,8 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
           onPressed: () => connectWithToken(isFileTransfer: true)),
     );
     // '카메라 보기'는 뺐다 — 거래처는 POS/키오스크라 카메라가 없다.
-    v.add(
-      TTextMenu(
-          child: Text('${translate('Terminal')} (beta)'),
-          onPressed: () => connectWithToken(isTerminal: true)),
-    );
+    // '터미널'도 뺐다(2026-08-17). 상류에서도 beta 이고, 우리 진단은 관제(디스크·VAN·방화벽)가
+    //   자동으로 한다. 거래처 PC 에 명령창을 여는 표면을 굳이 남길 이유가 없다.
     // 'TCP 터널링'도 뺐다 — 포트 포워딩은 원격지원 시나리오에 등장하지 않는다.
   }
   // '지원 메모'(Note)를 뺐다. 이름과 달리 우리 지원기록이 아니라 **RustDesk 계정 기능**이라,
@@ -647,22 +620,9 @@ Future<List<TToggleMenu>> toolbarDisplayToggle(
     // 2026-05-27: 클립보드 사용 안 함 항목은 권한 탭의 "복사·붙여넣기 공유 허용"과 중복이라 toolbar 에서 숨긴다.
     final _ = ffiModel.viewOnly; // ignore: unused_local_variable
   }
-  // lock after session end
-  if (isDefaultConn && ffiModel.keyboard && !ffiModel.isPeerAndroid) {
-    final enabled = !ffiModel.viewOnly;
-    final option = 'lock-after-session-end';
-    final value =
-        bind.sessionGetToggleOptionSync(sessionId: sessionId, arg: option);
-    v.add(TToggleMenu(
-        value: value,
-        onChanged: enabled
-            ? (value) {
-                if (value == null) return;
-                bind.sessionToggleOption(sessionId: sessionId, value: option);
-              }
-            : null,
-        child: Text(translate('Lock after session end'))));
-  }
+  // '원격 끝나면 거래처 PC 화면 잠금'은 뺐다(2026-08-17). 실수로 체크되면 원격이 끝날 때마다
+  //   **포스가 잠긴다.** 사장님이 윈도우 비번을 모르면 그 순간 장사가 멈추고 현장 방문이다.
+  //   우리 A/S 에 얻는 것은 없고 사고만 가능한 항목이었다.
 
   if (pi.isSupportMultiDisplay &&
       PrivacyModeState.find(id).isEmpty &&
@@ -693,7 +653,7 @@ Future<List<TToggleMenu>> toolbarDisplayToggle(
           bind.sessionSetUseAllMyDisplaysForTheRemoteSession(
               sessionId: sessionId, value: value ? 'Y' : 'N');
         },
-        child: Text(translate('Use all my displays for the remote session'))));
+        child: Text('거래처 듀얼 모니터를 내 화면 두 개에 나눠 띄우기')));
   }
 
   // 2026-05-27: 트루컬러(4:4:4)는 성능만 잡아먹고 우리 환경엔 필요 없어 숨긴다.
@@ -795,7 +755,6 @@ List<TToggleMenu> toolbarKeyboardToggles(FFI ffi) {
   final ffiModel = ffi.ffiModel;
   final pi = ffiModel.pi;
   final sessionId = ffi.sessionId;
-  final isDefaultConn = ffi.connType == ConnType.defaultConn;
   List<TToggleMenu> v = [];
 
   // swap key
@@ -817,33 +776,9 @@ List<TToggleMenu> toolbarKeyboardToggles(FFI ffi) {
         child: Text(translate('Swap control-command key'))));
   }
 
-  // Relative mouse mode (gaming mode).
-  // Only show when server supports MOUSE_TYPE_MOVE_RELATIVE (version >= 1.4.5)
-  // Note: This feature is only available in Flutter client. Sciter client does not support this.
-  // Web client is not supported yet due to Pointer Lock API integration complexity with Flutter's input system.
-  // Wayland is not supported due to cursor warping limitations.
-  // Mobile: This option is now in GestureHelp widget, shown only when joystick is visible.
-  final isWayland = isDesktop && isLinux && bind.mainCurrentIsWayland();
-  if (isDesktop &&
-      isDefaultConn &&
-      !isWeb &&
-      !isWayland &&
-      ffiModel.keyboard &&
-      !ffiModel.viewOnly &&
-      ffi.inputModel.isRelativeMouseModeSupported) {
-    v.add(TToggleMenu(
-        value: ffi.inputModel.relativeMouseMode.value,
-        onChanged: (value) {
-          if (value == null) return;
-          final previousValue = ffi.inputModel.relativeMouseMode.value;
-          final success = ffi.inputModel.setRelativeMouseMode(value);
-          if (!success) {
-            // Revert the observable toggle to reflect the actual state
-            ffi.inputModel.relativeMouseMode.value = previousValue;
-          }
-        },
-        child: Text(translate('Relative mouse mode'))));
-  }
+  // '상대 좌표 마우스(게임용)'은 뺐다(2026-08-17). 커서를 원격 창에 가두고 이동량만 보내는
+  //   FPS 게임용 기능이다. 포스·키오스크 A/S 에는 쓸 일이 없고, 실수로 켜면 마우스가 창에
+  //   갇혀 빠져나오는 법을 모르는 사람은 당황한다 — 거래처 화면을 만지던 중이면 사고다.
 
   // 2026-05-27: 마우스 휠 반전과 좌우 버튼 교체는 특이 케이스라 우리 환경엔 필요 없어 숨긴다.
   return v;
