@@ -29,6 +29,7 @@
 //! 빼서 우리 시간축으로 옮겨 놓고**, 그것과 별개로 **승인 후 24시간**이라는 절대 상한을 함께
 //! 건다. 둘 중 먼저 닫히는 쪽이 이긴다.
 
+use hbb_common::log;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
