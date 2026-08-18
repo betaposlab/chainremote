@@ -134,9 +134,15 @@ foreach ($d in @(Get-ChildItem "C:\Users\*\AppData\Roaming\ChainRemote" -ErrorAc
 }
 # Service-side config. The service runs as LocalService; older builds wrote under
 # NetworkService, so both are swept.
+# The LocalSystem profile is a third place config can land - migrate-server-address.ps1
+#   already probes it at install time, but it was missing from this sweep. Verified on
+#   2026-08-18 (test1, Win7 x86): after a full uninstall only that folder survived, holding
+#   the migration marker. Harmless in itself, but "uninstall means uninstall" has to hold
+#   everywhere or the next surprise will be a real token.
 foreach ($svcCfg in @(
     "C:\Windows\ServiceProfiles\LocalService\AppData\Roaming\ChainRemote",
-    "C:\Windows\ServiceProfiles\NetworkService\AppData\Roaming\ChainRemote"
+    "C:\Windows\ServiceProfiles\NetworkService\AppData\Roaming\ChainRemote",
+    "C:\Windows\system32\config\systemprofile\AppData\Roaming\ChainRemote"
 )) {
     if (Test-Path $svcCfg) { $null = $cfgDirs.Add($svcCfg) }
 }
