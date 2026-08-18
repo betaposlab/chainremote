@@ -48,12 +48,20 @@ class _CrWheel extends StatefulWidget {
   final ValueChanged<int> onChanged;
   final double width;
 
+  /// 끝에서 처음으로 이어지게 굴린다(시·분 전용).
+  ///
+  /// ★59분에서 멈춰 버리면 05분으로 가려고 위로 54칸을 되감아야 한다. 12시 다음이 01시,
+  /// 59분 다음이 00분으로 이어져야 손이 가는 대로 맞춰진다(2026-08-18 Chang 실측).
+  /// 월·일은 고를 수 있는 값이 한둘뿐이라 이어 붙이면 오히려 헷갈려서 그대로 둔다.
+  final bool looping;
+
   const _CrWheel({
     required this.count,
     required this.index,
     required this.label,
     required this.onChanged,
     required this.width,
+    this.looping = false,
   });
 
   @override
@@ -77,9 +85,14 @@ class _CrWheelState extends State<_CrWheel> {
     //   싸우게 된다.
     if (widget.index < widget.count) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _ctl.hasClients && _ctl.selectedItem != widget.index) {
-          _ctl.jumpToItem(widget.index);
-        }
+        if (!mounted || !_ctl.hasClients) return;
+        // ★이어 붙인 휠은 selectedItem 이 범위를 벗어난다(60개짜리에서 63 처럼). 그대로
+        //   비교하면 매 프레임 "다르다"고 판단해 손가락과 싸운다 — 나머지로 견준다.
+        final cur = widget.looping
+            ? _ctl.selectedItem % widget.count
+            : _ctl.selectedItem;
+        final norm = cur < 0 ? cur + widget.count : cur;
+        if (norm != widget.index) _ctl.jumpToItem(widget.index);
       });
     }
   }
@@ -96,8 +109,11 @@ class _CrWheelState extends State<_CrWheel> {
     return SizedBox(
       width: widget.width,
       height: 104,
-      child: CupertinoPicker.builder(
+      // ★.builder 가 아니라 기본 생성자를 쓴다 — 이어 붙이기(looping)는 여기에만 있다.
+      //   칸이 최대 60개라 미리 만들어도 부담이 없다.
+      child: CupertinoPicker(
         scrollController: _ctl,
+        looping: widget.looping,
         itemExtent: 30,
         squeeze: 1.15,
         useMagnifier: true,
@@ -110,11 +126,13 @@ class _CrWheelState extends State<_CrWheel> {
           ),
         ),
         onSelectedItemChanged: widget.onChanged,
-        childCount: widget.count,
-        itemBuilder: (ctx, i) => Center(
-          child: Text(
-            widget.label(i),
-            style: TextStyle(fontSize: 15, color: c.textStrong),
+        children: List.generate(
+          widget.count,
+          (i) => Center(
+            child: Text(
+              widget.label(i),
+              style: TextStyle(fontSize: 15, color: c.textStrong),
+            ),
           ),
         ),
       ),
@@ -197,6 +215,7 @@ class _CrWhen extends StatelessWidget {
           index: h12 - 1,
           label: (i) => '${i + 1}',
           width: 44,
+          looping: true,
           onChanged: (i) =>
               onChanged(rebuild(hour: ((i + 1) % 12) + (isPm ? 12 : 0))),
         ),
@@ -206,6 +225,7 @@ class _CrWhen extends StatelessWidget {
           index: value.minute,
           label: (i) => i.toString().padLeft(2, '0'),
           width: 46,
+          looping: true,
           onChanged: (i) => onChanged(rebuild(minute: i)),
         ),
         unit('분'),

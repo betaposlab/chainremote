@@ -25,6 +25,25 @@ const ENROLL_URL: &str = "https://api.626.kr/api/customers/enroll";
 /// 부팅 후 첫 heartbeat 까지 대기 — 네트워크 안정 + hbbs ID 발급 시간.
 const FIRST_DELAY: Duration = Duration::from_secs(60 * 2);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60 * 10);
+/// 원격 예약이 걸려 있는 동안만 쓰는 짧은 주기.
+///
+/// ★대리점의 [취소] 는 하트비트 응답에 실려 내려온다 — 실시간 통로가 없기 때문이다.
+/// 10분 주기면 "취소했다"고 말한 뒤에도 최대 10분간 창이 살아 있고, 5분짜리 예약이라면
+/// 명령이 닿기도 전에 창이 제 수명을 다 산다. 실제로 그랬다(2026-08-18 Chang: 23:03 취소
+/// → 23:07 하트비트에야 삭제, 그 사이 접속이 그냥 붙었다). 취소가 뜻을 가지려면 그 틈이
+/// 분 단위여야 한다.
+///
+/// 예약이 걸린 기기만, 예약이 살아 있는 동안만 빨라진다. 예약은 드물고 최대 24시간이라
+/// 서버 부담은 사실상 없다.
+const SCHED_INTERVAL: Duration = Duration::from_secs(60);
+
+/// 방금 예약을 지웠다 — 다음 한 바퀴는 짧게 돈다.
+///
+/// 지우고 나면 `status()` 가 비어 주기가 곧바로 10분으로 돌아가는데, 그러면 "이제 없다"는
+/// 보고가 10분 늦어 패널과 본사 메뉴가 없는 예약을 계속 보여준다. 취소를 눌렀는데 화면이
+/// 안 바뀌면 한 번 더 누르게 되고, 그게 정상인지 고장인지 알 수가 없다.
+static SCHED_JUST_CLEARED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 const HTTP_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// LocalConfig 토큰 저장 키. 한 번 발급받으면 재부팅 넘어서도 유지.
@@ -125,7 +144,18 @@ fn run_loop() {
         if let Err(e) = tick() {
             log::warn!("[chainremote_heartbeat] tick failed: {}", e);
         }
-        std::thread::sleep(HEARTBEAT_INTERVAL);
+        // 예약이 걸려 있으면 짧게 — 취소 명령이 닿는 데 걸리는 시간이 곧 "취소했는데도
+        //   들어와지는" 시간이다. 예약이 없으면 평소대로 10분.
+        //   ★시작 전 예약도 포함이다(status 는 시작 전에도 돌려준다). 시작 전에 취소한
+        //   것이 시작 시각에 되살아나면 안 된다.
+        let just_cleared =
+            SCHED_JUST_CLEARED.swap(false, std::sync::atomic::Ordering::Relaxed);
+        let nap = if just_cleared || crate::chainremote_sched::status().is_some() {
+            SCHED_INTERVAL
+        } else {
+            HEARTBEAT_INTERVAL
+        };
+        std::thread::sleep(nap);
     }
 }
 
@@ -552,6 +582,8 @@ fn handle_sched_close(requested_at: &str) {
         return;
     }
     crate::chainremote_sched::clear();
+    // 다음 한 바퀴를 짧게 돌려 "이제 없다"를 곧바로 알린다.
+    SCHED_JUST_CLEARED.store(true, std::sync::atomic::Ordering::Relaxed);
     hbb_common::config::LocalConfig::set_option(
         SCHED_CLOSE_DONE_KEY.to_string(),
         requested_at.to_string(),
