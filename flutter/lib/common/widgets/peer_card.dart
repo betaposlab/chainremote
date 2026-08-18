@@ -2285,7 +2285,6 @@ class AddressBookPeerCard extends BasePeerCard {
         menuItems.add(_renameAction(peer.id));
         menuItems.add(_moveToFolderAction(peer.id));
         menuItems.add(_schedRemoteAction(peer));
-      menuItems.add(_schedRemoteAction(peer));
       }
       if (gFFI.abModel.current.isPersonal() && peer.hash.isNotEmpty) {
         menuItems.add(_unrememberPasswordAction(peer.id));
