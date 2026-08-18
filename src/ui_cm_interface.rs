@@ -404,12 +404,32 @@ pub fn cr_sched_answer(id: i32, accepted: bool, start: i64, end: i64, hq_now: i6
     //   창 상태도 같이 싣는다. grant 직후에 읽어야 본사가 받은 값과 실제 창이 어긋나지
     //   않는다(24시간 상한에 걸려 깎였을 수 있다 — 본사가 보낸 end 를 그대로 믿으면 안 된다).
     let open_until = crate::chainremote_sched::status().map(|w| w.end).unwrap_or(0);
-    let clients = CLIENTS.read().unwrap();
-    if let Some(client) = clients.get(&id) {
-        allow_err!(client.tx.send(Data::CrSchedResp {
-            accepted,
-            open_until
-        }));
+    // ★읽기 잠금을 블록으로 끊는다. CLIENTS 는 RwLock 이라 read 를 쥔 채 아래 authorize/close
+    //   (write) 를 부르면 같은 스레드에서 교착한다.
+    let pending = {
+        let clients = CLIENTS.read().unwrap();
+        match clients.get(&id) {
+            Some(client) => {
+                allow_err!(client.tx.send(Data::CrSchedResp {
+                    accepted,
+                    open_until
+                }));
+                !client.authorized
+            }
+            None => false,
+        }
+    };
+    // ★Case B — 아직 수락되지 않은 접속이면 이 한 번의 [수락]으로 **세션도 시작한다**.
+    //   시간 카드를 누른 사장님에게 수락 카드를 또 내밀면 두 번 누르게 되고, 그러면 이
+    //   기능을 만든 이유(사장님 손을 한 번만 빌린다)가 사라진다. 거부면 반대로 접속도
+    //   끊는다 — 시간을 거절했는데 평소 수락 카드가 이어서 뜨면 거절한 값이 안 된다.
+    //   이미 원격 중(Case A)이면 authorized 라 여기서 아무 일도 하지 않는다.
+    if pending {
+        if accepted {
+            authorize(id);
+        } else {
+            close(id);
+        }
     }
 }
 

@@ -294,11 +294,16 @@ class Body: Reactor.Component
     //     창을 열 수 있다. 그러면 "거래처가 손으로 눌렀다"가 무너져 이름만 바꾼 영구
     //     비밀번호가 된다. 거부 쪽도 같이 씌운다(본사가 대신 지워 흔적을 없애지 못하게).
     event click $(button#sched_accept) {
+        var { connection } = this;
         checkClickTime(function() {
             var sc = cm_sched;
             if (!sc) return;
             cm_sched = null;
             handler.cr_sched_answer(sc.cid, true, sc.start, sc.end, sc.hqNow, sc.label);
+            // Case B(아직 수락 전)면 이 한 번으로 세션도 시작된다 — Rust 쪽 cr_sched_answer
+            //   가 authorize 까지 한다. 화면은 #accept 와 같은 방식으로 바로 배너로 넘긴다
+            //   (서버 통보를 기다리면 사장님 눈에 한 박자 멈춘 것처럼 보인다).
+            if (connection && !connection.authorized) connection.authorized = true;
             body.update();
             self.timer(30ms, applyCmBanner);
         });
