@@ -1793,7 +1793,7 @@ impl<T: InvokeUiSession> Remote<T> {
                                 .write()
                                 .unwrap()
                                 .clear_cr_sched_req();
-                            self.handler.cr_sched_result(r.accepted);
+                            self.handler.cr_sched_result(r.accepted, r.open_until);
                             // 수락이면 창이 열렸다 — 그 종료 시각까지 같이 알려 준다.
                             self.handler.cr_sched_state(r.open_until);
                         }

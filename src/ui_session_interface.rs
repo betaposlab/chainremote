@@ -1754,7 +1754,10 @@ pub trait InvokeUiSession: Send + Sync + Clone + 'static + Sized + Default {
     fn new_message(&self, msg: String);
 
     /// ChainRemote 예약원격: 거래처가 [수락]/[거부] 중 무엇을 눌렀는지 기사 화면에 알린다.
-    fn cr_sched_result(&self, accepted: bool);
+    ///   open_until 은 실제로 열린 창의 종료 시각이다(0=안 열림). 기사가 "몇 시까지 걸었더라"를
+    ///   나중에 못 떠올리는 일이 실제로 있어(2026-08-18 Chang), 결과 알림에 시각을 같이 띄운다.
+    ///   ★본사가 보낸 end 가 아니라 거래처가 돌려준 값을 쓴다 — 24시간 상한에 걸려 깎였을 수 있다.
+    fn cr_sched_result(&self, accepted: bool, open_until: i64);
 
     /// ChainRemote 예약원격: 거래처가 알려 온 현재 창 상태(종료 시각, 0=닫힘).
     ///   세션을 닫을 때 [예약 창도 닫기]를 물을지 정하는 데 쓴다.

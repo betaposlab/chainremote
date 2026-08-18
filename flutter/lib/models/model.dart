@@ -389,7 +389,8 @@ class FfiModel with ChangeNotifier {
       } else if (name == 'cr_sched_result') {
         // ChainRemote 예약원격: 거래처가 누른 답이 돌아왔다 — 기사에게 알린다.
         //   없으면 "눌렀는지"를 몰라 전화를 다시 걸지 판단할 수 없다.
-        crSchedShowResult(evt['accepted']?.toString() == 'true');
+        crSchedShowResult(evt['accepted']?.toString() == 'true',
+            int.tryParse(evt['open_until']?.toString() ?? '') ?? 0);
       } else if (name == 'cr_sched_ack') {
         // ChainRemote 예약원격: 거래처가 제안을 받아 카드를 띄웠다(답은 아직).
         crSchedNoteAck();

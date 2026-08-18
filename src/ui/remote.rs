@@ -365,7 +365,7 @@ impl InvokeUiSession for SciterHandler {
 
     /// ChainRemote 예약원격 — Sciter 뷰어(옛 본사 UI)는 이 기능을 안 쓴다.
     ///   본사 HQ 는 Flutter 판이고 Sciter 뷰어로 예약을 보낼 길이 없어 여기 올 일이 없다.
-    fn cr_sched_result(&self, _accepted: bool) {}
+    fn cr_sched_result(&self, _accepted: bool, _open_until: i64) {}
 
     // Sciter 뷰어(본사 x86)는 예약원격 UI 가 없다 — 상태를 받아도 쓸 데가 없다.
     fn cr_sched_state(&self, _open_until: i64) {}

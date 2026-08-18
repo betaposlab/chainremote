@@ -1636,10 +1636,19 @@ abstract class BasePeerCard extends StatelessWidget {
   @protected
   MenuEntryBase<String> _schedCancelAction(Peer peer) {
     final requested = crSchedCloseRequested(peer);
+    // ★"언제까지"를 라벨에 박는다. 기사가 몇 시로 걸었는지 못 떠올려 지금 열려 있는
+    //   건지 지난 건지 헷갈리는 일이 실제로 있었다(2026-08-18 Chang). 이 메뉴가 보이는
+    //   것 자체가 "열려 있다"는 뜻이고, 시각까지 있으면 물어볼 것이 없어진다.
+    final until = crSchedOpenUntilDate(peer);
+    final untilText = until == null ? '' : ' (${crSchedTimeLabel(until)}까지)';
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Row(
         children: [
-          Text(requested ? '예약원격 취소 요청함' : '예약원격 취소', style: style),
+          Text(
+              requested
+                  ? '예약원격 취소 요청함$untilText'
+                  : '예약원격 취소$untilText',
+              style: style),
           Expanded(
               child: Align(
             alignment: Alignment.centerRight,
@@ -1661,7 +1670,7 @@ abstract class BasePeerCard extends StatelessWidget {
           final ok = await bind.chainremoteSchedClose(remoteId: peer.id);
           showToast(ok
               ? '예약원격 취소를 요청했습니다 — 거래처가 받으면 닫힙니다(최대 10분)'
-              : '취소 요청에 실패했습니다');
+              : '취소 요청을 보내지 못했습니다 — 네트워크나 로그인을 확인해 주세요');
         }();
       },
       padding: menuPadding,

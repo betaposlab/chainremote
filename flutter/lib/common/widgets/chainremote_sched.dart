@@ -325,16 +325,37 @@ Future<bool> showCrSchedDialog({
 
 /// 거래처가 누른 답을 기사에게 알린다. 세션 이벤트 `cr_sched_result` 로 들어온다.
 ///   ★없으면 기사가 "눌렀는지"를 몰라 전화를 다시 걸지 판단할 수 없다.
-void crSchedShowResult(bool accepted) {
+void crSchedShowResult(bool accepted, int openUntil) {
   // 답이 왔으면 "못 받았다" 안내를 띄울 이유가 없다. 회신보다 답이 먼저 도착할 일은
   //   거의 없지만, 그 순서로 오면 안내 두 개가 겹쳐 기사를 헷갈리게 한다.
   _crSchedAckTimer?.cancel();
   _crSchedAckTimer = null;
   if (accepted) {
-    showToast('거래처가 예약원격을 수락했습니다');
+    // ★언제까지인지를 같이 말한다. 기사가 몇 시까지 걸었는지 못 떠올려 "지금 열려 있는
+    //   건지 지난 건지" 헷갈리는 일이 실제로 있었다(2026-08-18 Chang).
+    //   거래처가 돌려준 값을 쓴다 — 24시간 상한에 걸려 우리가 보낸 것보다 짧을 수 있다.
+    final until = openUntil > 0
+        ? DateTime.fromMillisecondsSinceEpoch(openUntil * 1000)
+        : null;
+    showToast(until == null
+        ? '거래처가 예약원격을 수락했습니다'
+        : '거래처가 수락했습니다 — ${crSchedTimeLabel(until)}까지');
   } else {
     showToast('거래처가 예약원격을 거부했습니다');
   }
+}
+
+/// 이 거래처에 열려 있는 창의 종료 시각 — 없으면 null.
+///   메뉴가 "언제까지"를 같이 보여주는 데 쓴다.
+DateTime? crSchedOpenUntilDate(Peer peer) {
+  final local = crSchedOpenUntilOf(peer.id);
+  if (local > 0) return DateTime.fromMillisecondsSinceEpoch(local * 1000);
+  final cfg = _crSchedUntilFromConfig(peer.id);
+  if (cfg > crNowEpoch()) {
+    return DateTime.fromMillisecondsSinceEpoch(cfg * 1000);
+  }
+  final t = DateTime.tryParse(peer.schedOpenUntil);
+  return (t != null && t.isAfter(DateTime.now())) ? t : null;
 }
 
 /// 제안을 보낸 뒤 "받았다"는 회신을 기다리는 시간.
@@ -431,17 +452,7 @@ void crSchedForgetState(String peerId) {
 /// ★한쪽만 보면 각각 구멍이 난다. 로컬 기억은 거래처가 [수락] 한 순간 바로 알지만 HQ 를
 /// 껐다 켜거나 **다른 기사가 건 예약**은 모르고, 패널 값은 누가 걸었든 다 알지만 하트비트
 /// 주기 때문에 **최대 10분 늦다**. 어느 쪽이든 열려 있다고 하면 열린 것으로 본다.
-bool crSchedIsOpenFor(Peer peer) {
-  if (crSchedOpenUntilOf(peer.id) > 0) return true;
-  // 원격 창이 적어 둔 값(별도 프로세스 → peer config 경유).
-  if (_crSchedUntilFromConfig(peer.id) > crNowEpoch()) return true;
-  final iso = peer.schedOpenUntil;
-  if (iso.isEmpty) return false;
-  final t = DateTime.tryParse(iso);
-  // 이미 지난 창은 닫힌 것으로 본다 — 꺼져 있던 PC 는 마지막 보고가 그대로 남아 있어,
-  //   어제 닫힌 창이 오늘도 열린 것처럼 보인다. 그 PC 는 켜지는 순간 스스로 닫는다.
-  return t != null && t.isAfter(DateTime.now());
-}
+bool crSchedIsOpenFor(Peer peer) => crSchedOpenUntilDate(peer) != null;
 
 /// 취소 요청을 이미 큐에 넣었나(패널 기준).
 bool crSchedCloseRequested(Peer peer) =>

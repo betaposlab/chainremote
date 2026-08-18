@@ -23,8 +23,10 @@ export async function POST(req: Request) {
     }
     const ok = await data.requestSchedClose(remoteId, { tenantId: me.tenantId });
     if (!ok) {
-      // 거래처가 없거나, 애초에 열린 창이 없었다(requestSchedClose 가 열린 것만 건드린다).
-      return Response.json({ error: "열린 예약이 없습니다" }, { status: 404 });
+      // 이제 여기 오는 건 "그 거래처가 우리 대리점에 없다" 뿐이다. 열린 예약이 있는지는
+      //   묻지 않는다 — 우리가 아는 예약 상태가 하트비트만큼 늦어, 그걸 조건으로 걸면
+      //   방금 건 예약을 취소하려는 기사를 서버가 거절한다.
+      return Response.json({ error: "거래처 없음" }, { status: 404 });
     }
     return Response.json({ ok: true });
   } catch (e) {

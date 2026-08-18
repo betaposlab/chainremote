@@ -477,7 +477,13 @@ export async function getSchedCloseRequest(
  *
  *  ★여기서 sched_open_until 을 지우지 않는다. 지우면 목록에서 즉시 사라져 닫힌 것처럼
  *  보이지만, 정작 거래처 PC 가 꺼져 있으면 명령이 안 닿아 창은 그대로 열려 있다. 실제로
- *  닫혔다는 보고가 올라올 때까지 목록에 남겨 두는 편이 정직하다. */
+ *  닫혔다는 보고가 올라올 때까지 목록에 남겨 두는 편이 정직하다.
+ *
+ *  ★"열린 예약이 있는지" 는 **묻지 않는다**. 우리가 아는 예약 상태는 하트비트로 올라온
+ *  것이라 최대 10분 늦다. 그걸 조건으로 걸었더니, 방금 예약을 건 기사가 곧바로 취소를
+ *  누르면 서버가 "열린 예약이 없다"며 거절했다(2026-08-18 Chang 실측 — HQ 메뉴는 로컬
+ *  정보로 이미 취소를 내주고 있는데 서버만 모르는 상태였다). 이미 닫힌 창에 닫기 명령이
+ *  가 봐야 에이전트가 한 번 헛지우고 끝이라 해로울 게 없다 — 거절이 훨씬 나쁘다. */
 export async function requestSchedClose(
   remoteId: string,
   ctx: { tenantId: string },
@@ -486,11 +492,7 @@ export async function requestSchedClose(
     .update(customers)
     .set({ schedCloseRequestedAt: new Date() })
     .where(
-      and(
-        eq(customers.remoteId, remoteId),
-        eq(customers.tenantId, ctx.tenantId),
-        isNotNull(customers.schedOpenUntil),
-      ),
+      and(eq(customers.remoteId, remoteId), eq(customers.tenantId, ctx.tenantId)),
     )
     .returning({ id: customers.id });
   return !!row;

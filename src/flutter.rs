@@ -1008,10 +1008,13 @@ impl InvokeUiSession for FlutterHandler {
         self.push_event("chat_client_mode", &[("text", &msg)], &[]);
     }
 
-    fn cr_sched_result(&self, accepted: bool) {
+    fn cr_sched_result(&self, accepted: bool, open_until: i64) {
         self.push_event(
             "cr_sched_result",
-            &[("accepted", &accepted.to_string())],
+            &[
+                ("accepted", &accepted.to_string()),
+                ("open_until", &open_until.to_string()),
+            ],
             &[],
         );
     }
