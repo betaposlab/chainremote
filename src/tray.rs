@@ -76,7 +76,16 @@ fn make_tray() -> hbb_common::ResultType<()> {
         //   허용해 놓은 걸 모르는 채 두면 그건 영구 비밀번호와 다를 게 없다.
         #[cfg(windows)]
         let sched = crate::chainremote_sched::status()
-            .map(|w| format!("원격 허용 중 — {}\n", w.label))
+            .map(|w| {
+                // 시작 전이면 "허용 중"이 아니다. 사장님이 지금 열려 있는 줄 알면 곤란하고,
+                //   반대로 안 보여주면 걸어 둔 걸 무를 방법이 없다 — 둘 다 보여주되 말을 가른다.
+                let head = if crate::chainremote_sched::is_active_now() {
+                    "원격 허용 중"
+                } else {
+                    "원격 예약됨"
+                };
+                format!("{} — {}\n", head, w.label)
+            })
             .unwrap_or_default();
         #[cfg(not(windows))]
         let sched = String::new();

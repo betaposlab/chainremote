@@ -1646,8 +1646,8 @@ abstract class BasePeerCard extends StatelessWidget {
         children: [
           Text(
               requested
-                  ? '예약원격 취소 요청함$untilText'
-                  : '예약원격 취소$untilText',
+                  ? '원격 예약 취소 요청함$untilText'
+                  : '원격 예약 취소$untilText',
               style: style),
           Expanded(
               child: Align(
@@ -1669,7 +1669,7 @@ abstract class BasePeerCard extends StatelessWidget {
         () async {
           final ok = await bind.chainremoteSchedClose(remoteId: peer.id);
           showToast(ok
-              ? '예약원격 취소를 요청했습니다 — 거래처가 받으면 닫힙니다(최대 10분)'
+              ? '원격 예약 취소를 요청했습니다 — 거래처가 받으면 닫힙니다(최대 10분)'
               : '취소 요청을 보내지 못했습니다 — 네트워크나 로그인을 확인해 주세요');
         }();
       },
@@ -1692,7 +1692,7 @@ abstract class BasePeerCard extends StatelessWidget {
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Row(
         children: [
-          Text('예약원격', style: style),
+          Text('원격 예약', style: style),
           Expanded(
               child: Align(
             alignment: Alignment.centerRight,

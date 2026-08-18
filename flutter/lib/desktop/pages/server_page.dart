@@ -726,7 +726,7 @@ class ConnectionManagerState extends State<ConnectionManager>
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                p.extend ? '원격 작업 시간 연장 요청' : '원격 작업 시간 요청',
+                p.extend ? '원격 예약 연장 요청' : '원격 예약 요청',
                 style: TextStyle(
                     fontSize: 14, fontWeight: FontWeight.w700, color: c.tileText),
               ),

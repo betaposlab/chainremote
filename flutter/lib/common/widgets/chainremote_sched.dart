@@ -256,7 +256,7 @@ Future<bool> showCrSchedDialog({
       title: Row(children: [
         Icon(Icons.schedule_rounded, color: c.accent, size: 20),
         const SizedBox(width: 8),
-        Text(extend ? '예약원격 연장' : '예약원격'),
+        Text(extend ? '원격 예약 연장' : '원격 예약'),
       ]),
       content: SizedBox(
         width: 420,
@@ -338,10 +338,10 @@ void crSchedShowResult(bool accepted, int openUntil) {
         ? DateTime.fromMillisecondsSinceEpoch(openUntil * 1000)
         : null;
     showToast(until == null
-        ? '거래처가 예약원격을 수락했습니다'
+        ? '거래처가 원격 예약을 수락했습니다'
         : '거래처가 수락했습니다 — ${crSchedTimeLabel(until)}까지');
   } else {
-    showToast('거래처가 예약원격을 거부했습니다');
+    showToast('거래처가 원격 예약을 거부했습니다');
   }
 }
 
@@ -375,7 +375,7 @@ void crSchedNoteSent() {
   _crSchedAckTimer?.cancel();
   _crSchedAckTimer = Timer(_crSchedAckWait, () {
     _crSchedAckTimer = null;
-    showToast('거래처가 요청을 받지 못했습니다 — 예약원격을 모르는 버전일 수 있습니다');
+    showToast('거래처가 요청을 받지 못했습니다 — 원격 예약을 모르는 버전일 수 있습니다');
   });
 }
 

@@ -54,12 +54,12 @@ export function SchedChip({
       <span
         className="inline-block px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap bg-amber-500/12 text-amber-300 font-medium"
         title={[
-          `예약 원격 허용 중 — ${fmtUntil(until)}까지`,
+          `원격 예약 중 — ${fmtUntil(until)}까지`,
           "이 구간에는 수락 창이 뜨지 않고 바로 접속됩니다.",
           "거래처가 직접 승인한 구간입니다(트레이에서 취소도 가능).",
         ].join(" · ")}
       >
-        ⏱ 예약 {fmtUntil(until)}까지
+        ⏱ 원격 예약 {fmtUntil(until)}까지
       </span>
       {waiting ? (
         <span
@@ -81,7 +81,7 @@ export function SchedChip({
             })
           }
           className="rounded border border-[#7485ae] bg-[#3d4e7a] hover:bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[#cbd1e0] disabled:opacity-50 whitespace-nowrap"
-          title="예약 원격 허용을 거둡니다. 다음 heartbeat(≤10분)에 전달되며, 거래처가 실제로 닫았다고 보고해야 표시가 사라집니다."
+          title="원격 예약을 거둡니다. 다음 heartbeat(≤10분)에 전달되며, 거래처가 실제로 닫았다고 보고해야 표시가 사라집니다."
         >
           닫기
         </button>

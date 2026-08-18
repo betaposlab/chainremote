@@ -105,7 +105,7 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
       child: Row(children: [
         const Icon(Icons.schedule_outlined, size: 16),
         const SizedBox(width: 6),
-        const Text('예약원격'),
+        const Text('원격 예약'),
       ]),
       onPressed: () {
         final name = ffi.ffiModel.pi.hostname.isNotEmpty

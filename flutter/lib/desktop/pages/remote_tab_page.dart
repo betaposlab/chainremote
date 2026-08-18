@@ -546,8 +546,8 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
                 value: closeSched,
                 onChanged: (v) => setState(() => closeSched = v == true),
                 title: Text(schedOpen.length > 1
-                    ? '예약 원격 허용 ${schedOpen.length}건도 함께 닫기'
-                    : '예약 원격 허용(${crSchedTimeLabel(DateTime.fromMillisecondsSinceEpoch(schedOpen.first.$3 * 1000))}까지)도 함께 닫기'),
+                    ? '원격 예약 ${schedOpen.length}건도 함께 닫기'
+                    : '원격 예약(${crSchedTimeLabel(DateTime.fromMillisecondsSinceEpoch(schedOpen.first.$3 * 1000))}까지)도 함께 닫기'),
                 subtitle: const Text(
                   '닫지 않으면 그 시간까지는 수락 없이 다시 접속할 수 있습니다.',
                   style: TextStyle(fontSize: 12),
@@ -571,7 +571,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
       for (final (id, sid, _) in schedOpen) {
         final ok = await crSchedCloseAndWait(id, sid);
         if (!ok) {
-          showToast('예약 원격 허용을 닫지 못했습니다 — 거래처 트레이에서 취소해 주세요');
+          showToast('원격 예약을 닫지 못했습니다 — 거래처 트레이에서 취소해 주세요');
         }
       }
     }

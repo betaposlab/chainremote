@@ -189,8 +189,8 @@ pub static ref T: std::collections::HashMap<&'static str, &'static str> =
         // 예약원격 시간 카드(Agent32/Sciter). 사장님은 시간을 고르지 않고 읽고 누르기만 한다.
         //   구체적 시각은 본사가 만들어 보낸 label 이 따로 들어간다 — 포스 시계가 틀려도
         //   화면 글자는 약속한 그 시각이어야 하기 때문이다.
-        ("Scheduled remote request", "예약 원격 요청"),
-        ("Extend scheduled remote", "예약 원격 연장"),
+        ("Scheduled remote request", "원격 예약 요청"),
+        ("Extend scheduled remote", "원격 예약 연장"),
         // 앞에 대리점 상호가 붙는다. "에서" 형태를 쓰는 이유는 수락카드와 같다 —
         //   "가/이" 는 앞 글자 받침에 따라 달라져 상호에 따라 틀린 문장이 된다.
         ("will connect without accept card suffix", "에서 이 시간에는 수락 창 없이 바로 접속합니다."),
