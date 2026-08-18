@@ -676,7 +676,8 @@ class ConnectionManagerState extends State<ConnectionManager>
       });
     }
     if (schedProposal != null) {
-      return _buildAgentSchedCard(schedProposal, activeClient ?? pending);
+      return _buildAgentSchedCard(
+          serverModel, schedProposal, activeClient ?? pending);
     }
     if (pending != null) {
       return _buildAgentAcceptCard(serverModel, pending);
@@ -689,10 +690,12 @@ class ConnectionManagerState extends State<ConnectionManager>
   /// 사장님은 **시간을 고르지 않는다.** 본사가 만들어 보낸 문구를 읽고 버튼만 누른다.
   /// 포스 시계가 틀려도 화면 글자는 약속한 그 시각이어야 하므로 label 을 그대로 쓴다
   /// (여기서 시각을 다시 계산하면 시계가 어긋난 기기에서 엉뚱한 시간이 보인다).
-  Widget _buildAgentSchedCard(CrSchedProposal p, Client? client) {
+  Widget _buildAgentSchedCard(
+      ServerModel serverModel, CrSchedProposal p, Client? client) {
     final c = CrColors.of(context);
     void answer(bool accepted) {
       // 창은 [수락] 을 눌렀을 때만 열린다 — Rust 쪽 cm_sched_answer 가 유일한 입구다.
+      //   그 호출이 창을 열면서 **접속 수락까지** 마친다(Case B: 수락 = 접속).
       bind.cmSchedAnswer(
         connId: client?.id ?? 0,
         accepted: accepted,
@@ -702,6 +705,13 @@ class ConnectionManagerState extends State<ConnectionManager>
         label: p.label,
       );
       crSchedProposal.value = null;
+      // ★화면을 서버 상태에 맞춘다. 이게 없으면 시간 카드가 사라진 자리에 평소 수락
+      //   카드가 드러나 사장님이 두 번 누르게 된다 — 서버는 이미 수락했는데 모델의
+      //   authorized 가 그대로라 pending 으로 보이기 때문이다. 거부면 Rust 가 접속을
+      //   끊고, 그 결과는 평소처럼 연결 제거로 내려온다.
+      if (accepted && client != null && !client.authorized) {
+        serverModel.markAuthorizedLocally(client);
+      }
     }
 
     return Container(

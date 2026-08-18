@@ -378,12 +378,33 @@ final Map<String, int> _crSchedOpenUntil = {};
 /// 창을 닫으라고 보낸 뒤 거래처의 확인을 기다리는 사람들.
 final Map<String, Completer<bool>> _crSchedCloseWaiters = {};
 
+/// peer config 에 적어 두는 열쇠 — 창의 종료 시각(epoch 초). 0/빈값이면 닫힘.
+const String _kSchedUntilKey = 'cr-sched-until';
+
 /// 거래처가 알려 온 창 상태를 기록한다. 세션 이벤트 `cr_sched_state` 로 들어온다.
+///
+/// ★peer config 에도 적는다. 원격 창은 **별도 프로세스**라 여기 메모리는 목록 화면이
+/// 못 본다 — 그래서 예약을 걸어 놓고 목록을 우클릭해도 메뉴가 안 바뀌었다(2026-08-18
+/// Chang 실측). 두 프로세스가 같이 읽는 곳은 peer config 뿐이다(탭 제목이 쓴 그 통로).
 void crSchedNoteState(String peerId, int openUntil) {
   _crSchedOpenUntil[peerId] = openUntil;
+  try {
+    bind.mainSetPeerOptionSync(
+        id: peerId, key: _kSchedUntilKey, value: openUntil.toString());
+  } catch (_) {}
   if (openUntil == 0) {
     // 닫기를 시켜 놓고 기다리던 쪽이 있으면 깨운다.
     _crSchedCloseWaiters.remove(peerId)?.complete(true);
+  }
+}
+
+/// peer config 에 적힌 창 종료 시각 — 다른 창(프로세스)이 적어 둔 것을 읽는다.
+int _crSchedUntilFromConfig(String peerId) {
+  try {
+    final v = bind.mainGetPeerOptionSync(id: peerId, key: _kSchedUntilKey);
+    return int.tryParse(v) ?? 0;
+  } catch (_) {
+    return 0;
   }
 }
 
@@ -412,6 +433,8 @@ void crSchedForgetState(String peerId) {
 /// 주기 때문에 **최대 10분 늦다**. 어느 쪽이든 열려 있다고 하면 열린 것으로 본다.
 bool crSchedIsOpenFor(Peer peer) {
   if (crSchedOpenUntilOf(peer.id) > 0) return true;
+  // 원격 창이 적어 둔 값(별도 프로세스 → peer config 경유).
+  if (_crSchedUntilFromConfig(peer.id) > crNowEpoch()) return true;
   final iso = peer.schedOpenUntil;
   if (iso.isEmpty) return false;
   final t = DateTime.tryParse(iso);

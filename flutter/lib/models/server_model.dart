@@ -684,6 +684,20 @@ class ServerModel with ChangeNotifier {
     });
   }
 
+  /// 서버 쪽에서 이미 수락된 접속을 화면에 반영한다(예약원격 시간 카드 전용).
+  ///
+  /// ★`sendLoginResponse` 를 쓰면 안 된다. 그건 cmLoginRes → authorize 까지 부르는데,
+  /// 예약원격은 Rust `cr_sched_answer` 가 이미 수락을 마쳤다(32비트 Sciter 판과 공용 경로다).
+  /// 여기서 또 부르면 같은 일을 두 번 하는 셈이라, 화면만 맞춘다.
+  ///
+  /// 이게 없으면 시간 카드가 사라진 자리에 **평소 수락 카드가 드러난다** — 서버는 이미
+  /// 수락했는데 모델의 authorized 가 그대로라 pending 으로 보이기 때문이다. 사장님 눈에는
+  /// 수락을 두 번 하라는 화면이 된다(2026-08-18 Chang 실측).
+  void markAuthorizedLocally(Client client) {
+    client.authorized = true;
+    notifyListeners();
+  }
+
   void sendLoginResponse(Client client, bool res) async {
     if (res) {
       bind.cmLoginRes(connId: client.id, res: res);
