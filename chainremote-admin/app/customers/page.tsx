@@ -16,6 +16,7 @@ import { ConfirmEnrollButton } from "./_enroll-confirm";
 import { CustomerSearch } from "./_search";
 import { DiskChip } from "./_disk-chip";
 import { FirewallChip } from "./_firewall-chip";
+import { SchedChip } from "./_sched-chip";
 import { VanChip } from "./_van-chip";
 import { AutoRefresh } from "./_auto-refresh";
 import { redirect } from "next/navigation";
@@ -121,6 +122,9 @@ export default async function CustomersPage({
       vanMissing: customers.vanMissing,
       vanRestartCount: customers.vanRestartCount,
       vanLastRestartAt: customers.vanLastRestartAt,
+      // 예약원격 창(048) — 열려 있으면 칩 + [닫기] 버튼을 그린다.
+      schedOpenUntil: customers.schedOpenUntil,
+      schedCloseRequestedAt: customers.schedCloseRequestedAt,
     })
     .from(customers)
     .leftJoin(users, eq(users.id, customers.assignedUserId))
@@ -414,6 +418,20 @@ export default async function CustomersPage({
                           lastDisarmAt={
                             c.firewallLastDisarmAt
                               ? c.firewallLastDisarmAt.toISOString()
+                              : null
+                          }
+                        />
+                        {/* 예약원격 창(마이그 048) — 지금 열려 있을 때만. [닫기]로 허용 회수. */}
+                        <SchedChip
+                          remoteId={c.remoteId}
+                          openUntil={
+                            c.schedOpenUntil
+                              ? c.schedOpenUntil.toISOString()
+                              : null
+                          }
+                          closeRequestedAt={
+                            c.schedCloseRequestedAt
+                              ? c.schedCloseRequestedAt.toISOString()
                               : null
                           }
                         />
