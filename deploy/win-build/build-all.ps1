@@ -1,7 +1,11 @@
 ﻿# -RegenBridge: src/flutter_ffi.rs(코어↔화면 연결부)를 바꿨을 때만 다리파일(bridge)을 재생성한다.
 #   기본은 git 에 커밋된 다리파일을 그대로 쓴다 (Mac+Win 공용 설계). 재생성엔 RUSTC_BOOTSTRAP=1 +
 #   flutter_rust_bridge_codegen 1.80.1 / cargo-expand 1.0.95 (집윈컴 ~/.cargo/bin) 필요.
-param([switch]$RegenBridge)
+# -SubmoduleBranch: 서브모듈(hbb_common)을 어느 줄에 맞출지. 기본은 프로덕션 줄이다.
+#   기능 브랜치에서 proto 를 고치면 그 커밋은 프로덕션 줄에 없으므로, 아래 강제 정렬이
+#   조용히 되돌려 놓는다 — 빌드는 성공하는데 새 메시지만 없는 물건이 나온다. 그때만
+#   이 파라미터로 그 기능의 줄(예: chainremote-sched)을 지정한다.
+param([switch]$RegenBridge, [string]$SubmoduleBranch = "chainremote-defaults")
 
 $ErrorActionPreference = "Stop"
 Write-Host "=== ChainRemote 풀 빌드 자동 실행 ===" -ForegroundColor Cyan
@@ -96,16 +100,21 @@ git submodule sync --recursive
 git submodule update --init --recursive
 if ($LASTEXITCODE -ne 0) { Write-Host "❌ submodule 실패" -ForegroundColor Red; Pop-Location; exit 1 }
 
-# submodule 브랜치 확인 (chainremote-defaults이어야 함)
+# submodule 브랜치 확인 (기본 chainremote-defaults — -SubmoduleBranch 로 바꿀 수 있음)
 Push-Location libs/hbb_common
+git fetch origin $SubmoduleBranch
 $head = git rev-parse HEAD
-$branchHead = git rev-parse origin/chainremote-defaults 2>$null
-if ($head -ne $branchHead) {
-  Write-Host "    submodule을 chainremote-defaults로 강제 정렬..." -ForegroundColor Yellow
-  git fetch origin chainremote-defaults
-  git checkout chainremote-defaults
-  git reset --hard origin/chainremote-defaults
+$branchHead = git rev-parse "origin/$SubmoduleBranch" 2>$null
+if ($null -eq $branchHead -or $LASTEXITCODE -ne 0) {
+  Write-Host "submodule branch not found: $SubmoduleBranch" -ForegroundColor Red
+  Pop-Location; Pop-Location; exit 1
 }
+if ($head -ne $branchHead) {
+  Write-Host "    submodule -> $SubmoduleBranch" -ForegroundColor Yellow
+  git checkout $SubmoduleBranch
+  git reset --hard "origin/$SubmoduleBranch"
+}
+Write-Host "    submodule: $SubmoduleBranch @ $((git rev-parse --short HEAD))" -ForegroundColor Gray
 Pop-Location
 
 # 3.5. flutter_rust_bridge 다리파일 (bridge)
