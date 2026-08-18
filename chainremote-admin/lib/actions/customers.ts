@@ -136,6 +136,17 @@ export async function dismissCandidate(remoteId: string) {
   revalidatePath("/customers");
 }
 
+// [강제 닫기] — 열려 있는 예약원격 창을 닫으라고 큐잉. 원격 접근 권한을 **줄이는** 쪽이라
+// 정리 명령과 같은 등급으로 둔다(viewer 만 제외). 거래처가 승인한 창을 대리점이 거두는
+// 것이라 사장님께 다시 묻지 않는다 — 여는 쪽만 사장님 손이 필요하다.
+export async function requestSchedCloseAction(remoteId: string): Promise<boolean> {
+  const session = await requireSession();
+  if (session.role === "viewer") throw new Error("권한 없음");
+  const ok = await data.requestSchedClose(remoteId, { tenantId: session.tenantId });
+  revalidatePath("/customers");
+  return ok;
+}
+
 // [디스크 정리] — Temp+휴지통 원격 정리 명령 큐잉. 원격 지원에 준하는 행위라 viewer 만 제외.
 // 에이전트가 다음 heartbeat(≤10분)에 받아 실행하고 결과를 보고한다.
 export async function requestCleanupAction(remoteId: string): Promise<boolean> {

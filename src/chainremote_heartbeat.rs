@@ -33,6 +33,9 @@ const TOKEN_KEY: &str = "chainremote-heartbeat-token";
 /// 디스크 정리 명령 dedupe — 마지막으로 실행한 요청 시각(서버 cleanup_requested_at).
 /// 같은 요청이 매 heartbeat 응답에 실려와도 한 번만 실행한다.
 const CLEANUP_DONE_KEY: &str = "chainremote-cleanup-done";
+/// 예약원격 강제 닫기 dedupe — 마지막으로 처리한 요청 시각(서버 sched_close_requested_at).
+/// 서버 큐는 "닫혔다"는 보고가 올라와야 비워지므로 같은 값이 몇 번 더 내려온다.
+const SCHED_CLOSE_DONE_KEY: &str = "chainremote-sched-close-done";
 /// 거래처 수락카드에 띄울 대리점 상호. 서버가 heartbeat 응답으로 내려주고 여기 캐시한다.
 ///   설치본(custom.txt)에 안 박는 이유: 자동 업데이트가 번들 파일로 덮어버리고, 대리점이
 ///   상호를 바꿔도 이미 깔린 거래처에 반영할 길이 없다. 이 경로면 다음 하트비트에 따라온다.
@@ -451,6 +454,15 @@ fn send_heartbeat(
     } else {
         false
     };
+    // 예약원격 창(마이그048) — 지금 열려 있는 창의 종료 시각. 닫혀 있으면 0 을 **명시해서**
+    //   보낸다. 필드를 빼면 서버는 "변경 없음"으로 읽어 옛 값을 그대로 둬, 어제 닫힌 창이
+    //   패널 목록에 영원히 열린 채로 남는다(VAN 관제에서 겪은 그 모양이다).
+    if cleanup_result.is_none() {
+        body["schedOpenUntil"] = crate::chainremote_sched::status()
+            .map(|w| w.end)
+            .unwrap_or(0)
+            .into();
+    }
     let client = reqwest::blocking::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .build()?;
@@ -476,6 +488,8 @@ fn send_heartbeat(
             support_name: String,
             #[serde(default, rename = "upnpEnabled")]
             upnp_enabled: bool,
+            #[serde(default, rename = "schedClose")]
+            sched_close: String,
         }
         let parsed = resp.json::<Resp>().unwrap_or_default();
         // 방화벽 자동 해제 대상 여부를 감시 스레드에 반영.
@@ -484,6 +498,11 @@ fn send_heartbeat(
         crate::chainremote_van::set_kind(&parsed.van_watch);
         // 공유기 포트 열기(041) — 켜진 거래처만 문을 연다. 기본은 꺼짐이라 대부분 no-op.
         crate::chainremote_upnp::set_enabled(parsed.upnp_enabled);
+        // 예약원격 강제 닫기(048) — 대리점이 패널에서 창을 거뒀다. 같은 요청이 여러 번
+        //   내려오므로 마지막으로 처리한 것과 다를 때만 실제로 닫는다.
+        if !parsed.sched_close.is_empty() {
+            handle_sched_close(&parsed.sched_close);
+        }
         // 대리점 상호 캐시. 값이 실제로 달라졌을 때만 쓴다 — 매 하트비트마다 같은 값을
         // 디스크에 다시 쓸 이유가 없다. 서버가 안 내려주면(구버전) 옛 값을 그대로 둔다.
         #[cfg(windows)]
@@ -519,6 +538,30 @@ fn send_heartbeat(
 /// 서버 [디스크 정리] 명령 처리 — 같은 요청(시각)은 한 번만 실행하고(dedupe), 결과를
 /// 즉시 heartbeat 로 보고해 패널이 바로 갱신되게 한다. 보고가 유실되면 서버 큐가 남아
 /// 다음 tick 에 같은 요청이 또 내려오는데, 그땐 실행 없이 저장해둔 결과만 재전송한다.
+/// 대리점이 패널에서 [강제 닫기]를 눌렀다 — 창을 닫는다.
+///
+/// 창을 **여는** 길과 달리 사장님께 아무것도 묻지 않는다. 권한이 줄기만 하기 때문이다.
+/// 그 비대칭이 이 기능과 영구 비밀번호를 가르는 선이라 반대 방향으로는 열지 않는다.
+///
+/// 서버 큐는 우리가 "닫혔다"고 보고해야 비워진다(꺼져 있던 PC 에서 명령이 조용히 증발하지
+/// 않게 한 설계다). 그래서 같은 요청이 몇 번 더 내려오는데, 처리한 시각을 적어 두고
+/// 건너뛴다. 이미 닫혀 있어도 한 번은 지워 둔다 — 그래야 다음 보고가 0 을 싣고 큐가 풀린다.
+fn handle_sched_close(requested_at: &str) {
+    let done = hbb_common::config::LocalConfig::get_option(SCHED_CLOSE_DONE_KEY);
+    if done == requested_at {
+        return;
+    }
+    crate::chainremote_sched::clear();
+    hbb_common::config::LocalConfig::set_option(
+        SCHED_CLOSE_DONE_KEY.to_string(),
+        requested_at.to_string(),
+    );
+    log::info!(
+        "[chainremote_sched] 대리점이 패널에서 창을 닫았다 (at={})",
+        requested_at
+    );
+}
+
 fn handle_cleanup_request(remote_id: &str, token: &str, requested_at: &str) {
     let done = hbb_common::config::LocalConfig::get_option(CLEANUP_DONE_KEY);
     if done == requested_at {

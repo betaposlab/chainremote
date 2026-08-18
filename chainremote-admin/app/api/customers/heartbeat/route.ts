@@ -41,6 +41,7 @@ export async function POST(req: Request) {
       natType?: unknown;
       upnp?: unknown;
       upnpEndpoint?: unknown;
+      schedOpenUntil?: unknown;
     };
     const remoteId =
       typeof body.remoteId === "string" ? body.remoteId.trim() : "";
@@ -109,6 +110,10 @@ export async function POST(req: Request) {
         // 공유기가 열어 준 바깥 주소(041).
         upnpEndpoint:
           typeof body.upnpEndpoint === "string" ? body.upnpEndpoint : undefined,
+        // 예약원격 창(048) — 지금 열린 창의 종료 시각(epoch 초, 0=닫힘). 옛 에이전트는
+        //   안 보내므로 undefined 가 되어 저장값을 건드리지 않는다.
+        schedOpenUntil:
+          typeof body.schedOpenUntil === "number" ? body.schedOpenUntil : undefined,
       },
     );
     if (!ok) {
@@ -146,6 +151,10 @@ export async function POST(req: Request) {
     //   여기로 내려보내는 이유는 설치본에 박으면 자동 업데이트가 덮어버리고 상호 변경도
     //   반영이 안 되기 때문(getSupportName 주석 참조).
     const supportName = await data.getSupportName(remoteId);
+    // 예약원격 강제 닫기(048) — 대리점이 [강제 닫기]를 눌렀으면 그 시각을 내려보낸다.
+    //   에이전트는 마지막으로 처리한 요청과 다를 때만 창을 닫으므로 반복 전달은 무해하고,
+    //   큐는 "닫혔다"는 보고가 올라올 때 비워진다(꺼진 PC 에서 명령이 증발하지 않게).
+    const schedClose = await data.getSchedCloseRequest(remoteId);
     return Response.json({
       ok: true,
       ...(cleanup ? { cleanup } : {}),
@@ -153,6 +162,7 @@ export async function POST(req: Request) {
       vanWatch,
       upnpEnabled,
       ...(supportName ? { supportName } : {}),
+      ...(schedClose ? { schedClose } : {}),
     });
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 });

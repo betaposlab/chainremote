@@ -2,7 +2,17 @@
 // 프레임워크 의존 없음(revalidatePath/redirect 없음) — 후처리는 호출 측 몫.
 // 모든 함수는 tenantId 격리 강제. 호출자는 자기 세션의 tenantId 만 넘긴다.
 
-import { and, desc, eq, getTableColumns, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  gt,
+  isNotNull,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db } from "@/lib/db";
 import { customerAlerts, customers, folders, tenants, userFavorites } from "@/lib/schema";
 import { linkFavoritesToCustomer } from "@/lib/data/favorites";
@@ -229,6 +239,9 @@ export interface HeartbeatExtras {
   upnp?: string;
   // 공유기가 열어 준 바깥 주소(041) "ip:port". 빈 문자열이면 닫힌 것으로 보고 지운다.
   upnpEndpoint?: string;
+  // 예약원격 창(048) — 지금 열린 창의 종료 시각(epoch 초). 0 이면 닫혀 있다는 **명시 보고**라
+  //   저장된 값을 비운다. 필드 자체가 없으면(옛 에이전트) 손대지 않는다.
+  schedOpenUntil?: number;
 }
 
 export async function recordHeartbeat(
@@ -360,6 +373,28 @@ export async function recordHeartbeat(
     typeof extras?.natType === "number" && [0, 1, 2].includes(extras.natType)
       ? { natType: extras.natType }
       : {};
+  // 예약원격 창(048) — 에이전트가 알려 준 현재 상태. 0 은 "닫혀 있다"는 명시 보고다.
+  //
+  // ★강제 닫기 요청을 비우는 건 **이 보고**다. 버튼을 누른 쪽이 "보냈다"로 비우면, 그 사이
+  //   PC 가 꺼져 있어 명령이 영영 안 닿아도 성공과 똑같은 모양이 된다. 창이 실제로 닫혔다는
+  //   보고가 올라와야 큐가 사라진다.
+  // ★상한을 둔다. 창은 최대 24시간이라 그보다 한참 먼 미래 값은 시계가 어긋난 기기이거나
+  //   유효 토큰을 쥔 악성 보고다 — 목록에 영원히 남을 창을 만들지 않는다.
+  const schedSet: Record<string, unknown> = {};
+  if (
+    typeof extras?.schedOpenUntil === "number" &&
+    Number.isFinite(extras.schedOpenUntil) &&
+    extras.schedOpenUntil >= 0
+  ) {
+    const until = Math.floor(extras.schedOpenUntil);
+    const maxAhead = Date.now() / 1000 + 25 * 3600;
+    if (until === 0) {
+      schedSet.schedOpenUntil = null;
+      schedSet.schedCloseRequestedAt = null;
+    } else if (until <= maxAhead) {
+      schedSet.schedOpenUntil = new Date(until * 1000);
+    }
+  }
   const [row] = await db
     .update(customers)
     .set({
@@ -375,6 +410,7 @@ export async function recordHeartbeat(
       ...natSet,
       ...upnpSet,
       ...endpointSet,
+      ...schedSet,
     })
     .where(
       and(
@@ -419,6 +455,70 @@ export async function getCleanupRequest(remoteId: string): Promise<string | null
     .where(eq(customers.remoteId, remoteId))
     .limit(1);
   return row?.at ? row.at.toISOString() : null;
+}
+
+/** heartbeat 응답에 실을 예약원격 강제 닫기 요청 시각 — 없으면 null.
+ *
+ *  정리 명령과 같은 큐 방식이다. 패널에서 에이전트로 가는 실시간 통로가 없어(hbbs 는 우리
+ *  명령을 실어 나르지 않는다) 다음 폴링에 실려 내려간다. 에이전트가 "마지막으로 처리한
+ *  요청 시각"과 다를 때만 실행하므로 같은 값이 반복해 내려가도 무해하다. */
+export async function getSchedCloseRequest(
+  remoteId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ at: customers.schedCloseRequestedAt })
+    .from(customers)
+    .where(eq(customers.remoteId, remoteId))
+    .limit(1);
+  return row?.at ? row.at.toISOString() : null;
+}
+
+/** 대리점이 [강제 닫기]를 눌렀다 — 요청을 큐에 넣는다.
+ *
+ *  ★여기서 sched_open_until 을 지우지 않는다. 지우면 목록에서 즉시 사라져 닫힌 것처럼
+ *  보이지만, 정작 거래처 PC 가 꺼져 있으면 명령이 안 닿아 창은 그대로 열려 있다. 실제로
+ *  닫혔다는 보고가 올라올 때까지 목록에 남겨 두는 편이 정직하다. */
+export async function requestSchedClose(
+  remoteId: string,
+  ctx: { tenantId: string },
+): Promise<boolean> {
+  const [row] = await db
+    .update(customers)
+    .set({ schedCloseRequestedAt: new Date() })
+    .where(
+      and(
+        eq(customers.remoteId, remoteId),
+        eq(customers.tenantId, ctx.tenantId),
+        isNotNull(customers.schedOpenUntil),
+      ),
+    )
+    .returning({ id: customers.id });
+  return !!row;
+}
+
+/** 지금 예약원격 창이 열려 있는 거래처들 — 패널 목록용. 자기 tenant 것만.
+ *
+ *  ★이미 지난 창은 뺀다. 거래처가 꺼져 있으면 마지막 보고가 그대로 남아 있어, 어제 닫힌
+ *  창이 오늘도 열린 것처럼 보인다. 종료 시각이 지났으면 그 PC 가 켜지는 순간 닫히므로
+ *  목록에서도 지금 빼는 게 맞다. */
+export async function listOpenSchedWindows(tenantId: string) {
+  return db
+    .select({
+      remoteId: customers.remoteId,
+      name: customers.name,
+      openUntil: customers.schedOpenUntil,
+      closeRequestedAt: customers.schedCloseRequestedAt,
+      lastHeartbeatAt: customers.lastHeartbeatAt,
+    })
+    .from(customers)
+    .where(
+      and(
+        eq(customers.tenantId, tenantId),
+        isNotNull(customers.schedOpenUntil),
+        gt(customers.schedOpenUntil, new Date()),
+      ),
+    )
+    .orderBy(customers.schedOpenUntil);
 }
 
 /** heartbeat 응답용 — 이 거래처가 방화벽 자동 해제 대상인지(에이전트가 감시 여부 결정). */

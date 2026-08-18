@@ -179,6 +179,14 @@ export const customers = pgTable(
     //   실행 후 결과(JSON)를 보고하면 requested 가 비워진다. 자동업뎃 푸시와 같은 결.
     cleanupRequestedAt: timestamp("cleanup_requested_at", { withTimezone: true }),
     cleanupResult: text("cleanup_result"),
+    // 예약원격 창(마이그 048) — 거래처가 승인한 "수락 없이 들어와도 되는" 구간의 종료 시각.
+    //   ★창의 진실은 거래처 PC 의 마커 파일이고 여기 값은 그 사본이다. 에이전트가 heartbeat
+    //   마다 알려 주는 것을 담아 둘 뿐이라, 꺼진 PC 의 값은 마지막 보고 시점 그대로다.
+    //   schedCloseRequestedAt = 대리점이 [강제 닫기]를 누른 시각(cleanup 과 같은 큐 방식).
+    schedOpenUntil: timestamp("sched_open_until", { withTimezone: true }),
+    schedCloseRequestedAt: timestamp("sched_close_requested_at", {
+      withTimezone: true,
+    }),
     // 방화벽 자동 해제 관제(마이그 028) — 메인/오더 POS 방화벽 원복 방지. 거래처별 on/off(기본 off).
     //   firewallControl=on 이면 에이전트가 로컬에서 방화벽을 감시하다 켜지면 즉시 해제 + 알림 끔.
     //   firewallEnabled = 에이전트 보고(현재 방화벽 켜짐?), disarmCount = 자동 해제 누적(잦으면 업뎃 잦음).
