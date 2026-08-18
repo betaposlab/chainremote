@@ -66,6 +66,15 @@ struct CustomerRow {
     //   받아 같은 매장 여러 POS 를 폴더로 묶는다(peers_view 그룹 헤더). 미배정이면 None.
     #[serde(rename = "folderName")]
     folder_name: Option<String>,
+    // 예약원격 창(마이그048) — 지금 열려 있는 창의 종료 시각(ISO 문자열). 없으면 닫힘.
+    //   ★거래처가 하트비트로 올린 값이라 최대 10분 늦다. 그래도 이게 유일하게 "누가 걸었든"
+    //   다 아는 출처다 — HQ 자기 기억만 믿으면 다른 기사가 건 예약을 통째로 놓친다.
+    #[serde(rename = "schedOpenUntil")]
+    sched_open_until: Option<String>,
+    // 대리점이 [취소] 를 눌러 큐에 넣은 시각. 값이 있으면 "취소 요청함"으로 보여준다 —
+    //   실제로 닫히는 건 거래처가 다음 하트비트에 명령을 받은 뒤다.
+    #[serde(rename = "schedCloseRequestedAt")]
+    sched_close_requested_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -194,6 +203,9 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
         "arch": c.arch.clone().unwrap_or_default(),
         "os": c.os.clone().unwrap_or_default(),
         "osBits": c.os_bits.clone().unwrap_or_default(),
+        // 예약원격 창(048) — 우클릭 메뉴가 [예약원격] 과 [예약원격 취소] 중 무엇을 낼지 정한다.
+        "schedOpenUntil": c.sched_open_until.clone().unwrap_or_default(),
+        "schedCloseRequestedAt": c.sched_close_requested_at.clone().unwrap_or_default(),
         // 디스크 관제(마이그024) — bytes 문자열(빈값=미보고). Peer.diskFree 등으로 흘러가
         // 카드 "여유 N GB" 경고 배지 + [디스크 정리] 메뉴 게이트에 쓰인다.
         "diskTotal": c.disk_total_bytes.map(|v| v.to_string()).unwrap_or_default(),
@@ -577,6 +589,32 @@ fn confirm_customer_blocking(remote_id: String) -> bool {
 
 pub fn confirm_customer_blocking_pub(remote_id: String) -> bool {
     confirm_customer_blocking(remote_id)
+}
+
+/// 예약원격 창 닫기 요청 — POST /api/customers/sched-close.
+///
+/// ★즉시 닫히지 않는다. 목록 화면에서는 그 거래처에 붙어 있지 않아 보낼 세션이 없고,
+/// 패널에서 거래처로 가는 실시간 통로도 없다. 하트비트 응답에 실려 내려가므로 최대
+/// 10분 걸린다. 호출부는 "닫혔다"가 아니라 "요청했다"로 말해야 한다 — 거래처 PC 가
+/// 꺼져 있으면 명령은 켜질 때까지 기다리고, 그 사이 창은 그대로 열려 있다.
+fn request_sched_close_blocking(remote_id: String) -> bool {
+    let url = format!("{}/api/customers/sched-close", chainremote_auth::api_base());
+    let body = serde_json::json!({ "remoteId": remote_id }).to_string();
+    match authed_post(url, body) {
+        Ok(_) => {
+            // 목록을 다시 받아 "취소 요청함" 표시가 즉시 반영되게 한다.
+            fetch_customers_blocking();
+            true
+        }
+        Err(e) => {
+            log::warn!("ChainRemote sched-close 실패: {}", e);
+            false
+        }
+    }
+}
+
+pub fn request_sched_close_blocking_pub(remote_id: String) -> bool {
+    request_sched_close_blocking(remote_id)
 }
 
 // ── 지원세션(A/S 이력) 기록 — HQ 원격 시작/종료에서 호출(Phase 2). 서버가 거래처 대조 ─────────

@@ -5442,6 +5442,22 @@ fn wire_chainremote_remove_favorite_impl(
         },
     )
 }
+fn wire_chainremote_sched_close_impl(
+    port_: MessagePort,
+    remote_id: impl Wire2Api<String> + UnwindSafe,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, bool>(
+        WrapInfo {
+            debug_name: "chainremote_sched_close",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_remote_id = remote_id.wire2api();
+            move |task_callback| Ok(chainremote_sched_close(api_remote_id))
+        },
+    )
+}
 fn wire_chainremote_confirm_customer_impl(
     port_: MessagePort,
     remote_id: impl Wire2Api<String> + UnwindSafe,

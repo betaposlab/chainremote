@@ -2397,6 +2397,11 @@ pub extern "C" fn wire_chainremote_remove_favorite(port_: i64, remote_id: *mut w
 }
 
 #[no_mangle]
+pub extern "C" fn wire_chainremote_sched_close(port_: i64, remote_id: *mut wire_uint_8_list) {
+    wire_chainremote_sched_close_impl(port_, remote_id)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_chainremote_confirm_customer(port_: i64, remote_id: *mut wire_uint_8_list) {
     wire_chainremote_confirm_customer_impl(port_, remote_id)
 }

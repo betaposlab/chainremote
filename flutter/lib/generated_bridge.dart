@@ -1884,6 +1884,15 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kChainremoteRemoveFavoriteConstMeta;
 
+  /// 예약원격 창 닫기 요청 — 목록 우클릭 [예약원격 취소].
+  ///
+  /// ★"요청"이지 "닫힘"이 아니다. 목록에서는 그 거래처에 붙어 있지 않아 보낼 세션이 없어
+  /// 하트비트 명령 큐를 타므로 최대 10분 걸린다. 원격 중이라면 세션 종료 확인창의
+  /// [예약 창도 함께 닫기] 가 즉시 닫고 확인까지 받는다 — 그쪽이 빠른 길이다.
+  Future<bool> chainremoteSchedClose({required String remoteId, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteSchedCloseConstMeta;
+
   /// 자가등록 후보 확정. '전체 거래처' 탭에서 마스터가 미확정 후보를 정식 거래처로 승격한다.
   /// 동기 blocking — 토스트 정확성을 위해 UI thread 가 결과를 기다린다. owner 권한은 서버가 강제.
   Future<bool> chainremoteConfirmCustomer(
@@ -8614,6 +8623,24 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["remoteId"],
       );
 
+  Future<bool> chainremoteSchedClose({required String remoteId, dynamic hint}) {
+    var arg0 = _platform.api2wire_String(remoteId);
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_chainremote_sched_close(port_, arg0),
+      parseSuccessData: _wire2api_bool,
+      constMeta: kChainremoteSchedCloseConstMeta,
+      argValues: [remoteId],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kChainremoteSchedCloseConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "chainremote_sched_close",
+        argNames: ["remoteId"],
+      );
+
   Future<bool> chainremoteConfirmCustomer(
       {required String remoteId, dynamic hint}) {
     var arg0 = _platform.api2wire_String(remoteId);
@@ -15311,6 +15338,23 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_chainremote_remove_favorite =
       _wire_chainremote_remove_favoritePtr
           .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
+
+  void wire_chainremote_sched_close(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> remote_id,
+  ) {
+    return _wire_chainremote_sched_close(
+      port_,
+      remote_id,
+    );
+  }
+
+  late final _wire_chainremote_sched_closePtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_chainremote_sched_close');
+  late final _wire_chainremote_sched_close = _wire_chainremote_sched_closePtr
+      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_chainremote_confirm_customer(
     int port_,

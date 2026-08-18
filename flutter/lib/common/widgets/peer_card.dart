@@ -1626,6 +1626,49 @@ abstract class BasePeerCard extends StatelessWidget {
     );
   }
 
+  /// 우클릭 "예약원격 취소" — 걸어 둔 창을 거둔다.
+  ///
+  /// ★즉시 닫히지 않는다. 목록 화면에서는 그 거래처에 붙어 있지 않아 보낼 세션이 없어,
+  ///   패널을 거쳐 하트비트 명령 큐를 탄다(최대 10분). 그래서 누르자마자 메뉴를
+  ///   [예약원격] 으로 되돌리지 않는다 — 되돌리면 닫힌 줄 알지만 거래처 PC 가 꺼져 있으면
+  ///   창은 그대로 열려 있다. 거래처가 "닫았다"고 보고해야 메뉴가 바뀐다.
+  ///   원격 중이라면 세션 종료 확인창의 [예약 창도 함께 닫기] 가 즉시 닫고 확인까지 받는다.
+  @protected
+  MenuEntryBase<String> _schedCancelAction(Peer peer) {
+    final requested = crSchedCloseRequested(peer);
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) => Row(
+        children: [
+          Text(requested ? '예약원격 취소 요청함' : '예약원격 취소', style: style),
+          Expanded(
+              child: Align(
+            alignment: Alignment.centerRight,
+            child: Transform.scale(
+              scale: 0.8,
+              child: Icon(requested
+                  ? Icons.hourglass_top_outlined
+                  : Icons.event_busy_outlined),
+            ),
+          ).marginOnly(right: 4)),
+        ],
+      ),
+      proc: () {
+        if (requested) {
+          showToast('이미 취소를 요청했습니다 — 거래처가 받으면 풀립니다(최대 10분)');
+          return;
+        }
+        () async {
+          final ok = await bind.chainremoteSchedClose(remoteId: peer.id);
+          showToast(ok
+              ? '예약원격 취소를 요청했습니다 — 거래처가 받으면 닫힙니다(최대 10분)'
+              : '취소 요청에 실패했습니다');
+        }();
+      },
+      padding: menuPadding,
+      dismissOnClicked: true,
+    );
+  }
+
   /// 우클릭 "예약원격" — 전화로 약속한 시간대를 거래처에 보낸다.
   ///
   /// ★여기는 **아직 접속 안 한 거래처**용이다(Case B). 제안을 걸어 두고 접속을 시작하면,
@@ -1634,6 +1677,9 @@ abstract class BasePeerCard extends StatelessWidget {
   ///   프로세스라 목록 화면에서는 그 세션에 닿을 수 없기 때문이다.
   @protected
   MenuEntryBase<String> _schedRemoteAction(Peer peer) {
+    // ★예약이 걸려 있으면 [예약원격] 대신 [예약원격 취소] 를 낸다. 둘을 같이 내면 지금
+    //   상태가 뭔지 메뉴만 봐서는 알 수 없다 — 하나만 보이는 게 곧 상태 표시다.
+    if (crSchedIsOpenFor(peer)) return _schedCancelAction(peer);
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Row(
         children: [

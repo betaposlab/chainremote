@@ -31,6 +31,12 @@ class Peer {
   //   카드에 "Win7 · 64비트" 배지로. arch(페이로드)와 달라 OS 기준이 정확(64비트 Win7 구분).
   String os;
   String osBits;
+  // 예약원격 창(마이그048) — 열려 있는 창의 종료 시각(ISO). 빈 문자열이면 닫힘.
+  //   우클릭 메뉴가 [예약원격]/[예약원격 취소] 중 무엇을 낼지 여기서 갈린다.
+  //   ★하트비트로 올라온 값이라 최대 10분 늦다 — 방금 건 예약은 로컬 기억이 먼저 안다.
+  String schedOpenUntil;
+  // 취소 요청을 이미 큐에 넣었나(ISO). 값이 있으면 "취소 요청함"으로 보여준다.
+  String schedCloseRequestedAt;
   // 디스크 관제(마이그024) — bytes 문자열('' = 미보고). 카드 배지는 위험/주의만 표시.
   String diskTotal;
   String diskFree;
@@ -72,6 +78,8 @@ class Peer {
         arch = json['arch'] ?? '',
         os = json['os'] ?? '',
         osBits = json['osBits'] ?? '',
+        schedOpenUntil = json['schedOpenUntil'] ?? '',
+        schedCloseRequestedAt = json['schedCloseRequestedAt'] ?? '',
         diskTotal = json['diskTotal'] ?? '',
         diskFree = json['diskFree'] ?? '',
         tempBytes = json['tempBytes'] ?? '',
@@ -102,6 +110,8 @@ class Peer {
       'arch': arch,
       'os': os,
       'osBits': osBits,
+      'schedOpenUntil': schedOpenUntil,
+      'schedCloseRequestedAt': schedCloseRequestedAt,
       'diskTotal': diskTotal,
       'diskFree': diskFree,
       'tempBytes': tempBytes,
@@ -159,6 +169,8 @@ class Peer {
     this.arch = '',
     this.os = '',
     this.osBits = '',
+    this.schedOpenUntil = '',
+    this.schedCloseRequestedAt = '',
     this.diskTotal = '',
     this.diskFree = '',
     this.tempBytes = '',

@@ -10,10 +10,12 @@
 
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart' show CupertinoPicker;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../common.dart';
+import '../../models/peer_model.dart';
 import '../../models/platform_model.dart';
 
 /// 창의 최대 길이. 거래처 쪽에서도 한 번 더 막지만, 여기서 먼저 막아 실수를 줄인다.
@@ -33,6 +35,185 @@ String crSchedTimeLabel(DateTime t) {
 String crSchedRangeLabel(DateTime start, DateTime end) =>
     '${crSchedTimeLabel(start)} ~ ${crSchedTimeLabel(end)}';
 
+/// 아이폰식 휠 한 칸. 굴려서 고른다.
+///
+/// ★창 안에서 또 창을 띄우지 않으려고 직접 박았다. 종전엔 여기서 달력(showDatePicker)과
+/// 시계(showTimePicker)를 잇달아 띄웠는데, 이 창은 오버레이(dialogManager)로 뜨고 그 둘은
+/// 기본 라우트로 떠서 **층이 달랐다** — 달력이 창 뒤로 깔리고, 누를 때마다 그림자가 하나씩
+/// 쌓여 배경이 점점 어두워지며, 누른 횟수만큼 취소를 눌러야 걷혔다(2026-08-18 Chang 실측).
+class _CrWheel extends StatefulWidget {
+  final int count;
+  final int index;
+  final String Function(int) label;
+  final ValueChanged<int> onChanged;
+  final double width;
+
+  const _CrWheel({
+    required this.count,
+    required this.index,
+    required this.label,
+    required this.onChanged,
+    required this.width,
+  });
+
+  @override
+  State<_CrWheel> createState() => _CrWheelState();
+}
+
+class _CrWheelState extends State<_CrWheel> {
+  late FixedExtentScrollController _ctl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctl = FixedExtentScrollController(initialItem: widget.index);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CrWheel old) {
+    super.didUpdateWidget(old);
+    // 바깥에서 값이 바뀐 경우(월을 바꿔 일이 잘렸다 등)만 따라간다. 사용자가 굴리는 중에는
+    //   index 와 화면이 이미 같으므로 아무 일도 하지 않는다 — 여기서 매번 맞추면 손가락과
+    //   싸우게 된다.
+    if (widget.index < widget.count) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _ctl.hasClients && _ctl.selectedItem != widget.index) {
+          _ctl.jumpToItem(widget.index);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = CrColors.of(context);
+    return SizedBox(
+      width: widget.width,
+      height: 104,
+      child: CupertinoPicker.builder(
+        scrollController: _ctl,
+        itemExtent: 30,
+        squeeze: 1.15,
+        useMagnifier: true,
+        magnification: 1.05,
+        backgroundColor: Colors.transparent,
+        selectionOverlay: Container(
+          decoration: BoxDecoration(
+            color: c.accent.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+        onSelectedItemChanged: widget.onChanged,
+        childCount: widget.count,
+        itemBuilder: (ctx, i) => Center(
+          child: Text(
+            widget.label(i),
+            style: TextStyle(fontSize: 15, color: c.textStrong),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 한 시각을 고르는 다섯 휠 — 월 · 일 · 오전/오후 · 시 · 분.
+///
+/// [dates] 는 고를 수 있는 날짜다(오늘·내일). 그보다 멀리 못 고르게 한 건 거래처 쪽이
+/// **승인 후 24시간**을 절대 상한으로 걸기 때문이다 — 그 밖의 시각을 보내면 사장님이
+/// 수락해도 창이 영영 안 열린다(chainremote_sched.rs is_open ②).
+class _CrWhen extends StatelessWidget {
+  final DateTime value;
+  final List<DateTime> dates;
+  final ValueChanged<DateTime> onChanged;
+
+  const _CrWhen({
+    required this.value,
+    required this.dates,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = CrColors.of(context);
+    final months = dates.map((d) => d.month).toSet().toList()..sort();
+    final days = dates.where((d) => d.month == value.month).map((d) => d.day).toList()
+      ..sort();
+    final isPm = value.hour >= 12;
+    final h12 = value.hour % 12 == 0 ? 12 : value.hour % 12;
+
+    // (월, 일) 로 연도를 되찾는다 — 12월 31일 ↔ 1월 1일에서 해가 바뀐다.
+    DateTime rebuild({int? month, int? day, int? hour, int? minute}) {
+      final mm = month ?? value.month;
+      final dd = day ?? value.day;
+      final match = dates.firstWhere(
+        (d) => d.month == mm && d.day == dd,
+        orElse: () => dates.firstWhere((d) => d.month == mm, orElse: () => dates.first),
+      );
+      return DateTime(match.year, match.month, match.day, hour ?? value.hour,
+          minute ?? value.minute);
+    }
+
+    Widget unit(String t) => Padding(
+          padding: const EdgeInsets.only(right: 2),
+          child: Text(t, style: TextStyle(fontSize: 12, color: c.textMuted)),
+        );
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _CrWheel(
+          count: months.length,
+          index: months.indexOf(value.month).clamp(0, months.length - 1),
+          label: (i) => '${months[i]}',
+          width: 44,
+          onChanged: (i) => onChanged(rebuild(month: months[i], day: null)),
+        ),
+        unit('월'),
+        _CrWheel(
+          count: days.length,
+          index: days.indexOf(value.day).clamp(0, days.length - 1),
+          label: (i) => '${days[i]}',
+          width: 44,
+          onChanged: (i) => onChanged(rebuild(day: days[i])),
+        ),
+        unit('일'),
+        const SizedBox(width: 6),
+        _CrWheel(
+          count: 2,
+          index: isPm ? 1 : 0,
+          label: (i) => i == 0 ? '오전' : '오후',
+          width: 54,
+          onChanged: (i) => onChanged(rebuild(hour: (h12 % 12) + (i == 1 ? 12 : 0))),
+        ),
+        const SizedBox(width: 6),
+        _CrWheel(
+          count: 12,
+          index: h12 - 1,
+          label: (i) => '${i + 1}',
+          width: 44,
+          onChanged: (i) =>
+              onChanged(rebuild(hour: ((i + 1) % 12) + (isPm ? 12 : 0))),
+        ),
+        unit('시'),
+        _CrWheel(
+          count: 60,
+          index: value.minute,
+          label: (i) => i.toString().padLeft(2, '0'),
+          width: 46,
+          onChanged: (i) => onChanged(rebuild(minute: i)),
+        ),
+        unit('분'),
+      ],
+    );
+  }
+}
+
 /// 기사가 시간대를 정하는 창. 보냈으면 true.
 ///
 /// [send] 는 실제 전송을 맡는다 — 목록에서 부르면 접속에 실어 보내고(Case B),
@@ -43,72 +224,32 @@ Future<bool> showCrSchedDialog({
   required void Function(DateTime start, DateTime end, String label) send,
 }) async {
   final now = DateTime.now();
-  // 기본값은 "오늘 밤 11시 ~ 내일 새벽 3시" — 가장 흔한 야간 작업 구간이다.
-  var start = DateTime(now.year, now.month, now.day, 23);
-  if (start.isBefore(now)) {
-    // 이미 11시가 지났으면 지금부터로 잡는다(분은 버려 깔끔하게).
-    start = DateTime(now.year, now.month, now.day, now.hour);
-  }
-  var end = start.add(const Duration(hours: 4));
+  // ★시작·종료 모두 **현재 시각**에서 출발한다. 아침에 통화하든 저녁에 통화하든 약속
+  //   시각은 그때그때 다르므로, 기본값이 특정 시간을 정해 주면 늘 고쳐야 한다. 대신 둘이
+  //   같으면 [보내기] 가 잠겨 있어, 종료를 안 고치고 보내는 실수는 막힌다(Chang 2026-08-18).
+  final base = DateTime(now.year, now.month, now.day, now.hour, now.minute);
+  var start = base;
+  var end = base;
   var sent = false;
+  // 오늘·내일. 거래처가 승인 후 24시간을 절대 상한으로 걸어 그보다 멀면 안 열린다.
+  final dates = [
+    DateTime(now.year, now.month, now.day),
+    DateTime(now.year, now.month, now.day).add(const Duration(days: 1)),
+  ];
 
   await gFFI.dialogManager.show<void>((setState, close, context) {
     final c = CrColors.of(context);
-
-    Future<void> pick(bool isStart) async {
-      final base = isStart ? start : end;
-      final d = await showDatePicker(
-        context: context,
-        initialDate: base,
-        firstDate: now.subtract(const Duration(days: 1)),
-        lastDate: now.add(const Duration(days: 3)),
-      );
-      if (d == null) return;
-      final t = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.fromDateTime(base),
-      );
-      if (t == null) return;
-      final picked = DateTime(d.year, d.month, d.day, t.hour, t.minute);
-      setState(() {
-        if (isStart) {
-          start = picked;
-          if (!end.isAfter(start)) end = start.add(const Duration(hours: 4));
-        } else {
-          end = picked;
-        }
-      });
-    }
-
     final dur = end.difference(start);
-    final tooLong = dur.inHours >= kSchedMaxHours;
     final invalid = !end.isAfter(start);
+    final tooLong = dur.inHours >= kSchedMaxHours;
+    // 지금부터 24시간 밖은 거래처가 아예 못 여는 구간이다 — 보내 봐야 조용히 죽는다.
+    final outOfReach = end.isAfter(now.add(const Duration(hours: kSchedMaxHours)));
 
-    Widget row(String label, DateTime v, bool isStart) => InkWell(
-          onTap: () => pick(isStart),
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              border: Border.all(color: c.border),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(children: [
-              SizedBox(
-                width: 44,
-                child: Text(label,
-                    style: TextStyle(fontSize: 12, color: c.textMuted)),
-              ),
-              Expanded(
-                child: Text(crSchedTimeLabel(v),
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: c.textStrong)),
-              ),
-              Icon(Icons.edit_calendar_outlined, size: 16, color: c.textMuted),
-            ]),
-          ),
+    Widget label(String t) => Align(
+          alignment: Alignment.centerLeft,
+          child: Text(t,
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: c.textMuted)),
         );
 
     return CustomAlertDialog(
@@ -118,7 +259,7 @@ Future<bool> showCrSchedDialog({
         Text(extend ? '예약원격 연장' : '예약원격'),
       ]),
       content: SizedBox(
-        width: 380,
+        width: 420,
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Align(
             alignment: Alignment.centerLeft,
@@ -128,22 +269,34 @@ Future<bool> showCrSchedDialog({
               style: TextStyle(fontSize: 12, color: c.textMuted, height: 1.4),
             ),
           ),
-          const SizedBox(height: 14),
-          row('시작', start, true),
+          const SizedBox(height: 12),
+          label('시작'),
+          _CrWhen(
+            value: start,
+            dates: dates,
+            onChanged: (v) => setState(() => start = v),
+          ),
+          const SizedBox(height: 6),
+          label('종료'),
+          _CrWhen(
+            value: end,
+            dates: dates,
+            onChanged: (v) => setState(() => end = v),
+          ),
           const SizedBox(height: 8),
-          row('종료', end, false),
-          const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
               invalid
-                  ? '종료가 시작보다 뒤여야 합니다.'
-                  : tooLong
-                      ? '최대 $kSchedMaxHours시간까지만 됩니다 (지금 ${dur.inHours}시간).'
-                      : '약 ${dur.inHours}시간 ${dur.inMinutes % 60}분',
+                  ? '종료를 시작보다 뒤로 맞춰 주세요.'
+                  : outOfReach
+                      ? '지금부터 24시간 안에서만 됩니다 — 그 밖은 거래처가 못 엽니다.'
+                      : tooLong
+                          ? '최대 $kSchedMaxHours시간까지만 됩니다 (지금 ${dur.inHours}시간).'
+                          : '약 ${dur.inHours}시간 ${dur.inMinutes % 60}분',
               style: TextStyle(
                 fontSize: 12,
-                color: (invalid || tooLong) ? c.dangerFg : c.textMuted,
+                color: (invalid || tooLong || outOfReach) ? c.dangerFg : c.textMuted,
               ),
             ),
           ),
@@ -153,7 +306,7 @@ Future<bool> showCrSchedDialog({
         dialogButton('취소', onPressed: close, isOutline: true),
         dialogButton(
           extend ? '연장 요청' : '보내기',
-          onPressed: (invalid || tooLong)
+          onPressed: (invalid || tooLong || outOfReach)
               ? null
               : () {
                   send(start, end, crSchedRangeLabel(start, end));
@@ -242,11 +395,34 @@ int crSchedOpenUntilOf(String peerId) {
   return until > crNowEpoch() ? until : 0;
 }
 
-/// 세션이 끝났으니 기억을 지운다 — 다음 접속 때 거래처가 다시 알려 준다.
+/// 세션이 끝났으니 **대기 중인 기다림만** 정리한다.
+///
+/// ★창 자체의 기억은 지우지 않는다. 창은 세션보다 오래 살고(재부팅도 넘긴다), 목록
+/// 우클릭이 [예약원격 취소] 를 내려면 붙어 있지 않을 때도 알아야 하기 때문이다. 종전엔
+/// 여기서 통째로 지웠는데, 그러면 방금 예약을 걸고 세션을 닫은 직후 메뉴가 도로
+/// [예약원격] 으로 돌아가 같은 예약을 두 번 걸게 된다.
 void crSchedForgetState(String peerId) {
-  _crSchedOpenUntil.remove(peerId);
   _crSchedCloseWaiters.remove(peerId);
 }
+
+/// 이 거래처에 예약 창이 열려 있나 — 두 출처를 합쳐 본다.
+///
+/// ★한쪽만 보면 각각 구멍이 난다. 로컬 기억은 거래처가 [수락] 한 순간 바로 알지만 HQ 를
+/// 껐다 켜거나 **다른 기사가 건 예약**은 모르고, 패널 값은 누가 걸었든 다 알지만 하트비트
+/// 주기 때문에 **최대 10분 늦다**. 어느 쪽이든 열려 있다고 하면 열린 것으로 본다.
+bool crSchedIsOpenFor(Peer peer) {
+  if (crSchedOpenUntilOf(peer.id) > 0) return true;
+  final iso = peer.schedOpenUntil;
+  if (iso.isEmpty) return false;
+  final t = DateTime.tryParse(iso);
+  // 이미 지난 창은 닫힌 것으로 본다 — 꺼져 있던 PC 는 마지막 보고가 그대로 남아 있어,
+  //   어제 닫힌 창이 오늘도 열린 것처럼 보인다. 그 PC 는 켜지는 순간 스스로 닫는다.
+  return t != null && t.isAfter(DateTime.now());
+}
+
+/// 취소 요청을 이미 큐에 넣었나(패널 기준).
+bool crSchedCloseRequested(Peer peer) =>
+    peer.schedCloseRequestedAt.isNotEmpty;
 
 /// 예약 창을 닫으라고 보내고 **거래처가 닫았다고 알려 올 때까지** 기다린다.
 ///
