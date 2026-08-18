@@ -219,6 +219,7 @@ pub fn login(email: &str, password: &str) -> ResultType<LoginOutcome> {
             serde_json::from_str(&resp_body).map_err(|e| anyhow!("응답 파싱 실패: {}", e))?;
         store(&tok)?;
         log::info!("ChainRemote 로그인 성공: {}", tok.user.email);
+        reset_peers_if_account_changed(&tok.user);
         return Ok(LoginOutcome::Success(tok.user));
     }
     if status == 409 {
@@ -261,6 +262,7 @@ pub fn takeover(email: &str, password: &str) -> ResultType<UserInfo> {
             serde_json::from_str(&resp_body).map_err(|e| anyhow!("응답 파싱 실패: {}", e))?;
         store(&tok)?;
         log::info!("ChainRemote 좌석 인계 성공: {}", tok.user.email);
+        reset_peers_if_account_changed(&tok.user);
         return Ok(tok.user);
     }
     if let Ok(err) = serde_json::from_str::<ErrorResponse>(&resp_body) {
@@ -371,4 +373,44 @@ pub fn change_password(current: &str, new: &str) -> ResultType<()> {
         _ => "비밀번호 변경 실패",
     };
     Err(anyhow!("{}", msg))
+}
+
+/// 로그인한 계정이 바뀌었으면 이 PC 에 쌓인 접속 기록을 비운다.
+///
+/// ★왜 필요한가(2026-08-18 Chang 발견): HQ 의 [최근 세션] 탭은 서버가 아니라 **이 PC 의
+///   로컬 기록**(`peers/*.toml`)을 읽는다. 그래서 다른 대리점 계정으로 로그인해도 **앞
+///   계정이 접속했던 거래처 목록이 그대로 보였다.** 서버 격리 자체는 정상이다 —
+///   즐겨찾기·전체 거래처는 그 대리점 것만 온다. 로컬 캐시만 계정을 안 가렸다.
+///
+///   대리점 시연에서 이 화면이 뜨면 "남의 거래처가 보인다"로 읽혀 그 자리에서 신뢰가
+///   끝난다. 대리점 사무실 공용 PC 를 직원이 번갈아 쓰는 경우에도 앞사람 기록이 남는다.
+///
+/// ★같은 계정이면 절대 지우지 않는다. 매번 비우면 매일 쓰는 최근 세션이 날아간다.
+///   "이 기록은 누구 것"을 로컬에 적어 두고 **바뀌었을 때만** 비운다. 기록에는 별칭·저장
+///   비번도 들어 있어, 주인이 바뀌면 지우는 것이 맞다.
+///
+/// ★첫 로그인(주인 표시가 비어 있음)은 지우지 않는다 — 이 기능이 생기기 전부터 쓰던
+///   사람의 기록을 한 번 날려 먹는 일이 없어야 한다.
+fn reset_peers_if_account_changed(user: &UserInfo) {
+    use hbb_common::config::{LocalConfig, PeerConfig};
+    const KEY: &str = "chainremote-peers-owner";
+    let owner = format!("{}|{}", user.tenant_id, user.email);
+    let prev = LocalConfig::get_option(KEY);
+    if prev == owner {
+        return;
+    }
+    if !prev.is_empty() {
+        let mut n = 0;
+        for (id, _, _) in PeerConfig::peers(None) {
+            PeerConfig::remove(&id);
+            n += 1;
+        }
+        log::info!(
+            "ChainRemote: 계정이 바뀌어 로컬 접속 기록 {}건을 비웠다 ({} -> {})",
+            n,
+            prev,
+            owner
+        );
+    }
+    LocalConfig::set_option(KEY.to_owned(), owner);
 }
