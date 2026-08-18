@@ -155,7 +155,33 @@ fn run_loop() {
         } else {
             HEARTBEAT_INTERVAL
         };
-        std::thread::sleep(nap);
+        nap_watching_sched(nap);
+    }
+}
+
+/// 잠을 잘게 쪼개 자면서, **자는 동안 예약이 새로 생기면 깨어난다**.
+///
+/// ★통잠을 자면 안 되는 이유: 다음 잠의 길이는 방금 끝난 틱 시점의 상태로 정해진다.
+/// 예약이 없을 때 10분을 자기로 하고 누웠는데 그 사이 사장님이 [수락]을 누르면, 그
+/// 10분이 다 갈 때까지 서버 명령이 안 닿는다 — 예약을 걸자마자 취소한 기사는 1분이
+/// 아니라 10분을 기다리게 된다(2026-08-19 Chang 실측: 06:58:59 틱 → 07:04 승인 →
+/// 07:04 취소 → 07:08:59 에야 반영). 예약이 살아 있는 동안 1분으로 좁힌 것만으로는
+/// 이 첫 구간이 안 막힌다.
+///
+/// 깨우는 조건은 "없다가 생겼을 때" 하나다. 이미 예약이 있는 상태면 어차피 1분이라
+/// 더 쪼갤 이유가 없다. 예약 확인은 로컬 파일 한 번이라 10초마다 봐도 부담이 없다.
+fn nap_watching_sched(total: Duration) {
+    const SLICE: Duration = Duration::from_secs(10);
+    let had_sched = crate::chainremote_sched::status().is_some();
+    let mut slept = Duration::ZERO;
+    while slept < total {
+        let this = if total - slept < SLICE { total - slept } else { SLICE };
+        std::thread::sleep(this);
+        slept += this;
+        if !had_sched && crate::chainremote_sched::status().is_some() {
+            log::info!("[chainremote_heartbeat] 예약이 생겼다 — 남은 잠을 깬다");
+            return;
+        }
     }
 }
 
