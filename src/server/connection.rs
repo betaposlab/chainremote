@@ -1802,6 +1802,21 @@ impl Connection {
         true
     }
 
+    /// 시간 제안을 받아 사장님 화면에 띄웠다고 본사에 알린다(답이 아니다).
+    ///
+    /// 옛 에이전트는 이 회신을 보내지 않는다 — 본사는 그 침묵을 보고 "이 거래처는 아직
+    /// 예약원격을 모른다"고 판단해 기사에게 알린다. 회신을 안 만들면 그 판단이 불가능하고,
+    /// 요청이 허공으로 사라져도 화면상 아무 일도 없는 것과 똑같아 보인다.
+    async fn send_cr_sched_ack(&mut self) {
+        let mut r = CrSchedResp::new();
+        r.kind = hbb_common::message_proto::cr_sched_resp::Kind::RECEIVED.into();
+        let mut misc = Misc::new();
+        misc.set_cr_sched_resp(r);
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
+        self.send(msg_out).await;
+    }
+
     /// 지금 열린 창의 종료 시각을 본사에 알린다.
     ///
     /// `always` 가 거짓이면 **닫혀 있을 때 아무것도 보내지 않는다** — 접속마다 "닫혀 있음"을
@@ -2677,6 +2692,7 @@ impl Connection {
                         label: p.label.clone(),
                         extend: p.extend,
                     });
+                    self.send_cr_sched_ack().await;
                 }
                 if hbb_common::get_version_number(&lr.version)
                     >= hbb_common::get_version_number("1.2.0")
@@ -3491,6 +3507,10 @@ impl Connection {
                                 label: p.label.clone(),
                                 extend: p.extend,
                             });
+                            // 받았다는 것만 즉시 알린다. 답은 사장님이 누른 뒤에 따로 간다.
+                            //   이게 없으면 본사는 구버전 에이전트(요청을 통째로 무시)와
+                            //   자리를 비운 사장님을 구분하지 못한다 — 둘 다 조용하다.
+                            self.send_cr_sched_ack().await;
                         }
                     }
                     Some(misc::Union::ChatMessage(c)) => {

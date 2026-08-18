@@ -1759,6 +1759,10 @@ pub trait InvokeUiSession: Send + Sync + Clone + 'static + Sized + Default {
     /// ChainRemote 예약원격: 거래처가 알려 온 현재 창 상태(종료 시각, 0=닫힘).
     ///   세션을 닫을 때 [예약 창도 닫기]를 물을지 정하는 데 쓴다.
     fn cr_sched_state(&self, open_until: i64);
+
+    /// ChainRemote 예약원격: 거래처가 제안을 받아 카드를 띄웠다(답은 아직).
+    ///   침묵이면 옛 에이전트라 기사에게 그렇다고 알린다.
+    fn cr_sched_ack(&self);
     fn update_transfer_list(&self);
     fn load_last_job(&self, cnt: i32, job_json: &str, auto_start: bool);
     fn update_folder_files(

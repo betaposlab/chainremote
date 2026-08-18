@@ -1778,7 +1778,11 @@ impl<T: InvokeUiSession> Remote<T> {
                     //   제안도 여기서 비운다 — 안 비우면 재접속마다 카드가 또 뜬다.
                     Some(misc::Union::CrSchedResp(r)) => {
                         use hbb_common::message_proto::cr_sched_resp::Kind;
-                        if r.kind.enum_value_or_default() == Kind::STATE {
+                        if r.kind.enum_value_or_default() == Kind::RECEIVED {
+                            // 답이 아니라 "받았다"는 회신 — 제안을 비우면 안 된다.
+                            //   사장님은 아직 안 눌렀고, 카드가 떠 있는 상태다.
+                            self.handler.cr_sched_ack();
+                        } else if r.kind.enum_value_or_default() == Kind::STATE {
                             // 답이 아니라 현재 상태 알림이다 — 제안을 비우면 안 된다.
                             //   아직 답을 안 한 제안이 살아 있을 수 있고, 이건 그것과 무관한
                             //   "지금 창이 이렇다"는 통보다.

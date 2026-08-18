@@ -390,6 +390,9 @@ class FfiModel with ChangeNotifier {
         // ChainRemote 예약원격: 거래처가 누른 답이 돌아왔다 — 기사에게 알린다.
         //   없으면 "눌렀는지"를 몰라 전화를 다시 걸지 판단할 수 없다.
         crSchedShowResult(evt['accepted']?.toString() == 'true');
+      } else if (name == 'cr_sched_ack') {
+        // ChainRemote 예약원격: 거래처가 제안을 받아 카드를 띄웠다(답은 아직).
+        crSchedNoteAck();
       } else if (name == 'cr_sched_state') {
         // ChainRemote 예약원격: 거래처가 알려 온 현재 창 상태(0=닫힘).
         //   기사가 세션을 닫을 때 "예약 창도 닫을까요"를 물을지 여기서 갈린다.

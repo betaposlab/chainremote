@@ -157,6 +157,8 @@ Future<bool> showCrSchedDialog({
               ? null
               : () {
                   send(start, end, crSchedRangeLabel(start, end));
+                  // 여기 한 곳이 Case A(툴바)·Case B(목록) 두 경로의 공통 출구다.
+                  crSchedNoteSent();
                   sent = true;
                   close();
                 },
@@ -171,11 +173,43 @@ Future<bool> showCrSchedDialog({
 /// 거래처가 누른 답을 기사에게 알린다. 세션 이벤트 `cr_sched_result` 로 들어온다.
 ///   ★없으면 기사가 "눌렀는지"를 몰라 전화를 다시 걸지 판단할 수 없다.
 void crSchedShowResult(bool accepted) {
+  // 답이 왔으면 "못 받았다" 안내를 띄울 이유가 없다. 회신보다 답이 먼저 도착할 일은
+  //   거의 없지만, 그 순서로 오면 안내 두 개가 겹쳐 기사를 헷갈리게 한다.
+  _crSchedAckTimer?.cancel();
+  _crSchedAckTimer = null;
   if (accepted) {
     showToast('거래처가 예약원격을 수락했습니다');
   } else {
     showToast('거래처가 예약원격을 거부했습니다');
   }
+}
+
+/// 제안을 보낸 뒤 "받았다"는 회신을 기다리는 시간.
+///
+/// 살아 있는 세션 위로 오가는 메시지라 정상이면 1초도 안 걸린다. 넉넉히 준 건 느린
+/// 릴레이와 32비트 포스의 굼뜬 첫 렌더를 덮으려는 것이다.
+const _crSchedAckWait = Duration(seconds: 6);
+
+Timer? _crSchedAckTimer;
+
+/// 제안을 보냈다 — "받았다"는 회신을 기다린다.
+///
+/// ★이 기다림이 없으면 **요청이 허공으로 사라져도 화면이 조용한 것과 똑같아 보인다.**
+/// 옛 에이전트(현재 거래처 전부)는 이 메시지를 모르고 통째로 무시하는데, 기사 입장에선
+/// 사장님이 자리를 비운 것과 구분이 안 된다. 전화를 더 기다릴지 다시 걸지 정할 수 없다.
+void crSchedNoteSent() {
+  _crSchedAckTimer?.cancel();
+  _crSchedAckTimer = Timer(_crSchedAckWait, () {
+    _crSchedAckTimer = null;
+    showToast('거래처가 요청을 받지 못했습니다 — 예약원격을 모르는 버전일 수 있습니다');
+  });
+}
+
+/// 거래처가 제안을 받아 카드를 띄웠다. 답은 아직이다.
+void crSchedNoteAck() {
+  _crSchedAckTimer?.cancel();
+  _crSchedAckTimer = null;
+  showToast('거래처 화면에 요청을 띄웠습니다 — 사장님 응답을 기다립니다');
 }
 
 /// 현재 시각(초). 거래처가 자기 시계와 맞춰 보정하는 데 쓴다.

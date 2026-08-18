@@ -1016,6 +1016,12 @@ impl InvokeUiSession for FlutterHandler {
         );
     }
 
+    fn cr_sched_ack(&self) {
+        // 실을 값이 없다 — "받았다"는 사실 자체가 전부다. 빈 슬라이스는 타입 추론이
+        //   안 되므로 명시한다.
+        self.push_event::<&str>("cr_sched_ack", &[], &[]);
+    }
+
     fn cr_sched_state(&self, open_until: i64) {
         self.push_event(
             "cr_sched_state",
