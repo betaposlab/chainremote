@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_hbb/common/widgets/chainremote_sched.dart';
 
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
@@ -1625,6 +1626,45 @@ abstract class BasePeerCard extends StatelessWidget {
     );
   }
 
+  /// 우클릭 "예약원격" — 전화로 약속한 시간대를 거래처에 보낸다.
+  ///
+  /// ★여기는 **아직 접속 안 한 거래처**용이다(Case B). 제안을 걸어 두고 접속을 시작하면,
+  ///   거래처가 평소 수락 카드 대신 시간 카드를 띄우고 [수락] 한 번으로 창이 열리며
+  ///   세션도 시작된다. 이미 원격 중이라면 그 창의 툴바에서 보낸다 — 원격 창은 별도
+  ///   프로세스라 목록 화면에서는 그 세션에 닿을 수 없기 때문이다.
+  @protected
+  MenuEntryBase<String> _schedRemoteAction(Peer peer) {
+    return MenuEntryButton<String>(
+      childBuilder: (TextStyle? style) => Row(
+        children: [
+          Text('예약원격', style: style),
+          Expanded(
+              child: Align(
+            alignment: Alignment.centerRight,
+            child: Transform.scale(
+              scale: 0.8,
+              child: const Icon(Icons.schedule_outlined),
+            ),
+          ).marginOnly(right: 4)),
+        ],
+      ),
+      proc: () {
+        // 다이얼로그는 gFFI.dialogManager 가 자기 context 를 만든다. 접속은 그 창이 닫힌
+        //   뒤에 시작하므로 여기 메뉴의 context 를 들고 있을 수 없다 — 전역 context 를 쓴다
+        //   (다른 메뉴 항목들도 같은 방식이다).
+        final name = peer.alias.isNotEmpty ? peer.alias : peer.id;
+        showCrSchedDialog(
+          peerName: name,
+          extend: false,
+          send: (start, end, label) =>
+              crSchedSendByConnect(peer.id, start, end, label),
+        );
+      },
+      padding: menuPadding,
+      dismissOnClicked: true,
+    );
+  }
+
   // 우클릭 "폴더로 이동" — 같은 매장 여러 POS 를 한 폴더로 묶는다. 폴더 조작은 HQ 에서 한다
   //   (대리점은 패널을 거의 안 봄). 다이얼로그에서 기존 폴더 선택 / 새 폴더 만들기 / 빼기.
   @protected
@@ -1946,6 +1986,7 @@ class RecentPeerCard extends BasePeerCard {
     if (isMobile || isDesktop || isWebDesktop) {
       menuItems.add(_renameAction(peer.id));
       menuItems.add(_moveToFolderAction(peer.id));
+      menuItems.add(_schedRemoteAction(peer));
     }
     if (await bind.mainPeerHasPassword(id: peer.id)) {
       menuItems.add(_unrememberPasswordAction(peer.id));
@@ -2012,6 +2053,7 @@ class FavoritePeerCard extends BasePeerCard {
     if (isMobile || isDesktop || isWebDesktop) {
       menuItems.add(_renameAction(peer.id));
       menuItems.add(_moveToFolderAction(peer.id));
+      menuItems.add(_schedRemoteAction(peer));
     }
     if (await bind.mainPeerHasPassword(id: peer.id)) {
       menuItems.add(_unrememberPasswordAction(peer.id));
@@ -2083,6 +2125,7 @@ class AllCustomersPeerCard extends BasePeerCard {
     if (isMobile || isDesktop || isWebDesktop) {
       menuItems.add(_renameAction(peer.id));
       menuItems.add(_moveToFolderAction(peer.id));
+      menuItems.add(_schedRemoteAction(peer));
     }
 
     // 전체 목록에서 내 담당 거래처를 즐겨찾기에 추가하거나 해제한다.
@@ -2241,6 +2284,8 @@ class AddressBookPeerCard extends BasePeerCard {
       if (isMobile || isDesktop || isWebDesktop) {
         menuItems.add(_renameAction(peer.id));
         menuItems.add(_moveToFolderAction(peer.id));
+        menuItems.add(_schedRemoteAction(peer));
+      menuItems.add(_schedRemoteAction(peer));
       }
       if (gFFI.abModel.current.isPersonal() && peer.hash.isNotEmpty) {
         menuItems.add(_unrememberPasswordAction(peer.id));

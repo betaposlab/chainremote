@@ -189,6 +189,10 @@ pub trait InvokeUiCM: Send + Clone + 'static + Sized {
     /// ChainRemote: 본사 쪽 채팅창 열림/닫힘 — CM 의 채팅 영역을 따라 연다/닫는다.
     fn cr_chat_panel(&self, id: i32, open: bool);
 
+    /// ChainRemote 예약원격: 본사가 제안한 시간 창을 카드로 띄운다.
+    ///   사장님이 [수락]을 눌러야만 창이 열린다 — 이 호출만으로는 아무것도 안 열린다.
+    fn cr_sched_req(&self, id: i32, start: i64, end: i64, hq_now: i64, label: String, extend: bool);
+
     fn change_theme(&self, dark: String);
 
     fn change_language(&self);
@@ -382,6 +386,35 @@ pub fn remove(id: i32) {
     CLIENTS.write().unwrap().remove(&id);
 }
 
+/// ChainRemote 예약원격 — 사장님이 카드에서 누른 답을 처리한다.
+///
+/// ★창을 실제로 여는 곳이 **여기 하나뿐**이다. 본사 메시지는 카드를 띄울 뿐이고,
+/// 이 함수는 사장님이 버튼을 누른 뒤에만 불린다. 그 경계가 이 기능과 영구 비밀번호를
+/// 가르는 선이라, 다른 곳에서 `chainremote_sched::grant` 를 부르면 안 된다.
+#[inline]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+pub fn cr_sched_answer(id: i32, accepted: bool, start: i64, end: i64, hq_now: i64, label: String) {
+    if accepted {
+        let msg = crate::chainremote_sched::grant(start, end, hq_now, &label);
+        log::info!("[chainremote_sched] {}", msg);
+    } else {
+        log::info!("[chainremote_sched] 거래처가 예약원격 제안을 거부했다");
+    }
+    // 기사에게 결과를 돌려준다 — 눌렀는지 모르면 전화를 다시 걸지 판단할 수 없다.
+    let clients = CLIENTS.read().unwrap();
+    if let Some(client) = clients.get(&id) {
+        allow_err!(client.tx.send(Data::CrSchedResp { accepted }));
+    }
+}
+
+/// 거래처가 트레이에서 [허용 취소]를 눌렀다.
+#[inline]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+pub fn cr_sched_cancel() {
+    crate::chainremote_sched::clear();
+    log::info!("[chainremote_sched] 거래처가 허용을 취소했다");
+}
+
 // server mode send chat to peer
 #[inline]
 #[cfg(not(any(target_os = "ios")))]
@@ -538,6 +571,9 @@ impl<T: InvokeUiCM> IpcTaskRunner<T> {
                                 }
                                 Data::CrChatPanel { open } => {
                                     self.cm.cr_chat_panel(self.conn_id, open);
+                                }
+                                Data::CrSchedReq { start, end, hq_now, label, extend } => {
+                                    self.cm.cr_sched_req(self.conn_id, start, end, hq_now, label, extend);
                                 }
                                 Data::FS(mut fs) => {
                                     if let ipc::FS::WriteBlock { id, file_num, data: _, compressed } = fs {
@@ -871,6 +907,9 @@ pub async fn start_listen<T: InvokeUiCM>(
             }
             Some(Data::CrChatPanel { open }) => {
                 cm.cr_chat_panel(current_id, open);
+            }
+            Some(Data::CrSchedReq { start, end, hq_now, label, extend }) => {
+                cm.cr_sched_req(current_id, start, end, hq_now, label, extend);
             }
             Some(Data::FS(fs)) => {
                 // Android doesn't need CM-side file reading (no need_validate_file_read_access)

@@ -1813,6 +1813,7 @@ struct ConnToken {
 pub struct LoginConfigHandler {
     id: String,
     pub conn_type: ConnType,
+
     pub is_terminal_admin: bool,
     hash: Hash,
     password: Vec<u8>, // remember password for reconnect
@@ -1851,7 +1852,36 @@ impl Deref for LoginConfigHandler {
     }
 }
 
+/// ChainRemote 예약원격 — 아직 접속하지 않은 거래처에 걸어 두는 시간 제안.
+///
+/// 기사가 우클릭 [예약원격]을 누르는 시점엔 그 거래처의 세션이 없다. peer id 로 여기 걸어
+/// 뒀다가, 접속이 만들어질 때 로그인 요청에 실린다. 답을 받으면 지운다.
+static PENDING_SCHED: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<String, CrSchedReq>>,
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+
+pub fn set_pending_sched(id: &str, p: CrSchedReq) {
+    if let Ok(mut m) = PENDING_SCHED.lock() {
+        m.insert(id.to_owned(), p);
+    }
+}
+
+pub fn get_pending_sched(id: &str) -> Option<CrSchedReq> {
+    PENDING_SCHED.lock().ok().and_then(|m| m.get(id).cloned())
+}
+
+pub fn clear_pending_sched(id: &str) {
+    if let Ok(mut m) = PENDING_SCHED.lock() {
+        m.remove(id);
+    }
+}
+
 impl LoginConfigHandler {
+    /// 제안을 비운다. 거래처 답을 받으면 부른다 — 안 비우면 재접속마다 카드가 또 뜬다.
+    pub fn clear_cr_sched_req(&mut self) {
+        clear_pending_sched(&self.id);
+    }
+
     /// Initialize the login config handler.
     ///
     /// # Arguments
@@ -2800,6 +2830,15 @@ impl LoginConfigHandler {
             avatar,
             ..Default::default()
         };
+        // ChainRemote 예약원격: 이 거래처에 걸어 둔 제안이 있으면 접속에 실어 보낸다.
+        //   ★보관소가 세션 밖에 있는 이유: 원격 중이 아닌 거래처엔 세션이 없다. 기사가
+        //     우클릭 [예약원격]을 누르는 시점엔 LoginConfigHandler 가 아직 없으므로,
+        //     peer id 로 걸어 뒀다가 접속이 만들어질 때 꺼내 쓴다.
+        //   비우는 건 거래처 답을 받은 쪽의 몫이다(clear_cr_sched_req) — 안 비우면
+        //     재접속마다 카드가 또 떠서 사장님이 시달린다.
+        if let Some(p) = get_pending_sched(&self.id) {
+            lr.cr_sched_req = Some(p).into();
+        }
         match self.conn_type {
             ConnType::FILE_TRANSFER => lr.set_file_transfer(FileTransfer {
                 dir: self.get_remote_dir(),

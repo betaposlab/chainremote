@@ -97,6 +97,11 @@ mod chainremote_firewall;
 #[cfg(target_os = "windows")]
 mod chainremote_van;
 
+// 예약원격 — 거래처가 승인한 "이 시간엔 수락 없이 들어와도 된다" 창.
+//   본사가 시간대를 제안하고 사장님이 한 번 누르면 그 구간은 수락 카드가 안 뜬다.
+//   ★영구 비밀번호와의 차이는 "거래처가 손으로 눌렀다" 하나뿐이다(모듈 주석 참조).
+mod chainremote_sched;
+
 // Agent 푸시 폴링 (Agent 빌드만). 관리 패널의 수동 푸시 트리거를 받는다.
 // 2026-05-29 신설 — 영업시간 사고를 낸 옛 latest.json 자동 채널을 대체.
 #[cfg(target_os = "windows")]

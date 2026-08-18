@@ -60,6 +60,24 @@ impl InvokeUiCM for SciterHandler {
         self.call("crChatPanel", &make_args!(id, open));
     }
 
+    /// ChainRemote 예약원격 — 32비트(Sciter) 판은 **아직 카드가 없다.**
+    ///
+    /// 본사 HQ 는 패널 DB 의 `os_bits` 를 보고 32비트 거래처에는 [예약원격] 버튼을 감추므로
+    /// 정상 경로에선 여기로 오지 않는다. 그래도 조용히 무시만 하고 끝낸다 — 버전·아키텍처
+    /// 정보가 낡아 요청이 흘러들어와도 **세션은 멀쩡해야** 하기 때문이다. 카드가 안 뜨면
+    /// 사장님은 아무 답도 못 하고, 본사는 "무응답"으로 보게 되어 전화로 처리하면 된다.
+    /// (x86 카드는 나중에 붙인다 — 그때 이 자리를 crSchedReq 호출로 바꾼다.)
+    fn cr_sched_req(
+        &self,
+        _id: i32,
+        _start: i64,
+        _end: i64,
+        _hq_now: i64,
+        _label: String,
+        _extend: bool,
+    ) {
+    }
+
     fn change_theme(&self, dark: String) {
         self.call("changeTheme", &make_args!(dark));
     }

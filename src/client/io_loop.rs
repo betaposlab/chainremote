@@ -1773,6 +1773,17 @@ impl<T: InvokeUiSession> Remote<T> {
                     Some(misc::Union::ChatMessage(c)) => {
                         self.handler.new_message(c.text);
                     }
+                    // ChainRemote 예약원격: 거래처가 누른 답이 돌아왔다.
+                    //   기사가 "눌렀는지"를 모르면 전화를 다시 걸지 판단할 수 없다.
+                    //   제안도 여기서 비운다 — 안 비우면 재접속마다 카드가 또 뜬다.
+                    Some(misc::Union::CrSchedResp(r)) => {
+                        self.handler
+                            .lc
+                            .write()
+                            .unwrap()
+                            .clear_cr_sched_req();
+                        self.handler.cr_sched_result(r.accepted);
+                    }
                     Some(misc::Union::PermissionInfo(p)) => {
                         log::info!("Change permission {:?} -> {}", p.permission, p.enabled);
                         // https://github.com/rustdesk/rustdesk/issues/3703#issuecomment-1474734754
@@ -1853,7 +1864,16 @@ impl<T: InvokeUiSession> Remote<T> {
                     }
                     Some(misc::Union::CloseReason(c)) => {
                         self.sent_close_reason = true; // The controlled end will close, no need to send close reason
-                        self.handler.msgbox("error", "Connection Error", &c, "");
+                        // ChainRemote: 거래처가 **스스로 끊은 것**을 오류로 띄우지 않는다(2026-08-17).
+                        //   사장님이 배너의 [원격 종료]를 누르거나 창을 닫은 건 정상적인 일인데,
+                        //   빨간 X 에 "연결 오류"가 뜨면 기사는 사고가 난 줄 안다. 실제로 Chang 이
+                        //   자기 PC 에서 끊고 나서 그 창을 보고 무슨 일인지 물었다.
+                        //   진짜 오류(네트워크·프로토콜)는 다른 사유 문자열로 오므로 그대로 둔다.
+                        if c == "Closed manually by the peer" {
+                            self.handler.msgbox("info-nocancel", "원격 종료", &c, "");
+                        } else {
+                            self.handler.msgbox("error", "Connection Error", &c, "");
+                        }
                         return false;
                     }
                     Some(misc::Union::BackNotification(notification)) => {

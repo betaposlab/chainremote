@@ -324,6 +324,10 @@ pub struct Connection {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     terminal_user_token: Option<TerminalUserToken>,
     terminal_generic_service: Option<Box<GenericService>>,
+    /// ChainRemote 예약원격: 이 세션이 "승인된 시간 창"으로 통과했는가.
+    ///   창의 무활동 시계를 끊을 때(세션 종료) 이 세션이 창 소속이었는지 알아야 한다.
+    ///   창과 무관한 평범한 세션이 끝났다고 무활동 시계를 건드리면 안 된다.
+    sched_window_session: bool,
 }
 
 impl ConnInner {
@@ -503,6 +507,7 @@ impl Connection {
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             terminal_user_token: None,
             terminal_generic_service: None,
+            sched_window_session: false,
         };
         let addr = hbb_common::try_into_v4(addr);
         if !conn.on_open(addr).await {
@@ -615,6 +620,17 @@ impl Connection {
                             msg_out.set_misc(misc);
                             conn.send(msg_out).await;
                             conn.chat_unanswered = false;
+                        }
+                        // ChainRemote 예약원격: 사장님이 누른 답을 본사로 돌려준다.
+                        //   기사가 "눌렀는지"를 모르면 전화를 다시 걸지 판단할 수 없다.
+                        ipc::Data::CrSchedResp{accepted} => {
+                            let mut misc = Misc::new();
+                            let mut r = CrSchedResp::new();
+                            r.accepted = accepted;
+                            misc.set_cr_sched_resp(r);
+                            let mut msg_out = Message::new();
+                            msg_out.set_misc(misc);
+                            conn.send(msg_out).await;
                         }
                         ipc::Data::SwitchPermission{name, enabled} => {
                             log::info!("Change permission {} -> {}", name, enabled);
@@ -2590,11 +2606,47 @@ impl Connection {
                 } else {
                     self.send_login_error(err_msg).await;
                 }
+            } else if crate::chainremote_sched::is_open() {
+                // ChainRemote 예약원격: 거래처가 승인한 시간 창이 열려 있다 → 수락 카드 없이 통과.
+                //
+                // ★여기가 클릭 수락 정책이 무너질 수 있는 유일한 자리다. 통과 조건을 넓히면
+                //   영구 비밀번호가 된다. `is_open()` 은 ①약속 구간 안 ②승인 후 24시간 이내
+                //   ③작업 뒤 30분 무활동 아님 — 셋을 **모두** 만족할 때만 참이고, 그 창은
+                //   거래처가 손으로 눌러야만 생긴다. 본사가 혼자 여는 길은 만들지 않았다.
+                //
+                // 위치도 중요하다. 재시작 grace 바로 다음, Click 분기 **앞**이다. 뒤에 두면
+                //   Click 분기가 먼저 먹어 카드가 떠 버려 창이 아무 의미가 없다.
+                crate::chainremote_sched::note_session_start();
+                self.sched_window_session = true;
+                if err_msg.is_empty() {
+                    #[cfg(target_os = "linux")]
+                    self.linux_headless_handle.wait_desktop_cm_ready().await;
+                    if !self.send_logon_response_and_keep_alive().await {
+                        return false;
+                    }
+                    self.try_start_cm(lr.my_id.clone(), lr.my_name.clone(), self.authorized);
+                } else {
+                    self.send_login_error(err_msg).await;
+                }
             } else if (password::approve_mode() == ApproveMode::Click
                 && !allow_logon_screen_password)
                 || password::approve_mode() == ApproveMode::Both && !password::has_valid_password()
             {
+                // ChainRemote 예약원격(Case B): 접속 요청에 시간 제안이 실려 왔으면, 평소
+                //   수락 카드 대신 **시간 카드**를 띄운다. 사장님이 [수락] 한 번으로 창을 열고
+                //   세션도 시작되게 하려는 것 — 두 번 누르게 하면 이 기능의 의미가 없다.
+                //   ★카드를 띄우는 것뿐이다. 창은 여전히 사장님이 눌러야만 열린다.
+                let sched = lr.cr_sched_req.clone().into_option();
                 self.try_start_cm(lr.my_id, lr.my_name, false);
+                if let Some(p) = sched {
+                    self.send_to_cm(ipc::Data::CrSchedReq {
+                        start: p.start,
+                        end: p.end,
+                        hq_now: p.hq_now,
+                        label: p.label.clone(),
+                        extend: p.extend,
+                    });
+                }
                 if hbb_common::get_version_number(&lr.version)
                     >= hbb_common::get_version_number("1.2.0")
                 {
@@ -3388,6 +3440,18 @@ impl Connection {
                     //   화면만 접었다 폈다 하는 신호라 권한 검사가 필요 없다.
                     Some(misc::Union::CrChatPanel(p)) => {
                         self.send_to_cm(ipc::Data::CrChatPanel { open: p.open });
+                    }
+                    // ChainRemote 예약원격: 본사의 시간 제안을 CM 카드로 넘긴다.
+                    //   ★여기서 창을 열지 않는다. 사장님이 [수락]을 눌러야만 열린다 —
+                    //   본사 메시지만으로 열리면 그건 영구 비밀번호와 같아진다.
+                    Some(misc::Union::CrSchedReq(p)) => {
+                        self.send_to_cm(ipc::Data::CrSchedReq {
+                            start: p.start,
+                            end: p.end,
+                            hq_now: p.hq_now,
+                            label: p.label.clone(),
+                            extend: p.extend,
+                        });
                     }
                     Some(misc::Union::ChatMessage(c)) => {
                         self.send_to_cm(ipc::Data::ChatMessage { text: c.text });
@@ -4543,6 +4607,11 @@ impl Connection {
             return;
         }
         self.closed = true;
+        // ChainRemote 예약원격: 창 소속 세션이 끝났다 → 여기서부터 무활동 시계가 돈다.
+        //   작업이 일찍 끝나 기사가 [작업 종료]를 잊고 가도 30분 뒤엔 창이 저절로 닫힌다.
+        if self.sched_window_session {
+            crate::chainremote_sched::note_session_end();
+        }
         // If voice A,B -> C, and A,B has voice call
         // B disconnects, C will reset the voice call input.
         //

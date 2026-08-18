@@ -1128,12 +1128,10 @@ class _DisplayMenuState extends State<_DisplayMenu> {
             ffi: widget.ffi,
             screenAdjustor: _screenAdjustor,
           ),
-        if (showVirtualDisplayMenu(ffi) && ffi.connType == ConnType.defaultConn)
-          _SubmenuButton(
-            ffi: widget.ffi,
-            menuChildren: getVirtualDisplayMenuChildren(ffi, id, null),
-            child: Text(translate("Virtual display")),
-          ),
+        // '가상 모니터 추가'는 뺐다(2026-08-17). 거래처 PC 에 가짜 모니터를 만드는 기능인데,
+        //   ①포스·키오스크는 항상 모니터가 달려 있어 쓸 일이 없고 ②하드웨어 인코더와 충돌하는
+        //   버그가 알려져 있으며(화질 saga) ③거래처 PC 에 드라이버 수준 변경을 가한다.
+        //   실수로 눌러 화면 구성이 틀어지면 현장 방문이다.
         if (ffi.connType == ConnType.defaultConn) cursorToggles(),
         Divider(),
         toggles(),

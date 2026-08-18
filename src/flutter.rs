@@ -1008,6 +1008,14 @@ impl InvokeUiSession for FlutterHandler {
         self.push_event("chat_client_mode", &[("text", &msg)], &[]);
     }
 
+    fn cr_sched_result(&self, accepted: bool) {
+        self.push_event(
+            "cr_sched_result",
+            &[("accepted", &accepted.to_string())],
+            &[],
+        );
+    }
+
     fn switch_display(&self, display: &SwitchDisplay) {
         let resolutions = serialize_resolutions(&display.resolutions.resolutions);
         self.push_event(
@@ -1529,6 +1537,28 @@ pub mod connection_manager {
             self.push_event(
                 "cr_chat_panel",
                 &[("id", &id.to_string()), ("open", &open.to_string())],
+            );
+        }
+
+        fn cr_sched_req(
+            &self,
+            id: i32,
+            start: i64,
+            end: i64,
+            hq_now: i64,
+            label: String,
+            extend: bool,
+        ) {
+            self.push_event(
+                "cr_sched_req",
+                &[
+                    ("id", &id.to_string()),
+                    ("start", &start.to_string()),
+                    ("end", &end.to_string()),
+                    ("hq_now", &hq_now.to_string()),
+                    ("label", &label),
+                    ("extend", &extend.to_string()),
+                ],
             );
         }
 

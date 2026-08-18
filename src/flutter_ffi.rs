@@ -2208,6 +2208,84 @@ pub fn cm_remove_disconnected_connection(conn_id: i32) {
     crate::ui_cm_interface::remove(conn_id);
 }
 
+/// ChainRemote 예약원격(Case B) — 아직 접속 안 한 거래처에 제안을 걸어 둔다.
+///
+/// 걸어 두기만 하고 접속은 호출부가 따로 시작한다. 그 접속의 로그인 요청에 실려 가서
+/// 거래처가 평소 수락 카드 대신 시간 카드를 띄운다.
+pub fn main_set_sched_req(
+    id: String,
+    start: i64,
+    end: i64,
+    hq_now: i64,
+    label: String,
+    extend: bool,
+) {
+    let mut p = hbb_common::message_proto::CrSchedReq::new();
+    p.start = start;
+    p.end = end;
+    p.hq_now = hq_now;
+    p.label = label;
+    p.extend = extend;
+    crate::client::set_pending_sched(&id, p);
+}
+
+/// 걸어 둔 제안을 취소한다(기사가 다이얼로그를 닫았거나 마음을 바꿨을 때).
+pub fn main_clear_sched_req(id: String) {
+    crate::client::clear_pending_sched(&id);
+}
+
+/// ChainRemote 예약원격(Case A) — 이미 원격 중인 거래처에 세션으로 제안을 보낸다.
+pub fn session_cr_sched_req(
+    session_id: SessionID,
+    start: i64,
+    end: i64,
+    hq_now: i64,
+    label: String,
+    extend: bool,
+) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.cr_sched_req(start, end, hq_now, label, extend);
+    }
+}
+
+/// ChainRemote 예약원격 — 사장님이 카드에서 누른 답.
+///
+/// ★창이 실제로 열리는 유일한 입구다. 본사 메시지는 카드를 띄울 뿐이고, 이 호출은
+/// 사장님이 버튼을 누른 뒤에만 일어난다. 그 경계가 이 기능과 영구 비밀번호를 가르는
+/// 선이라, 다른 곳에서 창을 여는 길을 만들면 안 된다.
+pub fn cm_sched_answer(
+    conn_id: i32,
+    accepted: bool,
+    start: i64,
+    end: i64,
+    hq_now: i64,
+    label: String,
+) {
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    crate::ui_cm_interface::cr_sched_answer(conn_id, accepted, start, end, hq_now, label);
+    #[cfg(any(target_os = "ios", target_os = "android"))]
+    let _ = (conn_id, accepted, start, end, hq_now, label);
+}
+
+/// 거래처가 트레이에서 [허용 취소]를 눌렀다 — 남은 시간을 즉시 없앤다.
+pub fn cm_sched_cancel() {
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    crate::ui_cm_interface::cr_sched_cancel();
+}
+
+/// 지금 열려 있는 창의 사람 말 표기. 없으면 빈 문자열.
+///   트레이 카드가 "언제까지 허용 중"인지 보여주는 데 쓴다.
+pub fn cm_sched_label() -> String {
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    {
+        return crate::chainremote_sched::status()
+            .map(|w| w.label)
+            .unwrap_or_default();
+    }
+    #[cfg(any(target_os = "ios", target_os = "android"))]
+    String::new()
+}
+
 /// CM 창이 "원격지원 중" 배너로 바뀔 때 켜고, 수락 카드로 돌아올 때 끈다(Windows 전용).
 ///
 /// 배너에 WS_EX_NOACTIVATE 를 걸어 **활성화 자체를 막는다.** POS 의 "바탕화면 보기"가

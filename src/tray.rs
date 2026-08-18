@@ -71,15 +71,26 @@ fn make_tray() -> hbb_common::ResultType<()> {
         tray_menu.append_items(&[&open_i]).ok();
     }
     let tooltip = |count: usize| {
+        // ChainRemote 예약원격: 창이 열려 있으면 툴팁 맨 위에 그 사실을 적는다.
+        //   사장님이 "지금 허용된 상태인가"를 마우스만 올려도 알 수 있어야 한다 —
+        //   허용해 놓은 걸 모르는 채 두면 그건 영구 비밀번호와 다를 게 없다.
+        #[cfg(windows)]
+        let sched = crate::chainremote_sched::status()
+            .map(|w| format!("원격 허용 중 — {}\n", w.label))
+            .unwrap_or_default();
+        #[cfg(not(windows))]
+        let sched = String::new();
         if count == 0 {
             format!(
-                "{} {}",
+                "{}{} {}",
+                sched,
                 crate::get_app_name(),
                 translate("Service is running".to_owned()),
             )
         } else {
             format!(
-                "{} - {}\n{}",
+                "{}{} - {}\n{}",
+                sched,
                 crate::get_app_name(),
                 translate("Ready".to_owned()),
                 translate("{".to_string() + &format!("{count}") + "} sessions"),
@@ -205,6 +216,18 @@ fn make_tray() -> hbb_common::ResultType<()> {
                         && button_state == tray_icon::MouseButtonState::Up
                     {
                         if last_click.elapsed() < std::time::Duration::from_secs(1) {
+                            return;
+                        }
+                        // ChainRemote 예약원격: 허용 중이면 취소할지 먼저 묻는다.
+                        //
+                        // ★거래처가 스스로 되돌릴 수 있어야 이 기능이 영구 비밀번호와 갈린다.
+                        //   그런데 거래처(i686) 트레이엔 컨텍스트 메뉴를 못 단다 — Win7 에서
+                        //   muda/tray-icon 의 TrackPopupMenu 가 c0000409 로 죽는다. 그래서
+                        //   메뉴가 아니라 **시스템 대화상자**로 묻는다. CM 창 기하(카드↔배너↔
+                        //   채팅)를 건드리지 않고, x86·x64 가 똑같이 동작한다.
+                        if crate::chainremote_sched::status().is_some() {
+                            crate::chainremote_sched::ask_cancel_in_thread();
+                            last_click = std::time::Instant::now();
                             return;
                         }
                         open_func();
