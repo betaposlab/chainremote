@@ -8,6 +8,8 @@
 //   문구를 본사가 만들어 보내는 이유: 포스 시계가 틀려도 **화면 글자는 약속한 그 시각**
 //   이어야 하기 때문이다. 거래처에서 다시 계산하면 시계가 어긋난 기기에서 엉뚱한 시간이 뜬다.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -178,6 +180,58 @@ void crSchedShowResult(bool accepted) {
 
 /// 현재 시각(초). 거래처가 자기 시계와 맞춰 보정하는 데 쓴다.
 int crNowEpoch() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+/// 거래처별 "지금 열려 있는 예약 창의 종료 시각"(epoch 초, 0=닫힘).
+///
+/// ★본사가 기억해 둔 값이 아니라 **거래처가 알려 준 것**을 그대로 담는다. 창의 진실은
+/// 거래처에만 있다 — 재부팅을 넘고, 다른 기사가 열었을 수도 있고, 24시간 상한에 걸려
+/// 본사가 제안한 것보다 짧게 열렸을 수도 있다. 본사가 자기 기억을 믿으면 그 셋을 다 놓친다.
+final Map<String, int> _crSchedOpenUntil = {};
+
+/// 창을 닫으라고 보낸 뒤 거래처의 확인을 기다리는 사람들.
+final Map<String, Completer<bool>> _crSchedCloseWaiters = {};
+
+/// 거래처가 알려 온 창 상태를 기록한다. 세션 이벤트 `cr_sched_state` 로 들어온다.
+void crSchedNoteState(String peerId, int openUntil) {
+  _crSchedOpenUntil[peerId] = openUntil;
+  if (openUntil == 0) {
+    // 닫기를 시켜 놓고 기다리던 쪽이 있으면 깨운다.
+    _crSchedCloseWaiters.remove(peerId)?.complete(true);
+  }
+}
+
+/// 이 거래처의 창이 지금 열려 있나 — 열려 있으면 종료 시각, 아니면 0.
+int crSchedOpenUntilOf(String peerId) {
+  final until = _crSchedOpenUntil[peerId] ?? 0;
+  // 거래처 시계 기준이지만, 본사 시계로 봐도 이미 한참 지났으면 닫힌 것으로 본다.
+  //   물어봐야 소용없는 창을 두고 기사에게 질문을 띄우지 않으려는 것이다.
+  return until > crNowEpoch() ? until : 0;
+}
+
+/// 세션이 끝났으니 기억을 지운다 — 다음 접속 때 거래처가 다시 알려 준다.
+void crSchedForgetState(String peerId) {
+  _crSchedOpenUntil.remove(peerId);
+  _crSchedCloseWaiters.remove(peerId);
+}
+
+/// 예약 창을 닫으라고 보내고 **거래처가 닫았다고 알려 올 때까지** 기다린다.
+///
+/// ★기다리는 이유: 보내자마자 세션을 끊으면 메시지가 나가기도 전에 연결이 죽는다.
+/// 확인을 못 받으면 거짓을 돌려준다 — 닫혔는지 모르는 채로 넘어가면 실패가 성공과
+/// 똑같은 모양이 되고, 기사는 닫은 줄 알지만 창은 그대로 열려 있게 된다.
+Future<bool> crSchedCloseAndWait(String peerId, SessionID sessionId,
+    {Duration timeout = const Duration(seconds: 3)}) async {
+  final waiter = Completer<bool>();
+  _crSchedCloseWaiters[peerId] = waiter;
+  bind.sessionCrSchedClose(sessionId: sessionId);
+  try {
+    return await waiter.future.timeout(timeout);
+  } catch (_) {
+    return false;
+  } finally {
+    _crSchedCloseWaiters.remove(peerId);
+  }
+}
 
 /// Case B — 아직 접속 안 한 거래처. 제안을 걸어 두고 접속을 시작한다.
 ///   접속의 로그인 요청에 실려 가서, 거래처가 평소 수락 카드 대신 시간 카드를 띄운다.

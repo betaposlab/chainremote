@@ -401,9 +401,15 @@ pub fn cr_sched_answer(id: i32, accepted: bool, start: i64, end: i64, hq_now: i6
         log::info!("[chainremote_sched] 거래처가 예약원격 제안을 거부했다");
     }
     // 기사에게 결과를 돌려준다 — 눌렀는지 모르면 전화를 다시 걸지 판단할 수 없다.
+    //   창 상태도 같이 싣는다. grant 직후에 읽어야 본사가 받은 값과 실제 창이 어긋나지
+    //   않는다(24시간 상한에 걸려 깎였을 수 있다 — 본사가 보낸 end 를 그대로 믿으면 안 된다).
+    let open_until = crate::chainremote_sched::status().map(|w| w.end).unwrap_or(0);
     let clients = CLIENTS.read().unwrap();
     if let Some(client) = clients.get(&id) {
-        allow_err!(client.tx.send(Data::CrSchedResp { accepted }));
+        allow_err!(client.tx.send(Data::CrSchedResp {
+            accepted,
+            open_until
+        }));
     }
 }
 

@@ -1016,6 +1016,14 @@ impl InvokeUiSession for FlutterHandler {
         );
     }
 
+    fn cr_sched_state(&self, open_until: i64) {
+        self.push_event(
+            "cr_sched_state",
+            &[("open_until", &open_until.to_string())],
+            &[],
+        );
+    }
+
     fn switch_display(&self, display: &SwitchDisplay) {
         let resolutions = serialize_resolutions(&display.resolutions.resolutions);
         self.push_event(

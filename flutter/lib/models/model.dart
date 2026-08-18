@@ -390,6 +390,11 @@ class FfiModel with ChangeNotifier {
         // ChainRemote 예약원격: 거래처가 누른 답이 돌아왔다 — 기사에게 알린다.
         //   없으면 "눌렀는지"를 몰라 전화를 다시 걸지 판단할 수 없다.
         crSchedShowResult(evt['accepted']?.toString() == 'true');
+      } else if (name == 'cr_sched_state') {
+        // ChainRemote 예약원격: 거래처가 알려 온 현재 창 상태(0=닫힘).
+        //   기사가 세션을 닫을 때 "예약 창도 닫을까요"를 물을지 여기서 갈린다.
+        crSchedNoteState(
+            peerId, int.tryParse(evt['open_until']?.toString() ?? '') ?? 0);
       } else if (name == 'cr_sched_req') {
         // ChainRemote 예약원격: 본사가 시간대를 제안했다 → 거래처 CM 이 카드를 띄운다.
         //   ★여기서 창이 열리는 게 아니다. 사장님이 [수락] 을 눌러야만 Rust 쪽에서 열린다.

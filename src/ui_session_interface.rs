@@ -464,6 +464,19 @@ impl<T: InvokeUiSession> Session<T> {
         self.send(Data::Message(msg_out));
     }
 
+    /// ChainRemote 예약원격 — 열려 있는 창을 지금 닫는다.
+    ///   기사가 세션을 끝내며 [예약 창도 닫기]를 골랐을 때. 창을 **여는** 길과 달리
+    ///   거래처에 아무것도 뜨지 않는다(권한이 줄기만 하므로 물을 것이 없다).
+    pub fn cr_sched_close(&self) {
+        let mut p = CrSchedReq::new();
+        p.close = true;
+        let mut misc = Misc::new();
+        misc.set_cr_sched_req(p);
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
+        self.send(Data::Message(msg_out));
+    }
+
     pub fn cr_annotate(&self, op: i32, points: Vec<(f32, f32)>, argb: u32, width: f32, end_stroke: bool) {
         let mut a = CrAnnotate::new();
         a.op = match op {
@@ -1742,6 +1755,10 @@ pub trait InvokeUiSession: Send + Sync + Clone + 'static + Sized + Default {
 
     /// ChainRemote 예약원격: 거래처가 [수락]/[거부] 중 무엇을 눌렀는지 기사 화면에 알린다.
     fn cr_sched_result(&self, accepted: bool);
+
+    /// ChainRemote 예약원격: 거래처가 알려 온 현재 창 상태(종료 시각, 0=닫힘).
+    ///   세션을 닫을 때 [예약 창도 닫기]를 물을지 정하는 데 쓴다.
+    fn cr_sched_state(&self, open_until: i64);
     fn update_transfer_list(&self);
     fn load_last_job(&self, cnt: i32, job_json: &str, auto_start: bool);
     fn update_folder_files(

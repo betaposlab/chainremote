@@ -12,6 +12,7 @@ import '../../consts.dart';
 import '../../common/widgets/overlay.dart';
 import '../../common/widgets/remote_input.dart';
 import '../../common/widgets/chainremote_session_record.dart';
+import '../../common/widgets/chainremote_sched.dart';
 import '../widgets/chainremote_annotate.dart';
 import '../../common.dart';
 import '../../common/widgets/dialog.dart';
@@ -324,6 +325,9 @@ class _RemotePageState extends State<RemotePage>
     //   세션 유지라 제외. 논블로킹 fire-and-forget — dispose 진행 안 막고 실패해도 무해.
     if (closeSession) {
       crSessionEndAuto(widget.id);
+      // ChainRemote 예약원격: 창 상태 기억을 지운다. 다음에 붙으면 거래처가 다시 알려 주므로
+      //   들고 있어 봐야 낡기만 한다 — 그 사이 만료되거나 사장님이 트레이에서 취소했을 수 있다.
+      crSchedForgetState(widget.id);
       // 그리다 만 선을 거래처 화면에 두고 나오면 안 된다(Chang: 원격 끄면 즉시 사라질 것).
       CrAnnotateModel.of(widget.id).endSession(sessionId);
       CrAnnotateModel.dispose_(widget.id);

@@ -623,10 +623,12 @@ impl Connection {
                         }
                         // ChainRemote 예약원격: 사장님이 누른 답을 본사로 돌려준다.
                         //   기사가 "눌렀는지"를 모르면 전화를 다시 걸지 판단할 수 없다.
-                        ipc::Data::CrSchedResp{accepted} => {
+                        ipc::Data::CrSchedResp{accepted, open_until} => {
                             let mut misc = Misc::new();
                             let mut r = CrSchedResp::new();
                             r.accepted = accepted;
+                            r.kind = hbb_common::message_proto::cr_sched_resp::Kind::ANSWER.into();
+                            r.open_until = open_until;
                             misc.set_cr_sched_resp(r);
                             let mut msg_out = Message::new();
                             msg_out.set_misc(misc);
@@ -1791,7 +1793,36 @@ impl Connection {
                 self.try_sub_monitor_services();
             }
         }
+        // ChainRemote 예약원격: 창이 열려 있으면 로그인 응답 **뒤에** 상태를 한 번 알린다.
+        //   기사가 세션을 닫을 때 "예약 창도 닫을까요"를 물으려면 본사가 창의 존재를 알아야
+        //   하는데, 창의 진실은 거래처에만 있다(재부팅을 넘고, 다른 기사가 열었을 수도 있다).
+        //   ★닫혀 있으면 아무것도 안 보낸다 — 거래처 38곳이 매일 하는 평범한 접속에
+        //   바이트를 한 개도 더하지 않으려는 것이다. 본사의 기본값이 '닫힘'이라 그게 맞다.
+        self.send_cr_sched_state(false).await;
         true
+    }
+
+    /// 지금 열린 창의 종료 시각을 본사에 알린다.
+    ///
+    /// `always` 가 거짓이면 **닫혀 있을 때 아무것도 보내지 않는다** — 접속마다 "닫혀 있음"을
+    /// 보내 봐야 본사의 기본값과 같기 때문이다. 반대로 본사가 방금 닫기를 시켰을 때는
+    /// 참으로 불러 0 을 명시한다. 시킨 일이 됐는지 모르는 채로 두면, 실패가 성공과
+    /// 똑같은 모양이 된다.
+    ///
+    /// 옛 본사(HQ)는 이 메시지를 모르지만 misc 의 모르는 갈래는 그냥 버려지므로 무해하다.
+    async fn send_cr_sched_state(&mut self, always: bool) {
+        let open_until = crate::chainremote_sched::status().map(|w| w.end).unwrap_or(0);
+        if open_until == 0 && !always {
+            return;
+        }
+        let mut r = CrSchedResp::new();
+        r.kind = hbb_common::message_proto::cr_sched_resp::Kind::STATE.into();
+        r.open_until = open_until;
+        let mut misc = Misc::new();
+        misc.set_cr_sched_resp(r);
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
+        self.send(msg_out).await;
     }
 
     fn try_sub_camera_displays(&mut self) {
@@ -3445,13 +3476,22 @@ impl Connection {
                     //   ★여기서 창을 열지 않는다. 사장님이 [수락]을 눌러야만 열린다 —
                     //   본사 메시지만으로 열리면 그건 영구 비밀번호와 같아진다.
                     Some(misc::Union::CrSchedReq(p)) => {
-                        self.send_to_cm(ipc::Data::CrSchedReq {
-                            start: p.start,
-                            end: p.end,
-                            hq_now: p.hq_now,
-                            label: p.label.clone(),
-                            extend: p.extend,
-                        });
+                        if p.close {
+                            // 닫기는 CM 을 안 거친다 — 사장님께 물을 것이 없고(권한이 줄기만
+                            //   한다), 창의 진실은 서비스가 읽는 ProgramData 마커 하나뿐이라
+                            //   여기서 지우는 것으로 끝난다. 이미 닫혀 있어도 무해하다.
+                            crate::chainremote_sched::clear();
+                            log::info!("[chainremote_sched] 본사가 창을 닫았다");
+                            self.send_cr_sched_state(true).await;
+                        } else {
+                            self.send_to_cm(ipc::Data::CrSchedReq {
+                                start: p.start,
+                                end: p.end,
+                                hq_now: p.hq_now,
+                                label: p.label.clone(),
+                                extend: p.extend,
+                            });
+                        }
                     }
                     Some(misc::Union::ChatMessage(c)) => {
                         self.send_to_cm(ipc::Data::ChatMessage { text: c.text });

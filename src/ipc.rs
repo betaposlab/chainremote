@@ -265,8 +265,12 @@ pub enum Data {
         extend: bool,
     },
     // 거래처가 누른 답. CM → 서비스 → 본사로 되돌아간다.
+    //   open_until 은 답을 누른 **직후의** 창 종료 시각(0=닫힘)이다. 답과 상태를 같이
+    //   보내야 본사가 [수락]을 받은 순간부터 "언제까지 열렸는지"를 알고 세션을 닫을 때
+    //   물어볼 수 있다.
     CrSchedResp {
         accepted: bool,
+        open_until: i64,
     },
     SwitchPermission {
         name: String,

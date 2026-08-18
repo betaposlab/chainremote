@@ -367,6 +367,9 @@ impl InvokeUiSession for SciterHandler {
     ///   본사 HQ 는 Flutter 판이고 Sciter 뷰어로 예약을 보낼 길이 없어 여기 올 일이 없다.
     fn cr_sched_result(&self, _accepted: bool) {}
 
+    // Sciter 뷰어(본사 x86)는 예약원격 UI 가 없다 — 상태를 받아도 쓸 데가 없다.
+    fn cr_sched_state(&self, _open_until: i64) {}
+
     fn switch_display(&self, display: &SwitchDisplay) {
         self.call("switchDisplay", &make_args!(display.display));
     }

@@ -2248,6 +2248,17 @@ pub fn session_cr_sched_req(
     }
 }
 
+/// ChainRemote 예약원격 — 열려 있는 창을 지금 닫는다(본사 쪽에서 부른다).
+///
+/// 기사가 세션을 끝내며 [예약 창도 닫기]를 골랐을 때. 창을 **여는** 길과 달리 거래처에
+/// 아무것도 뜨지 않는다 — 권한이 줄기만 하므로 사장님께 물을 것이 없다. 그 비대칭이
+/// 이 기능과 영구 비밀번호를 가르는 선이라 반대 방향으로는 절대 열지 않는다.
+pub fn session_cr_sched_close(session_id: SessionID) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.cr_sched_close();
+    }
+}
+
 /// ChainRemote 예약원격 — 사장님이 카드에서 누른 답.
 ///
 /// ★창이 실제로 열리는 유일한 입구다. 본사 메시지는 카드를 띄울 뿐이고, 이 호출은

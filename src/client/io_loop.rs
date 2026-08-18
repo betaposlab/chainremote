@@ -1777,12 +1777,22 @@ impl<T: InvokeUiSession> Remote<T> {
                     //   기사가 "눌렀는지"를 모르면 전화를 다시 걸지 판단할 수 없다.
                     //   제안도 여기서 비운다 — 안 비우면 재접속마다 카드가 또 뜬다.
                     Some(misc::Union::CrSchedResp(r)) => {
-                        self.handler
-                            .lc
-                            .write()
-                            .unwrap()
-                            .clear_cr_sched_req();
-                        self.handler.cr_sched_result(r.accepted);
+                        use hbb_common::message_proto::cr_sched_resp::Kind;
+                        if r.kind.enum_value_or_default() == Kind::STATE {
+                            // 답이 아니라 현재 상태 알림이다 — 제안을 비우면 안 된다.
+                            //   아직 답을 안 한 제안이 살아 있을 수 있고, 이건 그것과 무관한
+                            //   "지금 창이 이렇다"는 통보다.
+                            self.handler.cr_sched_state(r.open_until);
+                        } else {
+                            self.handler
+                                .lc
+                                .write()
+                                .unwrap()
+                                .clear_cr_sched_req();
+                            self.handler.cr_sched_result(r.accepted);
+                            // 수락이면 창이 열렸다 — 그 종료 시각까지 같이 알려 준다.
+                            self.handler.cr_sched_state(r.open_until);
+                        }
                     }
                     Some(misc::Union::PermissionInfo(p)) => {
                         log::info!("Change permission {:?} -> {}", p.permission, p.enabled);

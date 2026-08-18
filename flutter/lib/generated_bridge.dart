@@ -1350,6 +1350,16 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kSessionCrSchedReqConstMeta;
 
+  /// ChainRemote 예약원격 — 열려 있는 창을 지금 닫는다(본사 쪽에서 부른다).
+  ///
+  /// 기사가 세션을 끝내며 [예약 창도 닫기]를 골랐을 때. 창을 **여는** 길과 달리 거래처에
+  /// 아무것도 뜨지 않는다 — 권한이 줄기만 하므로 사장님께 물을 것이 없다. 그 비대칭이
+  /// 이 기능과 영구 비밀번호를 가르는 선이라 반대 방향으로는 절대 열지 않는다.
+  Future<void> sessionCrSchedClose(
+      {required UuidValue sessionId, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kSessionCrSchedCloseConstMeta;
+
   /// ChainRemote 예약원격 — 사장님이 카드에서 누른 답.
   ///
   /// ★창이 실제로 열리는 유일한 입구다. 본사 메시지는 카드를 띄울 뿐이고, 이 호출은
@@ -6718,6 +6728,25 @@ class RustdeskImpl implements Rustdesk {
       const FlutterRustBridgeTaskConstMeta(
         debugName: "session_cr_sched_req",
         argNames: ["sessionId", "start", "end", "hqNow", "label", "extend"],
+      );
+
+  Future<void> sessionCrSchedClose(
+      {required UuidValue sessionId, dynamic hint}) {
+    var arg0 = _platform.api2wire_Uuid(sessionId);
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_session_cr_sched_close(port_, arg0),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kSessionCrSchedCloseConstMeta,
+      argValues: [sessionId],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kSessionCrSchedCloseConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "session_cr_sched_close",
+        argNames: ["sessionId"],
       );
 
   Future<void> cmSchedAnswer(
@@ -13703,6 +13732,23 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_session_cr_sched_reqPtr.asFunction<
           void Function(int, ffi.Pointer<wire_uint_8_list>, int, int, int,
               ffi.Pointer<wire_uint_8_list>, bool)>();
+
+  void wire_session_cr_sched_close(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> session_id,
+  ) {
+    return _wire_session_cr_sched_close(
+      port_,
+      session_id,
+    );
+  }
+
+  late final _wire_session_cr_sched_closePtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_cr_sched_close');
+  late final _wire_session_cr_sched_close = _wire_session_cr_sched_closePtr
+      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_cm_sched_answer(
     int port_,
