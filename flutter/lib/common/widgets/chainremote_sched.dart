@@ -11,6 +11,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart' show CupertinoPicker;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -109,35 +110,59 @@ class _CrWheelState extends State<_CrWheel> {
     return SizedBox(
       width: widget.width,
       height: 104,
-      // ★.builder 가 아니라 기본 생성자를 쓴다 — 이어 붙이기(looping)는 여기에만 있다.
-      //   칸이 최대 60개라 미리 만들어도 부담이 없다.
-      child: CupertinoPicker(
-        scrollController: _ctl,
-        looping: widget.looping,
-        itemExtent: 30,
-        squeeze: 1.15,
-        useMagnifier: true,
-        magnification: 1.05,
-        backgroundColor: Colors.transparent,
-        selectionOverlay: Container(
-          decoration: BoxDecoration(
-            color: c.accent.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(6),
+      // ★마우스로 **잡아끌 수 있게** 한다. Flutter 는 데스크톱에서 마우스 드래그를 스크롤로
+      //   치지 않는다(기본 dragDevices 에 mouse 가 없다) — 그래서 휠을 굴려야만 움직였고,
+      //   숫자를 잡아 올려도 아무 반응이 없어 고장처럼 보였다(2026-08-19 Chang).
+      //   휠은 그대로 두고 드래그를 더하는 것이라 잃는 동작이 없다.
+      child: ScrollConfiguration(
+        behavior: const _DragAnywhere(),
+        // ★.builder 가 아니라 기본 생성자를 쓴다 — 이어 붙이기(looping)는 여기에만 있다.
+        //   칸이 최대 60개라 미리 만들어도 부담이 없다.
+        child: CupertinoPicker(
+          scrollController: _ctl,
+          looping: widget.looping,
+          itemExtent: 30,
+          squeeze: 1.15,
+          useMagnifier: true,
+          magnification: 1.05,
+          backgroundColor: Colors.transparent,
+          selectionOverlay: Container(
+            decoration: BoxDecoration(
+              color: c.accent.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
           ),
-        ),
-        onSelectedItemChanged: widget.onChanged,
-        children: List.generate(
-          widget.count,
-          (i) => Center(
-            child: Text(
-              widget.label(i),
-              style: TextStyle(fontSize: 15, color: c.textStrong),
+          onSelectedItemChanged: widget.onChanged,
+          children: List.generate(
+            widget.count,
+            (i) => Center(
+              child: Text(
+                widget.label(i),
+                style: TextStyle(fontSize: 15, color: c.textStrong),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// 마우스로도 끌어서 굴릴 수 있게 하는 스크롤 동작.
+///
+/// 데스크톱 기본값은 손가락·트랙패드·스타일러스만 드래그로 친다. 휠이 있으니 그걸로
+/// 충분하다는 전제인데, 슬롯머신처럼 생긴 물건은 누구나 잡아끌어 보게 된다 — 그때
+/// 아무 반응이 없으면 고장으로 읽힌다.
+class _DragAnywhere extends MaterialScrollBehavior {
+  const _DragAnywhere();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
 }
 
 /// 한 시각을 고르는 다섯 휠 — 월 · 일 · 오전/오후 · 시 · 분.
