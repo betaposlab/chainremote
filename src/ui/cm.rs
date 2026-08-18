@@ -60,22 +60,31 @@ impl InvokeUiCM for SciterHandler {
         self.call("crChatPanel", &make_args!(id, open));
     }
 
-    /// ChainRemote 예약원격 — 32비트(Sciter) 판은 **아직 카드가 없다.**
+    /// ChainRemote 예약원격 — 사장님에게 시간 카드를 띄운다.
     ///
-    /// 본사 HQ 는 패널 DB 의 `os_bits` 를 보고 32비트 거래처에는 [예약원격] 버튼을 감추므로
-    /// 정상 경로에선 여기로 오지 않는다. 그래도 조용히 무시만 하고 끝낸다 — 버전·아키텍처
-    /// 정보가 낡아 요청이 흘러들어와도 **세션은 멀쩡해야** 하기 때문이다. 카드가 안 뜨면
-    /// 사장님은 아무 답도 못 하고, 본사는 "무응답"으로 보게 되어 전화로 처리하면 된다.
-    /// (x86 카드는 나중에 붙인다 — 그때 이 자리를 crSchedReq 호출로 바꾼다.)
+    /// 시각은 **문자열로** 건넨다. Sciter 의 수는 배정도라 큰 정수에서 정밀도가 흔들리고,
+    /// tis 쪽은 이 값들로 계산을 하지 않고 답할 때 그대로 돌려주기만 하므로 불투명한
+    /// 토큰이면 족하다. 사장님이 읽는 글자는 본사가 만들어 보낸 label 이다.
     fn cr_sched_req(
         &self,
-        _id: i32,
-        _start: i64,
-        _end: i64,
-        _hq_now: i64,
-        _label: String,
-        _extend: bool,
+        id: i32,
+        start: i64,
+        end: i64,
+        hq_now: i64,
+        label: String,
+        extend: bool,
     ) {
+        self.call(
+            "crSchedReq",
+            &make_args!(
+                id,
+                start.to_string(),
+                end.to_string(),
+                hq_now.to_string(),
+                label,
+                extend
+            ),
+        );
     }
 
     fn change_theme(&self, dark: String) {
@@ -167,6 +176,45 @@ impl SciterConnectionManager {
         crate::ui_cm_interface::send_chat(id, text);
     }
 
+    /// 사장님이 시간 카드에서 누른 답 — **창이 실제로 열리는 유일한 입구**다.
+    ///
+    /// 본사가 보낸 메시지는 카드를 띄울 뿐이고, 여기는 사장님이 버튼을 누른 뒤에만 불린다.
+    /// 그 경계가 이 기능과 영구 비밀번호를 가르는 선이라 다른 길을 만들면 안 된다.
+    /// (tis 쪽은 [수락]에 checkClickTime 가드를 씌워, 원격 중인 본사가 대신 눌러 스스로
+    /// 창을 여는 것도 막는다 — Case A 에서는 본사가 그 PC 를 조작하고 있기 때문이다.)
+    ///
+    /// 시각은 문자열로 오간다(cr_sched_req 주석 참조). 숫자로 못 읽으면 **수락하지 않는다** —
+    /// 0 으로 넘기면 1970년 구간이 되어 조용히 닫힌 창이 열린 척 남는다.
+    fn cr_sched_answer(
+        &self,
+        id: i32,
+        accepted: bool,
+        start: String,
+        end: String,
+        hq_now: String,
+        label: String,
+    ) {
+        let (s, e, n) = (
+            start.parse::<i64>(),
+            end.parse::<i64>(),
+            hq_now.parse::<i64>(),
+        );
+        match (s, e, n) {
+            (Ok(s), Ok(e), Ok(n)) => {
+                crate::ui_cm_interface::cr_sched_answer(id, accepted, s, e, n, label)
+            }
+            _ => {
+                log::error!(
+                    "[chainremote_sched] 시간 값을 읽지 못해 제안을 거부한다 (start={}, end={}, hq_now={})",
+                    start,
+                    end,
+                    hq_now
+                );
+                crate::ui_cm_interface::cr_sched_answer(id, false, 0, 0, 0, label);
+            }
+        }
+    }
+
     fn t(&self, name: String) -> String {
         crate::client::translate(name)
     }
@@ -243,6 +291,7 @@ impl sciter::EventHandler for SciterConnectionManager {
         fn authorize(i32);
         fn switch_permission(i32, String, bool);
         fn send_msg(i32, String);
+        fn cr_sched_answer(i32, bool, String, String, String, String);
         fn can_elevate();
         fn elevate_portable(i32);
         fn get_option(String);

@@ -457,6 +457,14 @@ div.accept-card .ac-body {
     font-size: 12.5px;
     margin-bottom: 16px;
 }
+/* 예약원격 시간 카드 — 약속한 시각이 이 카드의 주인공이라 가장 크고 밝게 둔다.
+   사장님이 읽어야 할 건 "몇 시부터 몇 시까지"이고, 나머지는 그걸 설명하는 말이다. */
+div.accept-card .ac-sched-when {
+    color: #FFFFFF;
+    font-size: 15px;
+    font-weight: bold;
+    margin-bottom: 7px;
+}
 /* 대리점 상호만 흰색으로 올려 "누가" 를 먼저 읽게 한다. */
 div.accept-card .ac-body > b {
     color: #FFFFFF;

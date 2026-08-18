@@ -13,6 +13,11 @@ var svg_elevate = <svg t="1667992597853" class="icon" viewBox="0 0 1024 1024" ve
 // 이상한 글자가 보인다. svg 인라인은 svg_chat 등이 이미 쓰는 검증된 패턴이다.
 var svg_close = <svg viewBox="0 0 12 12" width="10" height="10"><path d="M1 1 L11 11 M11 1 L1 11" stroke="#9CA3AF" stroke-width="2"/></svg>;
 
+// ChainRemote 예약원격(Agent32): 본사가 보낸 시간 제안. 사장님이 답하기 전까지만 산다.
+//   한 번에 하나만 둔다 — 두 번째 제안이 오면 덮는다(사장님에게 카드를 쌓아 보이지 않는다).
+//   {cid, start, end, hqNow, label, extend} 이고 시각 셋은 **문자열**이다(cm.rs 주석 참조).
+var cm_sched = null;
+
 var hide_cm = undefined;
 function setWindowState(state) {
     if (hide_cm == undefined) hide_cm = handler.hide_cm();
@@ -43,6 +48,33 @@ class Body: Reactor.Component
         };
         var right_style = show_chat ? "" : "display: none";
         var disconnected = c.disconnected;
+        // ChainRemote 예약원격: 이 연결에 답 안 한 시간 제안이 있으면 그것부터 보여준다.
+        //   ★원격 중(배너)이든 수락 대기(카드)든 **같은 카드**로 처리한다. 새 창 상태를
+        //     만들지 않으려는 것이다 — 배너/채팅/카드 기하가 이미 까다로워서 네 번째 모양을
+        //     더하면 위치 기억이 엉킨다. 크기는 applyCmBanner 의 '대기 우선' 갈래가 준다.
+        if (cm_sched && cm_sched.cid == c.id && !disconnected) {
+            var sc = cm_sched;
+            var swho = "";
+            try { swho = handler.get_support_name(); } catch (e) { }
+            if (!swho) swho = translate('Headquarters');
+            return <div .accept-card>
+                <div .ac-rail>
+                    <div .ac-icon>
+                        <div .ac-mon />
+                        <div .ac-monbase />
+                    </div>
+                </div>
+                <div .ac-inner>
+                    <div .ac-title>{sc.extend ? translate('Extend scheduled remote') : translate('Scheduled remote request')}</div>
+                    <div .ac-sched-when>{sc.label}</div>
+                    <div .ac-body><b>{swho}</b>{translate('will connect without accept card suffix')}</div>
+                    <div .ac-buttons>
+                        <button #sched_deny .ac-deny>{translate('Dismiss')}</button>
+                        <button #sched_accept .ac-accept>{translate('Accept')}</button>
+                    </div>
+                </div>
+            </div>;
+        }
         var show_elevation_btn = handler.can_elevate() && show_elevation && !c.is_file_transfer && !c.is_view_camera && !c.is_terminal && c.port_forward.length == 0;
         // ChainRemote(Agent32): 권한 아이콘 그리드는 렌더하지 않는다. 클릭수락 정책이라 거래처 화면을
         // 단순하게 두고 Flutter 수락카드와 톤을 맞춘다. 권한 기본값은 toml/서버 정책이 정한다. Sciter cm 은 Agent32 전용.
@@ -252,6 +284,33 @@ class Body: Reactor.Component
             show_elevation = false;
             body.update();
             handler.elevate_portable(cid);
+            self.timer(30ms, applyCmBanner);
+        });
+    }
+
+    // ChainRemote 예약원격 — 사장님의 답.
+    //   ★[수락]에 checkClickTime 가드가 **반드시** 있어야 한다. Case A(이미 원격 중)에서는
+    //     본사가 그 PC 를 조작하고 있어, 가드가 없으면 본사가 이 버튼을 직접 눌러 스스로
+    //     창을 열 수 있다. 그러면 "거래처가 손으로 눌렀다"가 무너져 이름만 바꾼 영구
+    //     비밀번호가 된다. 거부 쪽도 같이 씌운다(본사가 대신 지워 흔적을 없애지 못하게).
+    event click $(button#sched_accept) {
+        checkClickTime(function() {
+            var sc = cm_sched;
+            if (!sc) return;
+            cm_sched = null;
+            handler.cr_sched_answer(sc.cid, true, sc.start, sc.end, sc.hqNow, sc.label);
+            body.update();
+            self.timer(30ms, applyCmBanner);
+        });
+    }
+
+    event click $(button#sched_deny) {
+        checkClickTime(function() {
+            var sc = cm_sched;
+            if (!sc) return;
+            cm_sched = null;
+            handler.cr_sched_answer(sc.cid, false, sc.start, sc.end, sc.hqNow, sc.label);
+            body.update();
             self.timer(30ms, applyCmBanner);
         });
     }
@@ -496,7 +555,16 @@ function applyCmBanner() {
     //   [수락] 버튼이 화면 밖으로 밀렸다. 거래처가 스크롤을 내려야 수락할 수 있다는 건
     //   "수락만 누르면 끝" 이라는 우리 UX 약속을 깬다. Flutter(x64) cm 은 원래 대기 우선이라
     //   이 증상이 32비트(Win7) 에서만 났다 — 그 동작에 맞춘다.
-    var wantBanner = active && !pending;
+    // ChainRemote 예약원격: 답 안 한 시간 제안도 '대기'로 친다. 배너(300x48) 크기에
+    //   시간 카드를 그리면 넘쳐서 [수락]이 화면 밖으로 밀린다 — 두 번째 본사 접속에서
+    //   이미 겪은 그 증상이다(2026-07-31 테스트1).
+    var schedPending = false;
+    if (cm_sched) {
+        for (var j = 0; j < connections.length; j++) {
+            if (connections[j].id == cm_sched.cid && !connections[j].disconnected) schedPending = true;
+        }
+    }
+    var wantBanner = active && !pending && !schedPending;
     // ChainRemote: 채팅 펼침도 상태의 일부다. 종전엔 wantBanner 만 비교해서, 배너인 채로
     //   채팅을 펼치면 "상태 안 바뀜"으로 조기 반환해 창이 260x48 그대로였다 — 채팅이
     //   그려져도 볼 수가 없다.
@@ -671,6 +739,24 @@ handler.removeConnection = function(id, close) {
         if (body.cur >= i && body.cur > 0 && close) body.cur -= 1;
         update();
     }
+}
+
+// ChainRemote 예약원격: 본사가 시간대를 제안했다 — 사장님에게 카드를 띄운다.
+//   ★여기서 창이 열리는 게 아니다. 카드를 보여줄 뿐이고, 창은 사장님이 [수락]을 누른
+//     뒤 Rust 쪽(cr_sched_answer → chainremote_sched::grant)에서만 열린다.
+//   끊긴 연결에는 띄우지 않는다 — 답해 봐야 돌려보낼 세션이 없다.
+handler.crSchedReq = function(id, start, end, hqNow, label, extend) {
+    var live = false;
+    for (var i = 0; i < connections.length; i++) {
+        if (connections[i].id == id && !connections[i].disconnected) live = true;
+    }
+    if (!live) return;
+    cm_sched = { cid: id, start: start, end: end, hqNow: hqNow, label: label, extend: extend };
+    // 채팅이 펼쳐져 있으면 접는다 — 카드와 채팅창이 같은 자리를 다툰다.
+    chat_idle_timer_gen++;
+    show_chat = false;
+    applyCmBanner();
+    body.update();
 }
 
 // ChainRemote: 본사가 자기 채팅창을 열거나 닫았다 — 거래처 채팅 영역을 따라 연다/닫는다.
