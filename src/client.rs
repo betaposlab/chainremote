@@ -1856,9 +1856,15 @@ impl Deref for LoginConfigHandler {
 ///
 /// 기사가 우클릭 [예약원격]을 누르는 시점엔 그 거래처의 세션이 없다. peer id 로 여기 걸어
 /// 뒀다가, 접속이 만들어질 때 로그인 요청에 실린다. 답을 받으면 지운다.
-static PENDING_SCHED: std::sync::LazyLock<
-    std::sync::Mutex<std::collections::HashMap<String, CrSchedReq>>,
-> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+///
+/// ★`std::sync::LazyLock` 을 쓰면 안 된다. 32비트(i686) 에이전트는 **Rust 1.75 고정**인데
+/// 그 기능은 1.80 에서야 안정화됐다 — x64 는 멀쩡히 빌드되고 32비트만 깨져서, x64 만
+/// 돌려 보면 통과한 것처럼 보인다. 이 파일이 이미 쓰는 lazy_static 을 그대로 쓴다.
+/// 1.75 핀은 Sciter ABI(1.78+ 의 i128 변경)와 Win7 std(<=1.77) 때문이라 올릴 수 없다.
+lazy_static::lazy_static! {
+    static ref PENDING_SCHED: std::sync::Mutex<std::collections::HashMap<String, CrSchedReq>> =
+        Default::default();
+}
 
 pub fn set_pending_sched(id: &str, p: CrSchedReq) {
     if let Ok(mut m) = PENDING_SCHED.lock() {
