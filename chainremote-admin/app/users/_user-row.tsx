@@ -114,34 +114,43 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
                 className="rounded-md border border-[#7485ae] px-3 py-1.5 text-sm"
                 placeholder="이름"
               />
-              {/* 본인 행에선 역할·활성을 아예 안 보낸다. disabled 컨트롤은 FormData 에 실리지
-                  않아, 이름만 고쳐 저장해도 서버 기본값(직원)으로 강등 + 비활성화되는
-                  자기잠금 사고가 났다. 서버(updateUser)도 본인 행은 이름만 반영한다. */}
-              <select
-                name="role"
-                defaultValue={user.role}
-                disabled={isSelf}
-                title={isSelf ? "본인 역할은 변경 불가" : ""}
-                className="rounded-md border border-[#7485ae] px-3 py-1.5 text-sm"
-              >
-                {ASSIGNABLE_ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-                {user.role === "viewer" && (
-                  <option value="viewer">{roleLabel("viewer")}</option>
-                )}
-              </select>
-              <label className="flex items-center gap-1 text-sm text-[#cbd1e0]">
-                <input
-                  type="checkbox"
-                  name="isActive"
-                  defaultChecked={user.isActive}
-                  disabled={isSelf}
-                />
-                활성
-              </label>
+              {/* 본인 행에선 역할·활성을 컨트롤로 내보내지 않는다. 이유가 둘이다.
+                  ① 자기잠금 — disabled 컨트롤은 FormData 에 안 실려서, 이름만 고쳐 저장해도
+                     서버 기본값(직원)으로 강등 + 비활성화되는 사고가 났다(서버도 본인 행은
+                     이름만 반영한다).
+                  ② 종전엔 disabled 를 걸고 이유는 title 툴팁에만 뒀는데, 이 select 엔 비활성
+                     스타일이 없어 **멀쩡한 드롭다운이 안 눌리는 것처럼** 보였다. 못 쓰는
+                     컨트롤을 그려 두는 대신 현재 값을 글자로 보여주고 이유를 눈에 보이게 적는다. */}
+              {isSelf ? (
+                <span className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-[#cbd1e0]">
+                  {roleLabel(user.role)} · {user.isActive ? "활성" : "비활성"}
+                </span>
+              ) : (
+                <>
+                  <select
+                    name="role"
+                    defaultValue={user.role}
+                    className="rounded-md border border-[#7485ae] px-3 py-1.5 text-sm"
+                  >
+                    {ASSIGNABLE_ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                    {user.role === "viewer" && (
+                      <option value="viewer">{roleLabel("viewer")}</option>
+                    )}
+                  </select>
+                  <label className="flex items-center gap-1 text-sm text-[#cbd1e0]">
+                    <input
+                      type="checkbox"
+                      name="isActive"
+                      defaultChecked={user.isActive}
+                    />
+                    활성
+                  </label>
+                </>
+              )}
               <button
                 type="submit"
                 disabled={pending}
@@ -149,6 +158,12 @@ export function UserRow({ user, isSelf, targetVersion }: Props) {
               >
                 저장
               </button>
+              {isSelf && (
+                <p className="basis-full text-xs text-[#b9bfd2]">
+                  본인 계정은 이름만 바꿀 수 있습니다. 스스로 권한을 내리거나 끄면 다시
+                  들어올 수 없어 막아 뒀습니다.
+                </p>
+              )}
             </form>
           </td>
         </tr>
