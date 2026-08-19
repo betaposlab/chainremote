@@ -74,7 +74,10 @@ header{position:sticky;top:0;z-index:60;background:rgba(11,12,14,.72);backdrop-f
 .nav-center a{padding:7px 14px;border-radius:var(--r-btn);font-size:.92rem;color:var(--ash);transition:color .2s,background .2s}
 .nav-center a:hover{color:var(--white);background:rgba(255,255,255,.06)}
 .nav-right{display:flex;gap:10px;justify-self:end;align-items:center}
-.nav-right .btn{padding:8px 17px;font-size:.9rem}
+/* ★줄바꿈 금지: 좁은 폭에서 "도입 / 문의" 로 접혀 버튼이 두 줄짜리 덩어리가 됐다
+   (2026-08-19 Chang 스샷). 가운데 메뉴가 먼저 줄어들도록 버튼 쪽을 안 줄인다. */
+.nav-right .btn{padding:8px 17px;font-size:.9rem;white-space:nowrap;flex:0 0 auto}
+.nav-center{min-width:0}
 
 /* 히어로: 오로라 상시 드리프트 + 별 + 그리드 */
 .hero{position:relative;padding:74px 0 40px;overflow:hidden;background:var(--void)}
@@ -399,7 +402,6 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
       <a href="#download">다운로드</a>
     </nav>
     <div class="nav-right">
-      <a class="btn btn-ghost" href="#download">다운로드</a>
       <a class="btn btn-white" href="#contact">도입 문의</a>
     </div>
   </div>
@@ -488,6 +490,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
     <span><svg class="chk"><use href="#i-check"/></svg> 디스크 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 방화벽 자동 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 카드결제 데몬 관제</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 원격 예약(새벽·피크 작업)</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 지원 이력 자동 기록</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 구형 포스(Win7·32비트) 지원</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 가맹점 무제한</span>
@@ -498,6 +501,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
     <span><svg class="chk"><use href="#i-check"/></svg> 디스크 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 방화벽 자동 관제</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 카드결제 데몬 관제</span>
+    <span><svg class="chk"><use href="#i-check"/></svg> 원격 예약(새벽·피크 작업)</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 지원 이력 자동 기록</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 구형 포스(Win7·32비트) 지원</span>
     <span><svg class="chk"><use href="#i-check"/></svg> 가맹점 무제한</span>
