@@ -14,8 +14,13 @@ import { and, eq, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { panelTickets } from "@/lib/schema";
 
-/** 살아 있는 시간. 앱이 브라우저를 여는 데 걸리는 시간만 덮으면 된다. */
-const TTL_SEC = 60;
+/** 살아 있는 시간.
+ *
+ *  ★60초에서 늘렸다(2026-08-20). 브라우저에 다른 계정이 로그인돼 있으면 곧바로 갈아타지
+ *  않고 사람에게 물어보는데, **읽는 동안 만료되는 확인창은 고장이다.** 티켓의 실제 방어는
+ *  수명이 아니라 '한 번 쓰면 사라진다'와 해시 저장이고, 전달 경로도 이 PC 의 기본
+ *  브라우저 하나뿐이다. 3분은 사람이 한 번 판단할 시간이다. */
+const TTL_SEC = 180;
 
 function hash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -54,6 +59,28 @@ export async function consumePanelTicket(token: string): Promise<string | null> 
   const row = rows[0];
   if (!row) return null;
   // 만료된 티켓도 위에서 이미 지워졌다 — 그걸로 충분하고, 여기선 거절만 한다.
+  if (row.expiresAt.getTime() < Date.now()) return null;
+  return row.userId;
+}
+
+/**
+ * 티켓 엿보기 — **소비하지 않고** 누구 것인지만 본다.
+ *
+ * 계정 전환을 물어보려면 "누구로 바꾸는지"를 먼저 화면에 적어야 하는데, 그러자고 티켓을
+ * 소비해 버리면 사용자가 [전환] 을 누를 때 쓸 것이 없다. 그래서 읽기만 하는 갈래를 둔다.
+ *
+ * ★새로 열리는 구멍은 없다. 티켓을 가진 쪽은 어차피 소비할 수 있고, 이 함수는 아무것도
+ * 바꾸지 않는다. 실제 로그인은 여전히 consumePanelTicket 한 곳에서만 일어난다.
+ */
+export async function peekPanelTicket(token: string): Promise<string | null> {
+  if (!token || token.length < 16) return null;
+  const rows = await db
+    .select({ userId: panelTickets.userId, expiresAt: panelTickets.expiresAt })
+    .from(panelTickets)
+    .where(eq(panelTickets.tokenHash, hash(token)))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
   if (row.expiresAt.getTime() < Date.now()) return null;
   return row.userId;
 }

@@ -45,6 +45,7 @@ describe("proxy matcher — 인증 게이트가 덮는 경로", () => {
     for (const p of [
       "/login",
       "/auth/ticket", // ★본사 앱 SSO — 세션이 없는 게 정상이고, 여기서 세션을 만든다
+      "/auth/ticket/confirm", // 계정 전환 확인 — 같은 티켓 흐름의 두 번째 걸음
       "/api/auth/panel-ticket", // 티켓 발급(본사 앱이 Bearer 로 호출)
       "/api/customers", // requireApiAuth 가 자체 보호
       "/chainremote-logo.png", // 로그인 화면이 쓰는 워드마크
