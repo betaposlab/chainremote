@@ -701,13 +701,29 @@ class _PeerCardState extends State<_PeerCard>
                   ]),
                 ),
                 Expanded(
-                  child: Text(
-                    peer.alias.isEmpty ? formatID(peer.id) : peer.alias,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
+                  child: Row(children: [
+                    // ★Flexible 이어야 한다 — 옆에 배지가 붙는 줄에서 이름을 Expanded 로
+                    //   두면 좁은 폭에서 배지가 이름을 찌부러뜨려 상호가 통째로 사라진다
+                    //   (2026-07-22 카드 보기에서 겪은 그 버그다).
+                    Flexible(
+                      child: Text(
+                        peer.alias.isEmpty ? formatID(peer.id) : peer.alias,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    // ★예약 배지는 표 보기에도 있어야 한다. OS·디스크는 이 보기에서 열로
+                    //   빠져 있지만 예약은 열이 없어, 여기 안 붙이면 **표 보기에서만 안
+                    //   보인다**(실제로 그랬다 — 2026-08-20 Chang). 이건 상태 표시가 아니라
+                    //   "지금 수락 창 없이 들어갈 수 있다"는 안전 표시라, 보기 모드에 따라
+                    //   사라지면 구실을 못 한다.
+                    if (crSchedIsOpenFor(peer)) ...[
+                      const SizedBox(width: 6),
+                      crSchedBadge(context, peer)!,
+                    ],
+                  ]),
                 ),
                 // 별칭이 비면 상호 자리에 이미 ID 가 있으므로 이 열은 비운다(중복 방지).
                 if (cols.id) ...[

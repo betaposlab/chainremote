@@ -385,14 +385,20 @@ pub fn change_password(current: &str, new: &str) -> ResultType<()> {
 ///   대리점 시연에서 이 화면이 뜨면 "남의 거래처가 보인다"로 읽혀 그 자리에서 신뢰가
 ///   끝난다. 대리점 사무실 공용 PC 를 직원이 번갈아 쓰는 경우에도 앞사람 기록이 남는다.
 ///
-/// ★같은 계정이면 절대 지우지 않는다. 매번 비우면 매일 쓰는 최근 세션이 날아간다.
-///   "이 기록은 누구 것"을 로컬에 적어 두고 **바뀌었을 때만** 비운다. 기록에는 별칭·저장
-///   비번도 들어 있어, 주인이 바뀌면 지우는 것이 맞다.
+/// ★같은 계정이면 절대 건드리지 않는다. 매번 비우면 매일 쓰는 최근 세션이 날아간다.
+///   "이 기록은 누구 것"을 로컬에 적어 두고 **바뀌었을 때만** 움직인다.
 ///
-/// ★첫 로그인(주인 표시가 비어 있음)은 지우지 않는다 — 이 기능이 생기기 전부터 쓰던
+/// ★지우지 않고 **치워 둔다**(2026-08-20 Chang 실측). 종전엔 계정이 바뀌면 기록을 삭제했다.
+///   격리 목적은 달성했지만 대가가 컸다 — 다른 대리점 계정으로 잠깐 로그인해 본 것만으로
+///   본인 최근 세션 40건이 영영 사라졌고, 되돌릴 방법이 없었다. 계정별 폴더로 밀어 두면
+///   화면에서 안 보이는 것은 똑같고(격리 유지) 돌아오면 그대로 복구된다.
+///   저장 비번이 걱정이라 지웠던 것인데, 치워 둔 폴더는 **그 계정으로 다시 로그인해야만**
+///   돌아오므로 UI 로 새는 경로는 여전히 없다. 파일이 디스크에 남는 건 지우기 전에도 같았다.
+///
+/// ★첫 로그인(주인 표시가 비어 있음)은 건드리지 않는다 — 이 기능이 생기기 전부터 쓰던
 ///   사람의 기록을 한 번 날려 먹는 일이 없어야 한다.
 fn reset_peers_if_account_changed(user: &UserInfo) {
-    use hbb_common::config::{LocalConfig, PeerConfig};
+    use hbb_common::config::LocalConfig;
     const KEY: &str = "chainremote-peers-owner";
     let owner = format!("{}|{}", user.tenant_id, user.email);
     let prev = LocalConfig::get_option(KEY);
@@ -400,17 +406,51 @@ fn reset_peers_if_account_changed(user: &UserInfo) {
         return;
     }
     if !prev.is_empty() {
-        let mut n = 0;
-        for (id, _, _) in PeerConfig::peers(None) {
-            PeerConfig::remove(&id);
-            n += 1;
-        }
-        log::info!(
-            "ChainRemote: 계정이 바뀌어 로컬 접속 기록 {}건을 비웠다 ({} -> {})",
-            n,
-            prev,
-            owner
-        );
+        swap_peer_store(&prev, &owner);
     }
     LocalConfig::set_option(KEY.to_owned(), owner);
+}
+
+/// 계정 표시를 폴더 이름으로 — 경로에 못 쓰는 글자만 밑줄로 바꾼다.
+///   tenant_id 가 UUID 라 사실상 유일하고, 눈으로 보고 어느 계정 것인지 알 수 있다.
+fn peer_store_tag(owner: &str) -> String {
+    owner
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect()
+}
+
+/// 지금 쓰는 peers 폴더를 이전 계정 이름으로 치워 두고, 새 계정의 것이 있으면 되돌린다.
+fn swap_peer_store(prev: &str, next: &str) {
+    let live = hbb_common::config::Config::path("peers");
+    let Some(parent) = live.parent().map(|p| p.to_path_buf()) else {
+        return;
+    };
+    let archived = |owner: &str| parent.join(format!("peers-{}", peer_store_tag(owner)));
+
+    // ① 지금 것을 이전 계정 앞으로 치운다. 같은 이름이 이미 있으면 그건 더 오래된
+    //    보관본이라 지금 것으로 대체한다(지금 것이 그 계정의 최신 기록이다).
+    let prev_dir = archived(prev);
+    if live.is_dir() {
+        if prev_dir.exists() {
+            std::fs::remove_dir_all(&prev_dir).ok();
+        }
+        if let Err(e) = std::fs::rename(&live, &prev_dir) {
+            // 옮기지 못하면 격리가 깨지므로 여기서 멈춘다 — 지우는 건 답이 아니다.
+            log::error!("ChainRemote: 접속 기록을 치우지 못했다 — {}", e);
+            return;
+        }
+    }
+
+    // ② 새 계정의 보관본이 있으면 되돌리고, 없으면 빈 폴더로 시작한다.
+    let next_dir = archived(next);
+    if next_dir.is_dir() {
+        if let Err(e) = std::fs::rename(&next_dir, &live) {
+            log::error!("ChainRemote: 접속 기록을 되돌리지 못했다 — {}", e);
+            std::fs::create_dir_all(&live).ok();
+        }
+    } else {
+        std::fs::create_dir_all(&live).ok();
+    }
+    log::info!("ChainRemote: 계정이 바뀌어 접속 기록을 갈아 끼웠다 ({} -> {})", prev, next);
 }
