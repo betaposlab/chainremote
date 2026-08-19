@@ -12,20 +12,21 @@ import { requireLiveUserOrThrow } from "@/lib/auth-guard";
 import { assertEmailAvailable, assertSeatAvailable } from "@/lib/data/users";
 import { canManageAccounts, STORABLE_ROLES, type Role } from "@/lib/roles";
 
-// 계정 관리 게이트 — 대표자·관리자만. 직원은 거래처 작업을 다 하되 여기서만 막힌다
-// (3역할 체계, 2026-07-25 Chang 확정). 다른 회사 사용자는 tenantId 격리로 애초에 안 보인다.
+// 계정 관리 게이트 — 관리자만. 직원은 거래처 작업을 다 하되 여기서만 막힌다
+// (2역할 체계, 2026-08-19 Chang 확정). 다른 회사 사용자는 tenantId 격리로 애초에 안 보인다.
 async function requireAccountManager() {
   // 쿠키의 존재가 아니라 **계정이 지금도 살아 있는지**를 본다(퇴사자 즉시 차단).
   //   role 도 DB 현재값이라 권한 강등이 다음 클릭부터 바로 먹는다.
   const session = { user: await requireLiveUserOrThrow() };
   if (!canManageAccounts(session.user.role)) {
-    throw new Error("대표자·관리자만 직원 계정을 관리할 수 있습니다");
+    throw new Error("관리자만 계정을 관리할 수 있습니다");
   }
   return session.user;
 }
 
-// 대표자 계정은 대표자(또는 플랫폼 운영자)만 건드린다 — 관리자가 대표자를 강등하거나
-// 지워서 회사가 주인을 잃는 사고를 막는다.
+// 관리자 계정은 관리자(또는 플랫폼 운영자)만 건드린다 — 회사가 주인을 잃는 사고를 막는다.
+//   2역할로 접은 뒤에도 owner 보호는 그대로다. 새 관리자는 owner 로 만들어지므로 관리자끼리
+//   서로 못 건드리는데, 큰 회사에서 관리자가 여럿인 게 자연스러워 이 편이 맞다.
 async function assertMayTouchTarget(
   me: { id: string; role?: string },
   targetId: string,
@@ -38,7 +39,7 @@ async function assertMayTouchTarget(
     .where(and(eq(users.id, targetId), eq(users.tenantId, tenantId)))
     .limit(1);
   if (target?.role === "owner") {
-    throw new Error("대표자 계정은 대표자만 변경할 수 있습니다");
+    throw new Error("관리자 계정은 관리자 본인만 변경할 수 있습니다");
   }
 }
 
@@ -57,10 +58,10 @@ export async function createUser(formData: FormData) {
   if (!STORABLE_ROLES.includes(role)) {
     throw new Error("잘못된 역할");
   }
-  // 대표자 임명은 대표자만 — 관리자가 임의로 대표자를 늘리지 못하게.
-  if (role === "owner" && me.role !== "owner" && me.role !== "super_admin") {
-    throw new Error("대표자는 대표자만 임명할 수 있습니다");
-  }
+  // ★2역할로 접으면서 이 가드를 풀었다(2026-08-19). 종전엔 owner 임명을 owner 로만
+  //   제한했는데, 이제 새 '관리자' 는 owner 로 만들어진다 — 옛 admin 계정도 화면엔 똑같이
+  //   '관리자' 로 보이므로, 그 사람이 관리자를 못 만들면 화면상 설명이 안 되는 거절이 된다.
+  //   계정 관리 권한(canManageAccounts)은 위 게이트가 이미 확인했다.
 
   await assertEmailAvailable(email); // 전역 email 중복 사전검사 (최종 방어는 마이그 012 유니크)
   await assertSeatAvailable(me.tenantId); // ★좌석 상한 — 아이디 무제한 생성 = 과금 회피 차단
@@ -99,9 +100,8 @@ export async function updateUser(id: string, formData: FormData) {
   if (!STORABLE_ROLES.includes(role)) {
     throw new Error("잘못된 역할");
   }
-  if (role === "owner" && me.role !== "owner" && me.role !== "super_admin") {
-    throw new Error("대표자는 대표자만 임명할 수 있습니다");
-  }
+  // 임명 가드는 위 createUser 와 같은 이유로 두지 않는다 — 대상 계정 보호는
+  //   assertMayTouchTarget 이 이미 맡는다(관리자 계정은 관리자 본인만).
   // 본인 행을 저장할 때 역할·활성 상태는 건드리지 않는다 — 이름만 고쳐 저장했다가
   // 스스로 직원으로 강등되거나 비활성화돼 로그인 자체가 막히던 자기잠금 사고 방지.
   if (id === me.id) {

@@ -41,7 +41,7 @@ export default async function UsersPage() {
       <div className="px-4 py-5 md:px-8 md:py-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
         <p className="mt-2 text-sm text-[#ff9a9e]">
-          대표자·관리자만 직원 계정을 관리할 수 있습니다.
+          관리자만 계정을 관리할 수 있습니다.
         </p>
       </div>
     );
@@ -99,7 +99,9 @@ export default async function UsersPage() {
     .where(eq(users.tenantId, session.user.tenantId))
     .orderBy(desc(users.createdAt));
 
-  // 좌석 현황 — 활성 아이디(=동시 세션) 수 / 보유 좌석. 상한이면 추가 폼 대신 안내.
+  // 계정 현황 — 활성 아이디(=동시 세션) 수 / 보유 수. 상한이면 추가 폼 대신 안내.
+  //   ★화면은 '계정' 으로 말한다(2026-08-19). DB·함수는 seat 그대로다 — 사용자는 컬럼
+  //   이름을 안 보고, 개명은 마이그레이션까지 번지면서 얻는 게 없다.
   const [tenantRow] = await db
     .select({ maxSeats: tenants.maxSeats })
     .from(tenants)
@@ -113,7 +115,7 @@ export default async function UsersPage() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">사용자</h1>
         <p className="text-sm text-[#b9bfd2] mt-1">
-          {rows.length}명 · 좌석{" "}
+          {rows.length}명 · 계정{" "}
           <span className={seatFull ? "font-semibold text-amber-300" : "font-semibold text-[#eef1f7]"}>
             {usedSeats} / {maxSeats}
           </span>{" "}
@@ -122,13 +124,12 @@ export default async function UsersPage() {
       </header>
 
       <section className="mb-8 panel-card p-5">
-        <h2 className="mb-4 text-sm font-semibold text-[#eef1f7]">직원 추가</h2>
+        <h2 className="mb-4 text-sm font-semibold text-[#eef1f7]">계정 추가</h2>
         {seatFull ? (
           <div className="rounded-lg banner banner-warn">
             <p>
-              좌석을 모두 사용 중입니다 ({usedSeats} / {maxSeats}석). 아이디 하나가
-              동시 1명의 원격을 담당하므로, 직원을 더 추가하려면 좌석을 추가로
-              구매하셔야 합니다.
+              계정을 모두 사용 중입니다 ({usedSeats} / {maxSeats}개). 계정 하나로는 한
+              번에 한 명만 원격할 수 있어, 동시에 일하는 직원 수만큼 계정이 필요합니다.
             </p>
             <a
               href="https://betaposlab.com/chainremote#contact"
@@ -136,7 +137,7 @@ export default async function UsersPage() {
               rel="noopener noreferrer"
               className="mt-3 inline-block rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
             >
-              좌석 추가 문의하기 →
+              계정 추가 문의하기 →
             </a>
           </div>
         ) : (

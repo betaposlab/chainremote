@@ -98,7 +98,7 @@ export default function PanelHelpPage() {
         </Item>
 
         <h3 className="mt-5 mb-2 font-semibold text-white">버튼</h3>
-        <Item name="+ 거래처 추가" who="마스터 · 관리자" when="새 매장에 설치하러 가기 전.">
+        <Item name="+ 거래처 추가" who="관리자 · 직원" when="새 매장에 설치하러 가기 전.">
           상호와 담당자를 미리 등록해 둡니다. 사실 <b>미리 안 해도 됩니다</b> — 설치할 때 상호를
           입력하면 스스로 등록되니까요(아래 3번).
         </Item>
@@ -110,12 +110,12 @@ export default function PanelHelpPage() {
             안 붙습니다.</b> 겉으론 멀쩡히 원격이 되기 때문에 몇 달 뒤에야 발견됩니다.
           </Danger>
         </Item>
-        <Item name="⬆ 푸시 (행마다)" who="마스터 · 관리자" when="특정 거래처만 새 버전으로 올릴 때.">
+        <Item name="⬆ 푸시 (행마다)" who="관리자 · 직원" when="특정 거래처만 새 버전으로 올릴 때.">
           그 거래처 한 곳에만 업데이트를 예약합니다. 최대 10분 안에 조용히 설치됩니다.
         </Item>
         <Item
           name="⬆ 전체 일괄 푸시"
-          who="마스터 · 관리자"
+          who="관리자 · 직원"
           when="새 버전이 나왔을 때. 보통 우리가 안내드립니다."
         >
           모든 거래처를 새 버전으로 올립니다.
@@ -124,7 +124,7 @@ export default function PanelHelpPage() {
             누르게 해 두었습니다. 영업시간을 피해 누르시는 편이 안전합니다.
           </Warn>
         </Item>
-        <Item name="수정" who="마스터 · 관리자">
+        <Item name="수정" who="관리자 · 직원">
           상호·담당자·연락처·메모를 고칩니다. 내부 기기(우리 PC)로 표시해 두면 과금과 일괄
           푸시에서 빠집니다.
         </Item>
@@ -145,7 +145,7 @@ export default function PanelHelpPage() {
               <UI>미확정</UI> 으로 나타납니다.
             </>,
             <>
-              패널에서 <UI>확정</UI> 을 누르면 정식 등록입니다. <b>확정은 마스터만</b> 할 수
+              패널에서 <UI>확정</UI> 을 누르면 정식 등록입니다. <b>확정은 관리자만</b> 할 수
               있습니다.
             </>,
           ]}
@@ -216,30 +216,25 @@ export default function PanelHelpPage() {
       </Section>
 
       <Section n={6} title="사용자">
-        <p>회사 직원 계정을 관리합니다.</p>
-        <Item name="직원 추가" who="마스터">
+        <p>우리 회사 계정을 관리합니다.</p>
+        <Item name="계정 추가" who="관리자">
           이메일과 이름을 넣으면 계정이 생깁니다. <b>첫 비밀번호는 1234</b> 이니 받은 분이 바로
-          바꾸도록 안내해 주세요.
+          바꾸도록 안내해 주세요. 계정 하나로는 한 번에 한 명만 원격할 수 있어, 동시에 일하는
+          직원 수만큼 계정이 필요합니다.
         </Item>
         <Item name="권한">
           <div className="space-y-1.5">
             <div>
-              <b className="text-white">마스터</b> — 전부. 직원 관리, 거래처 확정·삭제, 일괄
-              푸시.
+              <b className="text-white">관리자</b> — 전부. 계정 추가·비밀번호 초기화까지.
             </div>
             <div>
-              <b className="text-white">관리자</b> — 거래처 등록·수정, 푸시. 직원 관리는 안 됩니다.
-            </div>
-            <div>
-              <b className="text-white">기사</b> — 원격 지원과 기록 남기기. 거래처 추가까지.
-            </div>
-            <div>
-              <b className="text-white">조회</b> — 보기만.
+              <b className="text-white">직원</b> — 거래처와 원격은 전부 합니다(등록·수정·삭제,
+              푸시, 관제, 원격 지원). <b className="text-white">계정 관리만</b> 안 됩니다.
             </div>
           </div>
         </Item>
-        <Item name="비밀번호 초기화" who="마스터">
-          직원이 비밀번호를 잊었을 때 1234 로 되돌립니다.
+        <Item name="비밀번호 초기화" who="관리자">
+          비밀번호를 잊었을 때 1234 로 되돌립니다.
         </Item>
       </Section>
 

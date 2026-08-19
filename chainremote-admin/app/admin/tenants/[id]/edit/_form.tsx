@@ -121,8 +121,8 @@ export function EditTenantForm({ tenant }: { tenant: TenantData }) {
 
       <Section title="구독 / 요금">
         <Field
-          label="좌석 (동시 세션 수)"
-          hint="이 대리점이 만들 수 있는 활성 아이디 수. 아이디 1개 = 동시 1명 원격. 좌석을 더 팔면 이 수를 올린다."
+          label="계정 수 (동시 접속 가능 인원)"
+          hint="이 대리점이 만들 수 있는 활성 아이디 수. 계정 1개 = 동시 1명 원격. 계정을 더 팔면 이 수를 올린다."
         >
           <input
             name="maxSeats"
