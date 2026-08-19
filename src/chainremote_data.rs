@@ -640,6 +640,24 @@ fn take_conn_direct(peer_id: &str) -> Option<bool> {
     CONN_DIRECT.lock().ok()?.as_mut()?.remove(peer_id)
 }
 
+/// 예약원격 창으로 통과한 접속 — 거래처가 알려 준 사실을 종료 보고까지 들고 있는다.
+///   ★conn_direct 와 같은 구조다. 이걸 다트에 두면 안 된다 — 원격 창과 목록 창이 서로 다른
+///   프로세스라 한쪽 전역이 다른 쪽에 안 보인다(2026-08-19 실측).
+static SCHED_SESSION: Mutex<Option<HashMap<String, bool>>> = Mutex::new(None);
+
+/// 거래처가 "이 접속은 창으로 통과했다"고 알려 왔다(io_loop 에서 호출).
+pub fn note_sched_session(peer_id: &str) {
+    if let Ok(mut g) = SCHED_SESSION.lock() {
+        g.get_or_insert_with(HashMap::new)
+            .insert(peer_id.to_owned(), true);
+    }
+}
+
+/// 보고에 실을 값을 꺼낸다(한 번 쓰면 지운다 — 다음 세션에 옛 값이 새지 않게).
+fn take_sched_session(peer_id: &str) -> Option<bool> {
+    SCHED_SESSION.lock().ok()?.as_mut()?.remove(peer_id)
+}
+
 /// 세션ID → 거래처ID. 종료 보고는 세션ID만 받는데 direct 값은 거래처ID로 쌓이므로 이어 준다.
 ///   ★direct 는 세션이 시작된 *뒤*에 정해진다(원격 창이 뜬 시점엔 아직 연결 전) — 그래서
 ///   시작 보고엔 대개 안 실리고, 종료 보고에서 채워진다. 2026-08-11 실측으로 확인한 순서다.
@@ -723,6 +741,11 @@ fn session_end_blocking(
     if let Some(peer) = take_session_peer(&session_id) {
         if let Some(d) = take_conn_direct(&peer) {
             obj.insert("connDirect".into(), d.into());
+        }
+        // 예약원격 창으로 들어간 접속인지 — 영구 비밀번호와 이 기능을 가르는 근거 중
+        //   "기록이 남는다"를 실제로 채우는 값이다. 거짓일 때는 아예 안 싣는다(기본 false).
+        if take_sched_session(&peer) == Some(true) {
+            obj.insert("viaSchedWindow".into(), true.into());
         }
     }
     let body = serde_json::Value::Object(obj).to_string();

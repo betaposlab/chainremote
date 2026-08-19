@@ -1798,7 +1798,9 @@ impl Connection {
         //   하는데, 창의 진실은 거래처에만 있다(재부팅을 넘고, 다른 기사가 열었을 수도 있다).
         //   ★닫혀 있으면 아무것도 안 보낸다 — 거래처 38곳이 매일 하는 평범한 접속에
         //   바이트를 한 개도 더하지 않으려는 것이다. 본사의 기본값이 '닫힘'이라 그게 맞다.
-        self.send_cr_sched_state(false).await;
+        //   창으로 통과한 접속이면 그 사실도 같이 실어, 지원기록이 "수락 없이 들어간 건"을
+        //   구분해 남길 수 있게 한다. 통과 판정을 한 건 우리뿐이라 본사는 추측할 수 없다.
+        self.send_cr_sched_state(false, self.sched_window_session).await;
         true
     }
 
@@ -1825,7 +1827,7 @@ impl Connection {
     /// 똑같은 모양이 된다.
     ///
     /// 옛 본사(HQ)는 이 메시지를 모르지만 misc 의 모르는 갈래는 그냥 버려지므로 무해하다.
-    async fn send_cr_sched_state(&mut self, always: bool) {
+    async fn send_cr_sched_state(&mut self, always: bool, via_window: bool) {
         let open_until = crate::chainremote_sched::status().map(|w| w.end).unwrap_or(0);
         if open_until == 0 && !always {
             return;
@@ -1833,6 +1835,7 @@ impl Connection {
         let mut r = CrSchedResp::new();
         r.kind = hbb_common::message_proto::cr_sched_resp::Kind::STATE.into();
         r.open_until = open_until;
+        r.via_window = via_window;
         let mut misc = Misc::new();
         misc.set_cr_sched_resp(r);
         let mut msg_out = Message::new();
@@ -3498,7 +3501,7 @@ impl Connection {
                             //   여기서 지우는 것으로 끝난다. 이미 닫혀 있어도 무해하다.
                             crate::chainremote_sched::clear();
                             log::info!("[chainremote_sched] 본사가 창을 닫았다");
-                            self.send_cr_sched_state(true).await;
+                            self.send_cr_sched_state(true, false).await;
                         } else {
                             self.send_to_cm(ipc::Data::CrSchedReq {
                                 start: p.start,

@@ -36,6 +36,9 @@ export async function POST(req: Request, ctx: Ctx) {
       // 직결/릴레이(마이그038) — HQ 가 연결 수립 뒤 알게 된 값을 종료 때 함께 보낸다.
       connDirect:
         typeof body.connDirect === "boolean" ? body.connDirect : undefined,
+      // 예약 원격 창으로 수락 없이 들어간 접속인지(마이그049). 거래처가 접속 시 본사에
+      //   알려 준 사실을 본사가 종료 보고에 실어 보낸다 — 서버가 추측하지 않는다.
+      viaSchedWindow: body.viaSchedWindow === true ? true : undefined,
     });
     return Response.json({ ok: true });
   } catch (e) {

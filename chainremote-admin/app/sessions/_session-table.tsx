@@ -27,6 +27,8 @@ export type SessionRow = {
   resolution: Resolution | null;
   description: string | null;
   categories: string | null;
+  /** 예약 원격 창으로 수락 없이 들어간 접속(마이그049). */
+  viaSchedWindow?: boolean;
   contactName: string | null;
   operatorName: string | null;
   remoteId: string | null;
@@ -104,6 +106,14 @@ export function SessionTable({ rows }: { rows: SessionRow[] }) {
                         ▸
                       </span>
                       {r.customerName ?? <span className="text-[#ccd2e3]">(삭제됨)</span>}
+                      {r.viaSchedWindow && (
+                        <span
+                          className="inline-block rounded bg-amber-500/14 px-1.5 py-0.5 text-[10px] font-medium text-amber-300"
+                          title="예약 원격 — 거래처가 미리 승인한 시간대라 수락 창 없이 접속했습니다"
+                        >
+                          예약 접속
+                        </span>
+                      )}
                       {r.discardedAt && (
                         <span
                           className="inline-block rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-[#b9bfd2] line-through"

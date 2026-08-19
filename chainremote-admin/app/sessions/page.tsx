@@ -90,6 +90,7 @@ export default async function SessionsPage({
     operatorName: r.operatorName,
     remoteId: r.remoteId,
     discardedAt: r.discardedAt ? new Date(r.discardedAt).toISOString() : null,
+    viaSchedWindow: r.viaSchedWindow ?? false,
     manual: r.manual,
     operatorDevice: r.operatorDevice,
     operatorIp: r.operatorIp,

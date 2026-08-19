@@ -193,6 +193,8 @@ export type EndSessionFields = {
   resolution?: "resolved" | "pending" | "escalated" | "in_progress"; // 처리결과
   /** 직결(P2P)이었나 릴레이였나(마이그038). 연결 수립 뒤에야 정해져 종료 보고에 실려 온다. */
   connDirect?: boolean;
+  /** 예약 원격 창으로 **수락 없이** 들어갔나(마이그049). 거래처가 접속 시 알려 준 사실. */
+  viaSchedWindow?: boolean;
 };
 
 /**
@@ -474,6 +476,8 @@ export async function searchSessions(opts: {
       categories: supportSessions.categories,
       contactName: supportSessions.contactName,
       remoteId: supportSessions.remoteId,
+      // 예약 원격 창으로 수락 없이 들어간 접속(마이그049) — 목록에 배지로 표시한다.
+      viaSchedWindow: supportSessions.viaSchedWindow,
       operatorName: users.displayName,
       operatorDevice: supportSessions.operatorDevice,
       operatorIp: supportSessions.operatorIp,

@@ -1787,6 +1787,21 @@ impl<T: InvokeUiSession> Remote<T> {
                             //   아직 답을 안 한 제안이 살아 있을 수 있고, 이건 그것과 무관한
                             //   "지금 창이 이렇다"는 통보다.
                             self.handler.cr_sched_state(r.open_until);
+                            // 창으로 통과한 접속이면 종료 보고에 실을 수 있게 적어 둔다.
+                            //   ★다트가 아니라 여기(Rust)에 담는다 — 원격 창과 목록 창이
+                            //   서로 다른 프로세스라 다트 전역은 건너오지 않는다.
+                            //   ★chainremote_data 는 flutter 빌드에만 있다(패널 통신은
+                            //   본사 앱 몫). Sciter 뷰어엔 지원기록 자체가 없어 무해하다.
+                            #[cfg(any(
+                                target_os = "android",
+                                target_os = "ios",
+                                feature = "flutter"
+                            ))]
+                            if r.via_window {
+                                crate::chainremote_data::note_sched_session(
+                                    &self.handler.get_id(),
+                                );
+                            }
                         } else {
                             self.handler
                                 .lc

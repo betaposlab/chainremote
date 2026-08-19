@@ -29,6 +29,9 @@ class CrSession {
   final String contactName; // 거래처측 응대자
   final String operatorName; // 우리측 담당자
   final String resolution; // key (kCrResolutions)
+  /// 예약 원격 창으로 **수락 없이** 들어간 접속인가(마이그049).
+  ///   거래처가 접속 시 알려 준 사실이라 추측이 아니다.
+  final bool viaSchedWindow;
 
   CrSession({
     required this.customerName,
@@ -41,6 +44,7 @@ class CrSession {
     required this.contactName,
     required this.operatorName,
     required this.resolution,
+    required this.viaSchedWindow,
   });
 
   factory CrSession.fromJson(Map<String, dynamic> j) {
@@ -66,6 +70,7 @@ class CrSession {
       contactName: (s['contactName'] ?? '').toString(),
       operatorName: (j['operatorName'] ?? '').toString(),
       resolution: (s['resolution'] ?? '').toString(),
+      viaSchedWindow: s['viaSchedWindow'] == true,
     );
   }
 }
@@ -200,6 +205,24 @@ Widget _sessionTile(BuildContext context, CrSession s,
           style: TextStyle(
               fontSize: 11,
               color: isDark ? const Color(0xFF7DD3FC) : const Color(0xFF0284C7))),
+    ));
+  }
+
+  // 예약 원격으로 들어간 접속은 눈에 띄게 표시한다. 수락 창 없이 들어간 건이라
+  //   나중에 "누가 언제 수락 없이 들어왔냐"에 답할 수 있어야 한다 — 그 답이 이 기능과
+  //   영구 비밀번호를 가르는 근거 셋 중 하나다.
+  if (s.viaSchedWindow) {
+    chips.add(Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF59E0B).withOpacity(0.14),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text('예약 접속',
+          style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isDark ? const Color(0xFFFCD34D) : const Color(0xFFB45309))),
     ));
   }
 
