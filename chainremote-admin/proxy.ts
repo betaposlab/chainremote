@@ -43,8 +43,13 @@ export default auth((req) => {
 // 요청조차 /login 으로 307 되돌려져 **로그인 화면의 로고가 늘 깨져 있었다**(favicon 은
 // 예외라 멀쩡했다). 랜딩에도 공개돼 있는 브랜드 워드마크라 가릴 이유가 없다.
 // 확장자 일반 패턴(\..*) 대신 파일명 하나만 뺀다 — 넓게 열면 점이 든 경로가 딸려 풀린다.
+//
+// ★auth/ticket 예외(2026-08-20): 본사 앱 [관리 패널] 이 여는 주소다. 티켓으로 세션을
+//   **만드는** 자리라 세션이 없는 게 정상인데, 여기 걸리면 티켓을 소비하기도 전에 /login
+//   으로 튕기고 60초짜리 티켓은 그대로 죽는다. 이미 로그인된 브라우저는 그냥 통과해서
+//   되는 것처럼 보이므로 — 정작 SSO 가 필요한 상황에서만 조용히 안 된다.
 export const config = {
   matcher: [
-    "/((?!api|login|_next/static|_next/image|favicon.ico|chainremote-logo\\.png).*)",
+    "/((?!api|login|auth/ticket|_next/static|_next/image|favicon.ico|chainremote-logo\\.png).*)",
   ],
 };
