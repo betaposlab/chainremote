@@ -356,12 +356,47 @@ Widget crTableHeader(BuildContext context, double width, int count,
   });
 }
 
-/// 부제 줄에 들어갈 배지들 — **급한 것부터**. 관제 → 디스크 → OS.
+/// 예약 배지 — 지금 원격 예약이 걸려 있는 거래처에만.
+///
+///   ★목록에서 한눈에 보여야 하는 이유: 이 거래처는 지금 **수락 창 없이 들어갈 수 있는**
+///   상태다. 걸어 놓고 잊으면 그게 곧 영구 비밀번호와 같아진다 — 화면에 보이는 것 자체가
+///   안전장치다. 시각은 우클릭 메뉴가 알려 주므로 여기선 있다/없다만 말한다.
+Widget? crSchedBadge(BuildContext context, Peer peer) {
+  if (!crSchedIsOpenFor(peer)) return null;
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+    decoration: BoxDecoration(
+      color: CrColors.of(context).warnBg,
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(Icons.schedule_rounded,
+          size: 9, color: CrColors.of(context).warnFg),
+      const SizedBox(width: 3),
+      Text(
+        '예약',
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w600,
+          color: CrColors.of(context).warnFg,
+        ),
+      ),
+    ]),
+  );
+}
+
+/// 부제 줄에 들어갈 배지들 — **급한 것부터**. 예약 → 관제 → 디스크 → OS.
 ///
 ///   좁은 줄에서 뒤엣것부터 빠지므로 순서가 곧 우선순위다. 손이 필요한 관제 상태(빨강)가
-///   가장 오래 살아남고, 정보량이 가장 낮고 가장 긴 OS 배지가 먼저 희생된다.
+///   오래 살아남고, 정보량이 가장 낮고 가장 긴 OS 배지가 먼저 희생된다.
+///   ★예약이 맨 앞인 이유: 이건 상태 보고가 아니라 **지금 문이 열려 있다는 표시**다.
 List<CrBadge> crBadgeList(BuildContext context, Peer peer) {
-  final out = <CrBadge>[...crWatchBadges(context, peer)];
+  final out = <CrBadge>[];
+  final sched = crSchedBadge(context, peer);
+  if (sched != null) {
+    out.add(CrBadge(sched, _crEstBadgeWidth('예약', hasIcon: true)));
+  }
+  out.addAll(crWatchBadges(context, peer));
   final diskText = crDiskBadgeText(peer);
   final disk = crDiskBadge(context, peer);
   if (disk != null && diskText != null) {
