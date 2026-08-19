@@ -1350,16 +1350,6 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kSessionCrSchedReqConstMeta;
 
-  /// ChainRemote 예약원격 — 열려 있는 창을 지금 닫는다(본사 쪽에서 부른다).
-  ///
-  /// 기사가 세션을 끝내며 [예약 창도 닫기]를 골랐을 때. 창을 **여는** 길과 달리 거래처에
-  /// 아무것도 뜨지 않는다 — 권한이 줄기만 하므로 사장님께 물을 것이 없다. 그 비대칭이
-  /// 이 기능과 영구 비밀번호를 가르는 선이라 반대 방향으로는 절대 열지 않는다.
-  Future<void> sessionCrSchedClose(
-      {required UuidValue sessionId, dynamic hint});
-
-  FlutterRustBridgeTaskConstMeta get kSessionCrSchedCloseConstMeta;
-
   /// ChainRemote 예약원격 — 사장님이 카드에서 누른 답.
   ///
   /// ★창이 실제로 열리는 유일한 입구다. 본사 메시지는 카드를 띄울 뿐이고, 이 호출은
@@ -1375,17 +1365,6 @@ abstract class Rustdesk {
       dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kCmSchedAnswerConstMeta;
-
-  /// 거래처가 트레이에서 [허용 취소]를 눌렀다 — 남은 시간을 즉시 없앤다.
-  Future<void> cmSchedCancel({dynamic hint});
-
-  FlutterRustBridgeTaskConstMeta get kCmSchedCancelConstMeta;
-
-  /// 지금 열려 있는 창의 사람 말 표기. 없으면 빈 문자열.
-  ///   트레이 카드가 "언제까지 허용 중"인지 보여주는 데 쓴다.
-  Future<String> cmSchedLabel({dynamic hint});
-
-  FlutterRustBridgeTaskConstMeta get kCmSchedLabelConstMeta;
 
   /// CM 창이 "원격지원 중" 배너로 바뀔 때 켜고, 수락 카드로 돌아올 때 끈다(Windows 전용).
   ///
@@ -6739,25 +6718,6 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["sessionId", "start", "end", "hqNow", "label", "extend"],
       );
 
-  Future<void> sessionCrSchedClose(
-      {required UuidValue sessionId, dynamic hint}) {
-    var arg0 = _platform.api2wire_Uuid(sessionId);
-    return _platform.executeNormal(FlutterRustBridgeTask(
-      callFfi: (port_) =>
-          _platform.inner.wire_session_cr_sched_close(port_, arg0),
-      parseSuccessData: _wire2api_unit,
-      constMeta: kSessionCrSchedCloseConstMeta,
-      argValues: [sessionId],
-      hint: hint,
-    ));
-  }
-
-  FlutterRustBridgeTaskConstMeta get kSessionCrSchedCloseConstMeta =>
-      const FlutterRustBridgeTaskConstMeta(
-        debugName: "session_cr_sched_close",
-        argNames: ["sessionId"],
-      );
-
   Future<void> cmSchedAnswer(
       {required int connId,
       required bool accepted,
@@ -6786,38 +6746,6 @@ class RustdeskImpl implements Rustdesk {
       const FlutterRustBridgeTaskConstMeta(
         debugName: "cm_sched_answer",
         argNames: ["connId", "accepted", "start", "end", "hqNow", "label"],
-      );
-
-  Future<void> cmSchedCancel({dynamic hint}) {
-    return _platform.executeNormal(FlutterRustBridgeTask(
-      callFfi: (port_) => _platform.inner.wire_cm_sched_cancel(port_),
-      parseSuccessData: _wire2api_unit,
-      constMeta: kCmSchedCancelConstMeta,
-      argValues: [],
-      hint: hint,
-    ));
-  }
-
-  FlutterRustBridgeTaskConstMeta get kCmSchedCancelConstMeta =>
-      const FlutterRustBridgeTaskConstMeta(
-        debugName: "cm_sched_cancel",
-        argNames: [],
-      );
-
-  Future<String> cmSchedLabel({dynamic hint}) {
-    return _platform.executeNormal(FlutterRustBridgeTask(
-      callFfi: (port_) => _platform.inner.wire_cm_sched_label(port_),
-      parseSuccessData: _wire2api_String,
-      constMeta: kCmSchedLabelConstMeta,
-      argValues: [],
-      hint: hint,
-    ));
-  }
-
-  FlutterRustBridgeTaskConstMeta get kCmSchedLabelConstMeta =>
-      const FlutterRustBridgeTaskConstMeta(
-        debugName: "cm_sched_label",
-        argNames: [],
       );
 
   Future<void> cmSetBannerStyle({required bool banner, dynamic hint}) {
@@ -13760,23 +13688,6 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
           void Function(int, ffi.Pointer<wire_uint_8_list>, int, int, int,
               ffi.Pointer<wire_uint_8_list>, bool)>();
 
-  void wire_session_cr_sched_close(
-    int port_,
-    ffi.Pointer<wire_uint_8_list> session_id,
-  ) {
-    return _wire_session_cr_sched_close(
-      port_,
-      session_id,
-    );
-  }
-
-  late final _wire_session_cr_sched_closePtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(ffi.Int64,
-              ffi.Pointer<wire_uint_8_list>)>>('wire_session_cr_sched_close');
-  late final _wire_session_cr_sched_close = _wire_session_cr_sched_closePtr
-      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
-
   void wire_cm_sched_answer(
     int port_,
     int conn_id,
@@ -13810,34 +13721,6 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
   late final _wire_cm_sched_answer = _wire_cm_sched_answerPtr.asFunction<
       void Function(
           int, int, bool, int, int, int, ffi.Pointer<wire_uint_8_list>)>();
-
-  void wire_cm_sched_cancel(
-    int port_,
-  ) {
-    return _wire_cm_sched_cancel(
-      port_,
-    );
-  }
-
-  late final _wire_cm_sched_cancelPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-          'wire_cm_sched_cancel');
-  late final _wire_cm_sched_cancel =
-      _wire_cm_sched_cancelPtr.asFunction<void Function(int)>();
-
-  void wire_cm_sched_label(
-    int port_,
-  ) {
-    return _wire_cm_sched_label(
-      port_,
-    );
-  }
-
-  late final _wire_cm_sched_labelPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-          'wire_cm_sched_label');
-  late final _wire_cm_sched_label =
-      _wire_cm_sched_labelPtr.asFunction<void Function(int)>();
 
   void wire_cm_set_banner_style(
     int port_,

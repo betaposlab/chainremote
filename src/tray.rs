@@ -107,6 +107,14 @@ fn make_tray() -> hbb_common::ResultType<()> {
         }
     };
     let mut _tray_icon: Arc<Mutex<Option<TrayIcon>>> = Default::default();
+    // ChainRemote 예약원격 툴팁 주기 갱신용 — 마지막 세션 수와 마지막으로 쓴 문구.
+    //   문구가 그대로면 다시 안 쓴다(윈도우 API 를 5초마다 두드릴 이유가 없다).
+    #[cfg(windows)]
+    let mut last_count: usize = 0;
+    #[cfg(windows)]
+    let mut last_tip = std::time::Instant::now();
+    #[cfg(windows)]
+    let mut last_tip_text = String::new();
 
     let menu_channel = MenuEvent::receiver();
     let tray_channel = TrayEvent::receiver();
@@ -227,18 +235,12 @@ fn make_tray() -> hbb_common::ResultType<()> {
                         if last_click.elapsed() < std::time::Duration::from_secs(1) {
                             return;
                         }
-                        // ChainRemote 예약원격: 허용 중이면 취소할지 먼저 묻는다.
-                        //
-                        // ★거래처가 스스로 되돌릴 수 있어야 이 기능이 영구 비밀번호와 갈린다.
-                        //   그런데 거래처(i686) 트레이엔 컨텍스트 메뉴를 못 단다 — Win7 에서
-                        //   muda/tray-icon 의 TrackPopupMenu 가 c0000409 로 죽는다. 그래서
-                        //   메뉴가 아니라 **시스템 대화상자**로 묻는다. CM 창 기하(카드↔배너↔
-                        //   채팅)를 건드리지 않고, x86·x64 가 똑같이 동작한다.
-                        if crate::chainremote_sched::status().is_some() {
-                            crate::chainremote_sched::ask_cancel_in_thread();
-                            last_click = std::time::Instant::now();
-                            return;
-                        }
+                        // 예약이 걸려 있어도 클릭은 '열기' 하나다(2026-08-19 트레이 취소 제거).
+                        //   종전엔 여기서 "허용을 취소할까요?" 시스템 대화상자를 띄웠는데,
+                        //   이 앱의 트레이 클릭은 어디서나 열기라는 약속(종료 메뉴를 영구히
+                        //   뺀 그 규칙)과 겹쳐, 만든 쪽도 테스트하다 모르고 예약을 지웠다.
+                        //   거두는 길은 본사 메뉴·패널이 맡고, 창은 만료(종료 시각·24시간·
+                        //   무활동 15분)가 닫는다. 툴팁 표기는 투명성이라 남긴다.
                         open_func();
                         last_click = std::time::Instant::now();
                     }
@@ -251,6 +253,7 @@ fn make_tray() -> hbb_common::ResultType<()> {
         if let Ok(data) = ipc_receiver.try_recv() {
             match data {
                 Data::ControlledSessionCount(count) => {
+                    last_count = count;
                     _tray_icon
                         .lock()
                         .unwrap()
@@ -258,6 +261,30 @@ fn make_tray() -> hbb_common::ResultType<()> {
                         .map(|t| t.set_tooltip(Some(tooltip(count))));
                 }
                 _ => {}
+            }
+        }
+
+        // ChainRemote 예약원격: 툴팁을 주기적으로 다시 쓴다.
+        //
+        // ★종전엔 세션 수가 바뀔 때만 다시 그렸다. 그런데 예약은 세션과 무관하게 생기고
+        //   사라져서, 걸어 둔 뒤에도 툴팁이 옛 문구 그대로였다 — 사장님이 마우스를 올려도
+        //   "지금 허용된 상태인가"를 알 수 없었다(2026-08-19 Chang 실측). 허용해 놓은 걸
+        //   모르는 채 두면 그건 영구 비밀번호와 다를 게 없으니, 이 표시가 늦으면 안 된다.
+        //   예약 확인은 로컬 파일 한 번이라 5초마다 봐도 부담이 없다.
+        #[cfg(windows)]
+        {
+            let now = std::time::Instant::now();
+            if now.duration_since(last_tip) >= std::time::Duration::from_secs(5) {
+                last_tip = now;
+                let tip = tooltip(last_count);
+                if tip != last_tip_text {
+                    last_tip_text = tip.clone();
+                    _tray_icon
+                        .lock()
+                        .unwrap()
+                        .as_mut()
+                        .map(|t| t.set_tooltip(Some(tip)));
+                }
             }
         }
     });

@@ -6,7 +6,6 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/common/shared_state.dart';
-import 'package:flutter_hbb/common/widgets/chainremote_sched.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/models/input_model.dart';
 import 'package:flutter_hbb/models/state_model.dart';
@@ -83,7 +82,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
         unselectedIcon: unselectedIcon,
         onTabCloseButton: () async {
           // 탭 X 도 무경고 끊김 방지 — 확인 후 닫는다. A/S 기록은 종료 후 메인 창 모달.
-          if (!await _chainremoteConfirmCloseDuringSession([peerId!])) {
+          if (!await _chainremoteConfirmCloseDuringSession(1)) {
             return;
           }
           tabController.closeBy(peerId!);
@@ -447,9 +446,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
     // A/S 기록 모달은 여기서 띄우지 않는다 — 확인 즉시 끊어 거래처 배너를 바로
     // 없애고, 기록은 종료 후 메인 창 모달로 받는다(chainremote_session_record.dart).
     if (connLength >= 1) {
-      // 창을 통째로 닫는 길 — 탭에 있는 거래처 전부가 대상이다.
-      final ids = tabController.state.value.tabs.map((t) => t.key).toList();
-      if (!await _chainremoteConfirmCloseDuringSession(ids)) {
+      if (!await _chainremoteConfirmCloseDuringSession(connLength)) {
         return false;
       }
     }
@@ -477,51 +474,25 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
   ///   쌓인 수만큼 [취소]를 눌러야 했다. "종료가 안 먹는다"로 보여 더 누르게 되는 악순환.
   bool _closeAsking = false;
 
-  Future<bool> _chainremoteConfirmCloseDuringSession(List<String> ids) async {
+  Future<bool> _chainremoteConfirmCloseDuringSession(int connLength) async {
     if (_closeAsking) return false;
     _closeAsking = true;
     try {
-      return await _chainremoteConfirmCloseDuringSessionInner(ids);
+      return await _chainremoteConfirmCloseDuringSessionInner(connLength);
     } finally {
       _closeAsking = false;
     }
   }
 
-  /// 지금 닫으려는 거래처들 중 예약 창이 열려 있는 것 — (거래처ID, 세션ID, 종료시각).
-  ///
-  /// ★창의 존재는 거래처가 알려 준 것만 믿는다([crSchedOpenUntilOf]). 본사가 기억해 두면
-  /// 재부팅을 넘긴 창이나 다른 기사가 연 창을 놓친다.
-  List<(String, SessionID, int)> _crSchedOpenAmong(List<String> ids) {
-    final out = <(String, SessionID, int)>[];
-    for (final id in ids) {
-      final until = crSchedOpenUntilOf(id);
-      if (until == 0) continue;
-      try {
-        final page = tabController.state.value.tabs
-            .firstWhere((t) => t.key == id)
-            .page as RemotePage;
-        out.add((id, page.ffi.sessionId, until));
-      } catch (_) {
-        // 탭을 못 찾으면 보낼 세션도 없다 — 물어봐야 할 수 있는 게 없으니 건너뛴다.
-      }
-    }
-    return out;
-  }
-
-  Future<bool> _chainremoteConfirmCloseDuringSessionInner(
-      List<String> ids) async {
-    final connLength = ids.length;
+  // ChainRemote: 여기서 예약 창을 묻지 않는다(2026-08-19 제거). 종전엔 [원격 예약도 함께
+  //   닫기] 체크박스가 있었는데, 창은 어차피 스스로 닫힌다 — 약속한 종료 시각, 승인 후
+  //   24시간, 마지막 세션 뒤 15분 무활동. 체크박스가 앞당기는 건 그 무활동 대기뿐인데
+  //   값은 매번 치렀고, 원격 창↔목록 창의 상태 동기화가 통째로 이 질문 하나를 위해
+  //   존재했다. 거두는 길은 목록 우클릭 [원격 예약 취소]와 패널 칩이 맡는다.
+  Future<bool> _chainremoteConfirmCloseDuringSessionInner(int connLength) async {
     final msg = connLength > 1
         ? '원격 세션 $connLength개가 진행 중입니다. 모두 종료할까요?\n거래처 연결이 끊깁니다.'
         : '원격 세션이 진행 중입니다. 종료할까요?\n거래처 연결이 끊깁니다.';
-    // ChainRemote 예약원격: 승인받은 창이 열려 있으면 같이 닫을지 묻는다.
-    //
-    // ★기본값은 **끄기**다. 잠깐 끊었다 다시 붙는 일이 흔한데 기본이 켜져 있으면
-    //   기사가 무심코 [확인]을 눌러 스스로를 문 밖에 가둔다 — 새벽에 사장님께 다시
-    //   전화해야 하고, 그러면 이 기능을 만든 이유가 없어진다.
-    // ★재부팅으로 끊긴 경우엔 이 대화상자를 아예 안 지나가므로 저절로 안 묻는다.
-    final schedOpen = _crSchedOpenAmong(ids);
-    var closeSched = false;
     final res = await gFFI.dialogManager.show<bool>((setState, close, context) {
       return CustomAlertDialog(
         title: Row(children: [
@@ -530,32 +501,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
           const SizedBox(width: 10),
           Text(translate("Warning")),
         ]),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(msg),
-            if (schedOpen.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              const Divider(height: 1),
-              const SizedBox(height: 10),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                dense: true,
-                value: closeSched,
-                onChanged: (v) => setState(() => closeSched = v == true),
-                title: Text(schedOpen.length > 1
-                    ? '원격 예약 ${schedOpen.length}건도 함께 닫기'
-                    : '원격 예약(${crSchedTimeLabel(DateTime.fromMillisecondsSinceEpoch(schedOpen.first.$3 * 1000))}까지)도 함께 닫기'),
-                subtitle: const Text(
-                  '닫지 않으면 그 시간까지는 수락 없이 다시 접속할 수 있습니다.',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ),
-            ],
-          ],
-        ),
+        content: Text(msg),
         actions: [
           dialogButton("Cancel", onPressed: () => close(false), isOutline: true),
           dialogButton("OK", onPressed: () => close(true)),
@@ -564,18 +510,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
         onCancel: () => close(false),
       );
     });
-    if (res != true) return false;
-    // ★끊기 **전에** 보내고 거래처의 확인까지 기다린다. 보내자마자 세션을 끊으면
-    //   메시지가 나가기도 전에 연결이 죽어, 닫은 줄 알았는데 창이 그대로 남는다.
-    if (closeSched) {
-      for (final (id, sid, _) in schedOpen) {
-        final ok = await crSchedCloseAndWait(id, sid);
-        if (!ok) {
-          showToast('원격 예약을 닫지 못했습니다 — 거래처 트레이에서 취소해 주세요');
-        }
-      }
-    }
-    return true;
+    return res == true;
   }
 
   _update_remote_count() =>
@@ -616,7 +551,7 @@ class _ConnectionTabPageState extends State<ConnectionTabPage> {
         unselectedIcon: unselectedIcon,
         onTabCloseButton: () async {
           // 탭 X 도 무경고 끊김 방지 — 확인 후 닫는다. A/S 기록은 종료 후 메인 창 모달.
-          if (!await _chainremoteConfirmCloseDuringSession([id])) {
+          if (!await _chainremoteConfirmCloseDuringSession(1)) {
             return;
           }
           tabController.closeBy(id);

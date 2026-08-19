@@ -2248,17 +2248,6 @@ pub fn session_cr_sched_req(
     }
 }
 
-/// ChainRemote 예약원격 — 열려 있는 창을 지금 닫는다(본사 쪽에서 부른다).
-///
-/// 기사가 세션을 끝내며 [예약 창도 닫기]를 골랐을 때. 창을 **여는** 길과 달리 거래처에
-/// 아무것도 뜨지 않는다 — 권한이 줄기만 하므로 사장님께 물을 것이 없다. 그 비대칭이
-/// 이 기능과 영구 비밀번호를 가르는 선이라 반대 방향으로는 절대 열지 않는다.
-pub fn session_cr_sched_close(session_id: SessionID) {
-    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
-        session.cr_sched_close();
-    }
-}
-
 /// ChainRemote 예약원격 — 사장님이 카드에서 누른 답.
 ///
 /// ★창이 실제로 열리는 유일한 입구다. 본사 메시지는 카드를 띄울 뿐이고, 이 호출은
@@ -2276,25 +2265,6 @@ pub fn cm_sched_answer(
     crate::ui_cm_interface::cr_sched_answer(conn_id, accepted, start, end, hq_now, label);
     #[cfg(any(target_os = "ios", target_os = "android"))]
     let _ = (conn_id, accepted, start, end, hq_now, label);
-}
-
-/// 거래처가 트레이에서 [허용 취소]를 눌렀다 — 남은 시간을 즉시 없앤다.
-pub fn cm_sched_cancel() {
-    #[cfg(not(any(target_os = "ios", target_os = "android")))]
-    crate::ui_cm_interface::cr_sched_cancel();
-}
-
-/// 지금 열려 있는 창의 사람 말 표기. 없으면 빈 문자열.
-///   트레이 카드가 "언제까지 허용 중"인지 보여주는 데 쓴다.
-pub fn cm_sched_label() -> String {
-    #[cfg(not(any(target_os = "ios", target_os = "android")))]
-    {
-        return crate::chainremote_sched::status()
-            .map(|w| w.label)
-            .unwrap_or_default();
-    }
-    #[cfg(any(target_os = "ios", target_os = "android"))]
-    String::new()
 }
 
 /// CM 창이 "원격지원 중" 배너로 바뀔 때 켜고, 수락 카드로 돌아올 때 끈다(Windows 전용).

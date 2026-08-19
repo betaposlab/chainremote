@@ -4042,22 +4042,6 @@ fn wire_session_cr_sched_req_impl(
         },
     )
 }
-fn wire_session_cr_sched_close_impl(
-    port_: MessagePort,
-    session_id: impl Wire2Api<uuid::Uuid> + UnwindSafe,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
-        WrapInfo {
-            debug_name: "session_cr_sched_close",
-            port: Some(port_),
-            mode: FfiCallMode::Normal,
-        },
-        move || {
-            let api_session_id = session_id.wire2api();
-            move |task_callback| Ok(session_cr_sched_close(api_session_id))
-        },
-    )
-}
 fn wire_cm_sched_answer_impl(
     port_: MessagePort,
     conn_id: impl Wire2Api<i32> + UnwindSafe,
@@ -4091,26 +4075,6 @@ fn wire_cm_sched_answer_impl(
                 ))
             }
         },
-    )
-}
-fn wire_cm_sched_cancel_impl(port_: MessagePort) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
-        WrapInfo {
-            debug_name: "cm_sched_cancel",
-            port: Some(port_),
-            mode: FfiCallMode::Normal,
-        },
-        move || move |task_callback| Ok(cm_sched_cancel()),
-    )
-}
-fn wire_cm_sched_label_impl(port_: MessagePort) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, String>(
-        WrapInfo {
-            debug_name: "cm_sched_label",
-            port: Some(port_),
-            mode: FfiCallMode::Normal,
-        },
-        move || move |task_callback| Ok(cm_sched_label()),
     )
 }
 fn wire_cm_set_banner_style_impl(port_: MessagePort, banner: impl Wire2Api<bool> + UnwindSafe) {

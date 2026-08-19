@@ -441,9 +441,6 @@ int crNowEpoch() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
 /// 본사가 제안한 것보다 짧게 열렸을 수도 있다. 본사가 자기 기억을 믿으면 그 셋을 다 놓친다.
 final Map<String, int> _crSchedOpenUntil = {};
 
-/// 창을 닫으라고 보낸 뒤 거래처의 확인을 기다리는 사람들.
-final Map<String, Completer<bool>> _crSchedCloseWaiters = {};
-
 /// peer config 에 적어 두는 열쇠 — 창의 종료 시각(epoch 초). 0/빈값이면 닫힘.
 const String _kSchedUntilKey = 'cr-sched-until';
 
@@ -455,41 +452,69 @@ const String _kSchedUntilKey = 'cr-sched-until';
 void crSchedNoteState(String peerId, int openUntil) {
   _crSchedOpenUntil[peerId] = openUntil;
   try {
+    // "종료시각:적어둔시각" — 뒤엣것이 유효기간 판정에 쓰인다.
     bind.mainSetPeerOptionSync(
-        id: peerId, key: _kSchedUntilKey, value: openUntil.toString());
+        id: peerId,
+        key: _kSchedUntilKey,
+        value: '$openUntil:${crNowEpoch()}');
   } catch (_) {}
-  if (openUntil == 0) {
-    // 닫기를 시켜 놓고 기다리던 쪽이 있으면 깨운다.
-    _crSchedCloseWaiters.remove(peerId)?.complete(true);
-  }
 }
 
+/// 취소를 요청했으니 이 HQ 는 더 이상 "열려 있다"고 말하지 않는다.
+///
+/// ★즉시 지운다. 눌렀는데 메뉴가 그대로면 안 먹은 것으로 보이고, 실제로 그래서 같은 자리를
+/// 몇 번씩 다시 누르게 된다(2026-08-19 Chang). 종전엔 거래처의 "닫았다" 보고를 기다렸는데,
+/// 그 보고는 **살아 있는 세션으로만** 오므로 세션 없이 취소하면 영영 안 온다 — 원래 종료
+/// 시각이 지날 때까지 메뉴가 안 바뀌었다.
+///
+/// 거짓말이 아니다. 명령은 큐에 들어갔고 거래처가 곧 지운다. 만에 하나 거래처 PC 가 꺼져
+/// 있어 명령이 안 닿으면 그쪽이 계속 "열려 있다"고 보고하므로, 다음 목록 새로고침 때
+/// 메뉴가 도로 살아난다 — 되돌아오는 표시가 곧 정정이다.
+void crSchedClearLocally(String peerId) {
+  _crSchedOpenUntil.remove(peerId);
+  try {
+    bind.mainSetPeerOptionSync(id: peerId, key: _kSchedUntilKey, value: '0');
+  } catch (_) {}
+}
+
+/// 이 메모를 믿어 주는 시간.
+///
+/// 이 메모의 역할은 **패널이 알기 전까지의 빈틈**을 메우는 것뿐이다. 거래처는 예약이 있는
+/// 동안 1분마다 보고하므로 그 뒤로는 패널이 더 정확하다. 유효기간이 없으면 한 번 적힌
+/// 값이 영영 안 죽어, 사장님이 트레이에서 취소해도 본사 메뉴가 원래 종료 시각까지
+/// [원격 예약 취소] 로 굳어 있었다(2026-08-19 테스트1 실측).
+const _crSchedConfigTtl = 180;
+
 /// peer config 에 적힌 창 종료 시각 — 다른 창(프로세스)이 적어 둔 것을 읽는다.
+///   유효기간이 지났으면 0 을 돌려 패널 값에 자리를 내준다.
 int _crSchedUntilFromConfig(String peerId) {
   try {
     final v = bind.mainGetPeerOptionSync(id: peerId, key: _kSchedUntilKey);
-    return int.tryParse(v) ?? 0;
+    if (v.isEmpty) return 0;
+    final parts = v.split(':');
+    final until = int.tryParse(parts.first) ?? 0;
+    if (until == 0) return 0;
+    // 적어둔 시각이 없으면(옛 형식) 믿지 않는다 — 언제 적힌지 모르는 값이다.
+    final at = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    if (at == 0 || crNowEpoch() - at > _crSchedConfigTtl) return 0;
+    return until;
   } catch (_) {
     return 0;
   }
 }
 
+/// 거래처 ID 만으로 보는 창 종료 시각 — 메모리와 peer config 를 합쳐 본다.
+///
+/// ★[crSchedOpenUntilOf] 만 쓰면 안 된다. 그건 이 창(프로세스)의 메모리만 보는데, 원격
+/// 창과 목록 창은 서로 다른 프로세스라 한쪽이 받은 상태를 다른 쪽이 모른다. 세션 종료
+/// 확인창이 그걸 놓쳐, 예약이 살아 있는데도 [원격 예약도 함께 닫기] 가 안 떴다
+/// (2026-08-19 테스트1 실측 — peer config 엔 값이 있는데 대화상자만 못 봤다).
 /// 이 거래처의 창이 지금 열려 있나 — 열려 있으면 종료 시각, 아니면 0.
 int crSchedOpenUntilOf(String peerId) {
   final until = _crSchedOpenUntil[peerId] ?? 0;
   // 거래처 시계 기준이지만, 본사 시계로 봐도 이미 한참 지났으면 닫힌 것으로 본다.
   //   물어봐야 소용없는 창을 두고 기사에게 질문을 띄우지 않으려는 것이다.
   return until > crNowEpoch() ? until : 0;
-}
-
-/// 세션이 끝났으니 **대기 중인 기다림만** 정리한다.
-///
-/// ★창 자체의 기억은 지우지 않는다. 창은 세션보다 오래 살고(재부팅도 넘긴다), 목록
-/// 우클릭이 [예약원격 취소] 를 내려면 붙어 있지 않을 때도 알아야 하기 때문이다. 종전엔
-/// 여기서 통째로 지웠는데, 그러면 방금 예약을 걸고 세션을 닫은 직후 메뉴가 도로
-/// [예약원격] 으로 돌아가 같은 예약을 두 번 걸게 된다.
-void crSchedForgetState(String peerId) {
-  _crSchedCloseWaiters.remove(peerId);
 }
 
 /// 이 거래처에 예약 창이 열려 있나 — 두 출처를 합쳐 본다.
@@ -503,24 +528,6 @@ bool crSchedIsOpenFor(Peer peer) => crSchedOpenUntilDate(peer) != null;
 bool crSchedCloseRequested(Peer peer) =>
     peer.schedCloseRequestedAt.isNotEmpty;
 
-/// 예약 창을 닫으라고 보내고 **거래처가 닫았다고 알려 올 때까지** 기다린다.
-///
-/// ★기다리는 이유: 보내자마자 세션을 끊으면 메시지가 나가기도 전에 연결이 죽는다.
-/// 확인을 못 받으면 거짓을 돌려준다 — 닫혔는지 모르는 채로 넘어가면 실패가 성공과
-/// 똑같은 모양이 되고, 기사는 닫은 줄 알지만 창은 그대로 열려 있게 된다.
-Future<bool> crSchedCloseAndWait(String peerId, SessionID sessionId,
-    {Duration timeout = const Duration(seconds: 3)}) async {
-  final waiter = Completer<bool>();
-  _crSchedCloseWaiters[peerId] = waiter;
-  bind.sessionCrSchedClose(sessionId: sessionId);
-  try {
-    return await waiter.future.timeout(timeout);
-  } catch (_) {
-    return false;
-  } finally {
-    _crSchedCloseWaiters.remove(peerId);
-  }
-}
 
 /// Case B — 아직 접속 안 한 거래처. 제안을 걸어 두고 접속을 시작한다.
 ///   접속의 로그인 요청에 실려 가서, 거래처가 평소 수락 카드 대신 시간 카드를 띄운다.

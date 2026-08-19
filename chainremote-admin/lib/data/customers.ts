@@ -392,7 +392,14 @@ export async function recordHeartbeat(
       schedSet.schedOpenUntil = null;
       schedSet.schedCloseRequestedAt = null;
     } else if (until <= maxAhead) {
-      schedSet.schedOpenUntil = new Date(until * 1000);
+      const at = new Date(until * 1000);
+      schedSet.schedOpenUntil = at;
+      // ★다른 창이 보고되면 옛 취소 요청은 무효다. 취소는 "그때 열려 있던 그 창"을 향한
+      //   것이고, 거래처가 다른 끝시각을 보고했다는 건 그 사이에 새로 승인받았다는 뜻이다.
+      //   안 지우면 갓 만든 예약이 본사 화면에 '취소 요청함' 으로 보인다 — 실제로 그렇게
+      //   보였다(2026-08-19 테스트1: 09:22 취소가 10:24 짜리 새 예약에 그대로 붙어 있었다).
+      //   에이전트 쪽은 처리한 요청 시각을 기억해 두므로 옛 명령이 새 창을 지우지는 않는다.
+      schedSet.schedCloseRequestedAt = sql`CASE WHEN ${customers.schedOpenUntil} IS DISTINCT FROM ${at} THEN NULL ELSE ${customers.schedCloseRequestedAt} END`;
     }
   }
   const [row] = await db

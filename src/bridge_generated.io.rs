@@ -1779,11 +1779,6 @@ pub extern "C" fn wire_session_cr_sched_req(
 }
 
 #[no_mangle]
-pub extern "C" fn wire_session_cr_sched_close(port_: i64, session_id: *mut wire_uint_8_list) {
-    wire_session_cr_sched_close_impl(port_, session_id)
-}
-
-#[no_mangle]
 pub extern "C" fn wire_cm_sched_answer(
     port_: i64,
     conn_id: i32,
@@ -1794,16 +1789,6 @@ pub extern "C" fn wire_cm_sched_answer(
     label: *mut wire_uint_8_list,
 ) {
     wire_cm_sched_answer_impl(port_, conn_id, accepted, start, end, hq_now, label)
-}
-
-#[no_mangle]
-pub extern "C" fn wire_cm_sched_cancel(port_: i64) {
-    wire_cm_sched_cancel_impl(port_)
-}
-
-#[no_mangle]
-pub extern "C" fn wire_cm_sched_label(port_: i64) {
-    wire_cm_sched_label_impl(port_)
 }
 
 #[no_mangle]

@@ -433,14 +433,6 @@ pub fn cr_sched_answer(id: i32, accepted: bool, start: i64, end: i64, hq_now: i6
     }
 }
 
-/// 거래처가 트레이에서 [허용 취소]를 눌렀다.
-#[inline]
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
-pub fn cr_sched_cancel() {
-    crate::chainremote_sched::clear();
-    log::info!("[chainremote_sched] 거래처가 허용을 취소했다");
-}
-
 // server mode send chat to peer
 #[inline]
 #[cfg(not(any(target_os = "ios")))]

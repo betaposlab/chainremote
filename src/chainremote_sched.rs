@@ -40,9 +40,11 @@ const MAX_WINDOW_SECS: i64 = 24 * 60 * 60;
 /// 마지막 접속이 끝난 뒤 이만큼 조용하면 창을 닫는다.
 ///
 /// ★**첫 작업이 끝난 뒤부터** 센다. 창이 열리자마자 세면 "23시에 허용받고 1시에 작업"이
-/// 죽는다. 작업이 일찍 끝나 기사가 [작업 종료]를 잊고 갔을 때를 위한 안전망이다.
-/// 30분이면 Win7 포스의 재부팅 대기(5분 남짓)를 넉넉히 덮는다.
-const IDLE_CLOSE_SECS: i64 = 30 * 60;
+/// 죽는다. 기사가 작업을 마치면 그냥 자리를 뜨는 게 기본 흐름이라(2026-08-19 닫기 UI
+/// 정리 — 세션 종료 확인창의 체크박스와 트레이 취소를 걷어냈다) 이 타이머가 사실상
+/// 유일한 조기 마감이고, 그래서 30분을 15분으로 조였다. Win7 포스의 재부팅 대기
+/// (5분 남짓)는 여전히 넉넉히 덮는다.
+const IDLE_CLOSE_SECS: i64 = 15 * 60;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SchedWindow {
@@ -209,52 +211,6 @@ pub fn note_session_end() {
     }
 }
 
-/// 거래처에게 "허용을 취소할까요?"를 묻고, 그렇다면 창을 닫는다.
-///
-/// ★왜 시스템 대화상자인가: 거래처(i686) 트레이엔 컨텍스트 메뉴를 못 단다 — Win7 에서
-/// `TrackPopupMenu` 가 c0000409(스택 버퍼 오버런)로 프로세스를 죽인다. CM 창에 새 상태를
-/// 만드는 것도 피했다(카드↔배너↔채팅 기하가 이미 까다롭다). 시스템 대화상자는 둘 다
-/// 비껴가면서 x86·x64 가 똑같이 동작한다.
-///
-/// 트레이 이벤트 루프를 막지 않으려고 별도 스레드에서 띄운다.
-#[cfg(windows)]
-pub fn ask_cancel_in_thread() {
-    let Some(w) = status() else {
-        return;
-    };
-    std::thread::spawn(move || {
-        use std::os::windows::ffi::OsStrExt;
-        fn wide(s: &str) -> Vec<u16> {
-            std::ffi::OsStr::new(s)
-                .encode_wide()
-                .chain(std::iter::once(0))
-                .collect()
-        }
-        let text = format!(
-            "원격 허용 중입니다.\n\n{}\n\n지금 허용을 취소할까요?\n취소하면 다음부터는 수락 창이 다시 뜹니다.",
-            w.label
-        );
-        const MB_YESNO: u32 = 0x0000_0004;
-        const MB_ICONQUESTION: u32 = 0x0000_0020;
-        const MB_SYSTEMMODAL: u32 = 0x0000_1000;
-        const IDYES: i32 = 6;
-        extern "system" {
-            fn MessageBoxW(hwnd: *mut u16, text: *const u16, caption: *const u16, utype: u32) -> i32;
-        }
-        let r = unsafe {
-            MessageBoxW(
-                std::ptr::null_mut(),
-                wide(&text).as_ptr(),
-                wide("ChainRemote 원격 허용").as_ptr(),
-                MB_YESNO | MB_ICONQUESTION | MB_SYSTEMMODAL,
-            )
-        };
-        if r == IDYES {
-            clear();
-            log::info!("[chainremote_sched] 거래처가 트레이에서 허용을 취소했다");
-        }
-    });
-}
 
 #[cfg(test)]
 mod tests {

@@ -1668,8 +1668,14 @@ abstract class BasePeerCard extends StatelessWidget {
         }
         () async {
           final ok = await bind.chainremoteSchedClose(remoteId: peer.id);
+          if (ok) {
+            // ★기억을 그 자리에서 지운다. 안 지우면 다시 우클릭해도 [원격 예약 취소]가
+            //   그대로라 안 먹은 것처럼 보인다 — 거래처의 "닫았다" 보고는 살아 있는
+            //   세션으로만 오는데 취소는 세션 없이 하기 때문이다.
+            crSchedClearLocally(peer.id);
+          }
           showToast(ok
-              ? '원격 예약 취소를 요청했습니다 — 거래처가 받으면 닫힙니다(최대 10분)'
+              ? '원격 예약을 취소했습니다'
               : '취소 요청을 보내지 못했습니다 — 네트워크나 로그인을 확인해 주세요');
         }();
       },

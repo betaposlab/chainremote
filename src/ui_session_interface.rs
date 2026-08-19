@@ -464,19 +464,6 @@ impl<T: InvokeUiSession> Session<T> {
         self.send(Data::Message(msg_out));
     }
 
-    /// ChainRemote 예약원격 — 열려 있는 창을 지금 닫는다.
-    ///   기사가 세션을 끝내며 [예약 창도 닫기]를 골랐을 때. 창을 **여는** 길과 달리
-    ///   거래처에 아무것도 뜨지 않는다(권한이 줄기만 하므로 물을 것이 없다).
-    pub fn cr_sched_close(&self) {
-        let mut p = CrSchedReq::new();
-        p.close = true;
-        let mut misc = Misc::new();
-        misc.set_cr_sched_req(p);
-        let mut msg_out = Message::new();
-        msg_out.set_misc(misc);
-        self.send(Data::Message(msg_out));
-    }
-
     pub fn cr_annotate(&self, op: i32, points: Vec<(f32, f32)>, argb: u32, width: f32, end_stroke: bool) {
         let mut a = CrAnnotate::new();
         a.op = match op {
