@@ -613,6 +613,40 @@ fn request_sched_close_blocking(remote_id: String) -> bool {
     }
 }
 
+/// 관리 패널을 **지금 로그인한 계정으로** 열 주소 — POST /api/auth/panel-ticket.
+///
+/// 종전엔 버튼이 패널 주소만 열었다. 인증을 안 넘기니 브라우저에 남아 있던 쿠키가 곧
+/// 패널 계정이 됐고, 본사 앱이 A 로 로그인돼 있어도 패널은 B 로 열렸다. 권한이 새는 건
+/// 아니지만(그 쿠키는 원래 브라우저 주인 것이다) 버튼이 "내 패널 열기" 로 읽히는데
+/// 아니라는 게 문제다 — 직원 여럿이 한 PC 를 쓰면 남의 패널에 들어가 놓고 모른다.
+///
+/// 실패하면 빈 문자열. 호출부는 그때 평범한 패널 주소로 되돌아간다 — 티켓을 못 받았다고
+/// 버튼이 죽으면, 잘 되던 것이 새 기능 때문에 망가지는 셈이다.
+fn panel_ticket_url_blocking() -> String {
+    let base = chainremote_auth::api_base();
+    if base.is_empty() {
+        return String::new();
+    }
+    let url = format!("{}/api/auth/panel-ticket", base);
+    match authed_post(url, "{}".to_string()) {
+        Ok(text) => serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .and_then(|v| v.get("ticket").and_then(|t| t.as_str().map(|x| x.to_owned())))
+            .filter(|t| !t.is_empty())
+            .map(|t| format!("{}/auth/ticket?t={}", base, t))
+            .unwrap_or_default(),
+        Err(e) => {
+            log::warn!("ChainRemote panel-ticket 실패: {}", e);
+            String::new()
+        }
+    }
+}
+
+/// FFI 진입점. 티켓을 못 받으면 빈 문자열 → 호출부가 평범한 패널 주소를 연다.
+pub fn panel_ticket_url_blocking_pub() -> String {
+    panel_ticket_url_blocking()
+}
+
 pub fn request_sched_close_blocking_pub(remote_id: String) -> bool {
     request_sched_close_blocking(remote_id)
 }

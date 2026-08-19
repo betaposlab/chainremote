@@ -533,3 +533,16 @@ export const releases = pgTable(
     releasedIdx: index("idx_releases_released").on(t.releasedAt),
   }),
 );
+
+// 본사 앱 → 관리 패널 한 번 열기 티켓(마이그050).
+//   ★60초 만료 + 소비 즉시 DELETE. 주소에 실려 방문기록·Referer 로 샐 수 있는 값이라
+//   재사용 창을 최대한 좁힌다 — 서명 토큰만으로는 '한 번만' 을 보장할 수 없다.
+//   저장은 해시(heartbeat 토큰과 같은 규칙) — DB 가 새도 티켓 자체는 못 쓴다.
+export const panelTickets = pgTable("panel_tickets", {
+  tokenHash: text("token_hash").primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

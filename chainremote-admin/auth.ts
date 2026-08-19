@@ -8,10 +8,54 @@ import { authConfig } from "./auth.config";
 import { db } from "./lib/db";
 import { users, tenants } from "./lib/schema";
 import { and, eq, sql } from "drizzle-orm";
+import { consumePanelTicket } from "./lib/panel-ticket";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
+    // 본사 앱에서 넘어온 '한 번 열기' 티켓 (마이그050). 비밀번호 대신 티켓을 받는다.
+    //
+    // ★비밀번호 경로와 같은 사후 검사를 그대로 통과시킨다 — 티켓을 받은 뒤 정지·해지·비활성이
+    //   됐을 수 있고, 티켓은 신원을 옮길 뿐 그 판정을 대신하지 않는다.
+    Credentials({
+      id: "panel-ticket",
+      name: "ChainRemote 본사 앱",
+      credentials: { ticket: { label: "ticket", type: "text" } },
+      async authorize(credentials) {
+        const ticket = (credentials?.ticket ?? "").toString();
+        const userId = await consumePanelTicket(ticket);
+        if (!userId) return null;
+        const rows = await db
+          .select({
+            id: users.id,
+            email: users.email,
+            displayName: users.displayName,
+            role: users.role,
+            tenantId: users.tenantId,
+            tenantActive: tenants.isActive,
+            subscriptionStatus: tenants.subscriptionStatus,
+          })
+          .from(users)
+          .innerJoin(tenants, eq(users.tenantId, tenants.id))
+          .where(and(eq(users.id, userId), eq(users.isActive, true)))
+          .limit(1);
+        if (rows.length === 0) return null;
+        const u = rows[0];
+        if (
+          u.role !== "super_admin" &&
+          (!u.tenantActive || u.subscriptionStatus !== "active")
+        ) {
+          return null;
+        }
+        return {
+          id: u.id,
+          email: u.email,
+          displayName: u.displayName,
+          role: u.role,
+          tenantId: u.tenantId,
+        };
+      },
+    }),
     Credentials({
       name: "ChainRemote",
       credentials: {

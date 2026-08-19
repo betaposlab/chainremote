@@ -3027,6 +3027,15 @@ pub fn chainremote_sched_close(remote_id: String) -> bool {
     crate::chainremote_data::request_sched_close_blocking_pub(remote_id)
 }
 
+/// 관리 패널을 **본사 앱에 로그인한 계정으로** 열 주소를 만든다.
+///
+/// 빈 문자열이면 티켓을 못 받은 것이다 — 호출부는 그때 평범한 패널 주소를 연다.
+/// 네트워크가 잠깐 안 되거나 옛 패널이라고 버튼이 죽으면 안 되기 때문이다.
+/// 동기 blocking — 브라우저를 여는 순간 결과가 필요하다.
+pub fn chainremote_panel_ticket_url() -> String {
+    crate::chainremote_data::panel_ticket_url_blocking_pub()
+}
+
 /// 자가등록 후보 확정. '전체 거래처' 탭에서 마스터가 미확정 후보를 정식 거래처로 승격한다.
 /// 동기 blocking — 토스트 정확성을 위해 UI thread 가 결과를 기다린다. owner 권한은 서버가 강제.
 pub fn chainremote_confirm_customer(remote_id: String) -> bool {

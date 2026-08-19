@@ -5422,6 +5422,16 @@ fn wire_chainremote_sched_close_impl(
         },
     )
 }
+fn wire_chainremote_panel_ticket_url_impl(port_: MessagePort) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, String>(
+        WrapInfo {
+            debug_name: "chainremote_panel_ticket_url",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || move |task_callback| Ok(chainremote_panel_ticket_url()),
+    )
+}
 fn wire_chainremote_confirm_customer_impl(
     port_: MessagePort,
     remote_id: impl Wire2Api<String> + UnwindSafe,

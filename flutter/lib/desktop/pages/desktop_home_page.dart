@@ -227,9 +227,21 @@ class _DesktopHomePageState extends State<DesktopHomePage>
                 icon: Icons.dashboard_outlined,
                 label: '관리 패널',
                 selected: false,
-                onTap: () {
+                onTap: () async {
+                  // ★본사 앱에 로그인한 그 계정으로 열리게 한다. 종전엔 주소만 열어서
+                  //   브라우저에 남아 있던 쿠키가 곧 패널 계정이 됐다 — 앱은 A 인데 패널은
+                  //   B 로 열려도 아무도 눈치채지 못했다(2026-08-19 Chang 실측).
+                  //   ★티켓을 못 받아도 버튼은 살아 있어야 한다. 네트워크가 잠깐 안 되거나
+                  //   옛 패널이면 평소처럼 주소만 연다 — 잘 되던 걸 새 기능이 망가뜨리지
+                  //   않는 쪽이 맞다.
                   final base = bind.chainremoteGetApiBase().trim();
-                  if (base.isNotEmpty) launchUrl(Uri.parse(base));
+                  if (base.isEmpty) return;
+                  String url = base;
+                  try {
+                    final t = await bind.chainremotePanelTicketUrl();
+                    if (t.trim().isNotEmpty) url = t.trim();
+                  } catch (_) {}
+                  await launchUrl(Uri.parse(url));
                 },
               ),
             _sidebarItem(
