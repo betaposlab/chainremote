@@ -9,6 +9,7 @@ import { db } from "./lib/db";
 import { users, tenants } from "./lib/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { consumePanelTicket } from "./lib/panel-ticket";
+import { qwertyFromHangul } from "./lib/hangul-qwerty";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -68,28 +69,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!username || !password) return null;
 
         // C1: email 전역 유니크(마이그레이션 012)라 단독 조회 안전. H1: 테넌트 상태 동시 조회.
-        const rows = await db
-          .select({
-            id: users.id,
-            email: users.email,
-            passwordHash: users.passwordHash,
-            displayName: users.displayName,
-            role: users.role,
-            tenantId: users.tenantId,
-            tenantActive: tenants.isActive,
-            subscriptionStatus: tenants.subscriptionStatus,
-          })
-          .from(users)
-          .innerJoin(tenants, eq(users.tenantId, tenants.id))
-          // 아이디는 대소문자를 가리지 않는다(A2-06) — 유니크 인덱스가 lower(email) 이라
-          //   단일 행이 보장된다. 패널 로그인도 HQ(/api/auth/token)와 같은 규칙이어야 한다.
-          .where(
-            and(
-              sql`lower(${users.email}) = ${username.toLowerCase()}`,
-              eq(users.isActive, true),
-            ),
-          )
-          .limit(1);
+        const findByName = (name: string) =>
+          db
+            .select({
+              id: users.id,
+              email: users.email,
+              passwordHash: users.passwordHash,
+              displayName: users.displayName,
+              role: users.role,
+              tenantId: users.tenantId,
+              tenantActive: tenants.isActive,
+              subscriptionStatus: tenants.subscriptionStatus,
+            })
+            .from(users)
+            .innerJoin(tenants, eq(users.tenantId, tenants.id))
+            // 아이디는 대소문자를 가리지 않는다(A2-06) — 유니크 인덱스가 lower(email) 이라
+            //   단일 행이 보장된다. 패널 로그인도 HQ(/api/auth/token)와 같은 규칙이어야 한다.
+            .where(
+              and(
+                sql`lower(${users.email}) = ${name.toLowerCase()}`,
+                eq(users.isActive, true),
+              ),
+            )
+            .limit(1);
+
+        let rows = await findByName(username);
+        // 한글 입력 상태로 친 아이디를 구제한다 — 'chang' 이 '초뭏' 으로 들어온다.
+        //   ★친 그대로 먼저 찾고 **없을 때만** 되돌린다. 순서가 중요하다: 한글이 든 진짜
+        //   아이디가 있어도 동작이 달라지지 않고, 평소 입력에는 조회가 한 번뿐이다.
+        if (rows.length === 0) {
+          const alt = qwertyFromHangul(username);
+          if (alt) rows = await findByName(alt);
+        }
         if (rows.length === 0) return null;
 
         const u = rows[0];

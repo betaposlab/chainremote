@@ -11,6 +11,7 @@ import { and, eq, sql } from "drizzle-orm";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
+import { qwertyFromHangul } from "@/lib/hangul-qwerty";
 import { users, tenants } from "@/lib/schema";
 import { signApiToken, jsonError, ApiAuthError } from "@/lib/api-auth";
 import { claimSeat, countLiveTenantSessions } from "@/lib/data/active-sessions";
@@ -47,7 +48,8 @@ export async function POST(req: Request) {
     if (!emailRl.allowed) return tooManyRequests(emailRl.retryAfterSec);
 
     // email 전역 유니크(마이그 012)라 단독 조회 안전 + 테넌트 상태도 같이 join.
-    const rows = await db
+    const findByName = (name: string) =>
+      db
       .select({
         id: users.id,
         email: users.email,
@@ -68,11 +70,19 @@ export async function POST(req: Request) {
       //   같은 이름을 새로 만들 수도 없어 출구가 없었다.
       .where(
         and(
-          sql`lower(${users.email}) = ${email.toLowerCase()}`,
+          sql`lower(${users.email}) = ${name.toLowerCase()}`,
           eq(users.isActive, true),
         ),
       )
       .limit(1);
+
+    let rows = await findByName(email);
+    // 한글 입력 상태로 친 아이디를 구제한다 — 'chang' 이 '초뭏' 으로 들어온다.
+    //   ★친 그대로 먼저 찾고 **없을 때만** 되돌린다(패널 로그인과 같은 규칙).
+    if (rows.length === 0) {
+      const alt = qwertyFromHangul(email);
+      if (alt) rows = await findByName(alt);
+    }
     if (rows.length === 0) throw new ApiAuthError(401, "자격 실패");
 
     const u = rows[0];
