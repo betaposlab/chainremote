@@ -7,16 +7,28 @@
 //
 // 소스는 절대 수정하지 않는다 — 테스트만. 억지 통과 없음(실제 동작을 있는 그대로 고정).
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { testDb } from "./helpers/db";
+import type { AgentPushMeta } from "@/lib/agent-push-meta";
+import { customers, pendingUpdates, tenants, users } from "@/lib/schema";
+
+// ── agent-push-meta 모킹 ─────────────────────────────────────────────────────
+// pushBulk 의 스테이징 가드는 **지금 발행돼 있는** agent-push.json 을 직접 읽는다. 모킹하지
+//   않으면 이 테스트가 그날의 발행 버전에 묶여, 새 버전을 내는 순간 가드는 멀쩡한데 테스트만
+//   깨진다 — 실제로 1.4.125 → 1.4.136 발행에서 그렇게 깨졌다. 확인하려는 건 "스테이징이면
+//   막는다"이지 "오늘 무엇이 발행돼 있나"가 아니다.
+const hoisted = vi.hoisted(() => ({ meta: null as AgentPushMeta | null }));
+vi.mock("@/lib/agent-push-meta", () => ({
+  getAgentPushMetaCached: async () => hoisted.meta,
+}));
+
+// mock 이 걸린 뒤에 소비 모듈을 import (pushBulk 이 getAgentPushMetaCached 를 쓴다).
 import {
   pushToCustomer,
   pushBulk,
   autoQueueIfBehind,
 } from "@/lib/data/pending-updates";
-import type { AgentPushMeta } from "@/lib/agent-push-meta";
-import { customers, pendingUpdates, tenants, users } from "@/lib/schema";
 
 async function seed(slug: string, name: string, remoteId: string) {
   const db = testDb();
@@ -46,6 +58,11 @@ const STAGING_META: AgentPushMeta = {
 };
 
 describe("S2-08: 스테이징(auto_rollout:false) 우회 — 단건/일괄 푸시는 auto_rollout 을 모른다", () => {
+  // 발행 상태는 매 테스트가 스스로 정한다 — 앞 테스트가 남긴 값이 새는 것을 막는다.
+  beforeEach(() => {
+    hoisted.meta = null;
+  });
+
   it("결함 후보 — autoQueueIfBehind 는 스테이징이면 절대 큐잉하지 않는다(설계대로)", async () => {
     const { tenantId, customerId } = await seed("dealer-a", "명품한우", "RID-AAA-1");
     const queued = await autoQueueIfBehind(
@@ -93,6 +110,7 @@ describe("S2-08: 스테이징(auto_rollout:false) 우회 — 단건/일괄 푸�
   //   단건은 여전히 통과한다(위 테스트) — 실기기 검증이 그 경로이기 때문이다.
   it("스테이징 버전의 **일괄** 푸시는 거부된다 — 플릿 전체에 미검증 빌드가 깔리는 걸 막는다", async () => {
     const { tenantId, userId } = await seed("dealer-b", "낭성정육", "RID-BBB-1");
+    hoisted.meta = STAGING_META; // 이 버전이 스테이징으로 발행돼 있는 상태
     await expect(
       pushBulk(
         {
@@ -105,5 +123,22 @@ describe("S2-08: 스테이징(auto_rollout:false) 우회 — 단건/일괄 푸�
         { tenantId, requestedBy: userId },
       ),
     ).rejects.toThrow(/스테이징/);
+  });
+
+  // 반대편 가드 — 위 가드가 "일괄 푸시를 늘 막는다"로 굳으면 정상 발행도 못 나간다.
+  it("정상 발행(auto_rollout:true)본의 일괄 푸시는 그대로 나간다", async () => {
+    const { tenantId, userId } = await seed("dealer-c", "도덕봉가든", "RID-CCC-1");
+    hoisted.meta = { ...STAGING_META, autoRollout: true };
+    const r = await pushBulk(
+      {
+        targetVersion: STAGING_META.version,
+        assetUrl: STAGING_META.url,
+        assetSha256: STAGING_META.sha256,
+        assetSize: STAGING_META.size,
+      },
+      {},
+      { tenantId, requestedBy: userId },
+    );
+    expect(r.inserted).toBe(1);
   });
 });
