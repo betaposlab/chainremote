@@ -121,7 +121,12 @@ echo "[4/6] 업로드..."
 UP="set sftp:auto-confirm yes; set net:timeout 20;"
 UP+=" put -O $REMOTE_DIR/downloads $WORK/$HQ_NAME;"
 [[ -n "$CHAINGO_NAME" ]] && UP+=" put -O $REMOTE_DIR/downloads $WORK/$CHAINGO_NAME;"
-UP+=" put -O $REMOTE_DIR $WORK/index.html; quit"
+UP+=" put -O $REMOTE_DIR $WORK/index.html;"
+# ★개인정보처리방침도 같이 올린다(2026-08-20). 종전엔 index.html 만 올려서, 방침을 고쳐도
+#   반영될 길이 없었다 — 실제로 6월 파일이 두 달 넘게 그대로였고 그 사이 서버가 클라우드로
+#   옮겨져 "외부 위탁 없음"이 사실과 반대가 돼 있었다. 626.kr 판은 이 파일을 절대주소로
+#   가리키므로(아래 [7/7]) 여기 한 벌만 올리면 두 주소가 같은 방침을 본다.
+UP+=" put -O $REMOTE_DIR $(dirname "$INDEX_SRC")/privacy.html; quit"
 lftp -e "$UP" -u "$USER","$PW" "sftp://$HOST:22" >/dev/null
 echo "    ✓ 업로드 완료"
 
@@ -144,6 +149,14 @@ if [[ -n "$CHAINGO_NAME" ]]; then
 else
   # 안 올렸어도 페이지는 이 파일을 가리킨다. 링크가 404 인 채로 발행을 끝내지 않는다.
   verify "$CHAINGO_LINKED"
+fi
+# 방침도 실제로 받아 본다 — 올렸다고 믿지 않는 원칙은 여기에도 적용된다.
+PRIV_LOCAL="$(shasum -a 256 "$(dirname "$INDEX_SRC")/privacy.html" | cut -d' ' -f1)"
+PRIV_LIVE="$(curl -fsS --max-time 20 "$PUBLIC_BASE/privacy.html" | shasum -a 256 | cut -d' ' -f1)"
+if [[ "$PRIV_LOCAL" == "$PRIV_LIVE" ]]; then
+  echo "    ✓ privacy.html"
+else
+  echo "    ✗ privacy.html → 올린 것과 내용이 다름"; fail=1
 fi
 PAGE="$(curl -fsS "$PUBLIC_BASE/")"
 printf '%s' "$PAGE" | grep -q "$HQ_NAME" || { echo "    ✗ 페이지가 $HQ_NAME 을 안 가리킴"; fail=1; }
