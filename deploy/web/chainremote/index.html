@@ -38,6 +38,11 @@ h1,h2,h3{color:var(--white)}
 .h2{font-size:clamp(1.7rem,3vw,2.25rem);font-weight:600;line-height:1.15;letter-spacing:-.02em}
 .h3{font-size:1.1rem;font-weight:600;letter-spacing:-.01em}
 .lead{font-size:1.1rem;color:var(--ash);line-height:1.65;font-weight:300}
+.tag.only { color:#ff6b6f }
+/* 제목과 본문 사이 한 단계 — 기능 이름(.h2)이 제목이 되면서 종전 헤드라인이 여기로 내려온다.
+     본문보다는 크고 제목보다는 작아야 셋의 위아래가 눈에 잡힌다. */
+.h2-sub { font-size:clamp(1.15rem,1.7vw,1.35rem);font-weight:400;line-height:1.35;
+  letter-spacing:-.01em;color:var(--mist);margin-top:10px }
 .body{font-size:.975rem;color:var(--ash);line-height:1.65;font-weight:300}
 .grad-text{background:linear-gradient(92deg,var(--lilac),var(--pink));-webkit-background-clip:text;background-clip:text;color:transparent}
 
@@ -560,8 +565,9 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   <div class="wrap" style="position:relative">
     <div class="grid g2">
       <div class="reveal">
-        <div class="tag">디스크 관제</div>
-        <h2 class="h2">디스크가 꽉 차기 전에,<br>우리가 먼저 압니다</h2>
+        <div class="tag only">Only ChainRemote</div>
+        <h2 class="h2">디스크 관제</h2>
+        <p class="h2-sub">디스크가 꽉 차기 전에,<br>우리가 먼저 압니다</p>
         <p class="body" style="margin-top:14px">예전 포스는 디스크가 찰 일이 없었습니다. 포스 프로그램
         하나에 카드 결제 데몬이 전부였으니까요. <b style="color:#fff;font-weight:500">배달이 늘면서
         달라졌습니다.</b> 주문 접수 앱에 배달대행 프로그램까지, 포스 한 대에 상주 프로그램이
@@ -607,8 +613,9 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
         <div class="prow" style="justify-content:flex-end"><span class="fsub"><i class="fdot"></i> 90초마다 감시 · 거래처별로 켜고 끕니다</span></div>
       </div>
       <div class="reveal">
-        <div class="tag">방화벽 관제</div>
-        <h2 class="h2">꺼놓은 방화벽,<br>어느 날 조용히 되살아납니다</h2>
+        <div class="tag only">Only ChainRemote</div>
+        <h2 class="h2">방화벽 관제</h2>
+        <p class="h2-sub">꺼놓은 방화벽,<br>어느 날 조용히 되살아납니다</p>
         <p class="body" style="margin-top:14px">한 매장에 포스가 두 대 이상이면 메인 포스와 서브 포스가
         주문·매출·주방 프린터를 실시간으로 주고받습니다. 윈도우 방화벽이 이 통신을 막기 때문에,
         포스 업계는 설치할 때 방화벽을 해제해 두는 게 관례입니다.</p>
@@ -638,8 +645,9 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   <div class="wrap" style="position:relative">
     <div class="grid g2">
       <div class="reveal">
-        <div class="tag">VCAT 데몬 관제</div>
-        <h2 class="h2">카드가 안 긁히는데,<br>미리 알 방법이 없습니다</h2>
+        <div class="tag only">Only ChainRemote</div>
+        <h2 class="h2">VCAT 데몬 관제</h2>
+        <p class="h2-sub">카드가 안 긁히는데,<br>미리 알 방법이 없습니다</p>
         <p class="body" style="margin-top:14px">포스의 카드 결제는 VAN 사가 준 데몬 프로그램이
         떠 있어야 성립합니다. 이게 멈춰도 <b style="color:#fff;font-weight:500">평소엔 아무 예고가
         없습니다. 카드를 긁는 순간에야 승인 오류가 뜹니다 — 그것도 손님 앞에서.</b></p>
@@ -683,8 +691,9 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
         <div class="prow pfoot">사장님은 시간을 고르지 않습니다 — <b>읽고 한 번 누르면 끝</b>입니다.</div>
       </div>
       <div class="reveal">
-        <div class="tag">원격 예약</div>
-        <h2 class="h2">새벽에 해야 하는 작업,<br>사장님을 깨울 수도 없고</h2>
+        <div class="tag only">Only ChainRemote</div>
+        <h2 class="h2">원격 예약</h2>
+        <p class="h2-sub">새벽에 해야 하는 작업,<br>사장님을 깨울 수도 없고</p>
         <p class="body" style="margin-top:14px">포스 작업에는 영업 중에 손댈 수 없는 것들이 있습니다.
         프로그램을 갈아엎거나, 데이터를 옮기거나, 재부팅이 필요한 작업은 장사하는 동안 못 합니다.
         <b style="color:#fff;font-weight:500">문 닫은 새벽으로 미루거나, 점심 피크가 지나기를 기다립니다.</b></p>
@@ -724,8 +733,9 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   <div class="wrap" style="position:relative">
     <div class="grid g2">
       <div class="reveal">
-        <div class="tag">지원기록</div>
-        <h2 class="h2">누가 언제 뭘 고쳤는지,<br>물어보지 않아도 남습니다</h2>
+        <div class="tag only">Only ChainRemote</div>
+        <h2 class="h2">지원기록</h2>
+        <p class="h2-sub">누가 언제 뭘 고쳤는지,<br>물어보지 않아도 남습니다</p>
         <p class="body" style="margin-top:14px">원격을 끊으면 그 자리에서 기록 창이 뜹니다.
         무엇을 처리했는지 한 줄 적으면 그대로 거래처 이력에 쌓입니다 —
         <b style="color:#fff;font-weight:500">적는 걸 잊어도 접속한 사람·시각·걸린 시간은 자동으로 남습니다.</b></p>
