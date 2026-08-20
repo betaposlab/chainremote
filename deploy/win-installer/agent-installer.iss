@@ -144,7 +144,14 @@ Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\set-update-grace.ps1"" -GraceFile ""{commonappdata}\ChainRemote\restart-grace"" -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 재접속 준비 중..."; Flags: runhidden waituntilterminated
 
 ; 0.5. silent-install 직전 옛 ChainRemote 강제 종료 (파일 잠금 해제 + 옛/새 프로세스 공존 방지)
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue } catch {{}; taskkill /F /IM ChainRemote.exe /T >$null 2>&1; Start-Sleep -Seconds 2"""; StatusMsg: "옛 ChainRemote 프로세스 정리 중..."; Flags: runhidden waituntilterminated
+; ★taskkill 에 /T 를 쓰지 말 것 (2026-08-20 실사고). 푸시 업데이트는 에이전트
+;   (ChainRemote.exe)가 인스톨러를 **자식 프로세스로** 띄운다. /T 는 트리째 죽이므로
+;   인스톨러가 파일을 갈아 끼우기도 전에 자기 자신을 끌어내린다 — '인스톨러는 돌았는데
+;   버전이 그대로'가 이것이다(17대 실패). 수동 더블클릭은 부모가 탐색기라 멀쩡해서
+;   손으로 하는 검증으로는 절대 안 잡힌다.
+;   /T 는 애초에 불필요하다 — RustDesk 의 자식들(--cm/--server/--connect)도 전부 이미지
+;   이름이 ChainRemote.exe 라 /IM 하나로 다 걸린다. /T 가 더 잡는 건 인스톨러뿐이었다.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue } catch {{}; taskkill /F /IM ChainRemote.exe >$null 2>&1; Start-Sleep -Seconds 2"""; StatusMsg: "옛 ChainRemote 프로세스 정리 중..."; Flags: runhidden waituntilterminated
 
 ; 0.7. per-tenant overlay 를 silent-install '前'에 적용 (2026-07-01 fix — Win7 실측으로 확정).
 ;    install_me() 가 페이로드의 custom.txt 를 설치폴더로 그대로 복사하고 서비스를 즉시 시작하므로,
@@ -175,7 +182,7 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 
 ; 2. 서비스 + 잔여 프로세스 강제 정지 — toml 박기 전 필수 (file lock 해제).
 ;    상태는 .NET Status enum 으로 비교 — 한국어 Windows "중지됨" 문자열 미스매치 회피.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue } catch {{}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }; Start-Sleep -Seconds 1 }; taskkill /F /IM ChainRemote.exe /T >$null 2>&1; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue } catch {{}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }; Start-Sleep -Seconds 1 }; taskkill /F /IM ChainRemote.exe >$null 2>&1; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
 
 ; 3. toml 을 두 경로에 동시 배치 (LICENSE_MISMATCH 근본 해결) + 자동업데이트 보존 가드
 ;    (dst 에 ChainRemote2.toml 이 이미 있으면 안 박는다 — 거래처 자체 설정 보존. 신규 설치만 박힘.)

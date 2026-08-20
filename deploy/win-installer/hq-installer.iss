@@ -97,7 +97,14 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Fil
 
 ; 0.5. silent-install 직전 옛 ChainRemote.exe 강제 종료 (v1.3.6 신규, 2026-05-29).
 ;     v1.3.4 → v1.3.5 마이그레이션 후 남던 트레이 아이콘 2개 잔재 해소. 자세히는 agent-installer.iss.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue } catch {{}; taskkill /F /IM ChainRemote.exe /T *>$null; Start-Sleep -Seconds 2"""; StatusMsg: "옛 ChainRemote 프로세스 정리 중..."; Flags: runhidden waituntilterminated
+; ★taskkill 에 /T 를 쓰지 말 것 (2026-08-20 실사고). 푸시 업데이트는 에이전트
+;   (ChainRemote.exe)가 인스톨러를 **자식 프로세스로** 띄운다. /T 는 트리째 죽이므로
+;   인스톨러가 파일을 갈아 끼우기도 전에 자기 자신을 끌어내린다 — '인스톨러는 돌았는데
+;   버전이 그대로'가 이것이다(17대 실패). 수동 더블클릭은 부모가 탐색기라 멀쩡해서
+;   손으로 하는 검증으로는 절대 안 잡힌다.
+;   /T 는 애초에 불필요하다 — RustDesk 의 자식들(--cm/--server/--connect)도 전부 이미지
+;   이름이 ChainRemote.exe 라 /IM 하나로 다 걸린다. /T 가 더 잡는 건 인스톨러뿐이었다.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue } catch {{}; taskkill /F /IM ChainRemote.exe *>$null; Start-Sleep -Seconds 2"""; StatusMsg: "옛 ChainRemote 프로세스 정리 중..."; Flags: runhidden waituntilterminated
 
 ; (Phase 3-Win v2 2026-05-25): 옛 'sc delete RustDesk' + 'taskkill rustdesk.exe' 단계는 제거했다.
 ;     Microsoft Defender 오탐(Trojan:Win32/Bearfoos.B!ml) 트리거 회피. 같은 정리 동작은
@@ -115,7 +122,7 @@ Filename: "{tmp}\chainremote_payload\ChainRemote.exe"; Parameters: "--silent-ins
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$dst='{commonpf}\ChainRemote'; New-Item -Path $dst -ItemType Directory -Force *>$null; Copy-Item '{tmp}\custom_payload\custom.txt' (Join-Path $dst 'custom.txt') -Force"""; StatusMsg: "ChainRemote 분기 설정 적용 중..."; Flags: runhidden waituntilterminated
 
 ; 2. 서비스/UI 강제 정지 — toml 박기 전 file lock 해제
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue } catch {{}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }; Start-Sleep -Seconds 1 }; taskkill /F /IM ChainRemote.exe /T *>$null; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Stop-Service ChainRemote -Force -ErrorAction SilentlyContinue } catch {{}; for ($i=0; $i -lt 30; $i++) {{ $svc = Get-Service ChainRemote -ErrorAction SilentlyContinue; if ($null -eq $svc -or $svc.Status -eq 'Stopped') {{ break }; Start-Sleep -Seconds 1 }; taskkill /F /IM ChainRemote.exe *>$null; Start-Sleep -Seconds 1"""; StatusMsg: "ChainRemote 서비스 정지 중..."; Flags: runhidden waituntilterminated
 
 ; 3. toml 3종을 사용자/서비스 두 경로에 동시 배치 (rendezvous server 인식). Phase 3-Win 이후 경로는 ChainRemote.
 ;    보존 가드(M4) + 검증 대상 교정(H5): dst 에 ChainRemote2.toml 이 이미 있으면 안 박는다
