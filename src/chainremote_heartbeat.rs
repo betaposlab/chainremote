@@ -791,26 +791,6 @@ fn dir_size_budgeted(dir: &std::path::Path, deadline: std::time::Instant, depth:
     sum
 }
 
-#[cfg(windows)]
-fn dir_size(dir: &std::path::Path, depth: u32) -> u64 {
-    if depth > 16 {
-        return 0;
-    }
-    let mut sum = 0u64;
-    if let Ok(rd) = std::fs::read_dir(dir) {
-        for e in rd.flatten() {
-            if let Ok(md) = e.metadata() {
-                if md.is_dir() {
-                    sum += dir_size(&e.path(), depth + 1);
-                } else {
-                    sum += md.len();
-                }
-            }
-        }
-    }
-    sum
-}
-
 /// Temp 실측 캐시 — 평시엔 6시간에 한 번만 순회(수만 파일 폴더를 10분마다 돌리면
 /// 저사양 포스에 부담). 정리 직후엔 remeasure_temp_now 가 즉시 갱신해 "정리했는데
 /// Temp 숫자가 그대로" 혼동(2026-07-16 기겸컴 실검증에서 발견)을 없앤다.
@@ -844,10 +824,23 @@ fn measured_temp_bytes(_disk_free: u64) -> Option<u64> {
 
 /// Temp 즉시 재측정 + 캐시 갱신. 정리 직후 호출 — 방금 비운 폴더라 순회 비용이 거의 0이고,
 /// 곧바로 나가는 결과 heartbeat 에 신선한(≈0) Temp 가 실린다.
+///
+/// ★상위 폴더 실측과 **같은 20초 예산**을 쓴다(2026-08-20). 종전엔 여기만 제한이 없어서,
+///   하필 제일 나쁜 조건에서 제일 오래 걸렸다: 이 함수가 처음 도는 시점이 "여유 20GB 미만"
+///   이고 그건 곧 **제일 느리고 제일 꽉 찬 포스**라는 뜻이다. 파일 수십만 개짜리
+///   `C:\Windows\Temp` 를 끝까지 세는 동안 하트비트 스레드가 통째로 멈춘다(동기 호출).
+///   Chang 이 실제로 수십 GB 짜리 Windows\Temp 를 본 적이 있다 — 그 기기가 바로 이 경우다.
+///   예산을 넘기면 여태 센 만큼만 준다. 숫자가 작게 나오는 건 감수한다 — "Temp 가 크다"를
+///   알리는 게 목적이지 정확한 바이트가 목적이 아니고, 정리는 어차피 훑으면서 지운다.
 #[cfg(windows)]
 fn remeasure_temp_now() -> u64 {
     use std::sync::atomic::Ordering;
-    let total: u64 = temp_dirs().iter().map(|d| dir_size(d, 0)).sum();
+    const SCAN_BUDGET: std::time::Duration = std::time::Duration::from_secs(20);
+    let deadline = std::time::Instant::now() + SCAN_BUDGET;
+    let total: u64 = temp_dirs()
+        .iter()
+        .map(|d| dir_size_budgeted(d, deadline, 0))
+        .sum();
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
