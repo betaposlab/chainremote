@@ -165,6 +165,38 @@ fn device_info() -> (String, String) {
     (device_id, device_label)
 }
 
+/// 통신 오류를 사람이 읽는 문장으로 바꾼다.
+///
+/// ★거래처 앞에서 `reqwest::Error { kind: Request, url: ... dns error ... }` 가 뜨는 것은
+///   그 자체로 사고다(2026-08-24 실사고 — 신규 설치 중 와이파이를 안 켠 채 로그인). 대리점
+///   직원이 노트북을 들고 나갔다가 연결을 깜빡하거나, 아침에 공유기가 뜨기 전에 앱을 열면
+///   누구나 같은 화면을 본다. 원인은 하나뿐이고 할 일도 하나뿐이라 문장 하나면 족하다.
+///
+///   ★원문은 버리지 않고 로그에 남긴다 — 화면은 사장님이 보고 로그는 우리가 본다.
+fn friendly_net_error(e: hbb_common::anyhow::Error) -> hbb_common::anyhow::Error {
+    let raw = format!("{:?}", e);
+    let low = raw.to_lowercase();
+    // 주소를 못 찾음 = 인터넷 자체가 안 됨. 서버가 죽었으면 주소는 찾아지고 연결에서 막힌다.
+    let dns = low.contains("dns error")
+        || low.contains("failed to lookup address")
+        || low.contains("nodename nor servname")
+        || low.contains("name or service not known");
+    let unreachable = low.contains("connect")
+        || low.contains("timed out")
+        || low.contains("timeout")
+        || low.contains("unreachable")
+        || low.contains("refused");
+    if !(dns || unreachable) {
+        return e;
+    }
+    log::warn!("[chainremote_auth] 통신 실패: {}", raw);
+    if dns {
+        anyhow!("인터넷에 연결되어 있지 않습니다.\n\n와이파이나 인터넷을 켠 다음 ChainRemote 를 다시 실행해 주세요.")
+    } else {
+        anyhow!("서버에 연결할 수 없습니다.\n\n인터넷 연결을 확인한 다음 ChainRemote 를 다시 실행해 주세요.\n계속 같은 화면이면 본사에 알려 주세요.")
+    }
+}
+
 /// 인증 POST → (status_code, body). http_request_sync 의 wrapper 를 풀어서 돌려준다.
 /// bearer 주면 Authorization 헤더 부착.
 fn post_json(
@@ -180,7 +212,8 @@ fn post_json(
         ),
         None => r#"{"Content-Type":"application/json"}"#.to_string(),
     };
-    let raw = crate::http_request_sync(url, "POST".into(), Some(body.to_string()), header)?;
+    let raw = crate::http_request_sync(url, "POST".into(), Some(body.to_string()), header)
+        .map_err(friendly_net_error)?;
     #[derive(Deserialize)]
     struct W {
         status_code: u16,
@@ -346,7 +379,8 @@ pub fn change_password(current: &str, new: &str) -> ResultType<()> {
         r#"{{"Authorization":"Bearer {}","Content-Type":"application/json"}}"#,
         token
     );
-    let raw = crate::http_request_sync(url, "POST".into(), Some(body), header)?;
+    let raw = crate::http_request_sync(url, "POST".into(), Some(body), header)
+        .map_err(friendly_net_error)?;
 
     #[derive(Deserialize)]
     struct HttpWrapper {
