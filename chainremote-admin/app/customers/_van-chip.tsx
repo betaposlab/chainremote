@@ -19,22 +19,40 @@ export function VanChip({
   missing,
   restartCount,
   lastRestartAt,
+  recoveredCount,
+  unrecoveredCount,
 }: {
   kind: string | null;
   ok: boolean | null;
   gaveUp: boolean;
   /** 데몬이 그 기기에 아예 없음(037) — 다른 VAN 거래처에 잘못 켠 경우. */
   missing: boolean;
+  /** ★"되살린 횟수"가 아니라 **실행시킨 횟수**다. 성패는 아래 둘이 센다(마이그051). */
   restartCount: number;
   lastRestartAt: string | null; // ISO (serialize 경계)
+  /** 재시작 뒤 포트가 실제로 열린 것으로 확인된 횟수. */
+  recoveredCount: number;
+  /** 재시작했는데 여전히 닫혀 있던 횟수. */
+  unrecoveredCount: number;
 }) {
   if (!kind) return null;
 
   const name = vanLabel(kind);
+  // ★종전엔 "되살림 N회" 라고 적었는데 두 가지로 틀린 말이었다(2026-08-31). 이 숫자는
+  //   에이전트가 데몬을 **실행시킨** 횟수지 되살아났다는 뜻이 아니고, 게다가 재시작마다
+  //   1이 아니라 "재시작이 있었던 보고마다" 1이다(에이전트의 표식이 bool 이라 10분 안에
+  //   세 번 되살려도 1로 온다). 그 숫자만 보고 "진짜 고장을 아홉 번 막았다"고 읽으면 안 된다.
+  //   성패는 마이그051 이 따로 세고, 그 합이 시도보다 적으면 차이는 실패가 아니라
+  //   **모르는 구간**(기능 이전 기록)이다 — 그렇게 말해야 오탐 판정이 오염되지 않는다.
+  const observed = recoveredCount + unrecoveredCount;
+  const outcome =
+    observed === 0
+      ? "성패는 아직 관측 전"
+      : `성패 확인 ${observed}회 — 복구 ${recoveredCount} · 미복구 ${unrecoveredCount}`;
   const restarts =
     restartCount > 0
-      ? `되살림 ${restartCount}회${lastRestartAt ? ` (마지막 ${fmtDate(lastRestartAt)})` : ""}`
-      : "되살린 이력 없음";
+      ? `재시작 시도 ${restartCount}회${lastRestartAt ? ` (마지막 ${fmtDate(lastRestartAt)})` : ""} · ${outcome}`
+      : "재시작 시도 없음";
 
   // 데몬이 아예 없는 건 고장이 아니라 설정 실수다. 사람을 부르는 대신 "관제를 끄세요"라고
   // 말해야 한다 — 같은 빨강으로 묶으면 있지도 않은 고장을 고치러 나간다.
@@ -88,7 +106,7 @@ export function VanChip({
       ].join(" · ")}
     >
       💳 {name} {ok ? "정상" : "복구 중"}
-      {restartCount > 0 ? ` · ${restartCount}회` : ""}
+      {restartCount > 0 ? ` · 재시작 ${restartCount}` : ""}
     </span>
   );
 }

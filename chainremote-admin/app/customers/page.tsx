@@ -122,6 +122,9 @@ export default async function CustomersPage({
       vanMissing: customers.vanMissing,
       vanRestartCount: customers.vanRestartCount,
       vanLastRestartAt: customers.vanLastRestartAt,
+      // 재시작의 성패(051) — restart_count 만으로는 오탐과 진짜 고장이 안 갈린다.
+      vanRecoveredCount: customers.vanRecoveredCount,
+      vanUnrecoveredCount: customers.vanUnrecoveredCount,
       // 예약원격 창(048) — 열려 있으면 칩 + [닫기] 버튼을 그린다.
       schedOpenUntil: customers.schedOpenUntil,
       schedCloseRequestedAt: customers.schedCloseRequestedAt,
@@ -447,6 +450,8 @@ export default async function CustomersPage({
                               ? c.vanLastRestartAt.toISOString()
                               : null
                           }
+                          recoveredCount={c.vanRecoveredCount}
+                          unrecoveredCount={c.vanUnrecoveredCount}
                         />
                       </div>
                     ) : (

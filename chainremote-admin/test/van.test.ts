@@ -103,6 +103,83 @@ describe("VAN 카드결제 데몬 관제 (마이그 036)", () => {
     expect(r.vanLastRestartAt).not.toBeNull();
   });
 
+  // ── 재시작의 성패 (마이그051) ────────────────────────────────────────────
+  // 계약: 재시작을 셀 때 **같은 보고의 vanOk** 로 성패까지 가른다. 에이전트는 이미 둘을
+  //   함께 보내고 있었고(grace 60초 뒤의 판정), 서버가 짝을 안 봤을 뿐이다.
+  it("재시작이 먹혔으면 복구로, 안 먹혔으면 미복구로 센다", async () => {
+    const s = await seed("van-out1", "성패포스", "VN11110020");
+    const token = s.token;
+    await setVanWatch("VN11110020", "ksnet", s.tenantId);
+
+    // 되살렸고 포트도 돌아왔다 → 복구.
+    await beat("VN11110020", token, { vanOk: true, vanRestarted: true });
+    // 되살렸는데 여전히 닫혀 있다 → 미복구.
+    await beat("VN11110020", token, { vanOk: false, vanRestarted: true });
+
+    const r = await row("VN11110020");
+    expect(r.vanRestartCount).toBe(2);
+    expect(r.vanRecoveredCount).toBe(1);
+    expect(r.vanUnrecoveredCount).toBe(1);
+  });
+
+  it("재시작 없는 보고는 성패를 건드리지 않는다", async () => {
+    const s = await seed("van-out2", "평온포스", "VN11110021");
+    const token = s.token;
+    await setVanWatch("VN11110021", "ksnet", s.tenantId);
+
+    await beat("VN11110021", token, { vanOk: true });
+    await beat("VN11110021", token, { vanOk: false });
+
+    const r = await row("VN11110021");
+    expect(r.vanRestartCount).toBe(0);
+    expect(r.vanRecoveredCount).toBe(0);
+    expect(r.vanUnrecoveredCount).toBe(0);
+  });
+
+  it("판정 보류(vanOk=null)면 시도만 세고 성패는 어느 쪽으로도 안 센다", async () => {
+    // 리더기를 안 켠 상태다. 모르는 것을 실패로 세면 오탐 판정이 통째로 오염된다.
+    const s = await seed("van-out3", "대기포스", "VN11110022");
+    const token = s.token;
+    await setVanWatch("VN11110022", "ksnet", s.tenantId);
+
+    await beat("VN11110022", token, { vanOk: null, vanRestarted: true });
+
+    const r = await row("VN11110022");
+    expect(r.vanRestartCount).toBe(1);
+    expect(r.vanRecoveredCount).toBe(0);
+    expect(r.vanUnrecoveredCount).toBe(0);
+  });
+
+  it("관제를 끈 거래처의 뒤늦은 보고는 성패도 올리지 않는다", async () => {
+    // vanOk/vanGaveUp 과 같은 이유다 — 끄기 직전에 출발한 보고가 숫자를 되살리면 안 된다.
+    const s = await seed("van-out4", "끈포스", "VN11110023");
+    const token = s.token;
+    await setVanWatch("VN11110023", "ksnet", s.tenantId);
+    await beat("VN11110023", token, { vanOk: true, vanRestarted: true });
+    await setVanWatch("VN11110023", "", s.tenantId); // 관제 off (누적도 함께 초기화)
+
+    await beat("VN11110023", token, { vanOk: true, vanRestarted: true });
+
+    const r = await row("VN11110023");
+    expect(r.vanRestartCount).toBe(0);
+    expect(r.vanRecoveredCount).toBe(0);
+    expect(r.vanUnrecoveredCount).toBe(0);
+  });
+
+  it("VAN 을 바꾸면 성패 누적도 물려받지 않는다", async () => {
+    const s = await seed("van-out5", "교체포스", "VN11110024");
+    const token = s.token;
+    await setVanWatch("VN11110024", "ksnet", s.tenantId);
+    await beat("VN11110024", token, { vanOk: true, vanRestarted: true });
+    expect((await row("VN11110024")).vanRecoveredCount).toBe(1);
+
+    await setVanWatch("VN11110024", "kovan", s.tenantId);
+
+    const r = await row("VN11110024");
+    expect(r.vanRecoveredCount).toBe(0);
+    expect(r.vanUnrecoveredCount).toBe(0);
+  });
+
   it("getWatchState 는 HQ 다이얼로그가 볼 현재 상태를 주고, 남의 tenant 는 막는다", async () => {
     // HQ 로컬 peer 캐시(최근 세션 탭)엔 관제 필드가 없어 "꺼짐"으로 오독된다. 그래서
     // 다이얼로그는 캐시 대신 이 경로로 묻는다 — 값이 정확해야 하는 자리다.

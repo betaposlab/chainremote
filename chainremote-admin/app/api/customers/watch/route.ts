@@ -26,7 +26,12 @@ export async function GET(req: Request) {
       vanOk: row.vanOk,
       vanGaveUp: row.vanGaveUp,
       vanMissing: row.vanMissing,
+      // ★이 숫자는 "되살린 횟수"가 아니라 **실행시킨 횟수**다(마이그051 주석 참조).
+      //   성패는 아래 둘이 센다 — 현재 HQ 는 아직 안 읽지만, 다음 HQ 가 문구를 고칠 때
+      //   서버를 다시 건드리지 않도록 미리 실어 둔다(모르는 키는 무시된다).
       vanRestartCount: row.vanRestartCount,
+      vanRecoveredCount: row.vanRecoveredCount,
+      vanUnrecoveredCount: row.vanUnrecoveredCount,
       // 공유기 포트 열기(041) — 켜짐 여부 + 공유기가 열었다고 한 주소(없으면 null).
       upnpEnabled: row.upnpEnabled,
       upnpEndpoint: row.upnpEndpoint,

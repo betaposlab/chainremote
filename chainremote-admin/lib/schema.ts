@@ -201,6 +201,12 @@ export const customers = pgTable(
     vanOk: boolean("van_ok"),
     vanRestartCount: integer("van_restart_count").notNull().default(0),
     vanLastRestartAt: timestamp("van_last_restart_at", { withTimezone: true }),
+    // 재시작의 성패(마이그051) — restart_count 는 "KSCAT 을 실행시킨 횟수"라 되살아났는지를
+    //   말해 주지 않는다. 에이전트가 같은 heartbeat 에 실어 보내는 vanOk 가 grace 이후의
+    //   판정이므로, 그 짝을 여기 나눠 센다. 둘의 합이 restart_count 보다 작으면 그 차이가
+    //   "성패를 모르는 구간"(이 기능 이전 기록)이고, 화면은 그걸 실패로 읽지 않는다.
+    vanRecoveredCount: integer("van_recovered_count").notNull().default(0),
+    vanUnrecoveredCount: integer("van_unrecovered_count").notNull().default(0),
     vanGaveUp: boolean("van_gave_up").notNull().default(false),
     // 데몬이 그 기기에 아예 없음(마이그037) — 다른 VAN 거래처에 관제를 잘못 켠 경우.
     //   vanGaveUp 과 함께 참이 되지만 조치가 정반대다: 이쪽은 관제만 끄면 끝난다.

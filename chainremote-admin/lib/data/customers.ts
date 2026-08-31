@@ -353,6 +353,17 @@ export async function recordHeartbeat(
   if (extras?.vanRestarted) {
     vanSet.vanRestartCount = sql`CASE WHEN ${watched} THEN ${customers.vanRestartCount} + 1 ELSE ${customers.vanRestartCount} END`;
     vanSet.vanLastRestartAt = sql`CASE WHEN ${watched} THEN now() ELSE ${customers.vanLastRestartAt} END`;
+    // ★성적표는 같은 보고 안에 이미 들어 있다(마이그051). 에이전트는 재시작 뒤 grace 60초 +
+    //   감시주기 30초가 지난 다음의 판정을 vanOk 로 싣는다 — 그 값이 곧 이 재시작이 먹혔는지다.
+    //   에이전트를 고칠 일이 아니라 서버가 둘을 짝지어 보면 되는 자리였다.
+    //   vanOk 가 null(리더기 대기)이면 어느 쪽으로도 세지 않는다 — 모르는 건 모르는 채 둔다.
+    if (typeof extras.vanOk === "boolean") {
+      const col = extras.vanOk
+        ? customers.vanRecoveredCount
+        : customers.vanUnrecoveredCount;
+      const key = extras.vanOk ? "vanRecoveredCount" : "vanUnrecoveredCount";
+      vanSet[key] = sql`CASE WHEN ${watched} THEN ${col} + 1 ELSE ${col} END`;
+    }
   }
   // NAT 유형 — 0/1/2 만 통과(이상값은 무시해 통계를 오염시키지 않는다).
   const upnpSet: Record<string, unknown> =
@@ -552,6 +563,8 @@ export async function getWatchState(remoteId: string, tenantId: string) {
       vanGaveUp: customers.vanGaveUp,
       vanMissing: customers.vanMissing,
       vanRestartCount: customers.vanRestartCount,
+      vanRecoveredCount: customers.vanRecoveredCount,
+      vanUnrecoveredCount: customers.vanUnrecoveredCount,
       upnpEnabled: customers.upnpEnabled,
       upnpEndpoint: customers.upnpEndpoint,
       upnpVerifiedAt: customers.upnpVerifiedAt,
@@ -654,6 +667,8 @@ export async function setVanWatch(
       vanMissing: false,
       vanRestartCount: 0,
       vanLastRestartAt: null,
+      vanRecoveredCount: 0,
+      vanUnrecoveredCount: 0,
     })
     .where(and(eq(customers.remoteId, remoteId), eq(customers.tenantId, tenantId)))
     .returning({ id: customers.id });
