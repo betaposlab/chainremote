@@ -31,6 +31,10 @@ RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
+
+# 매뉴얼 PDF. public/ 이 아니라 여기 두는 이유는 lib/manuals.ts 주석 참고 —
+#   로그인한 사람만 /api/manuals/[slug] 를 통해 받아야 하는 문서가 섞여 있다.
+COPY --from=builder /app/manuals ./manuals
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 

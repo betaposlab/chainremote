@@ -1,43 +1,21 @@
 // 도움말 목차.
 //
-// 문서를 늘릴 때 여기 카드만 더하면 된다. 아직 안 쓴 문서는 "준비 중"으로 두되 목록에는
-//   보여 준다 — 무엇이 생길지 알면 지금 없는 것을 찾아 헤매지 않는다.
+// 문서는 전부 PDF 한 벌이 정본이다(이유는 lib/manuals.ts 주석). 문서를 늘리려면 여기가
+//   아니라 그 표에 한 줄을 더하고 manuals/ 에 파일을 넣은 뒤 app/help/{slug}/page.tsx
+//   를 한 장 복사한다 — 이 화면은 표를 그대로 그린다.
 
 import type { Metadata } from "next";
 import Link from "next/link";
+import { requireLiveUser } from "@/lib/auth-guard";
+import { MANUALS } from "@/lib/manuals";
 
 export const metadata: Metadata = { title: "도움말 — ChainRemote 관리 패널" };
 
-const DOCS = [
-  {
-    href: "/help/install",
-    title: "설치 매뉴얼",
-    desc: "HQ 앱과 거래처 에이전트를 내려받아 설치하는 방법. 설치 후 확인 절차까지.",
-    ready: true,
-  },
-  {
-    href: "/help/hq",
-    title: "HQ 사용법",
-    desc: "화면 구성, 세 개의 탭, 원격 접속, 도구 모음, 지원기록 남기기, 자주 막히는 곳.",
-    ready: true,
-  },
-  {
-    href: "/help/panel",
-    title: "관리 패널 사용법",
-    desc: "대시보드, 거래처 등록과 배포, 지원기록 검색, 사용자 권한, 자주 막히는 곳.",
-    ready: true,
-  },
-  {
-    href: "/help/customer",
-    title: "거래처 안내문 (인쇄용)",
-    desc: "매장에 두고 나올 한 장. “이 창이 뜨면 수락을 눌러 주세요”.",
-    ready: false,
-  },
-];
+export default async function HelpIndexPage() {
+  await requireLiveUser();
 
-export default function HelpIndexPage() {
   return (
-    <div className="print-doc px-4 py-5 md:px-8 md:py-6 max-w-3xl">
+    <div className="px-4 py-5 md:px-8 md:py-6 max-w-3xl">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-white">도움말</h1>
         <p className="mt-1 text-sm text-[#cbd1e0]">
@@ -50,27 +28,27 @@ export default function HelpIndexPage() {
       </header>
 
       <div className="space-y-2">
-        {DOCS.map((d) =>
-          d.ready ? (
-            <Link
-              key={d.href}
-              href={d.href}
-              className="panel-card block p-4 transition-colors hover:bg-white/[0.04]"
-            >
-              <div className="font-semibold text-white">{d.title}</div>
-              <div className="mt-1 text-sm text-[#cbd1e0]">{d.desc}</div>
-            </Link>
-          ) : (
-            <div key={d.href} className="panel-card p-4 opacity-60">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-white">{d.title}</span>
-                <span className="chip chip-neutral">준비 중</span>
-              </div>
-              <div className="mt-1 text-sm text-[#cbd1e0]">{d.desc}</div>
+        {MANUALS.map((m) => (
+          <Link
+            key={m.slug}
+            href={`/help/${m.slug}`}
+            className="panel-card block p-4 transition-colors hover:bg-white/[0.04]"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-white">{m.title}</span>
+              <span className="chip chip-neutral">{m.version}</span>
             </div>
-          ),
-        )}
+            <div className="mt-1 text-sm text-[#cbd1e0]">{m.desc}</div>
+          </Link>
+        ))}
       </div>
+
+      <p className="mt-6 text-xs leading-relaxed text-[#ccd2e3]">
+        모든 문서는 PDF 입니다. 화면에서 바로 보거나 내려받아 인쇄할 수
+        있습니다.
+        <br />
+        우리 운영 방식이 담겨 있으니 거래처에 그대로 넘기지 마세요.
+      </p>
     </div>
   );
 }
