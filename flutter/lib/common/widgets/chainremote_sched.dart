@@ -25,16 +25,36 @@ const int kSchedMaxHours = 24;
 
 /// "8월 18일 오후 11시" — 사장님이 읽을 문구. 24시간 표기나 분 단위는 쓰지 않는다.
 ///   정각이 아니면 분을 붙인다("오후 11시 30분").
-String crSchedTimeLabel(DateTime t) {
+///
+/// [withDate]·[withAmPm] 는 구간의 **끝 시각**에서 앞과 겹치는 만큼 덜어내려고 있다
+///   (crSchedRangeLabel 참조). 단독으로 부르는 자리는 기본값 그대로 전체를 쓴다.
+String crSchedTimeLabel(DateTime t, {bool withDate = true, bool withAmPm = true}) {
   final ampm = t.hour < 12 ? '오전' : '오후';
   var h = t.hour % 12;
   if (h == 0) h = 12;
   final m = t.minute == 0 ? '' : ' ${t.minute}분';
-  return '${t.month}월 ${t.day}일 $ampm $h시$m';
+  final date = withDate ? '${t.month}월 ${t.day}일 ' : '';
+  final half = withAmPm ? '$ampm ' : '';
+  return '$date$half$h시$m';
 }
 
-String crSchedRangeLabel(DateTime start, DateTime end) =>
-    '${crSchedTimeLabel(start)} ~ ${crSchedTimeLabel(end)}';
+/// "8월 21일 오전 7시 52분 ~ 7시 55분" — 끝 시각에서 앞과 겹치는 말을 덜어낸다.
+///
+/// ★길이가 목적이다. 양쪽을 다 적으면 좁은 포스 화면에서 두 줄로 감기며 "7"과 "시" 사이가
+///   끊긴다(2026-08-21 Chang 실측). 폭이나 글씨 크기가 아니라 **문구**를 고치는 이유는,
+///   예약 창이 승인 후 24시간 상한이라 시작과 끝이 거의 항상 같은 날 같은 오전/오후이기
+///   때문이다 — 그 경우 날짜와 오전/오후는 두 번째로 읽을 값이 아니라 소음이다.
+///   자정을 넘으면 날짜가, 정오를 넘으면 오전/오후가 되살아난다.
+///
+/// nowrap 으로 막지 않는다. 좁은 화면에서 글자가 잘리거나 카드를 밀어낸다.
+String crSchedRangeLabel(DateTime start, DateTime end) {
+  final sameDay =
+      start.year == end.year && start.month == end.month && start.day == end.day;
+  final sameHalf = (start.hour < 12) == (end.hour < 12);
+  final tail = crSchedTimeLabel(end,
+      withDate: !sameDay, withAmPm: !(sameDay && sameHalf));
+  return '${crSchedTimeLabel(start)} ~ $tail';
+}
 
 /// 아이폰식 휠 한 칸. 굴려서 고른다.
 ///
