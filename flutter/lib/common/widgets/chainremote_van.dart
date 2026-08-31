@@ -31,7 +31,14 @@ class CrWatchState {
   final bool vanGaveUp;
   /// 데몬이 그 기기에 아예 없음 — 고장이 아니라 VAN 을 잘못 고른 것이다.
   final bool vanMissing;
+  /// ★"되살린 횟수"가 아니라 데몬을 **실행시킨** 횟수다. 게다가 재시작마다 1이 아니라
+  ///   재시작이 있었던 보고마다 1이다(에이전트 표식이 bool 이라 10분 안에 세 번 되살려도 1).
+  ///   그래서 이 숫자만으로는 진짜 고장을 막은 것인지 오탐을 두들긴 것인지 알 수 없다.
   final int vanRestartCount;
+  /// 재시작 뒤 포트가 실제로 열린 것으로 확인된 횟수(마이그051).
+  final int vanRecoveredCount;
+  /// 재시작했는데 여전히 닫혀 있던 횟수(마이그051).
+  final int vanUnrecoveredCount;
   /// 공유기 포트 열기(마이그041) — 켜짐 여부와 실제로 열린 바깥 주소.
   final bool upnpEnabled;
   final String upnpEndpoint;
@@ -48,6 +55,8 @@ class CrWatchState {
     required this.vanGaveUp,
     required this.vanMissing,
     required this.vanRestartCount,
+    required this.vanRecoveredCount,
+    required this.vanUnrecoveredCount,
     required this.upnpEnabled,
     required this.upnpEndpoint,
     required this.upnpDoorOpen,
@@ -79,6 +88,10 @@ Future<CrWatchState?> crFetchWatchState(String remoteId) async {
       upnp: (j['upnp'] ?? '').toString(),
       vanRestartCount:
           j['vanRestartCount'] is int ? j['vanRestartCount'] as int : 0,
+      vanRecoveredCount:
+          j['vanRecoveredCount'] is int ? j['vanRecoveredCount'] as int : 0,
+      vanUnrecoveredCount:
+          j['vanUnrecoveredCount'] is int ? j['vanUnrecoveredCount'] as int : 0,
     );
   } catch (_) {
     return null;
@@ -149,7 +162,14 @@ Widget _crVanStateRow(CrWatchState s) {
       break;
     }
   }
-  final tail = s.vanRestartCount > 0 ? ' · 되살림 ${s.vanRestartCount}회' : '';
+  // ★종전엔 "되살림 N회" 라고 적었는데 되살아났다는 뜻이 아니다(위 필드 주석 참조).
+  //   성패는 서버가 따로 세므로(마이그051) 관측된 게 있을 때만 괄호로 붙인다 —
+  //   관측 전에 "복구 0" 을 보여 주면 전부 실패한 것처럼 읽힌다.
+  final vanObserved = s.vanRecoveredCount + s.vanUnrecoveredCount;
+  final tail = s.vanRestartCount > 0
+      ? ' · 재시작 ${s.vanRestartCount}회'
+          '${vanObserved > 0 ? ' (복구 ${s.vanRecoveredCount} · 미복구 ${s.vanUnrecoveredCount})' : ''}'
+      : '';
   // 데몬이 없는 건 고장이 아니라 설정 실수 — 사람을 부르지 말고 관제를 끄라고 말해야 한다.
   if (s.vanMissing) {
     return crStateBanner(const Color(0xFFFFB020), Icons.report_problem_outlined,
