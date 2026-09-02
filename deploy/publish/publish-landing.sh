@@ -126,7 +126,12 @@ UP+=" put -O $REMOTE_DIR $WORK/index.html;"
 #   반영될 길이 없었다 — 실제로 6월 파일이 두 달 넘게 그대로였고 그 사이 서버가 클라우드로
 #   옮겨져 "외부 위탁 없음"이 사실과 반대가 돼 있었다. 626.kr 판은 이 파일을 절대주소로
 #   가리키므로(아래 [7/7]) 여기 한 벌만 올리면 두 주소가 같은 방침을 본다.
-UP+=" put -O $REMOTE_DIR $(dirname "$INDEX_SRC")/privacy.html; quit"
+UP+=" put -O $REMOTE_DIR $(dirname "$INDEX_SRC")/privacy.html;"
+# 검색엔진용 주소 목록(2026-09-02). 도메인 루트가 아니라 이 폴더에 두는데, 사이트맵은
+#   자기 경로 아래만 다룰 수 있고 우리 주소가 전부 /chainremote/ 하위라 범위가 맞는다.
+#   루트는 회사 본 사이트 영역이라 건드리지 않는다.
+#   ★올린다고 색인되지는 않는다 — Search Console·네이버 서치어드바이저에 제출해야 한다.
+UP+=" put -O $REMOTE_DIR $(dirname "$INDEX_SRC")/sitemap.xml; quit"
 lftp -e "$UP" -u "$USER","$PW" "sftp://$HOST:22" >/dev/null
 echo "    ✓ 업로드 완료"
 
@@ -158,6 +163,10 @@ if [[ "$PRIV_LOCAL" == "$PRIV_LIVE" ]]; then
 else
   echo "    ✗ privacy.html → 올린 것과 내용이 다름"; fail=1
 fi
+
+# 사이트맵도 실제로 열리는지 본다(검색엔진에 제출할 주소라 404 면 제출 자체가 무의미).
+sm_code="$(curl -s -o /dev/null -w '%{http_code}' -I "$PUBLIC_BASE/sitemap.xml")"
+if [[ "$sm_code" == "200" ]]; then echo "    ✓ sitemap.xml"; else echo "    ✗ sitemap.xml → HTTP $sm_code"; fail=1; fi
 PAGE="$(curl -fsS "$PUBLIC_BASE/")"
 printf '%s' "$PAGE" | grep -q "$HQ_NAME" || { echo "    ✗ 페이지가 $HQ_NAME 을 안 가리킴"; fail=1; }
 printf '%s' "$PAGE" | grep -qE 'downloads/[^"]*Agent[^"]*\.exe' && { echo "    ✗ 라이브 페이지에 Agent 링크가 남아있음"; fail=1; }
