@@ -98,6 +98,21 @@ export default async function LoginPage({
             로그인
           </button>
         </form>
+
+        {/* 잘못 들어온 사람의 출구.
+            626.kr 을 치면 여기가 뜨는데(맨 주소는 패널이다), 소개 페이지는 /main/ 에 있다.
+            팜플렛을 보고 주소 뒤를 빠뜨린 사람이 로그인 화면에서 막히면 그대로 돌아간다 —
+            직원은 매일 보는 화면이라 방해되지 않게 폼 아래 한 줄로만 둔다.
+            ★같은 호스트 안이라 상대경로다. 새 탭으로 열지 않는다(여기가 목적지가 아니다). */}
+        <div className="mt-5 border-t border-white/10 pt-4 text-center">
+          <p className="text-xs text-[#ccd2e3]">체인리모트가 궁금해서 오셨나요?</p>
+          <a
+            href="/main/"
+            className="mt-1 inline-block text-sm font-medium text-[#c3d3ff] hover:text-white hover:underline"
+          >
+            제품 소개 보기 →
+          </a>
+        </div>
       </div>
 
       {/* 운영사 표기 — 대리점 직원이 보는 첫 화면이라 누가 운영하는 서비스인지 밝힌다. */}
@@ -106,12 +121,7 @@ export default async function LoginPage({
           © 2026 베타포스랩 (BetaPosLab) · ChainRemote 플랫폼 운영
         </p>
         <p className="mt-0.5">
-          <a
-            href="https://betaposlab.com/chainremote"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-white hover:underline"
-          >
+          <a href="/main/" className="hover:text-white hover:underline">
             서비스 소개
           </a>
           <span className="mx-1.5">·</span>
