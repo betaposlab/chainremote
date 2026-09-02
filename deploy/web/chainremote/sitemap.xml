@@ -1,24 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  검색엔진에 "이 주소들이 있다"고 알리는 목록.
+  검색엔진에 "이 주소가 있다"고 알리는 목록.
 
-  ★도메인 루트(betaposlab.com/sitemap.xml)가 아니라 이 폴더에 두는 이유: 루트는 회사
-    본 사이트 영역이라 건드리지 않는다. 사이트맵은 자기가 놓인 경로 아래만 다룰 수 있는데,
-    우리 주소가 전부 /chainremote/ 하위라 여기 둬도 범위가 맞는다.
+  ★626.kr/main/ 에 놓고 그 호스트의 주소만 담는다. 사이트맵은 **자기가 놓인 호스트·경로
+    아래만** 다룰 수 있어서, betaposlab.com 에 두고 626.kr 주소를 적으면 무효다.
+    정본(canonical)이 626.kr/main/ 이므로 사이트맵도 같이 그쪽에 산다.
 
   ★이 파일이 있다고 저절로 색인되지는 않는다. Google Search Console 과 네이버
     서치어드바이저에 이 주소를 직접 제출해야 한다. 특히 네이버는 등록하지 않으면
     사실상 노출되지 않는다 — 국내 B2B 는 그쪽 유입이 크다.
+    ★626.kr 최상위에는 robots.txt 를 놓을 수 없다(패널이라 로그인으로 튕긴다).
+    그래서 사이트맵 주소는 robots.txt 로 알리지 못하고 직접 제출만이 방법이다.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://betaposlab.com/chainremote/</loc>
+    <loc>https://626.kr/main/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://betaposlab.com/chainremote/privacy.html</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
   </url>
 </urlset>
