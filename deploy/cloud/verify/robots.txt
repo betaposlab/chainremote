@@ -1,0 +1,14 @@
+# 626.kr 크롤러 규칙.
+#
+# ★아무것도 Disallow 하지 않는다. 패널을 검색에서 빼는 일은 각 페이지의
+#   `noindex` 메타(app/layout.tsx)가 한다 — robots.txt 로 막으면 크롤러가 아예
+#   안 들어와서 그 noindex 를 읽지도 못하고, 이미 색인된 것이 안 지워진다.
+#   막으려면 들여보내고 말해야 한다.
+#
+# ★이 파일이 패널이 아니라 Caddy 앞단에서 나가는 이유: 626.kr 최상위는 관리 패널이라
+#   인증 관문이 /login 으로 튕긴다. 규칙 파일이 있어야 할 자리에 로그인 화면이 나왔다.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://626.kr/main/sitemap.xml

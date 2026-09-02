@@ -36,7 +36,7 @@
 	#   ("메타태그를 찾을 수 없습니다"). 리다이렉트가 개입하지 않는 길이 필요하다.
 	#   glob 으로 둔 이유: 재확인 토큰이 바뀌어도 파일만 갈아 끼우면 되고 설정은 안 건드린다.
 	#   패널에는 /naver*.html · /google*.html 라우트가 없어 가로챌 것이 없다.
-	@verify path /naver*.html /google*.html
+	@verify path /naver*.html /google*.html /robots.txt
 	handle @verify {
 		root * /opt/chainremote/web/verify
 		file_server
