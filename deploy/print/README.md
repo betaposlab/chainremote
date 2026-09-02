@@ -5,6 +5,16 @@
 - `이용신청서.html` / `체인리모트_이용신청서.pdf` — A4 한 장짜리 계약 서식. 두 부 뽑아
   한 부씩 나눠 갖는다. 약관 전문은 종이에 안 싣고 `626.kr/main/terms.html` 로 넘긴다 —
   27개 조를 봉투에 같이 넣을 이유가 없다.
+- `체인리모트_이용약관.pdf` — **정본은 여기가 아니라** `deploy/web/chainremote/terms.html`
+  이다. 그 파일에 인쇄용 CSS(`@media print`)가 들어 있어 그대로 뽑으면 A4 7쪽이 나온다.
+  약관을 고쳤으면 이 PDF 도 다시 뽑을 것:
+
+  ```
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+    --headless=new --disable-gpu --virtual-time-budget=9000 --no-pdf-header-footer \
+    --print-to-pdf="$PWD/deploy/print/체인리모트_이용약관.pdf" \
+    "file://$PWD/deploy/web/chainremote/terms.html"
+  ```
 
 ★**사업자 주체가 바뀌면 고칠 곳은 네 군데**다(문성텔레콤 → 새 법인): 이 폴더의
 `이용신청서.html` 공급자 상자, 그리고 `deploy/web/chainremote/` 의 `terms.html`(서문과

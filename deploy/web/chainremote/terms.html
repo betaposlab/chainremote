@@ -65,6 +65,29 @@
         .foot .links { display: flex; gap: 18px; flex-wrap: wrap; }
         .foot .legal { color: #5B6678; font-size: 0.8rem; }
         @media (max-width: 600px) { .doc th, .doc td { font-size: 0.88rem; padding: 8px; } .toc ul { columns: 1; } }
+
+        /* ── 인쇄 ── 대리점이 이 페이지를 그대로 뽑아 계약서에 붙인다.
+              화면용 껍데기(고정 헤더·검은 푸터)는 종이에서 걸리적거리기만 하므로 뺀다.
+              조문이 쪽 경계에서 갈라지면 읽기 나빠져 h3+본문을 함께 붙여 둔다. */
+        @media print {
+            @page { size: A4; margin: 18mm 16mm 16mm; }
+            html, body { background: #fff; color: #000; font-size: 10pt; line-height: 1.6; }
+            header, footer { display: none !important; }
+            .doc { padding: 0; }
+            .wrap { max-width: none; padding: 0; }
+            .doc h1 { font-size: 19pt; }
+            .doc h2 { font-size: 12.5pt; margin: 20px 0 8px; break-after: avoid; }
+            .doc h3 { font-size: 10.5pt; margin: 14px 0 5px; break-after: avoid; }
+            .doc p, .cl, .doc li { font-size: 9.6pt; color: #16202f; }
+            .cl, .doc li, .doc table, .note, .contact-box { break-inside: avoid; }
+            .doc table { font-size: 9pt; }
+            .toc { display: none; }
+            a { color: #000; text-decoration: none; }
+            a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 8pt; color: #555; }
+            .contact-box, .doc .intro, .note { background: #f4f6fa !important;
+                -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+
     </style>
 </head>
 <body>
