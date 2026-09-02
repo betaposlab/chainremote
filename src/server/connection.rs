@@ -2328,12 +2328,19 @@ impl Connection {
                 log::info!("[restart-grace] expired now={} exp={}", now, exp);
                 return false;
             }
-            // id 일치, 또는 어느쪽이 비어있으면 관용(HQ가 id 미등록일 수 있음). 인가된 재시작 후
-            // 5분 multi-use 라 범위가 좁음.
             // ★ 삭제 안 함(1회용 아님): 재부팅 *직전* 재접속(block1 이 reboot 초기화 중 즉시 재시도)이
             //   grace 를 먼저 소비하면, 재부팅 후 진짜 재접속이 못 찾아 수락이 뜸(3차 실패 원인).
             //   5분 창 동안 multi-use 로 두고, 만료(또는 다음 재시작이 파일 덮어쓰기)시 정리.
-            if gid == operator_id || gid.is_empty() || operator_id.is_empty() {
+            //
+            // ★★ 여기는 **정확히 일치할 때만** 통과한다(2026-09-02). 종전엔 "어느 쪽이든 비어
+            //   있으면 관용"이었는데, operator_id 는 접속자가 스스로 보내는 lr.my_id 라
+            //   **빈 값을 보내면 저장된 ID 와 무관하게 통과**했다. 그리고 이 분기는 아래
+            //   validate_password() 보다 앞이라, 통과하면 비밀번호도 수락 클릭도 없이 세션이
+            //   열렸다. 관용의 명목은 "HQ 가 id 미등록일 수 있음" 이었지만 set 과 check 가
+            //   같은 lr.my_id 를 쓰고 Config::get_id() 는 gen_id() 자체가 실패하는 병적
+            //   상황에서만 빈 값이라, 실제로 필요한 적이 없다. 못 맞추면 평소처럼 수락 카드가
+            //   뜰 뿐이라 실패 방향도 안전하다.
+            if !gid.is_empty() && gid == operator_id {
                 log::info!(
                     "[restart-grace] MATCH (stored='{}' got='{}') -> auto-accept",
                     gid, operator_id

@@ -165,6 +165,14 @@ export async function POST(req: Request) {
       ...(schedClose ? { schedClose } : {}),
     });
   } catch (e) {
-    return Response.json({ error: String(e) }, { status: 500 });
+    // ★본문에 예외 문구를 싣지 않는다. drizzle 은 DB 에러에 **쿼리 전문과 바인딩
+    //   파라미터**를 담아 두므로 String(e) 를 그대로 실으면 그게 응답으로 샌다(CWE-209).
+    //   이 라우트들은 세션이 아니라 에이전트 키·토큰으로 들어오는데, enroll-key 는 모든
+    //   설치본에 평문으로 들어 있어 거래처 PC 한 대면 닿는다 — 무인증이나 마찬가지다.
+    //   2026-08-16 감사가 jsonError 로 이 기본을 뒤집었는데 이 네 곳이 빠져 있었다.
+    //   ★상태 코드는 500 그대로 둔다. 에이전트가 5xx 를 "일시적 실패 → 재시도"로 읽으므로
+    //   jsonError 처럼 400/409 로 바꾸면 재시도 판정이 달라진다. 원인은 서버 로그에만.
+    console.error("[agent-api] unhandled:", e instanceof Error ? e.message : e);
+    return Response.json({ error: "처리 중 오류가 발생했습니다." }, { status: 500 });
   }
 }
