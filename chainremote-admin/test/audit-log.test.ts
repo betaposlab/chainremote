@@ -157,3 +157,60 @@ describe("감사 로그 쓰기", () => {
     });
   });
 });
+
+// ── IP·UA 기록 (2026-09-02) ───────────────────────────────────────────────
+// 컬럼은 001_init 부터 있었는데 writeAudit 이 세팅을 안 해 3년치가 통째로 NULL 이었다.
+// 원격지원 사업에서 "누가 몇 시에 어느 매장에 들어갔나"는 사고 때 유일한 방어선이다.
+//
+// ★여기서 잠그는 진짜 계약은 "IP 를 남긴다"가 아니라 **"IP 때문에 기록을 잃지 않는다"**다.
+//   ip_address 는 DB 가 inet 인데 Drizzle 은 text 로 선언돼 있어, 형식이 틀린 값을 그대로
+//   넣으면 insert 가 터지고 writeAudit 의 catch 가 그걸 삼킨다 — IP 를 남기려다 감사
+//   기록 자체가 사라지는 최악이 된다.
+describe("감사 로그 — IP·UA", () => {
+  it("정상 IP 는 그대로 남고, 프록시 체인은 첫 홉만 남는다", async () => {
+    const db = testDb();
+    const t = await makeTenant("aud-ip1");
+    await writeAudit({
+      action: "customer.delete",
+      tenantId: t,
+      ipAddress: "203.0.113.9, 10.0.0.1, 10.0.0.2",
+      userAgent: "Mozilla/5.0 (probe)",
+    });
+    const [row] = await db.select().from(auditLogs).where(eq(auditLogs.tenantId, t));
+    expect(row.ipAddress).toBe("203.0.113.9");
+    expect(row.userAgent).toBe("Mozilla/5.0 (probe)");
+  });
+
+  it("★형식이 틀린 IP 가 와도 기록은 남는다 (IP 만 버린다)", async () => {
+    const db = testDb();
+    const t = await makeTenant("aud-ip2");
+    await writeAudit({
+      action: "customer.delete",
+      tenantId: t,
+      ipAddress: "unknown-host",
+      userAgent: null,
+    });
+    const [row] = await db.select().from(auditLogs).where(eq(auditLogs.tenantId, t));
+    expect(row, "행 자체가 사라지면 안 된다").toBeDefined();
+    expect(row.action).toBe("customer.delete");
+    expect(row.ipAddress).toBeNull();
+  });
+
+  it("IPv6 와 포트 붙은 주소도 받는다", async () => {
+    const db = testDb();
+    const t = await makeTenant("aud-ip3");
+    await writeAudit({ action: "customer.delete", tenantId: t, ipAddress: "[2001:db8::1]:443" });
+    const [row] = await db.select().from(auditLogs).where(eq(auditLogs.tenantId, t));
+    expect(row.ipAddress).toBe("2001:db8::1");
+  });
+
+  it("요청 스코프 밖에서 불러도 던지지 않는다(테스트·배치)", async () => {
+    const db = testDb();
+    const t = await makeTenant("aud-ip4");
+    // ipAddress 를 안 주면 headers() 를 읽으려다 스코프가 없어 실패한다 — 조용히 NULL.
+    await expect(writeAudit({ action: "customer.delete", tenantId: t })).resolves.toBeUndefined();
+    const [row] = await db.select().from(auditLogs).where(eq(auditLogs.tenantId, t));
+    expect(row).toBeDefined();
+    expect(row.ipAddress).toBeNull();
+  });
+});
