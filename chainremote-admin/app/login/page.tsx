@@ -109,11 +109,19 @@ export default async function LoginPage({
             체인리모트가 궁금해서 오셨나요?
           </p>
           {/* ★로그인 버튼과 경쟁하지 않으면서 눈에는 띄어야 한다. 채운 버튼을 하나 더 두면
-              직원이 매일 "둘 중 뭘 눌러야 하지"를 겪는다 — 그래서 외곽선만 액센트로 준다.
-              대신 폭과 높이는 로그인 버튼과 같게 맞춰 존재감을 확보한다. */}
+              직원이 매일 "둘 중 뭘 눌러야 하지"를 겪는다 — 그래서 외곽선으로 위계를 낮춘다.
+              대신 폭·높이는 로그인 버튼과 같게 맞춰 존재감을 확보한다.
+              ★테두리를 액센트(#4C7DFF) 그대로 쓰면 카드 배경(#3D4E7A)과 밝기가 비슷해
+              묻힌다(실물 확인). 한 단계 밝은 파랑으로 올리고 글자는 흰색으로 둔다 —
+              어두운 남색 위에서는 채도보다 밝기 차이가 눈에 걸린다. */}
+          {/* ★테두리는 style 로 준다. globals.css 의 `.btn` 이 `border: 1px solid transparent`
+              를 레이어 없이 선언해서, Tailwind 의 border-* 유틸리티(레이어드)가 진다 —
+              class 로 주면 조용히 무시되고 계산값이 1px/transparent 로 남는다(실측 확인).
+              배경·글자색은 `.btn` 이 안 건드려서 유틸리티가 그대로 먹는다. */}
           <a
             href="/main/"
-            className="btn w-full justify-center border-[#4C7DFF] bg-[#4C7DFF]/10 font-semibold text-[#c3d3ff] transition-colors hover:bg-[#4C7DFF]/20 hover:text-white"
+            style={{ borderWidth: "2px", borderColor: "#8FB3FF" }}
+            className="btn w-full bg-[#4C7DFF]/20 text-[0.9rem] font-semibold text-white transition-colors hover:bg-[#4C7DFF]/35"
           >
             제품 소개 보기
             <span aria-hidden="true" className="ml-1.5">→</span>
