@@ -126,7 +126,10 @@ UP+=" put -O $REMOTE_DIR $WORK/index.html;"
 #   반영될 길이 없었다 — 실제로 6월 파일이 두 달 넘게 그대로였고 그 사이 서버가 클라우드로
 #   옮겨져 "외부 위탁 없음"이 사실과 반대가 돼 있었다. 626.kr 판은 이 파일을 절대주소로
 #   가리키므로(아래 [7/7]) 여기 한 벌만 올리면 두 주소가 같은 방침을 본다.
-UP+=" put -O $REMOTE_DIR $(dirname "$INDEX_SRC")/privacy.html; quit"
+UP+=" put -O $REMOTE_DIR $(dirname "$INDEX_SRC")/privacy.html;"
+# 이용약관도 같은 이유로 함께 올린다 — 페이지가 가리키는 문서는 전부 이 한 곳에서 나가야
+#   한 벌만 낡는 일이 없다.
+UP+=" put -O $REMOTE_DIR $(dirname "$INDEX_SRC")/terms.html; quit"
 # ★사이트맵은 여기 올리지 않는다(2026-09-02). 정본(canonical)이 626.kr/main/ 이고,
 #   사이트맵은 자기가 놓인 호스트의 주소만 담을 수 있다 — Cafe24 에 두고 626.kr 주소를
 #   적으면 무효다. 아래 [7/7] 에서 클라우드로 올린다.
@@ -154,13 +157,15 @@ else
   verify "$CHAINGO_LINKED"
 fi
 # 방침도 실제로 받아 본다 — 올렸다고 믿지 않는 원칙은 여기에도 적용된다.
-PRIV_LOCAL="$(shasum -a 256 "$(dirname "$INDEX_SRC")/privacy.html" | cut -d' ' -f1)"
-PRIV_LIVE="$(curl -fsS --max-time 20 "$PUBLIC_BASE/privacy.html" | shasum -a 256 | cut -d' ' -f1)"
-if [[ "$PRIV_LOCAL" == "$PRIV_LIVE" ]]; then
-  echo "    ✓ privacy.html"
-else
-  echo "    ✗ privacy.html → 올린 것과 내용이 다름"; fail=1
-fi
+for DOC in privacy.html terms.html; do
+  D_LOCAL="$(shasum -a 256 "$(dirname "$INDEX_SRC")/$DOC" | cut -d' ' -f1)"
+  D_LIVE="$(curl -fsS --max-time 20 "$PUBLIC_BASE/$DOC" | shasum -a 256 | cut -d' ' -f1)"
+  if [[ "$D_LOCAL" == "$D_LIVE" ]]; then
+    echo "    ✓ $DOC"
+  else
+    echo "    ✗ $DOC → 올린 것과 내용이 다름"; fail=1
+  fi
+done
 PAGE="$(curl -fsS "$PUBLIC_BASE/")"
 printf '%s' "$PAGE" | grep -q "$HQ_NAME" || { echo "    ✗ 페이지가 $HQ_NAME 을 안 가리킴"; fail=1; }
 printf '%s' "$PAGE" | grep -qE 'downloads/[^"]*Agent[^"]*\.exe' && { echo "    ✗ 라이브 페이지에 Agent 링크가 남아있음"; fail=1; }
@@ -199,6 +204,7 @@ src, dst, base = sys.argv[1], sys.argv[2], sys.argv[3]
 h = open(src, encoding='utf-8').read()
 h = h.replace('href="downloads/', 'href="%s/downloads/' % base)
 h = h.replace('href="privacy.html"', 'href="%s/privacy.html"' % base)
+h = h.replace('href="terms.html"', 'href="%s/terms.html"' % base)
 open(dst, 'w', encoding='utf-8').write(h)
 PYC
 if ssh -o BatchMode=yes -o ConnectTimeout=10 "$CLOUD" "mkdir -p $CLOUD_DIR" 2>/dev/null; then
