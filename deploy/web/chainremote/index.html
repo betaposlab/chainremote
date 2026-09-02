@@ -356,6 +356,20 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
 .stagger.in > :nth-child(5){transition-delay:.32s}
 .stagger.in > :nth-child(6){transition-delay:.40s}
 
+
+/* 무료 기간 3+3 — 요금 섹션의 첫인상. 숫자가 문장보다 먼저 읽히게 왼쪽에 크게 세운다. */
+.trial{position:relative;display:grid;grid-template-columns:auto 1fr;gap:40px;align-items:center;
+  background:linear-gradient(120deg,rgba(61,220,132,.10),rgba(98,95,255,.06));
+  border:1px solid rgba(61,220,132,.30);border-radius:16px;padding:30px 38px;margin-bottom:22px}
+.tmath{display:flex;align-items:baseline;gap:5px;white-space:nowrap;line-height:1;
+  font-variant-numeric:tabular-nums}
+.tmath b{font-size:3.5rem;font-weight:800;color:var(--mint);letter-spacing:-.035em}
+.tmath span{font-size:.95rem;font-weight:500;color:var(--ash)}
+.tmath i{font-style:normal;font-size:1.9rem;font-weight:300;color:var(--ash);margin:0 9px}
+.trial h3{margin:0 0 9px;font-size:1.35rem;font-weight:700;color:#fff;letter-spacing:-.02em}
+.trial p{margin:0;font-size:.95rem;line-height:1.65;color:var(--mist)}
+.trial p b{color:#fff;font-weight:600}
+.trial .tsmall{margin-top:10px;font-size:.86rem;color:var(--ash)}
 @media(max-width:1060px){
   .hero-grid{grid-template-columns:1fr;gap:34px}
   .stage{height:auto;display:flex;flex-direction:column;gap:16px}
@@ -373,6 +387,8 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   .g4{grid-template-columns:repeat(2,1fr)}
   .g2{grid-template-columns:1fr;gap:30px}
   .price{grid-template-columns:1fr;padding:34px 28px}
+  .trial{grid-template-columns:1fr;gap:18px;padding:26px 24px}
+  .tmath b{font-size:2.7rem}
 }
 @media(max-width:680px){
   .g3,.g4{grid-template-columns:1fr}
@@ -453,11 +469,11 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
     <a class="brand" href="#top"><span class="logobox"><img src="logo.png" alt="ChainRemote"></span></a>
     <nav class="nav-center">
       <a href="#features">특징</a>
+      <a href="#sched">원격 예약</a>
       <a href="#open">영업 여부</a>
       <a href="#disk">디스크 관제</a>
       <a href="#firewall">방화벽 관제</a>
       <a href="#van">VCAT 데몬 관제</a>
-      <a href="#sched">원격 예약</a>
       <a href="#history">지원기록</a>
       <a href="#how">사용방법</a>
       <a href="#pricing">요금</a>
@@ -609,6 +625,56 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
         <div class="ico"><svg class="ic"><use href="#i-refresh"/></svg></div>
         <h3 class="h3">알아서 최신으로</h3>
         <p>거래처 프로그램은 우리가 원격으로 올려 드립니다. 매장이 2,000곳이어도 한 번에, 사장님이 아무것도 누르지 않아도 조용히 최신 상태가 됩니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="sched">
+  <div class="controlbg">
+    <div class="glow g-purple" style="left:-200px;top:-160px;width:600px;height:460px"></div>
+  </div>
+  <div class="wrap" style="position:relative">
+    <div class="grid g2">
+      <div class="panelmock reveal">
+        <div class="phead"><svg class="ic" style="width:18px;height:18px"><use href="#i-clock"/></svg> 사장님 화면에 뜨는 창</div>
+        <div class="prow"><span class="pname">원격 예약 요청</span><span class="fs fs-warn">수락 대기</span></div>
+        <div class="prow"><span class="hmemo" style="font-size:15px;color:#fff;font-weight:600">8월 19일 오후 11시 ~ 8월 20일 오전 3시</span></div>
+        <div class="prow"><span class="hmemo">베타포스랩에서 이 시간에는 수락 창 없이 바로 접속합니다.</span></div>
+        <div class="prow" style="justify-content:flex-end"><span class="fs fs-off">거부</span><span class="fs fs-ok">수락</span></div>
+        <div class="prow pfoot">사장님은 시간을 고르지 않습니다 — <b>읽고 한 번 누르면 끝</b>입니다.</div>
+      </div>
+      <div class="reveal">
+        <div class="tag only">Only ChainRemote</div>
+        <h2 class="h2">원격 예약</h2>
+        <p class="h2-sub">새벽에 해야 하는 작업,<br>사장님을 깨울 수도 없고</p>
+        <p class="body" style="margin-top:14px">포스 작업에는 영업 중에 손댈 수 없는 것들이 있습니다.
+        프로그램을 갈아엎거나, 데이터를 옮기거나, 재부팅이 필요한 작업은 장사하는 동안 못 합니다.
+        <b style="color:#fff;font-weight:500">문 닫은 새벽으로 미루거나, 점심 피크가 지나기를 기다립니다.</b></p>
+        <p class="body" style="margin-top:12px">그런데 우리 원격은 매번 사장님이 '수락'을 눌러야 시작됩니다.
+        그게 무단 접속을 막는 장치인데, 하필 그때 걸림돌이 됩니다 — 새벽 2시에 사장님은 퇴근했고,
+        점심 12시 반에는 주방에 있어 화면을 볼 새가 없습니다. 결국 다음 날 아침에 몰려가거나,
+        바쁜 시간에 무리해서 하게 됩니다.</p>
+        <p class="body" style="margin-top:12px"><b style="color:#fff;font-weight:500">원격 예약은 이 한 가지를
+        위해 만들었습니다.</b> 낮에 통화할 때 "오늘 밤 11시부터 3시 사이에 작업하겠습니다" 하고 시간을
+        보내면, 사장님이 그 자리에서 한 번 수락합니다. 그 시간대에는 수락 창 없이 바로 들어갑니다.
+        사장님은 자고, 작업은 끝나 있습니다.</p>
+        <p class="body" style="margin-top:12px">무인 접속 비밀번호와 뭐가 다르냐고 하실 수 있습니다.
+        딱 하나가 다릅니다 — <b style="color:#fff;font-weight:500">사장님이 그 시간을 직접 승인했다는 것</b>입니다.
+        무인 접속 비밀번호는 설치한 날부터 영원히 열려 있고 사장님은 그 사실조차 모릅니다.
+        <b style="color:#fff;font-weight:500">한 번 알려지면 누가 아는지 파악할 수 없고, 아는 사람은
+        언제든 들어올 수 있습니다.</b> 되돌리는 방법은 비밀번호를 바꾸는 것뿐입니다.</p>
+        <p class="body" style="margin-top:12px">원격 예약은 승인한 그 시간에만, 최대 24시간까지만
+        열리고, 누가 언제 들어왔는지 기록에 남습니다. 접근이 계정에 묶여 있어서,
+        <b style="color:#fff;font-weight:500">직원이 그만두면 그 계정을 지우는 것으로 접근도 그날
+        끝납니다.</b></p>
+        <ul class="plist" style="margin-top:22px">
+          <li><svg class="chk"><use href="#i-check"/></svg> 사장님은 시간을 고르지 않습니다 — 읽고 [수락] 한 번</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 약속한 시간이 지나면 자동으로 닫힙니다 (최대 24시간)</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 작업이 끝나고 15분간 조용하면 그대로 닫힙니다</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 그 구간의 접속은 지원기록에 <b style="color:#fff;font-weight:500">'예약 접속'</b>으로 따로 남습니다</li>
+          <li><svg class="chk"><use href="#i-check"/></svg> 마음이 바뀌면 전화 한 통 — 대리점이 패널에서 즉시 거둡니다</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -768,56 +834,6 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   </div>
 </section>
 
-<section class="sec" id="sched">
-  <div class="controlbg">
-    <div class="glow g-blue" style="left:-200px;top:-160px;width:600px;height:460px"></div>
-  </div>
-  <div class="wrap" style="position:relative">
-    <div class="grid g2">
-      <div class="panelmock reveal">
-        <div class="phead"><svg class="ic" style="width:18px;height:18px"><use href="#i-clock"/></svg> 사장님 화면에 뜨는 창</div>
-        <div class="prow"><span class="pname">원격 예약 요청</span><span class="fs fs-warn">수락 대기</span></div>
-        <div class="prow"><span class="hmemo" style="font-size:15px;color:#fff;font-weight:600">8월 19일 오후 11시 ~ 8월 20일 오전 3시</span></div>
-        <div class="prow"><span class="hmemo">베타포스랩에서 이 시간에는 수락 창 없이 바로 접속합니다.</span></div>
-        <div class="prow" style="justify-content:flex-end"><span class="fs fs-off">거부</span><span class="fs fs-ok">수락</span></div>
-        <div class="prow pfoot">사장님은 시간을 고르지 않습니다 — <b>읽고 한 번 누르면 끝</b>입니다.</div>
-      </div>
-      <div class="reveal">
-        <div class="tag only">Only ChainRemote</div>
-        <h2 class="h2">원격 예약</h2>
-        <p class="h2-sub">새벽에 해야 하는 작업,<br>사장님을 깨울 수도 없고</p>
-        <p class="body" style="margin-top:14px">포스 작업에는 영업 중에 손댈 수 없는 것들이 있습니다.
-        프로그램을 갈아엎거나, 데이터를 옮기거나, 재부팅이 필요한 작업은 장사하는 동안 못 합니다.
-        <b style="color:#fff;font-weight:500">문 닫은 새벽으로 미루거나, 점심 피크가 지나기를 기다립니다.</b></p>
-        <p class="body" style="margin-top:12px">그런데 우리 원격은 매번 사장님이 '수락'을 눌러야 시작됩니다.
-        그게 무단 접속을 막는 장치인데, 하필 그때 걸림돌이 됩니다 — 새벽 2시에 사장님은 퇴근했고,
-        점심 12시 반에는 주방에 있어 화면을 볼 새가 없습니다. 결국 다음 날 아침에 몰려가거나,
-        바쁜 시간에 무리해서 하게 됩니다.</p>
-        <p class="body" style="margin-top:12px"><b style="color:#fff;font-weight:500">원격 예약은 이 한 가지를
-        위해 만들었습니다.</b> 낮에 통화할 때 "오늘 밤 11시부터 3시 사이에 작업하겠습니다" 하고 시간을
-        보내면, 사장님이 그 자리에서 한 번 수락합니다. 그 시간대에는 수락 창 없이 바로 들어갑니다.
-        사장님은 자고, 작업은 끝나 있습니다.</p>
-        <p class="body" style="margin-top:12px">무인 접속 비밀번호와 뭐가 다르냐고 하실 수 있습니다.
-        딱 하나가 다릅니다 — <b style="color:#fff;font-weight:500">사장님이 그 시간을 직접 승인했다는 것</b>입니다.
-        무인 접속 비밀번호는 설치한 날부터 영원히 열려 있고 사장님은 그 사실조차 모릅니다.
-        <b style="color:#fff;font-weight:500">한 번 알려지면 누가 아는지 파악할 수 없고, 아는 사람은
-        언제든 들어올 수 있습니다.</b> 되돌리는 방법은 비밀번호를 바꾸는 것뿐입니다.</p>
-        <p class="body" style="margin-top:12px">원격 예약은 승인한 그 시간에만, 최대 24시간까지만
-        열리고, 누가 언제 들어왔는지 기록에 남습니다. 접근이 계정에 묶여 있어서,
-        <b style="color:#fff;font-weight:500">직원이 그만두면 그 계정을 지우는 것으로 접근도 그날
-        끝납니다.</b></p>
-        <ul class="plist" style="margin-top:22px">
-          <li><svg class="chk"><use href="#i-check"/></svg> 사장님은 시간을 고르지 않습니다 — 읽고 [수락] 한 번</li>
-          <li><svg class="chk"><use href="#i-check"/></svg> 약속한 시간이 지나면 자동으로 닫힙니다 (최대 24시간)</li>
-          <li><svg class="chk"><use href="#i-check"/></svg> 작업이 끝나고 15분간 조용하면 그대로 닫힙니다</li>
-          <li><svg class="chk"><use href="#i-check"/></svg> 그 구간의 접속은 지원기록에 <b style="color:#fff;font-weight:500">'예약 접속'</b>으로 따로 남습니다</li>
-          <li><svg class="chk"><use href="#i-check"/></svg> 마음이 바뀌면 전화 한 통 — 대리점이 패널에서 즉시 거둡니다</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
 <section class="sec" id="history">
   <div class="controlbg">
     <div class="glow g-purple" style="left:auto;right:-240px;top:-180px;width:600px;height:460px"></div>
@@ -934,7 +950,17 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
   <div class="wrap">
     <div class="sec-head center reveal">
               <h2 class="h2">합리적인 계정 단위 요금</h2>
-      <p class="body">계정(아이디) 단위로 과금합니다. 거래처는 무제한, 도입 규모에 맞춰 견적을 드립니다.</p>
+      <p class="body">처음 6개월은 요금이 없고, 그 뒤로는 계정(아이디) 단위 월정액입니다. 거래처는 몇 곳이든 무제한입니다.</p>
+    </div>
+    <div class="trial reveal">
+      <div class="tmath"><b>3</b><span>개월</span><i>+</i><b>3</b><span>개월</span></div>
+      <div>
+        <h3>처음 6개월은 요금이 없습니다</h3>
+        <p>계약 조건 없이 <b>3개월</b>, 그 안에 정식 계약하시면 <b>3개월 더</b>.
+           그동안 거래처는 몇 곳을 등록하셔도 요금이 없습니다.</p>
+        <p class="tsmall">3개월은 계정을 받으신 날이 아니라 <b>첫 거래처를 설치하신 날</b>부터 셉니다 &mdash;
+           한 곳씩 천천히 까시고, 제대로 써 보신 3개월을 가져가시라고.</p>
+      </div>
     </div>
     <div class="price reveal">
       <div class="pglow"></div>
