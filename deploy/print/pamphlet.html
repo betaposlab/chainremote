@@ -142,43 +142,57 @@ figcaption{font-size:8.2pt;color:var(--ink-3);margin-top:2mm;line-height:1.5}
 .screen-only b{color:#fff}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
-/* ── 본사 앱(HQ) 거래처 목록 목업 — 실제 HQ 라이트 팔레트(CrColors.light) 그대로.
-      스샷 대신 그리는 이유는 인쇄다: 캡처본은 이 폭에서 140dpi 남짓이라 배지 글자가
-      뭉개진다. 벡터로 그리면 상호도 배지도 인쇄에서 또렷하다. */
-.hqm{border:1px solid #D7DDE6;border-radius:2.2mm;overflow:hidden;background:#EAEEF4}
-.hqm-bar{display:flex;align-items:center;gap:3mm;background:#F5F7FB;
-  border-bottom:1px solid #D7DDE6;padding:1.2mm 3mm}
-.hqm-bar .app{font-family:"Gothic A1",sans-serif;font-weight:800;font-size:6.6pt;color:#1E2530;letter-spacing:-.01em}
-.hqm-tabs{display:flex;gap:1.6mm;margin-left:auto}
-.hqm-tabs span{font-family:"Gothic A1",sans-serif;font-size:5.9pt;color:#76828F;
-  padding:.7mm 2mm;border-radius:1.2mm}
-.hqm-tabs span.on{background:#fff;color:#1B5FD9;font-weight:700;box-shadow:0 .3mm .8mm rgba(60,80,120,.14)}
-.hqm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2.2mm;padding:2.1mm}
-.hqc{background:#ECEFF5;border:1px solid #D7DDE6;border-radius:2mm;padding:1.8mm 2mm 1.5mm}
-.hqc-top{display:flex;align-items:center;gap:1.8mm}
-.hqc-av{width:7.2mm;height:7.2mm;border-radius:2.4mm;flex:none;
-  background:linear-gradient(135deg,#F7F1FF,#B6A0DB);border:.25mm solid rgba(255,255,255,.5);
-  box-shadow:1.3mm 1.3mm 2.6mm rgba(150,140,182,.55),-1mm -1mm 2mm #fff;
-  display:flex;align-items:center;justify-content:center;
-  font-family:"Nanum Myeongjo",serif;font-size:9.5pt;color:#3D7BF7;line-height:1}
-.hqc-nm{font-family:"Gothic A1",sans-serif;font-weight:700;font-size:7pt;color:#111827;
-  line-height:1.25;letter-spacing:-.02em;white-space:nowrap}
-.hqc-id{font-family:"IBM Plex Mono",monospace;font-size:5.4pt;color:#6B7280;letter-spacing:.02em;margin-top:.3mm}
-.hqc-badges{display:flex;gap:1mm;margin-top:1.4mm}
-.hqc-badges b{font-family:"Gothic A1",sans-serif;font-weight:600;font-size:5.2pt;
-  background:#F1F5F9;color:#64748B;border-radius:.9mm;padding:.35mm 1.1mm;white-space:nowrap}
-.hqc-st{display:flex;align-items:center;gap:1.2mm;margin-top:1.2mm;
-  font-family:"Gothic A1",sans-serif;font-weight:500;font-size:5.9pt}
-.hqc-st i{width:1.5mm;height:1.5mm;border-radius:50%;display:block}
-.hqc.on  .hqc-st{color:#138A53} .hqc.on  .hqc-st i{background:#19B36B}
-.hqc.off .hqc-st{color:#8B96A2} .hqc.off .hqc-st i{background:#BAC3CD}
-.hqc.off .hqc-av{filter:grayscale(.55) opacity(.72)}
-.hqc.off .hqc-nm{color:#4b5563}
+/* ── 본사 앱(HQ) 거래처 목록 목업 — 실제 HQ 다크 팔레트(CrColors.dark)와 표 구조
+      (peer_card.dart _buildPeerRow: "표가 데스크톱 목록의 유일한 배치") 그대로.
+      캡처 대신 그리는 이유는 인쇄다 — 캡처본은 이 폭에서 140dpi 남짓이라 배지 글자가
+      뭉개지고, 화면에 실제 거래처 상호가 딸려 나온다. HQ 표가 바뀌면 여기도 같이 손볼 것. */
+.hqm{border:.35mm solid #51638F;border-radius:2.2mm;overflow:hidden;background:#313C58;
+  color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.hqm-bar{display:flex;align-items:center;gap:3mm;background:#2B364F;
+  border-bottom:.3mm solid #51638F;padding:.9mm 3mm}
+.hqm-bar .app{font-weight:800;font-size:6.6pt;color:#fff;letter-spacing:-.01em}
+.hqm-tabs{display:flex;gap:1.4mm;margin-left:auto}
+.hqm-tabs span{font-size:5.8pt;color:#CBD1E0;padding:.6mm 1.8mm;border-radius:1mm}
+.hqm-tabs span.on{background:#4C7DFF;color:#fff;font-weight:700}
+
+/* 표 — 열 폭 비율은 실제(_wId 106 · _wStatus 74 · _wOs 96 · _wDisk 76 · _wFw 54 · _wVan 82)를 따른다 */
+table.hqt{width:100%;border-collapse:collapse;table-layout:fixed;font-size:6pt}
+table.hqt th{font-size:5.6pt;font-weight:600;color:#CBD1E0;text-align:left;
+  padding:.9mm 1mm;border-bottom:.25mm solid #51638F;letter-spacing:.02em}
+table.hqt th .cnt{font-size:5pt;color:#9FAECF;font-weight:400;margin-left:1.2mm}
+table.hqt td{padding:.85mm 1mm;border-bottom:.2mm solid rgba(81,99,143,.45);vertical-align:middle}
+table.hqt tr:last-child td{border-bottom:none}
+.c-nm{width:32%} .c-id{width:15%} .c-st{width:11%} .c-os{width:14%}
+.c-dk{width:11%} .c-fw{width:8%} .c-vn{width:9%}
+.hqt .nm{display:flex;align-items:center;gap:1.6mm}
+.hqt .av{flex:none;width:4.1mm;height:4.1mm;border-radius:1.35mm;background:#3B5291;
+  display:flex;align-items:center;justify-content:center;color:#C3D3FF;font-size:5.4pt;font-weight:700}
+.hqt .nm b{font-weight:700;font-size:6.6pt;color:#fff;letter-spacing:-.01em;white-space:nowrap}
+.hqt .sid{color:#CBD1E0;font-size:5.6pt;letter-spacing:.04em;white-space:nowrap}
+.hqt .st{display:flex;align-items:center;gap:1.1mm;font-size:5.8pt;font-weight:500;white-space:nowrap}
+.hqt .st i{width:1.3mm;height:1.3mm;border-radius:50%;display:block}
+.hqt .on{color:#3DDC84} .hqt .on i{background:#4CAF50}
+.hqt .off{color:#CBD1E0} .hqt .off i{background:#F5853B}
+/* 정상 등급 배지는 바탕과 같은 색이라 실제로도 글자만 보인다 — 경고 등급만 칩이 뜬다 */
+.hqt .bg{color:#C3D3FF;font-size:5.6pt;white-space:nowrap}
+.hqt .bg.warn{background:rgba(255,176,32,.16);color:#FFB020;font-weight:600;
+  border-radius:.8mm;padding:.3mm 1mm}
+.hqt .dash{color:#8FA0C8;font-size:5.8pt}
+.hqt .fw{display:flex;align-items:center;gap:.9mm;color:#3DDC84;font-size:5.8pt;font-weight:600}
+.hqt .fw svg{width:2.4mm;height:2.4mm;stroke:#3DDC84;fill:none;stroke-width:1.8}
+.hqt .van{color:#C3D3FF;font-size:5.4pt;background:rgba(76,125,255,.18);
+  border-radius:.8mm;padding:.3mm 1mm;white-space:nowrap}
+.hqt .fold td{background:rgba(59,82,145,.35)}
+.hqt .fold .nm b{color:#fff}
+.hqt .fold .fi{flex:none;width:4.6mm;height:4.6mm;display:flex;align-items:center;justify-content:center}
+.hqt .fold .fi svg{width:3.4mm;height:3.4mm;fill:#F0DCA0}
+.hqt .cntchip{float:right;font-size:5.2pt;color:#CBD1E0;background:rgba(76,125,255,.18);
+  border-radius:.8mm;padding:.3mm 1.2mm}
 
 
 /* 무료 3+3 — 요금표 위에 얹는 띠. 숫자를 문장보다 먼저 읽히게 왼쪽에 세운다. */
 .freebar{display:flex;align-items:center;gap:5mm;margin-top:2.5mm;
-  border:.4mm solid var(--accent);border-radius:1.8mm;background:#f4f7ff;padding:2.2mm 4mm}
+  border:.4mm solid var(--accent);border-radius:1.8mm;background:#f4f7ff;padding:1.9mm 4mm}
 .freebar .fnum{flex:none;display:flex;align-items:baseline;gap:.6mm;color:var(--accent);
   font-family:"Gothic A1",sans-serif;font-weight:800;font-size:20pt;letter-spacing:-.03em;line-height:1}
 .freebar .fnum small{font-size:8pt;font-weight:600}
@@ -357,25 +371,63 @@ figcaption{font-size:8.2pt;color:var(--ink-3);margin-top:2mm;line-height:1.5}
         <span class="app">체인리모트 · 본사용(HQ)</span>
         <span class="hqm-tabs"><span>최근 세션</span><span>★ 즐겨찾기</span><span class="on">전체 거래처</span></span>
       </div>
-      <div class="hqm-grid">
-        <div class="hqc on"><div class="hqc-top"><span class="hqc-av">행</span><span><span class="hqc-nm">행복마트 본점</span><br><span class="hqc-id">AB 2222 3333</span></span></div>
-          <div class="hqc-badges"><b>Win11 · 64비트</b><b>여유 185GB</b></div>
-          <div class="hqc-st"><i></i>온라인</div></div>
-        <div class="hqc on"><div class="hqc-top"><span class="hqc-av">큰</span><span><span class="hqc-nm">큰집설렁탕</span><br><span class="hqc-id">AB 4444 5555</span></span></div>
-          <div class="hqc-badges"><b>Win10 · 64비트</b><b>여유 62GB</b></div>
-          <div class="hqc-st"><i></i>온라인</div></div>
-        <div class="hqc on"><div class="hqc-top"><span class="hqc-av">스</span><span><span class="hqc-nm">스마일분식 2호점</span><br><span class="hqc-id">AB 1111 1111</span></span></div>
-          <div class="hqc-badges"><b>Win11 · 64비트</b><b>여유 88GB</b></div>
-          <div class="hqc-st"><i></i>온라인</div></div>
-        <div class="hqc off"><div class="hqc-top"><span class="hqc-av">달</span><span><span class="hqc-nm">달빛카페</span><br><span class="hqc-id">AB 6666 7777</span></span></div>
-          <div class="hqc-badges"><b>Win10 · 64비트</b><b>여유 41GB</b></div>
-          <div class="hqc-st"><i></i>오프라인</div></div>
-      </div>
+      <table class="hqt">
+        <tr>
+          <th class="c-nm">거래처 <span class="cnt">5곳</span></th>
+          <th class="c-id">세션 ID</th><th class="c-st">상태</th><th class="c-os">OS</th>
+          <th class="c-dk">여유공간</th><th class="c-fw">방화벽</th><th class="c-vn">데몬 관제</th>
+        </tr>
+        <tr>
+          <td><span class="nm"><span class="av">행</span><b>행복마트 본점</b></span></td>
+          <td><span class="sid">AB 2222 3333</span></td>
+          <td><span class="st on"><i></i>온라인</span></td>
+          <td><span class="bg">Win11 · 64비트</span></td>
+          <td><span class="bg">여유 185GB</span></td>
+          <td><span class="fw"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/></svg>켬</span></td>
+          <td><span class="van">KSNET 정상</span></td>
+        </tr>
+        <tr>
+          <td><span class="nm"><span class="av">큰</span><b>큰집설렁탕</b></span></td>
+          <td><span class="sid">AB 4444 5555</span></td>
+          <td><span class="st on"><i></i>온라인</span></td>
+          <td><span class="bg">Win10 · 64비트</span></td>
+          <td><span class="bg">여유 62GB</span></td>
+          <td><span class="dash">—</span></td>
+          <td><span class="van">KSNET 정상</span></td>
+        </tr>
+        <tr>
+          <td><span class="nm"><span class="av">달</span><b>달빛카페</b></span></td>
+          <td><span class="sid">AB 6666 7777</span></td>
+          <td><span class="st off"><i></i>오프라인</span></td>
+          <td><span class="bg">Win10 · 64비트</span></td>
+          <td><span class="bg">여유 41GB</span></td>
+          <td><span class="dash">—</span></td>
+          <td><span class="dash">—</span></td>
+        </tr>
+        <tr>
+          <td><span class="nm"><span class="av">스</span><b>스마일분식 2호점</b></span></td>
+          <td><span class="sid">AB 1111 1111</span></td>
+          <td><span class="st on"><i></i>온라인</span></td>
+          <td><span class="bg">Win11 · 64비트</span></td>
+          <td><span class="bg">여유 88GB</span></td>
+          <td><span class="fw"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/></svg>켬</span></td>
+          <td><span class="dash">—</span></td>
+        </tr>
+        <tr>
+          <td><span class="nm"><span class="av">우</span><b>우리분식 시청점</b></span></td>
+          <td><span class="sid">AB 8888 9999</span></td>
+          <td><span class="st off"><i></i>오프라인</span></td>
+          <td><span class="bg">Embedded · 32비트</span></td>
+          <td><span class="bg warn">여유 17.7GB</span></td>
+          <td><span class="dash">—</span></td>
+          <td><span class="van">KSNET 정상</span></td>
+        </tr>
+      </table>
     </div>
-    <figcaption><b>거래처 포스가 켜져 있으면 목록에 [온라인]으로 뜹니다.</b> 종일 [오프라인]이면 오늘은 쉬는 날이거나 휴가입니다 &mdash; 다른 일로 들르려다 헛걸음하는 일이 없어집니다. 설치한 거래처는 자동으로 올라오고, 목록에서 <b>클릭 한 번이면 바로 원격</b>이 붙습니다.</figcaption>
+    <figcaption><b>거래처 포스가 켜져 있으면 목록에 [온라인]으로 뜹니다.</b> 종일 [오프라인]이면 오늘은 쉬는 날이거나 휴가입니다 &mdash; 다른 일로 들르려다 헛걸음하는 일이 없어집니다. 목록에서 <b>클릭 한 번이면 바로 원격</b>이 붙습니다.</figcaption>
   </figure>
 
-  <div class="eyebrow" style="margin-top:3mm">요금</div>
+  <div class="eyebrow" style="margin-top:2.4mm">요금</div>
   <h2 class="title sm">자리 수가 아니라, 회사 단위입니다</h2>
   <div class="freebar">
     <div class="fnum">3<small>개월</small><i>+</i>3<small>개월</small></div>
@@ -389,7 +441,7 @@ figcaption{font-size:8.2pt;color:var(--ink-3);margin-top:2mm;line-height:1.5}
     <div class="row"><div class="k">가격</div><div class="v ask">문의 주시면 알려드립니다<small>관리하시는 가맹점이 100곳이든 2,000곳이든 요금은 같습니다.</small></div></div>
   </div>
 
-  <div class="eyebrow" style="margin-top:2.5mm">도입 절차</div>
+  <div class="eyebrow" style="margin-top:2mm">도입 절차</div>
   <div class="flow">
     <div><div class="n">01</div><h4>문의</h4><p>전화나 이메일 한 번이면 됩니다.</p></div>
     <div><div class="n">02</div><h4>계정 발급</h4><p>대리점 전용 관리 화면 주소와 아이디를 드립니다.</p></div>
@@ -398,8 +450,7 @@ figcaption{font-size:8.2pt;color:var(--ink-3);margin-top:2mm;line-height:1.5}
   </div>
 
   <div class="visit">
-    <b>전국 어디든 찾아갑니다.</b> 말로 듣는 것보다 한 번 보시는 게 빠릅니다 —
-    포스 한 대에 직접 깔아 원격까지 걸어 보여드립니다.
+    <b>전국 어디든 찾아갑니다.</b> 포스 한 대에 직접 깔아 원격까지 걸어 보여드립니다.
   </div>
 
   <div class="contact">
