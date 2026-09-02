@@ -10,6 +10,21 @@ import { countFeedbackBadge } from "@/lib/data/feedback";
 export const metadata: Metadata = {
   title: "ChainRemote 관리 패널",
   description: "ChainRemote 거래처 및 원격지원 관리",
+  // 네이버 서치어드바이저 소유확인(2026-09-02).
+  //
+  // ★왜 랜딩이 아니라 여기인가: 네이버는 사이트를 **호스트 단위**로만 받아서
+  //   https://626.kr 로 등록해야 했다(경로 /main/ 은 거부). 그런데 그 맨 주소는 307 로
+  //   /login 으로 넘어가므로, 확인기가 실제로 읽는 <head> 는 랜딩이 아니라 패널이다.
+  //
+  // ★파일 업로드 방식(네이버 권장)을 안 쓴 이유: 그 파일이 놓일 https://626.kr/<파일>.html
+  //   경로는 패널 인증 관문을 지나 로그인으로 튕긴다(robots.txt 가 그렇다 — 실측).
+  //   통과시키려면 proxy.ts matcher 에 예외를 넣어야 하는데 거기는 2026-08-20 에 SSO 를
+  //   조용히 죽인 파일이다. 태그 한 줄이 훨씬 싸고 되돌리기 쉽다.
+  //
+  // 검색 노출 자체는 랜딩(/main/)만 원한다 — 이건 소유확인용이고 색인 대상이 아니다.
+  other: {
+    "naver-site-verification": "67581848a56a7f6585228dbfad32581e957ab51",
+  },
 };
 
 export default async function RootLayout({
