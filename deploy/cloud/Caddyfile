@@ -34,9 +34,10 @@
 	#   ★패널로 넘기면 안 된다 — 인증 관문이 /login 으로 튕겨 확인기가 파일을 못 본다.
 	#   메타태그 방식을 먼저 썼는데 네이버 확인기가 626.kr 의 307 을 **안 따라가** 실패했다
 	#   ("메타태그를 찾을 수 없습니다"). 리다이렉트가 개입하지 않는 길이 필요하다.
-	#   glob 으로 둔 이유: 나중에 재확인 토큰이 바뀌어도 파일만 갈아 끼우면 된다.
-	#   패널에는 /naver*.html 라우트가 없어 가로챌 것이 없다.
-	handle /naver*.html {
+	#   glob 으로 둔 이유: 재확인 토큰이 바뀌어도 파일만 갈아 끼우면 되고 설정은 안 건드린다.
+	#   패널에는 /naver*.html · /google*.html 라우트가 없어 가로챌 것이 없다.
+	@verify path /naver*.html /google*.html
+	handle @verify {
 		root * /opt/chainremote/web/verify
 		file_server
 	}
