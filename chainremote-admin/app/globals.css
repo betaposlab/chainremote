@@ -423,6 +423,43 @@ select.input option {
   }
 }
 
+/* ── 금색 광택 문구 ────────────────────────────────────────────────────────
+   로그인 화면의 "체인리모트가 궁금해서 오셨나요?" 한 줄에만 쓴다. 팜플렛을 보고
+   잘못 들어온 사람의 눈을 끄는 유일한 장치라, 화면이 온통 남색인 곳에서 유일하게
+   따뜻한 색을 준다.
+
+   ★글자에 그라디언트를 입히는 방식이라 background-clip 이 안 먹으면 글자가 통째로
+   사라진다(color: transparent 이므로). @supports 로 감싸고 밖에는 단색 금색을 둔다 —
+   지원이 없으면 광택만 없고 글자는 읽힌다. */
+.cr-shimmer {
+  color: #f0cf7a;
+  font-weight: 600;
+}
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .cr-shimmer {
+    background: linear-gradient(
+      100deg,
+      #d8a93c 0%, #f5d888 40%, #fff6d8 50%, #f5d888 60%, #d8a93c 100%
+    );
+    background-size: 240% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: crShimmer 3.4s ease-in-out infinite;
+  }
+}
+@keyframes crShimmer {
+  0%, 100% { background-position: 130% 0; }
+  50% { background-position: -30% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* 움직임을 끄되 금색은 남긴다 — 강조가 목적이지 애니메이션이 목적이 아니다. */
+  .cr-shimmer {
+    animation: none;
+    background-position: 50% 0;
+  }
+}
+
 /* ── 인쇄 / PDF 저장 ────────────────────────────────────────────────────────
    매뉴얼을 종이나 PDF 로 뽑을 때 쓴다. 화면은 다크지만 인쇄는 흰 바탕이어야 한다 —
    지금 배경을 그대로 인쇄하면 토너를 통째로 쓰고, 그렇게 뽑은 종이는 아무도 안 읽는다.

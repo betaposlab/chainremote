@@ -105,8 +105,8 @@ export default async function LoginPage({
             직원은 매일 보는 화면이라 방해되지 않게 폼 아래 한 줄로만 둔다.
             ★같은 호스트 안이라 상대경로다. 새 탭으로 열지 않는다(여기가 목적지가 아니다). */}
         <div className="mt-6 border-t border-white/10 pt-5">
-          <p className="mb-2.5 text-center text-xs text-[#ccd2e3]">
-            체인리모트가 궁금해서 오셨나요?
+          <p className="mb-2.5 text-center text-sm">
+            <span className="cr-shimmer">체인리모트가 궁금해서 오셨나요?</span>
           </p>
           {/* ★로그인 버튼과 경쟁하지 않으면서 눈에는 띄어야 한다. 채운 버튼을 하나 더 두면
               직원이 매일 "둘 중 뭘 눌러야 하지"를 겪는다 — 그래서 외곽선으로 위계를 낮춘다.
