@@ -121,7 +121,6 @@ manual-shots/
 # 내부 운영 문서 (공개 저장소 제외 — 인프라/사업/사고/취약점 정보)
 /CLAUDE.md
 /GEMINI.md
-/CHAINREMOTE_CHANGES.md
 /chainremote-admin/CLAUDE.md
 /docs/chainremote/
 /코워크 검토.md
