@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Gothic+A1:wght@300;500;700;900&family=IBM+Plex+Mono:wght@500&display=swap">
+<title>인쇄 견적 요청서 — 체인리모트 대리점 안내서</title>
+<style>
+:root{
+  --paper:#fff; --tint:#eef2fa; --rule:#d3dbeb; --rule-2:#b9c5dd;
+  --ink:#141e33; --ink-2:#4b5872; --ink-3:#77839c; --accent:#1e5bff;
+  --sheet-w:210mm; --sheet-h:297mm; --pad:16mm;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#3a4356}
+body{font-family:"Gothic A1",-apple-system,"Apple SD Gothic Neo",sans-serif;
+  color:var(--ink);-webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;align-items:center;gap:8mm;padding:8mm 0}
+.sheet{width:var(--sheet-w);height:var(--sheet-h);background:var(--paper);padding:var(--pad);
+  position:relative;overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 2px 6px rgba(0,0,0,.28),0 18px 44px -20px rgba(0,0,0,.55)}
+
+.head{display:flex;align-items:flex-end;justify-content:space-between;
+  border-bottom:.7mm solid var(--ink);padding-bottom:3mm}
+.head h1{font-family:"Nanum Myeongjo",serif;font-weight:800;font-size:19pt;margin:0;letter-spacing:-.02em}
+.head .sub{font-size:8.4pt;color:var(--ink-3);margin-top:1.2mm}
+.head .who{text-align:right;font-size:8.2pt;color:var(--ink-2);line-height:1.55}
+.head .who b{display:block;font-size:10.5pt;color:var(--ink);letter-spacing:-.02em}
+
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:8pt;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:5.5mm 0 1.8mm}
+.eyebrow:first-of-type{margin-top:5mm}
+
+table.spec{width:100%;border-collapse:collapse}
+table.spec th,table.spec td{padding:2.1mm 2.5mm;font-size:9pt;vertical-align:top;
+  border-bottom:.25mm solid var(--rule)}
+table.spec th{width:28mm;text-align:left;font-weight:700;font-size:8.6pt;
+  color:var(--ink-2);background:var(--tint);white-space:nowrap}
+table.spec tr:last-child th,table.spec tr:last-child td{border-bottom:none}
+table.spec b{color:var(--ink)}
+table.spec small{display:block;font-size:7.8pt;color:var(--ink-3);margin-top:.6mm;line-height:1.45}
+
+/* 수량별 견적란 — 인쇄소가 여기 숫자만 채워 돌려주면 된다 */
+table.quote{width:100%;border-collapse:collapse;margin-top:1mm}
+table.quote th,table.quote td{border:.25mm solid var(--rule-2);padding:2.6mm 2mm;
+  font-size:9pt;text-align:center}
+table.quote thead th{background:var(--tint);font-weight:700;font-size:8.4pt;color:var(--ink-2)}
+table.quote tbody th{font-weight:700;background:#fafcff;width:26mm}
+table.quote .fill{background:#fffdf4}
+table.quote .mark{color:var(--accent);font-weight:800}
+
+.ask{margin-top:1.5mm}
+.ask li{font-size:8.9pt;line-height:1.65;color:var(--ink-2);margin-bottom:1.4mm}
+.ask li b{color:var(--ink)}
+ol.ask{padding-left:5mm;margin:0}
+
+.note{border-left:.8mm solid var(--accent);background:var(--tint);
+  padding:2.6mm 4mm;margin-top:3mm;font-size:8.6pt;line-height:1.6;color:var(--ink-2)}
+.note b{color:var(--ink)}
+
+.foot{margin-top:auto;padding-top:4mm;border-top:.3mm solid var(--rule);
+  display:flex;justify-content:space-between;align-items:flex-end;gap:6mm}
+.foot .rq{font-size:8.4pt;color:var(--ink-2);line-height:1.7}
+.foot .rq b{color:var(--ink)}
+.foot .date{text-align:right;font-size:9pt;color:var(--ink-2);letter-spacing:.05em}
+
+.screen-only{width:var(--sheet-w);color:#e8ecf6;font-size:9.5pt;line-height:1.7;padding:0 2mm}
+.screen-only b{color:#fff}
+@media print{
+  html,body{background:#fff;padding:0;gap:0}
+  .sheet{box-shadow:none;break-after:page}
+  .screen-only{display:none}
+}
+@page{size:A4;margin:0}
+</style>
+</head>
+<body>
+
+<div class="screen-only">
+  <b>쓰는 법</b> &mdash; 인쇄(⌘P) → A4, 배율 100%, <b>여백 없음, 배경 그래픽 켜기</b>. A4 한 장.
+  PDF 로 뽑아 <b>안내서 PDF 와 함께</b> 인쇄소에 메일로 보내십시오. 여러 곳에 같은 걸 보내
+  받은 숫자를 나란히 놓고 비교하시면 됩니다. 이 안내는 인쇄되지 않습니다.
+</div>
+
+<section class="sheet">
+
+  <div class="head">
+    <div>
+      <h1>인쇄 견적 요청서</h1>
+      <div class="sub">체인리모트 대리점 안내서 &mdash; A4 4면 브로슈어</div>
+    </div>
+    <!-- ▼ 사업자 주체 — 바뀌면 이 상자와 맨 아래 요청인 줄, 두 곳을 고칠 것.
+         같은 값이 deploy/web/chainremote 의 terms.html · privacy.html · index.html 푸터,
+         그리고 이 폴더의 이용신청서.html 에도 있다. -->
+    <div class="who">
+      <b>문성텔레콤</b>
+      대표 김기겸 · 사업자등록번호 305-10-81718<br>
+      대전광역시 동구 동서대로 1590, 태국빌딩 105호<br>
+      담당 김창현 · 010-2969-5756 · betapos@icloud.com
+    </div>
+  </div>
+
+  <div class="eyebrow">제작 사양</div>
+  <table class="spec">
+    <tr><th>제작물명</th><td><b>체인리모트 대리점 안내서</b> (포스·키오스크 원격지원 프로그램 소개)</td></tr>
+    <tr><th>완성 규격</th>
+        <td><b>A4 (210 × 297mm) · 4면</b>
+        <small>A3 양면 인쇄 후 중앙 1회 반접 &mdash; 접으면 A4 크기 4쪽 책자가 됩니다.</small></td></tr>
+    <tr><th>인쇄</th><td><b>양면 4도 (풀컬러)</b> <small>흑백·별색 없음. 4면 모두 컬러입니다.</small></td></tr>
+    <tr><th>용지</th>
+        <td><b>스노우지 180g/m²</b>
+        <small>본문 글자가 많아 광택이 적은 쪽을 원합니다. 같은 무게의 아트지·랑데뷰 등
+              대안이 있으면 <b>함께 견적 주시면 감사하겠습니다.</b>
+              150 ~ 200g/m² 범위면 됩니다.</small></td></tr>
+    <tr><th>후가공</th><td><b>중앙 반접 1회</b> <small>그 밖의 후가공(코팅·박·오시) 없습니다.</small></td></tr>
+    <tr><th>재단</th><td>사방 여백 15mm &mdash; <b>가장자리까지 차는 색이 없어 재단 여백(블리드)이 필요 없습니다.</b></td></tr>
+    <tr><th>원고</th>
+        <td><b>A4 4쪽 PDF</b> (본 요청서와 함께 첨부)
+        <small>A3 터잡기(하리꼬미)는 귀사에서 부탁드립니다. 필요하시면 A3 판으로 다시 뽑아 드립니다.
+              폰트는 모두 포함되어 있고, 색은 화면용 RGB 로 만들어졌습니다 &mdash;
+              <b>CMYK 변환이 필요하면 알려 주십시오.</b></small></td></tr>
+    <tr><th>납품</th><td>대전광역시 동구 동서대로 1590, 태국빌딩 105호 <small>택배 수령 가능합니다.</small></td></tr>
+  </table>
+
+  <div class="eyebrow">수량별 견적 &mdash; 이 표만 채워 주시면 됩니다</div>
+  <table class="quote">
+    <thead>
+      <tr><th>수량</th><th>단가 (부당)</th><th>인쇄비 합계</th><th>배송비</th>
+          <th>부가세 포함 총액</th><th>납기 (영업일)</th></tr>
+    </thead>
+    <tbody>
+      <tr><th class="mark">250부</th><td class="fill"></td><td class="fill"></td><td class="fill"></td><td class="fill"></td><td class="fill"></td></tr>
+      <tr><th>500부</th><td class="fill"></td><td class="fill"></td><td class="fill"></td><td class="fill"></td><td class="fill"></td></tr>
+      <tr><th>1,000부</th><td class="fill"></td><td class="fill"></td><td class="fill"></td><td class="fill"></td><td class="fill"></td></tr>
+    </tbody>
+  </table>
+
+  <div class="eyebrow">함께 알려 주실 것</div>
+  <ol class="ask">
+    <li><b>용지 대안</b> &mdash; 스노우지 180g 말고 이 용도에 더 나은 게 있으면 그 견적도 같이 주십시오.</li>
+    <li><b>실물 견본</b> &mdash; 용지 견본이나 같은 사양의 기존 인쇄물을 볼 수 있으면 좋겠습니다.</li>
+    <li><b>결제 조건</b> &mdash; 선결제 여부, 세금계산서 발행 가능 여부.</li>
+    <li><b>재주문</b> &mdash; 같은 원고로 3개월 안에 추가 주문 시 조건이 달라지는지.</li>
+  </ol>
+
+  <div class="note">
+    <b>우편 발송용입니다.</b> 각2호 봉투(240 × 332mm)에 접지 않고 넣어 보낼 예정이라,
+    <b>완성 후 무게가 25g을 넘지 않는 편이 좋습니다.</b> 용지를 권해 주실 때 이 점을 감안해 주십시오.
+    (우편 규격상 봉투 포함 50g 이내면 요금이 같습니다.)
+  </div>
+
+  <div class="foot">
+    <div class="rq">
+      <b>회신</b> &mdash; betapos@icloud.com 또는 010-2969-5756<br>
+      여러 곳에 같은 내용으로 요청드렸습니다. 검토해 주셔서 감사합니다.
+    </div>
+    <div class="date">20&nbsp;&nbsp;&nbsp;&nbsp;년&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;일</div>
+  </div>
+
+</section>
+
+</body>
+</html>
