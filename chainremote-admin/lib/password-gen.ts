@@ -1,10 +1,21 @@
+// 혼동 문자(O/0, l/1, I)는 두 벌 모두에서 뺐다 — 구두로 불러 줄 수 있어야 한다.
+const ALPHA_MIXED = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+// 대문자+숫자만. 전화로 불러 줄 때 "대문자 K" / "소문자 k" 를 가릴 필요가 없다
+//   (2026-09-04 Chang: 대소문자가 섞이면 불러 주기 힘들다).
+const ALPHA_UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
 /**
- * 거래처 접속 비밀번호 자동 생성. 보안 RNG 사용.
- * 혼동 문자(O/0, l/1, I) 제외 — 거래처에 구두/카톡 전달 가능하게.
- * 길이 8 ≈ 6.4e11 조합. 거래처 단위론 충분하고, 보안 키만큼 강할 필요는 없다.
+ * 비밀번호 자동 생성. 보안 RNG 사용.
+ *
+ * 기본(혼합)은 길이 8 ≈ 6.4e11 조합. `upperOnly` 는 대문자+숫자 32자라
+ * 같은 길이에서 조합이 줄지만(6자 ≈ 10.7억) 전화 전달이 쉽다 — 첫 로그인 뒤
+ * 바로 바꾸는 임시 비번에 맞는 맞바꿈이다.
  */
-export function generatePassword(length = 8): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+export function generatePassword(
+  length = 8,
+  opts?: { upperOnly?: boolean },
+): string {
+  const alphabet = opts?.upperOnly ? ALPHA_UPPER : ALPHA_MIXED;
   const buf = new Uint32Array(length);
   crypto.getRandomValues(buf);
   let out = "";
