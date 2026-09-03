@@ -636,6 +636,82 @@ class _PeerTabPageState extends State<PeerTabPage>
     );
   }
 
+  // 최근 세션 비우기 — 이 탭에서만 뜬다.
+  //
+  //   목록은 이미 앞쪽 20개만 그리지만(peers_view.dart kCrRecentShown), "여기서부터 새로"
+  //   하고 싶을 때가 있어 손잡이를 하나 둔다. 개별 삭제는 예전부터 우클릭 메뉴에 있다.
+  //
+  //   ★비우면 `peers/<id>.toml` 이 통째로 지워진다 — 별칭(원격 창 제목이 이걸 쓴다)과
+  //   직결 실패 기록이 같이 든 파일이다. 별칭은 다음 접속 때 다시 박히므로 실제 손실은
+  //   거의 없지만, 그 사실을 다이얼로그에 안 적으면 "이름이 왜 사라졌지"가 된다.
+  //   거래처 자체는 패널 DB 에 있으니 즐겨찾기·전체 거래처는 아무 영향이 없다.
+  Widget _createClearRecent(BuildContext context) {
+    final textColor = Theme.of(context).textTheme.titleLarge?.color;
+    return _hoverAction(
+      context: context,
+      toolTip: '최근 세션 비우기',
+      onTap: () {
+        final n = gFFI.recentPeersModel.peers.length;
+        if (n == 0) {
+          showToast('최근 세션이 비어 있습니다.');
+          return;
+        }
+        gFFI.dialogManager.show((setState, close, context) {
+          submit() async {
+            // 목록을 먼저 복사한다 — 지우는 동안 모델이 갱신되면 순회가 흔들린다.
+            final ids =
+                gFFI.recentPeersModel.peers.map((e) => e.id).toList(growable: false);
+            for (final id in ids) {
+              await bind.mainRemovePeer(id: id);
+            }
+            bind.mainLoadRecentPeers();
+            close();
+            showToast('최근 세션 $n곳을 비웠습니다.');
+          }
+
+          return CustomAlertDialog(
+            title: Row(children: [
+              Icon(Icons.delete_sweep_rounded, color: Colors.red),
+              Expanded(
+                  child: Text('최근 세션 비우기', overflow: TextOverflow.ellipsis)
+                      .paddingOnly(left: 10)),
+            ]),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('최근에 접속한 $n곳의 기록을 지웁니다.'),
+                const SizedBox(height: 10),
+                Text(
+                  '거래처는 지워지지 않습니다 — 즐겨찾기와 전체 거래처는 그대로입니다.\n'
+                  '다시 접속하면 이 목록에 다시 올라옵니다.',
+                  style: TextStyle(
+                      fontSize: 12, color: Theme.of(context).hintColor),
+                ),
+              ],
+            ),
+            actions: [
+              dialogButton('Cancel',
+                  icon: Icon(Icons.close_rounded),
+                  onPressed: close,
+                  isOutline: true),
+              dialogButton('OK',
+                  icon: Icon(Icons.done_rounded), onPressed: submit),
+            ],
+            onSubmit: submit,
+            onCancel: close,
+          );
+        });
+      },
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.delete_sweep_outlined, size: 18, color: textColor),
+        const SizedBox(width: 3),
+        Text('비우기',
+            style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+      ]),
+    );
+  }
+
   // 연결 경로 점검(마이그043) — 거래처를 한 바퀴 돌며 연결만 해 보고 끊어 직결/경유를 가린다.
   //
   // ★플랫폼 운영자에게만 보인다. 대리점이 보면 "이게 뭐냐"부터 묻는 물건이고(같은 이유로
@@ -1006,6 +1082,9 @@ class _PeerTabPageState extends State<PeerTabPage>
         _createNewFolder(context).marginOnly(right: 4),
       if (model.currentTab == PeerTabIndex.recent.index)
         _createRefresh(index: PeerTabIndex.recent).marginOnly(right: 4),
+      // 비우기는 최근 세션 탭에만 — 다른 탭에서 눌러도 지울 게 없다.
+      if (model.currentTab == PeerTabIndex.recent.index)
+        _createClearRecent(context).marginOnly(right: 4),
       if (model.currentTab == PeerTabIndex.fav.index)
         _createRefresh(index: PeerTabIndex.fav).marginOnly(right: 4),
       if (model.currentTab == PeerTabIndex.customers.index)

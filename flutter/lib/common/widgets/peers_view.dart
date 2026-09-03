@@ -47,6 +47,22 @@ class LoadEvent {
   static const String allCustomers = 'load_all_customers';
 }
 
+/// 최근 세션 탭에 그리는 최대 줄 수.
+///
+///   왜 자르나: 이 목록은 코어가 `peers/*.toml` 을 통째로 읽어 최근순으로 준다. 그냥 두면
+///   거래처를 한 바퀴 도는 동안 55곳이 전부 올라와 **'최근 세션'이 '전체 거래처'의 복사본**이
+///   된다. 빨리 찾으려고 만든 탭이 제일 훑기 힘든 탭이 되는 셈이다(2026-09-03 Chang).
+///
+///   ★자르는 건 **그리기뿐이고 파일은 건드리지 않는다.** `peers/<id>.toml` 에는 별칭
+///   (원격 탭 제목이 이걸 쓴다)과 직결 실패 기록이 같이 들어 있어, 개수를 맞추자고 파일을
+///   지우면 그것까지 사라진다. 덜 그리는 것으로 끝낸다.
+///
+///   ★검색 중에는 상한을 풀어 준다 — 3주 전에 갔던 곳도 이름을 치면 나와야 한다.
+///
+///   20 인 이유: 한 화면이 12줄 남짓이라 스크롤 한 번이면 끝나고, 하루 대여섯 곳을
+///   지원한다면 사나흘치가 남는다. 15 는 바쁜 날 하루에 어제가 밀려난다.
+const int kCrRecentShown = 20;
+
 class PeersModelName {
   static const String recent = 'recent peer';
   static const String favorite = 'fav peer';
@@ -1150,6 +1166,10 @@ class _PeersViewState extends State<_PeersView>
     }
 
     searchText = searchText.trim();
+    // 최근 세션만, 검색 중이 아닐 때만 앞쪽 N개로 자른다(kCrRecentShown 주석 참조).
+    if (isRecent && searchText.isEmpty && peers.length > kCrRecentShown) {
+      peers = peers.sublist(0, kCrRecentShown);
+    }
     if (searchText.isEmpty) {
       return peers;
     }
