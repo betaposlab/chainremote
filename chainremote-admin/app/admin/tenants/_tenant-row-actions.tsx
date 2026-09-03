@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { formatTempPassword } from "@/lib/password-gen";
 import {
   deleteTenant,
   issueTenantEnrollKey,
@@ -336,7 +337,10 @@ function ResetResultDialog({
   tenantDisplayName: string;
   onClose: () => void;
 }) {
-  const message = `[ChainRemote] ${tenantDisplayName} 임시 비밀번호 안내\n\n아이디: ${adminEmail}\n임시 비밀번호: ${tempPassword}\n\n로그인 후 앱에서 비밀번호를 변경해주세요.`;
+  // 네 자리씩 띄워 보여 준다 — 전화로 불러 주거나 받아 적기 쉬우라고.
+  //   이 안내문을 그대로 복사해 붙여도 로그인된다(lib/password-verify 가 공백을 관용).
+  const shown = formatTempPassword(tempPassword);
+  const message = `[ChainRemote] ${tenantDisplayName} 임시 비밀번호 안내\n\n아이디: ${adminEmail}\n임시 비밀번호: ${shown}\n\n로그인 후 앱에서 비밀번호를 변경해주세요.\n(띄어쓰기는 있어도 없어도 됩니다)`;
 
   function copy() {
     void navigator.clipboard.writeText(message);

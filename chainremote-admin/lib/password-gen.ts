@@ -1,21 +1,21 @@
 // 혼동 문자(O/0, l/1, I)는 두 벌 모두에서 뺐다 — 구두로 불러 줄 수 있어야 한다.
 const ALPHA_MIXED = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-// 대문자+숫자만. 전화로 불러 줄 때 "대문자 K" / "소문자 k" 를 가릴 필요가 없다
-//   (2026-09-04 Chang: 대소문자가 섞이면 불러 주기 힘들다).
-const ALPHA_UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+// 숫자만. 임시 비번은 전화로 불러 주고 손으로 받아 적는 값이라, 글자 종류가 하나여야
+//   가장 빠르다(2026-09-04 Chang). 털릴 걱정이 없는 자리다 — 첫 로그인 뒤 바로 바뀌고,
+//   쓰는 사람이 대리점 owner 몇 명뿐이며, 리셋 자체가 1년에 한 번 있을까 말까다.
+const ALPHA_DIGIT = "0123456789";
 
 /**
  * 비밀번호 자동 생성. 보안 RNG 사용.
  *
- * 기본(혼합)은 길이 8 ≈ 6.4e11 조합. `upperOnly` 는 대문자+숫자 32자라
- * 같은 길이에서 조합이 줄지만(6자 ≈ 10.7억) 전화 전달이 쉽다 — 첫 로그인 뒤
- * 바로 바꾸는 임시 비번에 맞는 맞바꿈이다.
+ * 기본(혼합)은 길이 8 ≈ 6.4e11 조합. `digitsOnly` 는 8자리 1억 조합으로 줄지만
+ * 전화 전달이 압도적으로 쉽다 — 첫 로그인 뒤 바로 바꾸는 임시 비번에 맞는 맞바꿈이다.
  */
 export function generatePassword(
   length = 8,
-  opts?: { upperOnly?: boolean },
+  opts?: { digitsOnly?: boolean },
 ): string {
-  const alphabet = opts?.upperOnly ? ALPHA_UPPER : ALPHA_MIXED;
+  const alphabet = opts?.digitsOnly ? ALPHA_DIGIT : ALPHA_MIXED;
   const buf = new Uint32Array(length);
   crypto.getRandomValues(buf);
   let out = "";
@@ -45,4 +45,14 @@ ${opts.customerName} 사장님, 안녕하세요.
 
 이후엔 PC 가 켜져 있기만 하면 본사에서 바로 원격지원이 가능합니다.
 감사합니다.`;
+}
+
+/**
+ * 임시 비번 표시용 — 네 자리씩 띄운다. `11112222` → `1111 2222`.
+ *
+ * 저장·대조는 공백 없는 값으로 한다. 이건 화면과 안내문에만 쓴다.
+ * 안내문을 그대로 복사해 붙여도 로그인되게 하는 쪽은 `lib/password-verify.ts` 다.
+ */
+export function formatTempPassword(pw: string): string {
+  return pw.replace(/(.{4})(?=.)/g, "$1 ");
 }

@@ -2,6 +2,7 @@
 // Credentials provider 가 DB 와 bcrypt 를 쓰므로 Edge 에서 import 불가.
 
 import NextAuth from "next-auth";
+import { verifyPassword } from "@/lib/password-verify";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
@@ -104,7 +105,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (rows.length === 0) return null;
 
         const u = rows[0];
-        const ok = bcrypt.compareSync(password, u.passwordHash);
+        const ok = verifyPassword(password, u.passwordHash);
         if (!ok) return null;
         // H1: 정지/해지 테넌트 차단 (super_admin 예외 — 자기잠금 방지).
         if (

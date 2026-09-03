@@ -8,6 +8,7 @@
 //   옛 jti 없는 토큰은 TTL 24h 로 자연 소멸.
 
 import { and, eq, sql } from "drizzle-orm";
+import { verifyPassword } from "@/lib/password-verify";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
     if (rows.length === 0) throw new ApiAuthError(401, "자격 실패");
 
     const u = rows[0];
-    if (!bcrypt.compareSync(password, u.passwordHash)) {
+    if (!verifyPassword(password, u.passwordHash)) {
       rateLimitRecord(emailKey, 600_000);
       throw new ApiAuthError(401, "자격 실패");
     }

@@ -4,6 +4,7 @@
 // 스펙: docs/chainremote/SEAT_ENFORCEMENT.md §5
 
 import { and, eq, sql } from "drizzle-orm";
+import { verifyPassword } from "@/lib/password-verify";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
       .limit(1);
     if (rows.length === 0) throw new ApiAuthError(401, "자격 실패");
     const u = rows[0];
-    if (!bcrypt.compareSync(password, u.passwordHash)) {
+    if (!verifyPassword(password, u.passwordHash)) {
       rateLimitRecord(emailKey, 600_000);
       throw new ApiAuthError(401, "자격 실패");
     }

@@ -1,9 +1,10 @@
 // POST /api/me/password { currentPassword, newPassword } → 본인 비밀번호 변경.
 //
 // 인증: Bearer JWT (api-auth). me.uid 의 user row 만 변경.
-// 검증: 현재 비번 bcrypt.compareSync 통과해야 새 hash 저장.
+// 검증: 현재 비번이 verifyPassword(lib/password-verify) 를 통과해야 새 hash 저장.
 
 import bcrypt from "bcryptjs";
+import { verifyPassword } from "@/lib/password-verify";
 import { revokeSeat } from "@/lib/data/active-sessions";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
     const u = rows[0];
     if (!u) throw new ApiAuthError(404, "사용자 없음");
 
-    if (!bcrypt.compareSync(currentPassword, u.passwordHash)) {
+    if (!verifyPassword(currentPassword, u.passwordHash)) {
       throw new ApiAuthError(403, "현재 비밀번호 불일치");
     }
 

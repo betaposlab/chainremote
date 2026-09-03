@@ -145,9 +145,10 @@ export async function createTenant(formData: FormData): Promise<CreateTenantResu
 //   ★이 화면을 닫으면 우리도 다시 못 본다 — 그게 이 다이얼로그가 원래 말하던 바다.
 //
 //   신규 등록 기본값은 아직 '1234' 다(별도 판단 대기). 여기는 리셋 경로만 바꾼다.
-//   길이 6 · 대문자+숫자만 · 혼동 문자(O/0, l/1, I) 제외 — 전화로 불러 줄 수 있어야 한다.
-//   대소문자를 섞으면 "대문자 케이" 를 매번 가려야 해서 전달이 힘들다(2026-09-04 Chang).
-//   32^6 ≈ 10.7억 조합. 첫 로그인 뒤 바로 바꾸는 임시값이라 이 정도면 충분하다.
+//   ★숫자 8자리다. 글자 종류가 하나여야 전화로 불러 주고 받아 적기가 가장 빠르다.
+//   화면과 안내문에는 `1111 2222` 로 띄워 보여 주고, 저장·대조는 공백 없는 값으로 한다.
+//   안내문을 그대로 복사해 붙여도 들어가도록 lib/password-verify.ts 가 공백을 관용한다.
+//   1억 조합. 첫 로그인 뒤 바로 바뀌고 쓰는 사람이 대리점 owner 몇 명뿐이라 충분하다.
 export async function resetTenantOwnerPassword(tenantId: string): Promise<{
   adminEmail: string;
   tempPassword: string;
@@ -155,7 +156,7 @@ export async function resetTenantOwnerPassword(tenantId: string): Promise<{
   await requireSuperAdmin();
   const owner = await findFirstOwnerOfTenant(tenantId);
   if (!owner) throw new Error("이 회사의 owner 사용자 못 찾음");
-  const tempPassword = generatePassword(6, { upperOnly: true });
+  const tempPassword = generatePassword(8, { digitsOnly: true });
   const passwordHash = bcrypt.hashSync(tempPassword, BCRYPT_COST);
   await setUserPasswordHash(owner.id, passwordHash);
   revalidatePath("/admin/tenants");
