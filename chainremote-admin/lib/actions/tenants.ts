@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { writeAudit } from "@/lib/data/audit";
 import { requireLiveUserOrThrow } from "@/lib/auth-guard";
+import { generatePassword } from "@/lib/password-gen";
 import {
   createTenantWithOwner,
   deleteTenantCascade,
@@ -135,8 +136,17 @@ export async function createTenant(formData: FormData): Promise<CreateTenantResu
   };
 }
 
-// 비번 분실 시 owner 비번을 '1234' 로 강제 재설정. 신규 등록 default 와 같은 정책.
-// (사용자가 첫 로그인 후 직접 바꾸는 게 표준. random 발급 함수는 정책 변경 대비 보존.)
+// 비번 분실 시 owner 비번을 **무작위 임시 비번**으로 재설정하고, 그 값을 한 번만 돌려준다.
+//
+//   왜 무작위인가(2026-09-04 Chang): 종전엔 '1234' 로 고정이었다. 그러면 대리점이
+//   "우리도 비번을 모릅니다"를 못 믿는다 — 방금 개발자가 1234 로 만들어 줬으니까.
+//   게다가 모든 대리점이 같은 값이라 옆집 것도 짐작이 된다. bcrypt 로만 저장하는 게
+//   사실이므로, 리셋 값도 그 사실과 어긋나지 않아야 이야기가 온전해진다.
+//   ★이 화면을 닫으면 우리도 다시 못 본다 — 그게 이 다이얼로그가 원래 말하던 바다.
+//
+//   신규 등록 기본값은 아직 '1234' 다(별도 판단 대기). 여기는 리셋 경로만 바꾼다.
+//   길이 6 · 혼동 문자(O/0, l/1, I) 제외 — 전화로 불러 줄 수 있어야 한다.
+//   6자여도 55^6 ≈ 277억 조합이고, 첫 로그인 뒤 바꾸는 임시값이라 충분하다.
 export async function resetTenantOwnerPassword(tenantId: string): Promise<{
   adminEmail: string;
   tempPassword: string;
@@ -144,7 +154,7 @@ export async function resetTenantOwnerPassword(tenantId: string): Promise<{
   await requireSuperAdmin();
   const owner = await findFirstOwnerOfTenant(tenantId);
   if (!owner) throw new Error("이 회사의 owner 사용자 못 찾음");
-  const tempPassword = "1234";
+  const tempPassword = generatePassword(6);
   const passwordHash = bcrypt.hashSync(tempPassword, BCRYPT_COST);
   await setUserPasswordHash(owner.id, passwordHash);
   revalidatePath("/admin/tenants");
