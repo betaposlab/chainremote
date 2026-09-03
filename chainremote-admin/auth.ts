@@ -3,6 +3,10 @@
 
 import NextAuth from "next-auth";
 import { verifyPassword } from "@/lib/password-verify";
+import {
+  recordLoginSuccess,
+  recordLoginFailure,
+} from "@/lib/data/login-audit";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
@@ -102,18 +106,54 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const alt = qwertyFromHangul(username);
           if (alt) rows = await findByName(alt);
         }
-        if (rows.length === 0) return null;
+        // 감사 기록은 갈래마다 사유를 달리 남긴다 — "없는 아이디"와 "비번 틀림"이
+        //   섞이면 대입 시도와 오타를 구분할 수 없다.
+        // ★await 한다. 던져두면(void) 이어지는 부분이 요청 스코프 밖에서 돌아
+        //   headers() 가 던지고 IP·UA 가 통째로 null 로 남는다 — "누가 어디서"가
+        //   반쪽이 되면 이 기록을 남기는 이유가 없어진다. writeAudit 은 실패를 삼키므로
+        //   await 해도 로그인이 막히지는 않는다. 비용은 INSERT 한 번이고 이미 bcrypt 를
+        //   지난 자리다.
+        if (rows.length === 0) {
+          await recordLoginFailure({
+            attemptedId: username,
+            reason: "no_such_user",
+            via: "browser",
+          });
+          return null;
+        }
 
         const u = rows[0];
         const ok = verifyPassword(password, u.passwordHash);
-        if (!ok) return null;
+        if (!ok) {
+          await recordLoginFailure({
+            attemptedId: username,
+            reason: "bad_password",
+            userId: u.id,
+            tenantId: u.tenantId,
+            via: "browser",
+          });
+          return null;
+        }
         // H1: 정지/해지 테넌트 차단 (super_admin 예외 — 자기잠금 방지).
         if (
           u.role !== "super_admin" &&
           (!u.tenantActive || u.subscriptionStatus !== "active")
         ) {
+          await recordLoginFailure({
+            attemptedId: username,
+            reason: "tenant_blocked",
+            userId: u.id,
+            tenantId: u.tenantId,
+            via: "browser",
+          });
           return null;
         }
+
+        await recordLoginSuccess({
+          userId: u.id,
+          tenantId: u.tenantId,
+          via: "browser",
+        });
 
         return {
           id: u.id,

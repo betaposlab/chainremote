@@ -8,6 +8,10 @@
 //   옛 jti 없는 토큰은 TTL 24h 로 자연 소멸.
 
 import { and, eq, sql } from "drizzle-orm";
+import {
+  recordLoginSuccess,
+  recordLoginFailure,
+} from "@/lib/data/login-audit";
 import { verifyPassword } from "@/lib/password-verify";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
@@ -84,11 +88,29 @@ export async function POST(req: Request) {
       const alt = qwertyFromHangul(email);
       if (alt) rows = await findByName(alt);
     }
-    if (rows.length === 0) throw new ApiAuthError(401, "자격 실패");
+    if (rows.length === 0) {
+      await recordLoginFailure({
+        attemptedId: email,
+        reason: "no_such_user",
+        via: "hq",
+        ip: clientIp(req),
+        userAgent: req.headers.get("user-agent")?.slice(0, 400) ?? null,
+      });
+      throw new ApiAuthError(401, "자격 실패");
+    }
 
     const u = rows[0];
     if (!verifyPassword(password, u.passwordHash)) {
       rateLimitRecord(emailKey, 600_000);
+      await recordLoginFailure({
+        attemptedId: email,
+        reason: "bad_password",
+        userId: u.id,
+        tenantId: u.tenantId,
+        via: "hq",
+        ip: clientIp(req),
+        userAgent: req.headers.get("user-agent")?.slice(0, 400) ?? null,
+      });
       throw new ApiAuthError(401, "자격 실패");
     }
     rateLimitReset(emailKey);
@@ -143,6 +165,17 @@ export async function POST(req: Request) {
         `[seat] orphan 세션 인수: userId=${u.id} email=${u.email} newDevice=${deviceId} label=${deviceLabel || "-"} ip=${clientIp(req) ?? "-"}`,
       );
     }
+
+    // 좌석까지 잡은 뒤에 남긴다 — 자격은 맞았지만 좌석에 막혀 못 들어간 경우를
+    //   "로그인했다"로 남기면 기록이 사실과 어긋난다.
+    await recordLoginSuccess({
+      userId: u.id,
+      tenantId: u.tenantId,
+      via: "hq",
+      deviceLabel: deviceLabel || null,
+      ip: clientIp(req),
+      userAgent: req.headers.get("user-agent")?.slice(0, 400) ?? null,
+    });
 
     const { token, expiresIn } = await signApiToken(
       {

@@ -25,6 +25,12 @@ export type AuditAction =
   | "user.role_change"
   | "user.password_reset"
   | "push.bulk"
+  // 로그인 — "누가 언제 어느 IP 로 들어왔나". 원격지원 사업에서 사고가 나면 이게
+  //   유일한 시작점이다. 실패도 남긴다(비번 대입 시도가 보이려면 실패가 있어야 한다).
+  //   ★비밀번호는 어떤 형태로도 남기지 않는다. 실패에는 시도한 아이디만 적는다.
+  | "auth.login"
+  | "auth.login_failed"
+  | "auth.takeover"
   | "tenant.unattended_change"
   // 대리점에 답이 나가는 행위 — 누가 무엇을 보류로 돌렸는지가 나중에 문제가 된다.
   | "feedback.update"

@@ -4,6 +4,10 @@
 // 스펙: docs/chainremote/SEAT_ENFORCEMENT.md §5
 
 import { and, eq, sql } from "drizzle-orm";
+import {
+  recordLoginSuccess,
+  recordLoginFailure,
+} from "@/lib/data/login-audit";
 import { verifyPassword } from "@/lib/password-verify";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
@@ -69,10 +73,28 @@ export async function POST(req: Request) {
         ),
       )
       .limit(1);
-    if (rows.length === 0) throw new ApiAuthError(401, "자격 실패");
+    if (rows.length === 0) {
+      await recordLoginFailure({
+        attemptedId: email,
+        reason: "no_such_user",
+        via: "takeover",
+        ip: clientIp(req),
+        userAgent: req.headers.get("user-agent")?.slice(0, 400) ?? null,
+      });
+      throw new ApiAuthError(401, "자격 실패");
+    }
     const u = rows[0];
     if (!verifyPassword(password, u.passwordHash)) {
       rateLimitRecord(emailKey, 600_000);
+      await recordLoginFailure({
+        attemptedId: email,
+        reason: "bad_password",
+        userId: u.id,
+        tenantId: u.tenantId,
+        via: "takeover",
+        ip: clientIp(req),
+        userAgent: req.headers.get("user-agent")?.slice(0, 400) ?? null,
+      });
       throw new ApiAuthError(401, "자격 실패");
     }
     rateLimitReset(emailKey);
@@ -103,6 +125,17 @@ export async function POST(req: Request) {
       deviceId,
       deviceLabel: deviceLabel || null,
       ip: clientIp(req),
+    });
+
+    // takeover 는 남의 자리를 끊고 들어가는 행위라 별도 action 으로 남긴다 —
+    //   "왜 갑자기 로그아웃됐나"를 나중에 이 한 줄로 설명할 수 있어야 한다.
+    await recordLoginSuccess({
+      userId: u.id,
+      tenantId: u.tenantId,
+      via: "takeover",
+      deviceLabel: deviceLabel || null,
+      ip: clientIp(req),
+      userAgent: req.headers.get("user-agent")?.slice(0, 400) ?? null,
     });
 
     const { token, expiresIn } = await signApiToken(
