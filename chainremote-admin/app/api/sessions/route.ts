@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { customers } from "@/lib/schema";
 import { requireApiAuth, jsonError, ApiAuthError } from "@/lib/api-auth";
 import * as sessions from "@/lib/data/sessions";
+import { writeAudit } from "@/lib/data/audit";
 
 export async function POST(req: Request) {
   try {
@@ -38,7 +39,20 @@ export async function POST(req: Request) {
     )[0];
 
     // 미등록 peer / 내부기기는 이력에 안 남긴다(노이즈 방지). 에러 아니라 정상 skip 응답.
-    if (!customer) return Response.json({ sessionId: null, skipped: "unknown" });
+    //   ★다만 미등록 peer 는 **감사**에는 남긴다. 지원기록에 안 남는 접속이라 여기서
+    //   빠지면 "직원이 우리 거래처가 아닌 어딘가에 붙었다"가 아무 데도 안 남는다.
+    //   신규 거래처 온보딩(설치 → 접속 → 등록) 때도 나오는 정상 상황이라 양은 적다.
+    //   내부기기(우리 맥북·빌드머신)는 우리 것이라 그대로 조용히 넘어간다.
+    if (!customer) {
+      await writeAudit({
+        action: "session.unknown_peer",
+        tenantId: me.tenantId,
+        userId: me.uid,
+        targetType: "peer",
+        metadata: { remoteId },
+      });
+      return Response.json({ sessionId: null, skipped: "unknown" });
+    }
     if (customer.isInternal)
       return Response.json({ sessionId: null, skipped: "internal" });
 

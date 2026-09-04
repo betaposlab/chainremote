@@ -13,6 +13,7 @@ const LABEL: Record<string, string> = {
   "user.role_change": "권한 변경",
   "user.password_reset": "비밀번호 재설정",
   "tenant.owner_password_reset": "대리점 관리자 비번 재설정",
+  "session.unknown_peer": "목록에 없는 ID 로 원격",
   "push.bulk": "일괄 푸시",
   "tenant.unattended_change": "무인접속 설정 변경",
   "feedback.update": "문의 처리",
@@ -42,7 +43,7 @@ function detail(r: AuditRow): string {
     parts.push(`시도한 아이디: ${m.attemptedId}`);
   if (typeof m.device === "string" && m.device) parts.push(m.device);
   // 로그인 계열이 아닌 행위는 대상 이름이 제일 궁금하다.
-  for (const k of ["tenantName", "targetEmail", "name", "customerName", "email", "title", "displayName"]) {
+  for (const k of ["remoteId", "tenantName", "targetEmail", "name", "customerName", "email", "title", "displayName"]) {
     if (typeof m[k] === "string" && m[k]) parts.push(String(m[k]));
   }
   return parts.join(" · ");

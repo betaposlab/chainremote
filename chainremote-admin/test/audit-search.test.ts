@@ -183,3 +183,31 @@ describe("대리점 비번 리셋은 어느 회사로 남나", () => {
     expect(meta).not.toContain("passwordHash");
   });
 });
+
+// 목록에 없는 ID 로 원격을 걸면 감사에 남는다. 정상 세션은 support_sessions 에 남으므로
+// 감사에 또 담지 않는다 — 담으면 감사 화면이 세션 목록이 되고 "거래처 삭제" 한 줄이 묻힌다.
+// 그 경계가 흐려지지 않게 소스로 못 박는다.
+describe("원격 접속 — 무엇을 감사에 남기나", () => {
+  const src = () => fs.readFileSync("app/api/sessions/route.ts", "utf8");
+
+  it("목록에 없는 ID 는 남긴다", () => {
+    expect(src()).toContain('action: "session.unknown_peer"');
+  });
+
+  it("★정상 세션은 감사에 안 남긴다 — 지원기록이 그 자리다", () => {
+    const s = src();
+    // writeAudit 은 미등록 갈래에서 딱 한 번만 불린다.
+    expect((s.match(/writeAudit\(/g) ?? []).length).toBe(1);
+    // 그 호출이 !customer 갈래 안에 있는지 — startSession 뒤가 아니라.
+    const at = s.indexOf("writeAudit({");
+    expect(at).toBeGreaterThan(s.indexOf("if (!customer)"));
+    expect(at).toBeLessThan(s.indexOf("sessions.startSession"));
+  });
+
+  it("내부기기는 감사에도 안 남긴다 — 우리 맥북·빌드머신이다", () => {
+    const s = src();
+    const internalAt = s.indexOf("customer.isInternal");
+    const after = s.slice(internalAt, internalAt + 300);
+    expect(after).not.toContain("writeAudit");
+  });
+});
