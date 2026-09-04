@@ -24,6 +24,10 @@ export type AuditAction =
   | "user.delete"
   | "user.role_change"
   | "user.password_reset"
+  // 운영사가 대리점 owner 비번을 재설정한 것. ★우리 회사 기록으로 남긴다 —
+  //   대리점 화면에 뜨면 "우리가 그 집 비번을 만졌다"가 되는데, 정작 그건 그쪽이
+  //   전화로 부탁해서 한 일이다. 반대로 우리 쪽엔 남아야 나중에 "누가 바꿨냐"에 답한다.
+  | "tenant.owner_password_reset"
   | "push.bulk"
   // 로그인 — "누가 언제 어느 IP 로 들어왔나". 원격지원 사업에서 사고가 나면 이게
   //   유일한 시작점이다. 실패도 남긴다(비번 대입 시도가 보이려면 실패가 있어야 한다).

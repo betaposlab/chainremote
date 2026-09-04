@@ -5,6 +5,7 @@
 // 접속 시간을 들여다보게 된다. 나머지(기간·종류·검색)는 그다음이다.
 
 import { describe, it, expect } from "vitest";
+import fs from "node:fs";
 import { testDb } from "./helpers/db";
 import { tenants, users, auditLogs } from "@/lib/schema";
 import { searchAudit } from "@/lib/data/audit-search";
@@ -156,5 +157,29 @@ describe("감사 기록 조회", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].actorEmail).toBeNull();
     expect((rows[0].metadata as { name: string }).name).toBe("사라진거래처");
+  });
+});
+
+// 대리점 비번 리셋은 **우리 회사 기록**이다. 대리점 감사 화면에 뜨면 "우리가 그 집 비번을
+// 만졌다"가 되는데, 그건 그쪽이 전화로 부탁해서 한 일이다. 반대로 우리 쪽엔 남아야
+// 나중에 "누가 우리 비번을 바꿨냐"에 답한다. 누가 나중에 tenantId 를 대상 회사로
+// "고치면" 대리점 화면에 갑자기 뜨기 시작하므로, 소스로 못 박는다.
+describe("대리점 비번 리셋은 어느 회사로 남나", () => {
+  it("실행자 소속(me.tenantId)으로 남는다 — 대상 회사가 아니다", () => {
+    const src = fs.readFileSync("lib/actions/tenants.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function resetTenantOwnerPassword"));
+    const block = fn.slice(0, fn.indexOf("revalidatePath"));
+    expect(block).toContain('action: "tenant.owner_password_reset"');
+    expect(block).toContain("tenantId: me.tenantId");
+    expect(block).not.toContain("tenantId: tenantId");
+  });
+
+  it("임시 비번은 기록에 안 담는다", () => {
+    const src = fs.readFileSync("lib/actions/tenants.ts", "utf8");
+    const fn = src.slice(src.indexOf("export async function resetTenantOwnerPassword"));
+    const block = fn.slice(0, fn.indexOf("revalidatePath"));
+    const meta = block.slice(block.indexOf("metadata:"), block.indexOf("});", block.indexOf("metadata:")));
+    expect(meta).not.toContain("tempPassword");
+    expect(meta).not.toContain("passwordHash");
   });
 });

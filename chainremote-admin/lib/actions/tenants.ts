@@ -153,12 +153,29 @@ export async function resetTenantOwnerPassword(tenantId: string): Promise<{
   adminEmail: string;
   tempPassword: string;
 }> {
-  await requireSuperAdmin();
+  const me = await requireSuperAdmin();
   const owner = await findFirstOwnerOfTenant(tenantId);
   if (!owner) throw new Error("이 회사의 owner 사용자 못 찾음");
   const tempPassword = generatePassword(8, { digitsOnly: true });
   const passwordHash = bcrypt.hashSync(tempPassword, BCRYPT_COST);
   await setUserPasswordHash(owner.id, passwordHash);
+  // ★우리 회사 기록으로 남긴다(tenantId = 실행자 소속). 대리점 감사 화면에는 안 뜨고
+  //   운영사 화면에서만 "어느 대리점 owner 를 언제 리셋했나"로 보인다 — push.bulk 와 같은 방식.
+  //   종전엔 아무 데도 안 남아, 나중에 "누가 우리 비번을 바꿨냐"에 답할 근거가 없었다.
+  //   비번 자체는 남기지 않는다. 누가·언제·어느 회사만.
+  const t = await getTenant(tenantId);
+  await writeAudit({
+    action: "tenant.owner_password_reset",
+    tenantId: me.tenantId,
+    userId: me.id,
+    targetType: "tenant",
+    targetId: tenantId,
+    metadata: {
+      tenantName: t?.displayName ?? null,
+      tenantSlug: t?.slug ?? null,
+      targetEmail: owner.email,
+    },
+  });
   revalidatePath("/admin/tenants");
   return { adminEmail: owner.email, tempPassword };
 }
