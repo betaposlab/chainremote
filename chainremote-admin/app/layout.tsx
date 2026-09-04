@@ -110,11 +110,16 @@ export default async function RootLayout({
             </NavItem>
             <NavItem href="/help">도움말</NavItem>
             {user.role !== "super_admin" && canManageAccounts(user.role) && (
-              <NavItem href="/users">사용자</NavItem>
+              <>
+                <NavItem href="/users">사용자</NavItem>
+                {/* 직원(member)에게는 안 보인다 — 남의 로그인 시각과 IP 가 있는 화면이다. */}
+                <NavItem href="/audit">감사 기록</NavItem>
+              </>
             )}
             {user.role === "super_admin" && (
               <>
                 <NavItem href="/users">사용자</NavItem>
+                <NavItem href="/audit">감사 기록</NavItem>
                 <div className="mt-4 mb-1 px-3 text-[0.68rem] font-semibold uppercase tracking-wider text-[#ccd2e3]">
                   플랫폼 운영
                 </div>
