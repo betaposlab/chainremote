@@ -615,15 +615,21 @@ static LAST_UNATTENDED_PW: std::sync::Mutex<Option<String>> = std::sync::Mutex::
 /// 없어서 무인접속을 켜는 건데 켜려면 사람이 가야 했다. 2026-09-05 밤 달인식자재가 그
 /// 모순에 그대로 걸렸다(사무실 무인, 두 대 온라인, 아무도 못 감).
 ///
-/// # 왜 서비스 안에서 직접 쓰는가
+/// # ★왜 Config 에 직접 쓰면 안 되는가 (2026-09-05 처음에 이렇게 짰다가 틀렸다)
 ///
-/// `ui_interface::set_permanent_password_with_result()` 는 UI 프로세스가 **IPC 로 서비스에
-/// 넘기는** 함수다. 우리는 이미 그 서비스(`run_service`)이므로 한 바퀴 돌 이유가 없고, 돌면
-/// UI 가 안 떠 있는 무인 상태에서 그대로 실패한다. 접속을 인증하는 것도 이 프로세스라
-/// 같은 `CONFIG` 를 직접 쓰는 게 정확하다.
+/// 우리는 `--service` 프로세스다. 그런데 **접속 비밀번호를 검사하는 건 `--server` 프로세스**다 —
+/// 서비스가 `launch_server()` 로 winlogon 토큰을 빌려 사용자 세션에 따로 띄우는 별개
+/// 프로세스다(`platform/windows.rs`). 프로세스가 다르면 `CONFIG` 는 **메모리에 따로 올라가
+/// 있고**, 우리가 파일에 써도 이미 돌고 있는 `--server` 는 그걸 다시 읽지 않는다.
 ///
-/// ★사용자 세션의 에이전트 창이 보여주는 일회용 비밀번호와 서비스가 검사하는 값이 서로
-///   다른 것도 뿌리가 같다([project_user_vs_service_toml]). 화면의 번호를 불러 줘도 안 맞는다.
+/// 그래서 UI 가 굳이 IPC 를 쓴다. `ui_interface::set_permanent_password_with_result()` 가
+/// "UI → 서비스" 로 보이지만 실제로는 "**아무 프로세스 → 지금 돌고 있는 server**" 다.
+/// 그 창구를 받는 쪽(`ipc.rs` 의 `permanent-password`)이 곧 검사하는 쪽이라, 우리도 같은
+/// 창구를 쓴다.
+///
+/// 실패하면 캐시에 남기지 않는다 — 부팅 직후처럼 `--server` 가 아직 안 떠 있으면 IPC 가
+/// 실패하는데, 성공으로 기록해 버리면 그 기기는 **영영 비밀번호가 안 심긴다.** 다음 보고에
+/// 다시 시도해야 한다.
 ///
 /// # 없는 것과 빈 것을 가른다
 ///
@@ -642,22 +648,30 @@ fn apply_unattended_password(v: Option<&str>) {
     if !hbb_common::config::is_unattended_agent() {
         return;
     }
-    {
-        let mut last = LAST_UNATTENDED_PW.lock().unwrap();
-        if last.as_deref() == Some(want) {
-            return;
-        }
-        *last = Some(want.to_string());
+    if LAST_UNATTENDED_PW.lock().unwrap().as_deref() == Some(want) {
+        return;
     }
-    hbb_common::config::Config::set_permanent_password(want);
-    // ★값은 로그에 남기지 않는다. 설정됐는지 지워졌는지만 남는다.
-    if want.is_empty() {
-        log::info!("[chainremote_unattended] 비밀번호를 지웠다 — 수락 카드로 돌아간다");
-    } else {
-        log::info!(
-            "[chainremote_unattended] 비밀번호 적용 (len={})",
-            want.chars().count()
-        );
+    // 돌고 있는 `--server` 에 넘긴다. 이게 UI 의 [영구 비밀번호 설정] 과 같은 경로다.
+    match crate::ipc::set_permanent_password_with_ack(want.to_string()) {
+        Ok(true) => {
+            // ★성공했을 때만 기억한다. 아래 두 갈래는 캐시를 안 건드리므로 다음 보고에 재시도.
+            *LAST_UNATTENDED_PW.lock().unwrap() = Some(want.to_string());
+            // ★값은 로그에 남기지 않는다. 설정됐는지 지워졌는지만 남는다.
+            if want.is_empty() {
+                log::info!("[chainremote_unattended] 비밀번호를 지웠다 — 수락 카드로 돌아간다");
+            } else {
+                log::info!(
+                    "[chainremote_unattended] 비밀번호 적용 (len={})",
+                    want.chars().count()
+                );
+            }
+        }
+        Ok(false) => log::warn!(
+            "[chainremote_unattended] server 가 거부했다(변경 잠김?) — 다음 보고에 재시도"
+        ),
+        Err(e) => log::warn!(
+            "[chainremote_unattended] server 에 못 넘겼다: {e} — 다음 보고에 재시도"
+        ),
     }
 }
 
