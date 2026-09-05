@@ -9,6 +9,7 @@ import { listTenantStaff } from "@/lib/data/users";
 import { listFolders } from "@/lib/data/folders";
 import { DeleteButton } from "./_delete";
 import { MoveDeviceCard } from "../_move-device";
+import { UnattendedPasswordCard } from "../_unattended-password";
 import { canWrite } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
@@ -67,6 +68,17 @@ export default async function EditCustomerPage({
       {/* 수거한 포스를 다른 가맹점에 재사용할 때 — 이름만 바꾸면 두 매장 이력이 섞인다.
           권한은 알림의 [새 거래처로 이동] 과 **같은 기준**(canWrite)을 쓴다. 똑같은 동작인데
           한쪽에선 보이고 한쪽에선 안 보이면 "왜 여긴 없지"가 된다. 서버도 canWrite 로 막는다. */}
+      {/* 무인접속을 켠 대리점에서만 뜬다. 안 켠 곳엔 칸 자체가 없어야 한다 —
+          보이면 "왜 저장이 안 되지"가 되고, 저장돼도 설치본이 안 받으므로 무의미하다.
+          서버(setUnattendedPassword)도 같은 플래그를 다시 본다. */}
+      {tenant.unattendedAgent && canWrite(session.user.role) ? (
+        <UnattendedPasswordCard
+          customerId={row.id}
+          customerName={row.name}
+          remoteId={row.remoteId}
+          current={row.unattendedPassword}
+        />
+      ) : null}
       {canWrite(session.user.role) ? (
         <MoveDeviceCard
           customerId={row.id}

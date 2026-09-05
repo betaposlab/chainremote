@@ -542,6 +542,58 @@ export async function listOpenSchedWindows(tenantId: string) {
 }
 
 /** heartbeat 응답용 — 이 거래처가 방화벽 자동 해제 대상인지(에이전트가 감시 여부 결정). */
+/** 하트비트가 실어 보낼 무인접속 비밀번호.
+ *
+ *  ★반환값 셋을 구분한다 — 에이전트가 "키가 없는 것"과 "빈 값"을 다르게 다루기 때문이다.
+ *    - `null`  → 응답에 키를 **싣지 않는다.** 무인접속을 안 켠 대리점(과 모르는 기기).
+ *                에이전트는 아무것도 하지 않는다. 안 켠 거래처 수십 대의 비밀번호를
+ *                10분마다 건드리지 않기 위한 선이다.
+ *    - `""`    → 켠 대리점인데 칸이 비었다. 에이전트가 **지운다**(수락 카드로 복귀).
+ *    - 그 외   → 그 값으로 맞춘다.
+ *
+ *  대리점 플래그를 **여기서** 본다. 라우트에서 보면 다음에 라우트가 하나 더 생길 때
+ *  그 검사가 안 따라온다 — 문이 열리는 조건은 한 자리에만 둔다. */
+export async function getUnattendedPassword(
+  remoteId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({
+      pw: customers.unattendedPassword,
+      unattended: tenants.unattendedAgent,
+    })
+    .from(customers)
+    .innerJoin(tenants, eq(tenants.id, customers.tenantId))
+    .where(eq(customers.remoteId, remoteId))
+    .limit(1);
+  if (!row?.unattended) return null;
+  return row.pw ?? "";
+}
+
+/** 무인접속 비밀번호를 저장한다. 빈 문자열이면 지운다(= 수락 카드로 되돌리기).
+ *
+ *  대리점 플래그를 **서버에서 다시 확인한다.** 화면이 칸을 숨기는 것은 안내일 뿐이고,
+ *  폼은 누구나 흉내낼 수 있다. 자기 대리점 거래처만 건드릴 수 있게 tenantId 도 조건에 건다. */
+export async function setUnattendedPassword(
+  customerId: string,
+  tenantId: string,
+  password: string,
+): Promise<{ ok: boolean; reason?: string; name?: string }> {
+  const [t] = await db
+    .select({ on: tenants.unattendedAgent })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+  if (!t?.on) return { ok: false, reason: "이 대리점은 무인접속이 켜져 있지 않습니다" };
+
+  const [row] = await db
+    .update(customers)
+    .set({ unattendedPassword: password === "" ? null : password })
+    .where(and(eq(customers.id, customerId), eq(customers.tenantId, tenantId)))
+    .returning({ name: customers.name });
+  if (!row) return { ok: false, reason: "거래처를 찾을 수 없습니다" };
+  return { ok: true, name: row.name };
+}
+
 export async function getFirewallControl(remoteId: string): Promise<boolean> {
   const [row] = await db
     .select({ on: customers.firewallControl })

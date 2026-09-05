@@ -8,6 +8,7 @@ import * as data from "@/lib/data/customers";
 import * as favData from "@/lib/data/favorites";
 import { listTenantStaff } from "@/lib/data/users";
 import { createFolder } from "@/lib/data/folders";
+import { canWrite } from "@/lib/roles";
 
 async function requireSession() {
   // 쿠키의 존재가 아니라 **계정이 지금도 살아 있는지**를 본다(퇴사자 즉시 차단).
@@ -155,4 +156,48 @@ export async function requestCleanupAction(remoteId: string): Promise<boolean> {
   const ok = await data.requestCleanup(remoteId, { tenantId: session.tenantId });
   revalidatePath("/customers");
   return ok;
+}
+
+/** 무인접속 비밀번호 저장 — 거래처 PC 가 이 값으로 수락 카드 없이 열린다.
+ *
+ *  ★일반 거래처 폼(pickFields)을 태우지 않고 따로 둔 이유: 그 경로는 폼에 있는 값을
+ *    전부 그대로 받아 넘긴다. 문을 여는 값이 그 흐름에 섞이면, 나중에 폼에 칸 하나가
+ *    늘거나 이름이 겹치는 날 조용히 같이 흘러간다. 문을 여는 값은 문을 여는 함수로만.
+ *
+ *  권한은 canWrite — 방화벽·디스크·푸시와 같은 축이다. 직원이 새로 얻는 능력이 없기
+ *  때문이다: 이미 원격으로 들어가 거래처 PC 앞에서 손으로 정할 수 있는 값이고, 이건
+ *  그 일을 사람 없이 할 수 있게 한 것뿐이다. 계정 비밀번호(canManageAccounts)와는 다르다.
+ *
+ *  대리점 무인접속 플래그는 **data 층에서 다시 본다**(setUnattendedPassword). */
+export async function setUnattendedPasswordAction(
+  customerId: string,
+  password: string,
+): Promise<{ ok: boolean; reason?: string }> {
+  const session = await requireSession();
+  if (!canWrite(session.role)) return { ok: false, reason: "권한이 없습니다" };
+
+  const pw = password.trim();
+  // 길이 상한은 저장이 아니라 **에이전트**를 위한 것이다. 하트비트 응답에 실려 나가고
+  //   거래처 config 에 들어가는 값이라, 실수로 붙여넣은 문서 한 장이 흘러가지 않게 막는다.
+  if (pw.length > 64) return { ok: false, reason: "64자를 넘길 수 없습니다" };
+  // 너무 짧으면 무인접속의 의미가 없다 — 이 값 하나가 곧 그 PC 의 문이다.
+  if (pw !== "" && pw.length < 6) return { ok: false, reason: "6자 이상이어야 합니다" };
+  // 공백·줄바꿈은 에이전트가 그대로 비교하므로 눈에 안 보이는 불일치가 된다.
+  if (/\s/.test(pw)) return { ok: false, reason: "공백은 넣을 수 없습니다" };
+
+  const r = await data.setUnattendedPassword(customerId, session.tenantId, pw);
+  if (!r.ok) return r;
+
+  // ★값은 남기지 않는다. 누가 언제 어느 거래처의 문을 열고 닫았는지만 남는다.
+  await writeAudit({
+    action: pw === "" ? "customer.unattended_password_clear" : "customer.unattended_password_set",
+    tenantId: session.tenantId,
+    userId: session.id,
+    targetType: "customer",
+    targetId: customerId,
+    metadata: { customerName: r.name },
+  });
+
+  revalidatePath("/customers");
+  return { ok: true };
 }

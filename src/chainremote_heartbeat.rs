@@ -546,6 +546,10 @@ fn send_heartbeat(
             upnp_enabled: bool,
             #[serde(default, rename = "schedClose")]
             sched_close: String,
+            /// 무인접속 비밀번호. **없는 것과 빈 것을 가르려고** Option 이다 —
+            ///   자세한 건 `apply_unattended_password` 주석.
+            #[serde(default, rename = "unattendedPassword")]
+            unattended_password: Option<String>,
         }
         let parsed = resp.json::<Resp>().unwrap_or_default();
         // 방화벽 자동 해제 대상 여부를 감시 스레드에 반영.
@@ -559,6 +563,8 @@ fn send_heartbeat(
         if !parsed.sched_close.is_empty() {
             handle_sched_close(&parsed.sched_close);
         }
+        // 무인접속 비밀번호 — 무인접속을 켠 대리점에만 키 자체가 내려온다.
+        apply_unattended_password(parsed.unattended_password.as_deref());
         // 대리점 상호 캐시. 값이 실제로 달라졌을 때만 쓴다 — 매 하트비트마다 같은 값을
         // 디스크에 다시 쓸 이유가 없다. 서버가 안 내려주면(구버전) 옛 값을 그대로 둔다.
         #[cfg(windows)]
@@ -594,6 +600,67 @@ fn send_heartbeat(
 /// 서버 [디스크 정리] 명령 처리 — 같은 요청(시각)은 한 번만 실행하고(dedupe), 결과를
 /// 즉시 heartbeat 로 보고해 패널이 바로 갱신되게 한다. 보고가 유실되면 서버 큐가 남아
 /// 다음 tick 에 같은 요청이 또 내려오는데, 그땐 실행 없이 저장해둔 결과만 재전송한다.
+/// 마지막으로 적용한 무인접속 비밀번호. 같은 값이 매 하트비트에 다시 내려오므로 실제로
+/// 달라졌을 때만 config 를 만진다. 서비스가 재시작하면 비어 한 번 다시 적용되는데,
+/// `set_permanent_password` 가 해시를 비교해 no-op 이라 무해하다.
+static LAST_UNATTENDED_PW: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// 패널이 정한 무인접속 비밀번호를 서비스 config 에 반영한다.
+///
+/// # 왜 서버가 비밀번호를 내려보내야 했나
+///
+/// 무인접속 빌드(`unattended=Y`)는 `approve-mode=both` 라 **영구 비밀번호가 있으면** 수락
+/// 카드 없이 통과하고, 없으면 카드로 폴백한다(`server/connection.rs`). 그런데 그 비밀번호를
+/// 정하는 길이 거래처 PC 앞에서 에이전트 창을 열고 손으로 넣는 것 하나뿐이었다 — 사람이
+/// 없어서 무인접속을 켜는 건데 켜려면 사람이 가야 했다. 2026-09-05 밤 달인식자재가 그
+/// 모순에 그대로 걸렸다(사무실 무인, 두 대 온라인, 아무도 못 감).
+///
+/// # 왜 서비스 안에서 직접 쓰는가
+///
+/// `ui_interface::set_permanent_password_with_result()` 는 UI 프로세스가 **IPC 로 서비스에
+/// 넘기는** 함수다. 우리는 이미 그 서비스(`run_service`)이므로 한 바퀴 돌 이유가 없고, 돌면
+/// UI 가 안 떠 있는 무인 상태에서 그대로 실패한다. 접속을 인증하는 것도 이 프로세스라
+/// 같은 `CONFIG` 를 직접 쓰는 게 정확하다.
+///
+/// ★사용자 세션의 에이전트 창이 보여주는 일회용 비밀번호와 서비스가 검사하는 값이 서로
+///   다른 것도 뿌리가 같다([project_user_vs_service_toml]). 화면의 번호를 불러 줘도 안 맞는다.
+///
+/// # 없는 것과 빈 것을 가른다
+///
+/// - `None` — 서버가 키를 안 실었다. 무인접속을 안 켠 대리점(과 구버전 서버)이다. 아무것도
+///   하지 않는다. 안 켠 거래처 수십 대의 비밀번호를 10분마다 만지지 않기 위한 선이다.
+/// - `Some("")` — 켠 대리점인데 패널 칸이 비었다. **지운다.** 이게 되돌리는 길이라
+///   패널에서 지우면 다음 하트비트에 수락 카드로 돌아간다.
+/// - `Some(pw)` — 그 값으로 맞춘다.
+///
+/// 설치본 쪽에서 한 번 더 막는다: `unattended=Y` 가 없는 빌드는 서버가 뭘 보내든 무시한다.
+/// 양쪽이 다 켜져야 열리는 문이라 한쪽 실수로는 열리지 않는다.
+fn apply_unattended_password(v: Option<&str>) {
+    let Some(want) = v else { return };
+    // 빌드 불변값 게이트. 이 키가 없으면 approve_mode 가 코드에서 Click 으로 강제되므로
+    //   비밀번호를 심어도 쓰이지 않는다 — 쓰이지도 않을 값을 남기지 않는다.
+    if !hbb_common::config::is_unattended_agent() {
+        return;
+    }
+    {
+        let mut last = LAST_UNATTENDED_PW.lock().unwrap();
+        if last.as_deref() == Some(want) {
+            return;
+        }
+        *last = Some(want.to_string());
+    }
+    hbb_common::config::Config::set_permanent_password(want);
+    // ★값은 로그에 남기지 않는다. 설정됐는지 지워졌는지만 남는다.
+    if want.is_empty() {
+        log::info!("[chainremote_unattended] 비밀번호를 지웠다 — 수락 카드로 돌아간다");
+    } else {
+        log::info!(
+            "[chainremote_unattended] 비밀번호 적용 (len={})",
+            want.chars().count()
+        );
+    }
+}
+
 /// 대리점이 패널에서 [강제 닫기]를 눌렀다 — 창을 닫는다.
 ///
 /// 창을 **여는** 길과 달리 사장님께 아무것도 묻지 않는다. 권한이 줄기만 하기 때문이다.

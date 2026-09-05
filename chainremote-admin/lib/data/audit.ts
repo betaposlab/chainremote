@@ -41,6 +41,12 @@ export type AuditAction =
   | "auth.login_failed"
   | "auth.takeover"
   | "tenant.unattended_change"
+  // 거래처 PC 의 문을 여닫는 행위 — 무인접속 비밀번호를 정하면 그 PC 는 수락 카드
+  //   없이 열린다. 거래처 입장에서 가장 크게 달라지는 설정이라, 나중에 "언제부터
+  //   그렇게 돼 있었냐"에 답할 수 있어야 한다. ★값은 담지 않는다 — 여는 열쇠를
+  //   감사 기록에 복사해 두면 기록 열람 권한이 곧 접속 권한이 된다.
+  | "customer.unattended_password_set"
+  | "customer.unattended_password_clear"
   // 대리점에 답이 나가는 행위 — 누가 무엇을 보류로 돌렸는지가 나중에 문제가 된다.
   | "feedback.update"
   // 지워진 문의는 복구할 수 없다. 제목만이라도 남겨야 "그런 요청 받은 적 없다"를 막는다.

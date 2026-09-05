@@ -138,6 +138,10 @@ export const customers = pgTable(
     address: text("address"),
     remoteId: text("remote_id"),
     accessPassword: text("access_password"),
+    // 무인접속 비밀번호(마이그 052). 하트비트가 실어 나르고 에이전트가 자기 영구
+    //   비밀번호로 삼는다. accessPassword 와 칸을 나눈 이유는 그 컬럼이 거래처 폼
+    //   입력에 이미 배선돼 있어서다 — 마이그 052 주석 참조.
+    unattendedPassword: text("unattended_password"),
     notes: text("notes"),
     // 담당 직원 — 표시용. 같은 tenant 안에선 모든 user 가 모든 customer 를 보게
     // 두고 필터는 안 건다 (사내 운영 정책). SaaS 격리 시점에 재검토.

@@ -155,6 +155,10 @@ export async function POST(req: Request) {
     //   에이전트는 마지막으로 처리한 요청과 다를 때만 창을 닫으므로 반복 전달은 무해하고,
     //   큐는 "닫혔다"는 보고가 올라올 때 비워진다(꺼진 PC 에서 명령이 증발하지 않게).
     const schedClose = await data.getSchedCloseRequest(remoteId);
+    // 무인접속 비밀번호(마이그 052). ★null 이면 키를 아예 안 싣는다 — 에이전트가
+    //   "키 없음"(아무것도 안 함)과 "빈 값"(지운다)을 다르게 다루기 때문이다.
+    //   무인접속을 안 켠 대리점은 늘 null 이라 이 줄이 그 집 설치본에 닿지 않는다.
+    const unattendedPassword = await data.getUnattendedPassword(remoteId);
     return Response.json({
       ok: true,
       ...(cleanup ? { cleanup } : {}),
@@ -163,6 +167,7 @@ export async function POST(req: Request) {
       upnpEnabled,
       ...(supportName ? { supportName } : {}),
       ...(schedClose ? { schedClose } : {}),
+      ...(unattendedPassword !== null ? { unattendedPassword } : {}),
     });
   } catch (e) {
     // ★본문에 예외 문구를 싣지 않는다. drizzle 은 DB 에러에 **쿼리 전문과 바인딩

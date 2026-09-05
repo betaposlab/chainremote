@@ -16,6 +16,8 @@ const LABEL: Record<string, string> = {
   "session.unknown_peer": "목록에 없는 ID 로 원격",
   "push.bulk": "일괄 푸시",
   "tenant.unattended_change": "무인접속 설정 변경",
+  "customer.unattended_password_set": "무인접속 비밀번호 설정",
+  "customer.unattended_password_clear": "무인접속 비밀번호 삭제",
   "feedback.update": "문의 처리",
   "feedback.delete": "문의 삭제",
 };
