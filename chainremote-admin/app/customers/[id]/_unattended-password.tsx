@@ -91,7 +91,7 @@ export function UnattendedPasswordCard({
             setValue(e.target.value);
             setDone(null);
           }}
-          placeholder="6자 이상, 공백 없이"
+          placeholder="4자 이상, 공백 없이"
           autoComplete="off"
           spellCheck={false}
           className="input w-56 font-mono"

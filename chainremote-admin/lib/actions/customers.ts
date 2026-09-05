@@ -180,8 +180,13 @@ export async function setUnattendedPasswordAction(
   // 길이 상한은 저장이 아니라 **에이전트**를 위한 것이다. 하트비트 응답에 실려 나가고
   //   거래처 config 에 들어가는 값이라, 실수로 붙여넣은 문서 한 장이 흘러가지 않게 막는다.
   if (pw.length > 64) return { ok: false, reason: "64자를 넘길 수 없습니다" };
-  // 너무 짧으면 무인접속의 의미가 없다 — 이 값 하나가 곧 그 PC 의 문이다.
-  if (pw !== "" && pw.length < 6) return { ok: false, reason: "6자 이상이어야 합니다" };
+  // 하한 4자. 짧게 잡은 근거는 **에이전트에 대입 방어가 있다**는 것 하나다 —
+  //   server/connection.rs 의 LOGIN_FAILURES 가 IP 당 분당 6회, 누적 30회에서 끊고
+  //   IPv6 는 /56·/48 프리픽스로 묶어 센다. 4자리 숫자 1만 조합을 훑으려면 IP 를 300개
+  //   넘게 갈아야 하고 그 전에 원격 ID 를 알아야 한다.
+  //   ★그 방어가 사라지거나 약해지면 이 하한도 같이 올려야 한다. 두 값은 한 쌍이다.
+  //   (2026-09-05 Chang: 달인식자재는 0547 로 쓴다. 포스 앞에서 불러 줄 번호라 길면 못 쓴다.)
+  if (pw !== "" && pw.length < 4) return { ok: false, reason: "4자 이상이어야 합니다" };
   // 공백·줄바꿈은 에이전트가 그대로 비교하므로 눈에 안 보이는 불일치가 된다.
   if (/\s/.test(pw)) return { ok: false, reason: "공백은 넣을 수 없습니다" };
 
