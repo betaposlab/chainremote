@@ -10,6 +10,7 @@
 // 미인증이 row 를 CREATE 하므로 enroll-key 해시검증 + rate-limit + pending 격리로 막고,
 // remote_id 글로벌 unique(마이그 011)가 cross-tenant 를 끊는다.
 
+import { writeAudit } from "@/lib/data/audit";
 import * as data from "@/lib/data/customers";
 import { clientIp } from "@/lib/request-ip";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
@@ -63,6 +64,27 @@ export async function POST(req: Request) {
         { error: "다른 tenant 에 이미 등록된 remote_id" },
         { status: 409 },
       );
+    }
+    if (result.created) {
+      // 설치 마법사에서 상호를 적어 스스로 들어온 등록. 사람 계정이 없으니 userId 는 비우고,
+      //   writeAudit 이 요청 헤더에서 읽는 IP 가 곧 "어느 PC 에서" 가 된다.
+      await writeAudit({
+        action: "customer.enroll",
+        tenantId,
+        userId: null,
+        targetType: "customer",
+        targetId: result.customerId ?? null,
+        metadata: {
+          via: "enroll",
+          name: result.name ?? name ?? null,
+          remoteId,
+          ...(hostname ? { hostname } : {}),
+        },
+        // 라우트가 이미 뽑아 둔 값을 그대로 준다 — writeAudit 의 헤더 자동 읽기는 세션 화면용이고,
+        //   에이전트 요청은 그 경로가 비어 있을 수 있다(테스트에서 실제로 비었다).
+        ipAddress: clientIp(req),
+        userAgent: req.headers.get("user-agent")?.slice(0, 400) ?? null,
+      });
     }
     return Response.json({ token: result.token });
   } catch (e) {

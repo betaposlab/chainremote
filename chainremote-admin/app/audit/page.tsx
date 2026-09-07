@@ -29,6 +29,7 @@ const PERIODS: { key: AuditPeriod; label: string }[] = [
 const KINDS: { key: AuditKind; label: string }[] = [
   { key: "all", label: "전체" },
   { key: "auth", label: "로그인" },
+  { key: "register", label: "등록" },
   { key: "change", label: "변경·삭제" },
 ];
 

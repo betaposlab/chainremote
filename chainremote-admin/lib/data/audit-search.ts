@@ -22,10 +22,12 @@ import { db } from "@/lib/db";
 import { auditLogs, tenants, users } from "@/lib/schema";
 
 export type AuditPeriod = "week" | "month" | "quarter" | "all";
-export type AuditKind = "all" | "auth" | "change";
+export type AuditKind = "all" | "auth" | "register" | "change";
 
 /** 로그인 계열과 변경 계열. 섞어 보면 로그인 소음에 변경 한 줄이 묻힌다. */
 const AUTH_ACTIONS = ["auth.login", "auth.login_failed", "auth.takeover"];
+/** 거래처 등록 계열 — "언제 들어왔나"만 따로 보고 싶을 때(2026-09-08). */
+const REGISTER_ACTIONS = ["customer.create", "customer.enroll"];
 
 export interface AuditRow {
   id: number;
@@ -66,8 +68,10 @@ export async function searchAudit(p: AuditQuery): Promise<AuditRow[]> {
   if (from) where.push(gte(auditLogs.createdAt, from));
 
   if (p.kind === "auth") where.push(inArray(auditLogs.action, AUTH_ACTIONS));
+  else if (p.kind === "register")
+    where.push(inArray(auditLogs.action, REGISTER_ACTIONS));
   else if (p.kind === "change")
-    where.push(notInArray(auditLogs.action, AUTH_ACTIONS));
+    where.push(notInArray(auditLogs.action, [...AUTH_ACTIONS, ...REGISTER_ACTIONS]));
 
   const q = (p.q ?? "").trim().slice(0, 60);
   if (q) {

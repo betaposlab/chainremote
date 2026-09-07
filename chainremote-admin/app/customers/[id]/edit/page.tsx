@@ -53,6 +53,11 @@ export default async function EditCustomerPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight">거래처 수정</h1>
           <p className="text-sm text-[#b9bfd2] mt-1">{row.name}</p>
+          {/* "이 거래처 언제 들어왔냐"는 여기서 바로 답한다(2026-09-08 Chang). 어떻게 들어왔는지는
+              감사 기록 [등록] 탭에 남는다 — 그 전 등록분은 행의 생성 시각만 있다. */}
+          <p className="text-xs text-[#9aa3bd] mt-1">
+            등록 {new Date(row.createdAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "medium", timeStyle: "short" })}
+          </p>
         </div>
         <DeleteButton id={id} name={row.name} />
       </header>

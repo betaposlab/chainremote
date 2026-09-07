@@ -18,6 +18,12 @@ import { auditLogs } from "@/lib/schema";
 
 /** 남기는 행위. 여기 없는 것은 남기지 않는다 — 목록이 곧 정책이다. */
 export type AuditAction =
+  // 거래처 등록 — 지워진 것만 남기고 생긴 것은 안 남기니 "이 거래처 언제 들어왔냐"에
+  //   답할 자리가 없었다(2026-09-08 Chang, 큰통치킨하복대점). 관리 화면에서 사람이 넣은
+  //   것(create)과 설치 마법사에서 상호를 적어 스스로 들어온 것(enroll)을 나눠 적는다.
+  //   enroll 은 userId 가 없다 — 그 자리엔 설치한 PC 의 IP 가 남는다.
+  | "customer.create"
+  | "customer.enroll"
   | "customer.delete"
   | "tenant.delete"
   | "user.create"
