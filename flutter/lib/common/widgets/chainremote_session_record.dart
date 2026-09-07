@@ -51,6 +51,9 @@ class _CrRec {
   String sessionId = '';
   Future<String>? startFuture;
   int startMs = 0;
+  /// 실제로 붙은 시각. 0 이면 **한 번도 안 붙었다**(인증 전에 닫았다).
+  /// 기록 여부와 원격 시간을 둘 다 이 값으로 잰다 — `crSessionConnected` 주석 참조.
+  int connectedMs = 0;
   bool recorded = false;
 }
 
@@ -70,8 +73,27 @@ void crSessionStart(String peerId) {
   } catch (_) {}
 }
 
-int _elapsedSec(_CrRec rec) =>
-    rec.startMs == 0 ? 0 : (DateTime.now().millisecondsSinceEpoch - rec.startMs) ~/ 1000;
+/// 인증이 끝나 **실제로 붙었다** — peer_info 가 도착했을 때 불린다(models/model.dart).
+///
+/// ★기록 여부를 가르는 건 이제 이것이다. 종전엔 원격 창이 열린 뒤의 경과 시간(15초)만 봤는데,
+///   그건 "붙었다"가 아니라 "창을 띄워 놓고 있었다"였다. 비밀번호를 몰라 헤매다 닫아도 15초는
+///   금방 넘으므로, **한 번도 못 붙은 시도가 지원기록에 남았다**(2026-09-05 Chang 실사용).
+///   거래처에는 아무 일도 없었는데 이력에는 A/S 를 한 것으로 남는 종류라, 나중에 "이때 뭐
+///   했더라"를 되짚을 때 사람을 속인다.
+///
+/// 재연결로 peer_info 가 다시 와도 처음 것만 센다 — 원격 시간이 중간부터 다시 시작하면 안 된다.
+void crSessionConnected(String peerId) {
+  try {
+    final rec = _crRecs[peerId];
+    if (rec == null || rec.connectedMs != 0) return;
+    rec.connectedMs = DateTime.now().millisecondsSinceEpoch;
+  } catch (_) {}
+}
+
+/// 원격 시간 = **붙은 뒤부터**. 비밀번호를 치는 동안은 지원 시간이 아니다.
+int _elapsedSec(_CrRec rec) => rec.connectedMs == 0
+    ? 0
+    : (DateTime.now().millisecondsSinceEpoch - rec.connectedMs) ~/ 1000;
 
 /// sessionId 확보(짧은 세션 레이스: start POST 가 아직이면 잠깐 대기). 스킵/실패면 빈 문자열.
 Future<String> _resolveSid(_CrRec rec) async {
@@ -101,7 +123,8 @@ Future<void> crSessionEndAuto(String peerId) async {
     final sid = await _resolveSid(rec);
     if (sid.isNotEmpty) {
       final secs = _elapsedSec(rec);
-      if (secs < kCrMinRecordSec) {
+      // ★한 번도 안 붙었으면 시간이 얼마가 지났든 폐기한다. 창을 열어 둔 시간은 A/S 가 아니다.
+      if (rec.connectedMs == 0 || secs < kCrMinRecordSec) {
         await bind.chainremoteSessionDiscard(sessionId: sid);
       } else {
         // 시간 기록을 먼저 확정(원격은 이미 끊긴 뒤) — 서버가 ended_at 을 보존하므로

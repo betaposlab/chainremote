@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_hbb/common/widgets/chainremote_sched.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_session_record.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -1370,6 +1371,10 @@ class FfiModel with ChangeNotifier {
 
   /// Handle the peer info event based on [evt].
   handlePeerInfo(Map<String, dynamic> evt, String peerId, bool isCache) async {
+    // ★지원기록은 "붙었다"를 여기서 안다. peer_info 는 인증이 통과해야 오므로, 이 한 줄이
+    //   "원격 창을 열었다"와 "실제로 원격했다"를 가른다(chainremote_session_record.dart).
+    //   캐시 재생(isCache)은 새 연결이 아니라 옛 값을 다시 그리는 것이라 세지 않는다.
+    if (!isCache) crSessionConnected(peerId);
     parent.target?.chatModel.voiceCallStatus.value = VoiceCallStatus.notStarted;
 
     _queryAuditGuid(peerId);

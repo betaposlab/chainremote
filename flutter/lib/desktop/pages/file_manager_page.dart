@@ -116,6 +116,9 @@ class _FileManagerPageState extends State<FileManagerPage>
           .showLoading(translate('Connecting...'), onCancel: closeConnection);
     });
     Get.put<FFI>(_ffi, tag: 'ft_${widget.id}');
+    // 내 컴퓨터 쪽은 상대를 기다리지 않는다 — 거래처가 꺼져 있어도 내 파일은 보여야 한다.
+    //   (상대 쪽은 peer_info 가 온 뒤 handlePeerInfo 에서 계속 열린다.)
+    _ffi.fileModel.onReadyLocal();
     WakelockManager.enable(_uniqueKey);
     if (isWeb) {
       _ffi.ffiModel.updateEventListener(_ffi.sessionId, widget.id);

@@ -92,9 +92,24 @@ class FileModel {
     evtLoop = FileDialogEventLoop();
   }
 
+  /// 로컬 창을 이미 열었는가. `onReadyLocal` 과 `onReady` 가 둘 다 부르므로 한 번만 돌게 한다.
+  bool _localReady = false;
+
+  /// ★내 컴퓨터 쪽만 먼저 연다 — 상대 연결과 아무 상관이 없다.
+  ///
+  /// 종전엔 로컬 목록도 `onReady()` 안에 있었고 그건 `handlePeerInfo` 에서만 불렸다.
+  /// 즉 **상대가 붙어야** 내 파일이 보였다. 거래처가 꺼져 있으면 "연결 오류" 를 닫아도
+  /// 내 맥북 파일 목록까지 영영 스피너로 남았다(2026-09-07 Chang, 5.5닭갈비월평점으로 실측).
+  /// 파일전송 창을 열어 두고 상대가 켜지길 기다리는 흐름도 그래서 못 썼다.
+  Future<void> onReadyLocal() async {
+    if (isWeb || _localReady) return;
+    _localReady = true;
+    await localController.onReady();
+  }
+
   Future<void> onReady() async {
     await evtLoop.onReady();
-    if (!isWeb) await localController.onReady();
+    await onReadyLocal();
     await remoteController.onReady();
   }
 

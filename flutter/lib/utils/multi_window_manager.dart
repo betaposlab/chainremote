@@ -172,7 +172,19 @@ class RustDeskMultiWindowManager {
       ));
     }
     if (isMacOS) {
-      Future.microtask(() => windowController.show());
+      // 맥은 창을 숨긴 채로 만들고 show() 로 띄운다. 그런데 show() 만으로는 창이 **뒤에**
+      //   남아서, 사용자는 [파일 전송] 을 눌렀는데 아무 일도 안 일어난 것으로 본다
+      //   (2026-09-07 Chang 실측 — 기겸 컴·5.5닭갈비 둘 다 같은 증상).
+      //   탭으로 붙는 경로는 file_manager_tab_page 가 windowOnTop 으로 focus()+show() 를
+      //   이미 하고 있었다. **새 창 경로만** 그 짝이 빠져 있었다.
+      //
+      // ★원격 데스크탑 창은 일부러 뺀다. 생성 직후 위치 복원·전체화면 로직이 따로 돌고
+      //   지금 잘 뜬다 — 증상이 없는 자리를 같이 바꿀 이유가 없다.
+      final bringToFront = type != WindowType.RemoteDesktop;
+      Future.microtask(() async {
+        await windowController.show();
+        if (bringToFront) await windowController.focus();
+      });
     }
     registerActiveWindow(windowId);
     windows.add(windowId);
