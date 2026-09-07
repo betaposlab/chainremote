@@ -43,6 +43,34 @@ if (-not $iscc) {
 }
 Write-Host "[2/3] ISCC: $iscc" -ForegroundColor Gray
 
+# 2.5. Inno Setup 버전 가드 (2026-09-07, 향우정 Win7 설치불가 사고).
+#   Inno Setup 6.4.0 부터 생성된 Setup/Uninstall 이 Windows 10+ 를 요구한다. 그 도구로
+#   빌드하면 Win7 POS 에서 실행 시 "이 프로그램은 이 Windows 버전을 지원하지 않습니다" 로
+#   설치가 막힌다 (거래처의 상당수가 Win7 32비트라 조용히 대량 사고가 된다).
+#   윈컴 Inno 가 자동 업데이트로 6.4+ 가 되면 아무 경고 없이 Win7 미지원 설치본이 나가므로,
+#   빌드 전에 도구 버전을 검사해 6.4+ 면 기본 중단한다. 의도적으로 Win10 전용을 낼 때만
+#   $env:ALLOW_WIN10_ONLY=1 로 넘어간다.
+$isccVerRaw = ""
+try { $isccVerRaw = (Get-Item $iscc).VersionInfo.ProductVersion } catch { }
+if (-not $isccVerRaw) { try { $isccVerRaw = (Get-Item $iscc).VersionInfo.FileVersion } catch { } }
+if ($isccVerRaw -match '(\d+)\.(\d+)') {
+  $isccMj = [int]$Matches[1]; $isccMn = [int]$Matches[2]
+  $win7ok = -not (($isccMj -gt 6) -or ($isccMj -eq 6 -and $isccMn -ge 4))
+  if ($win7ok) {
+    Write-Host "      Inno $isccVerRaw — Win7 지원 OK" -ForegroundColor Gray
+  } elseif ($env:ALLOW_WIN10_ONLY -eq "1") {
+    Write-Host "      Inno $isccVerRaw — Win7 미지원(6.4+)이지만 ALLOW_WIN10_ONLY=1 로 강행" -ForegroundColor Yellow
+  } else {
+    Write-Host "❌ Inno Setup $isccVerRaw 은 Win7 미지원 설치본을 만듭니다 (6.4.0+ 는 Win10 전용)." -ForegroundColor Red
+    Write-Host "   거래처 상당수가 Win7 32비트라 이대로 빌드하면 그들은 설치가 막힙니다." -ForegroundColor Red
+    Write-Host "   → Inno Setup 6.3.x 로 되돌린 뒤 다시 빌드하세요 (jrsoftware.org 구버전)." -ForegroundColor Yellow
+    Write-Host "   → Win10 전용을 의도한 것이면: `$env:ALLOW_WIN10_ONLY='1' 후 재실행." -ForegroundColor Yellow
+    Pop-Location; exit 1
+  }
+} else {
+  Write-Host "      Inno 버전 확인 실패(형식='$isccVerRaw') — 검사 건너뜀. Win7 설치는 실기기 확인 필요." -ForegroundColor Yellow
+}
+
 # 3. 컴파일 (target 별로 순차 실행)
 $failed = @()
 foreach ($iss in $targets) {
