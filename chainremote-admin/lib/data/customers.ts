@@ -866,7 +866,10 @@ export async function enrollCustomer(
     newSite?: boolean;
   },
   ctx: { tenantId: string },
-): Promise<{ token: string; created: boolean } | "cross_tenant"> {
+): Promise<
+  | { token: string; created: boolean; customerId?: string; name?: string }
+  | "cross_tenant"
+> {
   const remoteId = input.remoteId.trim();
   void input.machineUuid; // 앵커 비활성 (enroll-anchor.test 경보 대상)
   const plaintext = generateHeartbeatToken();
@@ -924,6 +927,7 @@ export async function enrollCustomer(
       const sameAsNow =
         byId.name && normalizeCustomerNameKey(byId.name) === nameKey;
       if (!sameAsNow) {
+        let movedTo = "";
         await db.transaction(async (tx) => {
           await tx
             .update(customers)
@@ -961,8 +965,9 @@ export async function enrollCustomer(
             }),
             resolvedAt: new Date(),
           });
+          movedTo = dst.id;
         });
-        return { token: plaintext, created: true };
+        return { token: plaintext, created: true, customerId: movedTo, name: explicitName };
       }
       // "다른 매장"이라면서 지금과 같은 상호를 넣었다 — 재설치로 본다(아래 평소 흐름).
     }
@@ -1116,7 +1121,7 @@ export async function enrollCustomer(
         detail: JSON.stringify({ remoteId, name: explicitName }),
       });
     }
-    return { token: plaintext, created: true };
+    return { token: plaintext, created: true, customerId: row.id, name };
   } catch (e) {
     // 동시 enroll 레이스 — 방금 다른 요청이 같은 remote_id 를 먼저 넣음(uq_customers_remote_id 위반).
     //   재조회 후 토큰 회전으로 수렴. 행이 여전히 없으면 unique 아닌 에러라 재throw.

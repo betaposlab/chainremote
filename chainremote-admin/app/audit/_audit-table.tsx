@@ -6,6 +6,8 @@ const LABEL: Record<string, string> = {
   "auth.login": "로그인",
   "auth.login_failed": "로그인 실패",
   "auth.takeover": "다른 기기 접속 인계",
+  "customer.create": "거래처 등록",
+  "customer.enroll": "거래처 등록(설치)",
   "customer.delete": "거래처 삭제",
   "tenant.delete": "회사 삭제",
   "user.create": "직원 추가",
@@ -32,6 +34,8 @@ const VIA: Record<string, string> = {
   browser: "관리 화면",
   hq: "본사 앱",
   takeover: "본사 앱(인계)",
+  panel: "관리 화면",
+  enroll: "설치 시 자동 등록",
 };
 
 /** 한 줄이 무슨 일이었는지 — 행위마다 볼 만한 값이 다르다. */
@@ -45,7 +49,7 @@ function detail(r: AuditRow): string {
     parts.push(`시도한 아이디: ${m.attemptedId}`);
   if (typeof m.device === "string" && m.device) parts.push(m.device);
   // 로그인 계열이 아닌 행위는 대상 이름이 제일 궁금하다.
-  for (const k of ["remoteId", "tenantName", "targetEmail", "name", "customerName", "email", "title", "displayName"]) {
+  for (const k of ["remoteId", "tenantName", "targetEmail", "name", "customerName", "email", "title", "displayName", "hostname"]) {
     if (typeof m[k] === "string" && m[k]) parts.push(String(m[k]));
   }
   return parts.join(" · ");

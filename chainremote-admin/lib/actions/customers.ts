@@ -71,9 +71,17 @@ export async function createCustomer(formData: FormData) {
   fields.assignedUserId = await sanitizeAssignee(fields.assignedUserId, session.tenantId);
   fields.folderId = await resolveFolderId(formData, session.tenantId);
   // 담당 미선택 시 생성자로 폴백(폴백 처리는 data.createCustomer 안).
-  await data.createCustomer(fields, {
+  const created = await data.createCustomer(fields, {
     tenantId: session.tenantId,
     assignedUserId: session.id,
+  });
+  await writeAudit({
+    action: "customer.create",
+    tenantId: session.tenantId,
+    userId: session.id,
+    targetType: "customer",
+    targetId: created?.id ?? null,
+    metadata: { via: "panel", name: fields.name, ...(fields.remoteId ? { remoteId: fields.remoteId } : {}) },
   });
   revalidatePath("/customers");
   redirect("/customers");
