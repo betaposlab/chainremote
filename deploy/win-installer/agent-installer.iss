@@ -75,6 +75,15 @@ UninstallDisplayIcon={commonappdata}\ChainRemote\chainremote.ico
 UninstallDisplayName={#APP_NAME}
 SetupIconFile=chainremote.ico
 
+[Messages]
+; "이 프로그램은 … Windows 버전을 지원하지 않습니다" — Inno 가 MinVersion(6.1) 미달일 때 내는 문구.
+;   ★향우정(2026-09-07): Win7 SP1 인데도 이 메시지가 떠서 반나절을 잃었다. 낮에 설치가 실패한 뒤
+;   그 파일에 XP 호환 모드가 걸렸고, 패널 다운로드 파일명이 버전까지 같아 새로 받아도 같은 경로에
+;   떨어져 계층이 그대로 먹었다. 호환 모드는 OS 버전을 5.x 로 속이므로 Inno 는 정직하게 거부한다.
+;   원문 그대로 두면 막다른 골목이라, 사람이 바로 풀 수 있는 처방을 메시지에 싣는다.
+korean.WindowsVersionNotSupported=이 설치 파일은 Windows 7 이상에서 실행됩니다.%n%nWindows 7 이상인데 이 메시지가 뜬다면, 이 설치 파일에 "호환 모드"가 걸려 있는 것입니다 (예전에 설치가 실패한 뒤 Windows 가 기록해 두며, 같은 이름으로 다시 받은 파일에도 남습니다).%n%n설치 파일 우클릭 → 속성 → [호환성] 탭 → "호환 모드로 이 프로그램 실행" 체크 해제 → 적용 후 다시 실행해 주세요.
+english.WindowsVersionNotSupported=This installer runs on Windows 7 or later.%n%nIf you are on Windows 7 or later and still see this, a compatibility mode is set on this file (Windows records it after a failed install, and it sticks to a re-downloaded file with the same name).%n%nRight-click the installer → Properties → Compatibility → uncheck "Run this program in compatibility mode" → Apply, then run it again.
+
 [Languages]
 Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -141,7 +150,7 @@ Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num
 
 ; 0.4. 원격 세션이 붙어 있으면 재접속 grace 를 깐다 — 반드시 0.5(프로세스 종료) '前'.
 ;   세션이 없으면 스크립트가 알아서 건너뛴다(무인 롤아웃에 무수락 창을 남기지 않기 위해).
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\set-update-grace.ps1"" -GraceFile ""{commonappdata}\ChainRemote\restart-grace"" -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 재접속 준비 중..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\set-update-grace.ps1"" -GraceFile ""{commonappdata}\ChainRemote\restart-grace"" -OperatorFile ""{commonappdata}\ChainRemote\session-operator"" -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 재접속 준비 중..."; Flags: runhidden waituntilterminated
 
 ; 0.5. silent-install 직전 옛 ChainRemote 강제 종료 (파일 잠금 해제 + 옛/새 프로세스 공존 방지)
 ; ★taskkill 에 /T 를 쓰지 말 것 (2026-08-20 실사고). 푸시 업데이트는 에이전트
@@ -316,6 +325,7 @@ Type: files; Name: "{commonappdata}\ChainRemote\*.ico"
 Type: filesandordirs; Name: "{commonappdata}\ChainRemote\pending"
 ; 재접속 grace(원격 중 업데이트용)와 수락카드에 띄우는 상호.
 Type: files; Name: "{commonappdata}\ChainRemote\restart-grace"
+Type: files; Name: "{commonappdata}\ChainRemote\session-operator"
 Type: files; Name: "{commonappdata}\ChainRemote\support-name.txt"
 ; 마지막에 빈 폴더만 정리. 언인스톨러가 든 installer 하위는 Inno 가 자기 순서에 지우므로
 ;   이 시점엔 아직 남아 있을 수 있고, 그러면 이 줄은 조용히 넘어간다(무해).
@@ -503,6 +513,16 @@ end;
 //   화면: os=6.1 sp=1 mode=x86 admin=yes) 안내문을 읽어도 사장님이 할 수 있는 일이 없었고,
 //   결국 사람이 현장에 가서 cmd 로 takeown/icacls 를 쳐야 했다. 그 복구를 인스톨러가 직접 한다.
 //   ★이 코드는 write-probe 가 실패한 기기에서만 탄다 — 정상 기기는 위에서 Exit 하므로 무영향.
+function CRUacOff(): Boolean;
+var
+  V: Cardinal;
+begin
+  // EnableLUA=0 이면 UAC 꺼짐. 값이 없으면 기본(켜짐)으로 본다.
+  Result := False;
+  if RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', 'EnableLUA', V) then
+    Result := (V = 0);
+end;
+
 function CRDiag(): String;
 var
   V: TWindowsVersion;
@@ -514,6 +534,10 @@ begin
   if Is64BitInstallMode() then S := S + ' mode=x64' else S := S + ' mode=x86';
   // 핵심: 이 설치가 실제로 관리자 권한으로 승격됐는지. no 면 "권한 승격 실패"가 범인.
   if IsAdminInstallMode() then S := S + ' admin=yes' else S := S + ' admin=no';
+  // ★향우정 실측(2026-09-07)의 진짜 원인: UAC 꺼짐(EnableLUA=0). 이 상태에선 관리자로 승격된
+  //   인스톨러도 Program Files 에 폴더를 못 만든다(탐색기·cmd 는 됨). admin=yes 인데 쓰기 거부면
+  //   먼저 볼 값이라 진단 한 줄에 같이 싣는다.
+  if CRUacOff() then S := S + ' uac=off' else S := S + ' uac=on';
   Result := S;
 end;
 
@@ -604,7 +628,7 @@ end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
-  Dir, Diag, Tried: String;
+  Dir, Diag, Tried, Uac: String;
 begin
   Result := '';
   Dir := ExpandConstant('{app}');
@@ -645,10 +669,20 @@ begin
   end;
 
   CRLog('installer: write-probe FAILED after ACL-FIX -> abort; ' + Diag);
+  // UAC 가 꺼진 기기는 권한 복구로 안 풀린다(향우정: EnableLUA=1 + 재부팅이 답이었다).
+  //   그 처방을 목록 앞에 세운다 — 아래 1)~3) 을 다 해 봐도 소용없는 기기라서다.
+  Uac := '';
+  if CRUacOff() then
+    Uac :=
+      #13#10 + '★ 이 PC 는 사용자 계정 컨트롤(UAC)이 꺼져 있습니다.' + #13#10 +
+      '   이 상태에서는 설치 프로그램이 폴더를 만들 수 없습니다.' + #13#10 +
+      '   제어판 → 사용자 계정 → [사용자 계정 컨트롤 설정 변경] →' + #13#10 +
+      '   슬라이더를 "알림 안 함" 위로 올리고 재부팅한 뒤 다시 설치해 주세요.' + #13#10;
   Result :=
     '[ChainRemote 설치 불가 — 폴더에 쓸 수 없습니다]' + #13#10 + #13#10 +
     Dir + ' 에 파일을 쓸 수 없습니다 (액세스 거부).' + #13#10 +
     Tried +
+    Uac +
     '아래 순서로 확인해 주세요:' + #13#10 + #13#10 +
     '1) 설치 파일 우클릭 → "관리자 권한으로 실행" 으로 다시 시도.' + #13#10 + #13#10 +
     '2) 백신/보안 SW 실시간 차단이면 일시 해제 후 재시도.' + #13#10 + #13#10 +

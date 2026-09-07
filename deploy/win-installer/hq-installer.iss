@@ -44,6 +44,11 @@ UninstallDisplayIcon={app}\chainremote.ico
 UninstallDisplayName={#APP_NAME}
 SetupIconFile=chainremote.ico
 
+[Messages]
+; 호환 모드가 걸린 파일이 내는 "Windows 버전 미지원" — 사유·처방은 agent-installer.iss 의 같은 섹션.
+korean.WindowsVersionNotSupported=이 설치 파일은 Windows 7 이상에서 실행됩니다.%n%nWindows 7 이상인데 이 메시지가 뜬다면, 이 설치 파일에 "호환 모드"가 걸려 있는 것입니다 (예전에 설치가 실패한 뒤 Windows 가 기록해 두며, 같은 이름으로 다시 받은 파일에도 남습니다).%n%n설치 파일 우클릭 → 속성 → [호환성] 탭 → "호환 모드로 이 프로그램 실행" 체크 해제 → 적용 후 다시 실행해 주세요.
+english.WindowsVersionNotSupported=This installer runs on Windows 7 or later.%n%nIf you are on Windows 7 or later and still see this, a compatibility mode is set on this file (Windows records it after a failed install, and it sticks to a re-downloaded file with the same name).%n%nRight-click the installer → Properties → Compatibility → uncheck "Run this program in compatibility mode" → Apply, then run it again.
+
 [Languages]
 Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -93,7 +98,7 @@ Filename: "netsh.exe"; Parameters: "int ipv4 set dynamicport tcp start=10000 num
 Filename: "netsh.exe"; Parameters: "int ipv6 set dynamicport tcp start=10000 num=55000"; Flags: runhidden waituntilterminated
 
 ; 0.4. 원격 세션이 붙어 있으면 재접속 grace 를 깐다 — 반드시 0.5(프로세스 종료) '前'.
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\set-update-grace.ps1"" -GraceFile ""{commonappdata}\ChainRemote\restart-grace"" -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 재접속 준비 중..."; Flags: runhidden waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\set-update-grace.ps1"" -GraceFile ""{commonappdata}\ChainRemote\restart-grace"" -OperatorFile ""{commonappdata}\ChainRemote\session-operator"" -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 재접속 준비 중..."; Flags: runhidden waituntilterminated
 
 ; 0.5. silent-install 직전 옛 ChainRemote.exe 강제 종료 (v1.3.6 신규, 2026-05-29).
 ;     v1.3.4 → v1.3.5 마이그레이션 후 남던 트레이 아이콘 2개 잔재 해소. 자세히는 agent-installer.iss.
@@ -179,6 +184,7 @@ Type: files; Name: "{commonappdata}\ChainRemote\*.log"
 Type: files; Name: "{commonappdata}\ChainRemote\*.ico"
 Type: filesandordirs; Name: "{commonappdata}\ChainRemote\pending"
 Type: files; Name: "{commonappdata}\ChainRemote\restart-grace"
+Type: files; Name: "{commonappdata}\ChainRemote\session-operator"
 Type: dirifempty; Name: "{commonappdata}\ChainRemote"
 
 [Code]
