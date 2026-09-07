@@ -48,10 +48,28 @@ export async function listCustomers(tenantId: string) {
     .leftJoin(folders, eq(folders.id, customers.folderId))
     .where(eq(customers.tenantId, tenantId))
     .orderBy(desc(customers.updatedAt));
+  // ★무인접속 비밀번호는 **켠 대리점에만** 실어 보낸다.
+  //
+  //   이 목록은 본사 앱(HQ)이 그대로 받아 간다. HQ 는 그 값이 있으면 접속할 때 사람 대신
+  //   넣어 주므로(chainremote_data.rs → flutter.rs session_add), 이 한 줄이 곧 "아무도
+  //   비밀번호를 안 친다"의 실체다.
+  //
+  //   select 가 getTableColumns 라 컬럼을 추가하면 **자동으로** 딸려 나간다. 그래서 안 켠
+  //   대리점에도 소리 없이 나가고 있었다(값이 다 비어 있어 드러나지 않았을 뿐이다).
+  //   문을 여는 값은 자동으로 흘러가면 안 된다 — 여기서 명시적으로 끊는다.
+  const [t] = await db
+    .select({ unattended: tenants.unattendedAgent })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId))
+    .limit(1);
+  const stripPw = !t?.unattended;
+
   // ★검증 못 한 UPnP 주소는 여기서 지운다(마이그042). 공유기가 매핑을 등록해 놓고도 실제로는
   //   랜 안쪽으로 넘기지 않는 경우가 있어(우리집 실측), 그대로 내주면 본사 앱이 원격마다
   //   죽은 주소를 후보로 잡는다. 본사 앱은 손댈 필요가 없다 — 주소가 없으면 안 쓴다.
-  return rows.map(maskUnverifiedDoor);
+  return rows
+    .map(maskUnverifiedDoor)
+    .map((r) => (stripPw ? { ...r, unattendedPassword: null } : r));
 }
 
 export async function getCustomer(id: string, tenantId: string) {

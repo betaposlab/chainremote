@@ -39,6 +39,10 @@ struct CustomerRow {
     os: Option<String>,
     #[serde(rename = "osBits")]
     os_bits: Option<String>,
+    /// 무인접속 비밀번호(마이그 052). 패널이 **무인접속을 켠 대리점에만** 실어 보낸다.
+    ///   있으면 접속할 때 사람 대신 넣는다 — `unattended_password()` 주석 참조.
+    #[serde(rename = "unattendedPassword")]
+    unattended_password: Option<String>,
     // 디스크 관제(마이그024) — bytes. 카드 여유공간 경고 배지용.
     #[serde(rename = "diskTotalBytes")]
     disk_total_bytes: Option<i64>,
@@ -354,6 +358,48 @@ fn unwrap_body(raw: String) -> String {
 /// 매핑은 즐겨찾기 추가 시 remote_id→uuid 변환 + 최근세션 이름 덮어쓰기에 쓴다.
 /// "load_all_customers" 이벤트로 테넌트 전체(pending 포함)를 push → HQ '전체 거래처'
 /// 탭(allCustomersPeersModel)에 뜬다. 어느 직원이 등록했든 다 보인다.
+/// remote_id → 무인접속 비밀번호. 패널이 준 값을 **메모리에만** 들고 있는다.
+///
+/// ★디스크에 안 쓴다. 이건 그 거래처 PC 의 문을 여는 값이라, 남겨 두면 HQ 를 쓰는 모든
+///   PC 에 평문이 흩어진다. 로그인할 때마다 목록과 함께 다시 받으므로 남길 이유도 없다.
+///   (peer 설정에 미리 박는 길은 애초에 불가능하다 — 저장 형태가 평문이 아니라
+///   SHA256(평문+상대 salt) 이고 그 salt 는 접속 핸드셰이크에서만 온다.)
+static UNATTENDED_PW: std::sync::Mutex<Option<std::collections::HashMap<String, String>>> =
+    std::sync::Mutex::new(None);
+
+/// 이 기기의 무인접속 비밀번호. 없으면 None.
+///
+/// 쓰는 곳은 `flutter.rs::session_add` 한 곳뿐이다. 거기가 모든 접속 경로(더블클릭·즐겨찾기·
+/// 최근세션·ID 직접입력·파일전송)가 지나는 유일한 관문이라, 한 자리만 고치면 전부 덮인다.
+pub fn unattended_password(remote_id: &str) -> Option<String> {
+    let key = remote_id.trim().to_uppercase();
+    UNATTENDED_PW
+        .lock()
+        .ok()?
+        .as_ref()?
+        .get(&key)
+        .filter(|v| !v.is_empty())
+        .cloned()
+}
+
+fn remember_unattended_passwords(rows: &[&CustomerRow]) {
+    let mut map = std::collections::HashMap::new();
+    for c in rows {
+        if let (Some(id), Some(pw)) = (c.remote_id.as_ref(), c.unattended_password.as_ref()) {
+            if !id.trim().is_empty() && !pw.is_empty() {
+                map.insert(id.trim().to_uppercase(), pw.clone());
+            }
+        }
+    }
+    // ★값은 로그에 안 남긴다. 몇 대에 걸렸는지만 남긴다.
+    if !map.is_empty() {
+        log::info!("[chainremote_unattended] 무인접속 비밀번호 {}대 수신", map.len());
+    }
+    if let Ok(mut g) = UNATTENDED_PW.lock() {
+        *g = Some(map);
+    }
+}
+
 fn fetch_customers_blocking() -> bool {
     let url = format!("{}/api/customers", chainremote_auth::api_base());
     match authed_get(url) {
@@ -361,6 +407,7 @@ fn fetch_customers_blocking() -> bool {
             Ok(resp) => {
                 let rows: Vec<&CustomerRow> = resp.customers.iter().collect();
                 update_remote_to_uuid(&rows);
+                remember_unattended_passwords(&rows);
                 remember_upnp_endpoints(&rows);
                 merge_remote_names(&rows);
                 // "전체 거래처" 탭 — remote_id 있는 거래처 전부(pending 포함)를 peer 로 push.

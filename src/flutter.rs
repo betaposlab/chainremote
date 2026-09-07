@@ -1355,6 +1355,25 @@ pub fn session_add(
     LocalConfig::set_remote_id(&id);
 
     let mut preset_password = password.clone();
+    // ★무인접속 비밀번호 자동 적용 — "아무도 비밀번호를 안 친다".
+    //
+    //   패널이 무인접속을 켠 대리점에만 내려보낸 값을 여기서 넣는다. session_add 는 모든
+    //   접속 경로(더블클릭·즐겨찾기·최근세션·ID 직접입력·파일전송)가 지나는 유일한 관문이라
+    //   한 자리만 고치면 전부 덮인다. 평문을 넘기는 게 맞다 — handle_hash 가 상대 salt 와
+    //   함께 해싱하는데(client.rs), 그 salt 는 핸드셰이크에서만 오므로 미리 계산할 수 없다.
+    //
+    //   ★두 가지를 앞세운다. ①사용자가 직접 넘긴 값 ②그 기기에 기억된 비밀번호.
+    //     사람이 손으로 넣은 것을 서버 값으로 덮지 않는다 — 패널 값이 낡았을 때 멀쩡히
+    //     되던 접속이 깨지는 쪽이 더 나쁘다.
+    if preset_password.is_empty()
+        && !is_shared_password
+        && hbb_common::config::PeerConfig::load(id).password.is_empty()
+    {
+        if let Some(pw) = crate::chainremote_data::unattended_password(id) {
+            log::info!("[chainremote_unattended] 저장된 비밀번호가 없어 패널 값으로 접속한다");
+            preset_password = pw;
+        }
+    }
     let shared_password = if is_shared_password {
         // To achieve a flexible password application order, we don't treat shared password as a preset password.
         preset_password = Default::default();

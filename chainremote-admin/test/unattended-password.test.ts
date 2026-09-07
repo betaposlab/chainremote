@@ -16,6 +16,7 @@ import { eq } from "drizzle-orm";
 import { testDb } from "./helpers/db";
 import { tenants, customers } from "@/lib/schema";
 import {
+  listCustomers,
   getUnattendedPassword,
   setUnattendedPassword,
   registerHeartbeatToken,
@@ -140,5 +141,28 @@ describe("null 과 빈 값을 가르는 코드", () => {
     expect(src).toContain("unattended_password: Option<String>");
     // 설치본 게이트. 이게 빠지면 무인접속 빌드가 아닌 거래처도 값을 받아 심는다.
     expect(src).toContain("is_unattended_agent()");
+  });
+});
+
+// 본사 앱(HQ)이 받아 가는 목록. 이 값이 있으면 HQ 가 접속할 때 사람 대신 넣으므로
+// (chainremote_data.rs → flutter.rs session_add), 이 목록이 곧 "누가 문을 열 수 있나"다.
+// select 가 getTableColumns 라 컬럼을 늘리면 자동으로 딸려 나간다 — 문을 여는 값이 자동으로
+// 흘러가지 않게 여기서 잠근다.
+describe("본사 앱 목록에 비밀번호가 실리는 조건", () => {
+  it("무인접속을 켠 대리점에는 실린다", async () => {
+    const { tenantId } = await seed("lc-on", "UP0000010", true, "dalin2026");
+    const rows = await listCustomers(tenantId);
+    expect(rows[0].unattendedPassword).toBe("dalin2026");
+  });
+
+  it("★안 켠 대리점에는 값이 있어도 안 실린다", async () => {
+    const { tenantId } = await seed("lc-off", "UP0000011", false, "shouldNotLeak");
+    const rows = await listCustomers(tenantId);
+    expect(rows[0].unattendedPassword).toBeNull();
+  });
+
+  it("★HQ 로 나가는 라우트도 같은 통로를 쓴다 — 두 번째 사본을 만들면 게이트가 갈린다", () => {
+    const src = fs.readFileSync("app/api/customers/route.ts", "utf8");
+    expect(src).toContain("data.listCustomers");
   });
 });
