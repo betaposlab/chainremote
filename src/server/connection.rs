@@ -1484,6 +1484,10 @@ impl Connection {
             return false;
         }
         self.authorized = true;
+        // ChainRemote: 인가된 접속자 ID 를 ProgramData 에 남긴다 — 원격 중 업데이트 인스톨러가
+        //   재접속 grace 를 이 ID 로 쓴다(set-update-grace.ps1). 여기가 모든 인가 경로가
+        //   지나는 유일한 자리라 수락 클릭·비밀번호·grace·예약창 어느 쪽이든 빠지지 않는다.
+        Self::note_session_operator(&self.lr.my_id);
         let (conn_type, auth_conn_type) = if self.file_transfer.is_some() {
             (1, AuthConnType::FileTransfer)
         } else if self.port_forward_socket.is_some() {
@@ -2249,6 +2253,37 @@ impl Connection {
     //   1차 시도가 실패함(2026-06-05). ProgramData\ChainRemote 는 Users 파일생성 권한이
     //   검증된 머신 전역 위치(update_now.flag 와 동일 패턴)라 어느 컨텍스트서든 읽고 씀.
     //   이미 거래처가 수락한 세션의 연속이므로 무인 0클릭 접근과 다름(5분·1회용).
+    // 마지막으로 인가된 접속자 ID. 업데이트 인스톨러(set-update-grace.ps1)가 서비스를 죽이기 직전
+    //   이 파일을 읽어 그 ID 로 restart-grace 를 쓴다. 2026-09-02 에 grace 판정을 "ID 정확 일치"로
+    //   조이면서 인스톨러의 빈 ID grace 가 조용히 죽었고(1.4.141~146: 원격 중 재설치하면 수락 카드가
+    //   다시 뜸), 그 자리를 이 파일이 메운다. 덮어쓰기라 동시 접속이면 최근 인가자 하나만 남는데,
+    //   못 맞추면 평소처럼 수락 카드가 뜰 뿐이라 실패 방향은 안전하다.
+    // ★경로만 cfg 로 가른다 — 함수 전체를 windows 게이트에 넣으면 맥 cargo check 가 이 코드를
+    //   아예 안 본다(feedback_cfg_gated_false_green).
+    fn session_operator_path() -> std::path::PathBuf {
+        #[cfg(windows)]
+        {
+            std::path::PathBuf::from(r"C:\ProgramData\ChainRemote\session-operator")
+        }
+        #[cfg(not(windows))]
+        {
+            std::env::temp_dir().join("chainremote-session-operator")
+        }
+    }
+
+    fn note_session_operator(operator_id: &str) {
+        if operator_id.is_empty() {
+            return;
+        }
+        let p = Self::session_operator_path();
+        if let Some(dir) = p.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        if let Err(e) = std::fs::write(&p, operator_id) {
+            log::warn!("[session-operator] write FAILED path={:?}: {}", p, e);
+        }
+    }
+
     fn restart_grace_path() -> std::path::PathBuf {
         #[cfg(windows)]
         {
@@ -2340,6 +2375,10 @@ impl Connection {
             //   같은 lr.my_id 를 쓰고 Config::get_id() 는 gen_id() 자체가 실패하는 병적
             //   상황에서만 빈 값이라, 실제로 필요한 적이 없다. 못 맞추면 평소처럼 수락 카드가
             //   뜰 뿐이라 실패 방향도 안전하다.
+            //   ★단 하나 빠뜨린 게 있었다(2026-09-07): 업데이트 인스톨러의 set-update-grace.ps1 이
+            //   빈 ID 관용에 기대어 ":exp" 만 쓰고 있었다. 그래서 1.4.141~146 은 원격 중 재설치하면
+            //   수락 카드가 다시 떴다. 지금은 note_session_operator() 가 남긴 ID 를 인스톨러가
+            //   읽어 쓴다 — 관용을 되살리지 않고 같은 효과를 낸다.
             if !gid.is_empty() && gid == operator_id {
                 log::info!(
                     "[restart-grace] MATCH (stored='{}' got='{}') -> auto-accept",

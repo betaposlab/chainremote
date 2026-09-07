@@ -6,8 +6,13 @@
 # there is nobody sitting at that PC to click it.
 #
 # The agent reads this file in consume_restart_reconnect_grace (src/server/connection.rs).
-# The operator id is left blank on purpose: the installer has no idea who was connected, and
-# the consume side treats a blank id as a match. Five minutes is the whole window.
+# Since 1.4.141 the consume side accepts only an exact operator id match - a blank id never
+# matches. The running agent (1.4.147+) leaves the last authorized operator id in
+# session-operator (connection.rs note_session_operator); this script copies that id into the
+# grace file. No id on disk (older agent underneath) means no grace: the shop clicks Accept once
+# more, which is the safe direction. Never write a blank id - that was the 1.4.141-146 regression
+# where updater.log said "armed" while the agent logged "id mismatch stored=''".
+# Five minutes is the whole window.
 #
 # Only armed when a session is actually up. An unattended overnight rollout would otherwise
 # leave a no-prompt window open behind it - the same hole that was deliberately closed on
@@ -20,6 +25,7 @@
 
 param(
     [string]$GraceFile = "C:\ProgramData\ChainRemote\restart-grace",
+    [string]$OperatorFile = "C:\ProgramData\ChainRemote\session-operator",
     [int]$Seconds = 300,
     [string]$Log = ""
 )
@@ -48,6 +54,15 @@ try {
         exit 0
     }
 
+    $op = ""
+    if (Test-Path $OperatorFile) {
+        try { $op = ([System.IO.File]::ReadAllText($OperatorFile)).Trim() } catch { $op = "" }
+    }
+    if (-not $op) {
+        Write-Log ("live session (cm=" + $cm.Count + ") but no operator id at " + $OperatorFile + " -> not arming (agent below 1.4.147?)")
+        exit 0
+    }
+
     $epoch = New-Object System.DateTime(1970, 1, 1, 0, 0, 0, [System.DateTimeKind]::Utc)
     $exp = [int64](([System.DateTime]::UtcNow - $epoch).TotalSeconds) + $Seconds
 
@@ -55,9 +70,9 @@ try {
     if ($dir -and -not (Test-Path $dir)) {
         New-Item -Path $dir -ItemType Directory -Force | Out-Null
     }
-    # Blank operator id, colon, expiry - the exact shape consume_restart_reconnect_grace parses.
-    [System.IO.File]::WriteAllText($GraceFile, (":" + $exp))
-    Write-Log ("armed " + $Seconds + "s (exp=" + $exp + ", cm=" + $cm.Count + ")")
+    # Operator id, colon, expiry - the exact shape consume_restart_reconnect_grace parses.
+    [System.IO.File]::WriteAllText($GraceFile, ($op + ":" + $exp))
+    Write-Log ("armed " + $Seconds + "s operator=" + $op + " (exp=" + $exp + ", cm=" + $cm.Count + ")")
 } catch {
     Write-Log ("FAILED: " + $_.Exception.Message)
 }
