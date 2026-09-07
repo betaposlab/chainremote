@@ -457,7 +457,8 @@ begin
   end;
   // 임시 시작 진단 팝업(2026-06-15 향우정 설치실패 규명용)은 제거됨(2026-06-18).
   //   정상 설치 확인 완료. 자동업뎃/수동설치 모두 팝업 없이 진행한다. 설치 전 쓰기검증은
-  //   아래 PrepareToInstall() 이 (팝업 없이) 계속 수행하고, 실패 시에만 한글 사유를 보여준다.
+  //   아래 PrepareToInstall() 이 (팝업 없이) 계속 수행한다. 실패했을 때만 [권한 복구할까요?]
+  //   를 한 번 묻고, 복구가 되면 그대로 설치를 이어간다 (2026-09-07).
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -490,12 +491,18 @@ begin
   end;
 end;
 
-// ── 설치 전 쓰기 보호 자가진단 (2026-06-15) ──────────────────────────────────
+// ── 설치 전 쓰기 보호 자가진단 + 권한 자동 복구 (2026-06-15, 복구 2026-09-07) ────
 // {app}(=Program Files\ChainRemote)에 실제 파일 쓰기를 미리 시도한다. 쓰기 보호
 //   (쓰기 필터 UWF/FBWF/EWF · 폴더 Deny 권한 · 백신 실시간 차단)면 설치 도중(install_me
 //   복사 단계)에 뜨던 암호 같은 'CreateFile 실패 코드5' / '디렉터리 생성 액세스 거부'
 //   대신, 여기서 원인+처방을 한글로 보여주고 깔끔히 중단한다. (향우정 Win7 32bit 사고를 드러냄.)
 // 자동 업데이트(/VERYSILENT, 이미 설치돼 쓰기 가능한 기기)는 중단하지 않는다 — 기존 플로우 무영향.
+//
+// 2026-09-07 — 안내만으로는 부족했다. 향우정 POS(Win7 SP1 32비트 Enterprise K)가
+//   admin=yes 로 승격됐는데도 C:\Program Files\ChainRemote 쓰기가 거부돼(2026-09-03 실측
+//   화면: os=6.1 sp=1 mode=x86 admin=yes) 안내문을 읽어도 사장님이 할 수 있는 일이 없었고,
+//   결국 사람이 현장에 가서 cmd 로 takeown/icacls 를 쳐야 했다. 그 복구를 인스톨러가 직접 한다.
+//   ★이 코드는 write-probe 가 실패한 기기에서만 탄다 — 정상 기기는 위에서 Exit 하므로 무영향.
 function CRDiag(): String;
 var
   V: TWindowsVersion;
@@ -510,40 +517,144 @@ begin
   Result := S;
 end;
 
+// 실제 쓰기 시험 — 폴더가 없으면 만들어 보고, 프로브 파일을 쓴 뒤 지운다.
+//   복구 전/후로 여러 번 부르므로 함수로 뺐다 (판정 기준이 한 곳이라 갈라질 수 없다).
+function CRWriteProbe(Dir: String): Boolean;
+var
+  Probe: String;
+begin
+  Result := True;
+  if not DirExists(Dir) then
+    Result := ForceDirectories(Dir);
+  if Result then begin
+    Probe := Dir + '\.cr_writetest.tmp';
+    Result := SaveStringToFile(Probe, 'chainremote write probe', False);
+    if Result then DeleteFile(Probe);
+  end;
+end;
+
+// cmd /c 로 한 줄 실행. 종료 코드는 로그용 참고값일 뿐 — 성공 판정은 항상 재프로브로 한다.
+//   (icacls 는 하위 항목 일부가 실패해도 0 이 아닌 코드를 내는데, 정작 우리가 필요한 폴더는
+//    고쳐져 있는 경우가 흔하다. 종료 코드로 판정하면 멀쩡한 복구를 실패로 오독한다.)
+function CRRun(Cmd: String): Integer;
+var
+  Code: Integer;
+begin
+  Code := -1;
+  if not Exec(ExpandConstant('{cmd}'), '/c ' + Cmd, '', SW_HIDE, ewWaitUntilTerminated, Code) then
+    Code := -1;
+  Result := Code;
+end;
+
+// 권한 복구 3단계. 되는 즉시 멈춘다 (최소 개입 — 필요 없는 단계는 아예 실행하지 않는다).
+//
+// ★그룹은 이름이 아니라 well-known SID 로 지정한다:
+//     *S-1-5-32-544 = Administrators, *S-1-5-18 = SYSTEM
+//   한국어 Enterprise K / 복제 이미지에서는 그룹명 해석이 안 되는 기기가 있어
+//   `icacls ... /grant Administrators:F` 가 조용히 실패한다. SID 는 언어·이미지와 무관하게 항상 맞는다.
+// ★인자를 통째로 따옴표로 감싼다 — (OI)(CI) 의 괄호를 cmd 가 블록 문자로 삼키지 않게.
+function CRFixAcl(Dir: String): Boolean;
+var
+  Parent: String;
+  Code: Integer;
+begin
+  Parent := ExtractFileDir(Dir);   // C:\Program Files
+
+  // [1] 잔재 폴더 제거. 실패한 설치가 남긴 못 쓰는 폴더가 막고 있는 경우가 가장 흔하다.
+  //     코어 --silent-install 도 어차피 설치 직전 같은 폴더를 rd /s /q 로 민다
+  //     (windows.rs get_uninstall) — 새로 만드는 위험이 아니라 이미 일어나는 일이다.
+  //     서비스가 파일을 물고 있으면 실패하는데, 무시하고 다음 단계로 간다.
+  if DirExists(Dir) then begin
+    Code := CRRun('rd /s /q "' + Dir + '"');
+    CRLog('installer: ACL-FIX [1] rd ' + Dir + ' -> ' + IntToStr(Code));
+    if CRWriteProbe(Dir) then begin
+      CRLog('installer: ACL-FIX recovered at [1] (stale folder)');
+      Result := True;
+      Exit;
+    end;
+  end;
+
+  // [2] 우리 폴더의 소유권 회복 + 상속 기본값 복원 + Administrators/SYSTEM 명시 부여.
+  //     takeown 의 `/r /d y` 는 한국어 Windows 에서 /d 인수 해석이 깨지는 사례가 있어
+  //     비재귀 형태를 먼저 시도한다. 둘 다 실패해도 무해하다 — 판정은 재프로브가 한다.
+  CRRun('takeown /f "' + Dir + '"');
+  CRRun('takeown /f "' + Dir + '" /r /d y');
+  CRRun('icacls "' + Dir + '" /reset /t /c /q');
+  CRRun('icacls "' + Dir + '" /grant "*S-1-5-32-544:(OI)(CI)F" /t /c /q');
+  CRRun('icacls "' + Dir + '" /grant "*S-1-5-18:(OI)(CI)F" /t /c /q');
+  CRLog('installer: ACL-FIX [2] takeown+icacls on ' + Dir);
+  if CRWriteProbe(Dir) then begin
+    CRLog('installer: ACL-FIX recovered at [2] (own folder acl)');
+    Result := True;
+    Exit;
+  end;
+
+  // [3] 부모(Program Files) 자체가 막힌 경우 — 폴더를 만들지도 못한 상태다.
+  //     ★비재귀(/t 없음). Program Files 전체를 훑으면 수만 개 파일에 수십 분이 걸리고
+  //     다른 프로그램의 명시적 권한까지 갈아엎는다. 폴더 하나에 ACE 를 더할 뿐이고,
+  //     그 내용(Administrators 에 상속 가능한 모든 권한)은 Windows 기본값 복원이지 약화가 아니다.
+  CRRun('icacls "' + Parent + '" /grant "*S-1-5-32-544:(OI)(CI)F"');
+  CRLog('installer: ACL-FIX [3] grant on parent ' + Parent);
+  Result := CRWriteProbe(Dir);
+  if Result then
+    CRLog('installer: ACL-FIX recovered at [3] (parent acl)')
+  else
+    CRLog('installer: ACL-FIX exhausted - still not writable');
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
-  Dir, Probe, Diag: String;
-  Ok: Boolean;
+  Dir, Diag, Tried: String;
 begin
   Result := '';
   Dir := ExpandConstant('{app}');
   Diag := CRDiag();
-  Ok := True;
-  if not DirExists(Dir) then
-    Ok := ForceDirectories(Dir);
-  if Ok then begin
-    Probe := Dir + '\.cr_writetest.tmp';
-    Ok := SaveStringToFile(Probe, 'chainremote write probe', False);
-    if Ok then DeleteFile(Probe);
-  end;
-  if Ok then begin
+  if CRWriteProbe(Dir) then begin
     CRLog('installer: write-probe OK (' + Dir + ') ' + Diag);
     Exit;
   end;
   if WizardSilent() then begin
     // 자동 업데이트 경로(이미 설치돼 쓰기 가능한 기기)는 기존대로 진행 — 무영향.
+    //   ★여기서는 복구를 시도하지 않는다. 사람이 확인할 수 없는 경로에서 시스템 폴더 권한을
+    //   건드리지 않는다는 뜻이다. 애초에 미설치 기기는 수동 설치가 필요하므로 손해도 없다.
     CRLog('installer: write-probe FAILED (' + Dir + ') silent -> proceed; ' + Diag);
     Exit;
   end;
-  CRLog('installer: write-probe FAILED (' + Dir + ') interactive -> abort; ' + Diag);
+  CRLog('installer: write-probe FAILED (' + Dir + ') interactive; ' + Diag);
+
+  // 사람에게 한 번 묻고, 승낙하면 인스톨러가 직접 고친다. 현장 출동 + cmd 수동 타이핑 대체.
+  Tried := '';
+  if MsgBox(
+       '[ChainRemote 설치 준비]' + #13#10 + #13#10 +
+       Dir + ' 폴더에 파일을 쓸 수 없습니다.' + #13#10 +
+       '이 폴더의 권한이 잘못되어 있습니다.' + #13#10 + #13#10 +
+       '지금 권한을 복구하고 설치를 계속할까요?' + #13#10 + #13#10 +
+       '[예] 를 누르면 ChainRemote 폴더의 권한만 정상으로 되돌린 뒤' + #13#10 +
+       '설치를 이어서 진행합니다. 다른 프로그램에는 영향이 없습니다.',
+       mbConfirmation, MB_YESNO) = IDYES then begin
+    // 진행 표시는 부가 기능이다 — 여기서 예외가 나서 설치가 죽는 일이 없게 감싼다.
+    try
+      WizardForm.StatusLabel.Caption := 'ChainRemote 폴더 권한 복구 중...';
+    except
+    end;
+    if CRFixAcl(Dir) then begin
+      CRLog('installer: write-probe OK after ACL-FIX (' + Dir + ') ' + Diag);
+      Exit;   // 복구 성공 → 그대로 설치를 이어간다.
+    end;
+    Tried := '권한 자동 복구를 시도했지만 실패했습니다.' + #13#10;
+  end;
+
+  CRLog('installer: write-probe FAILED after ACL-FIX -> abort; ' + Diag);
   Result :=
     '[ChainRemote 설치 불가 — 폴더에 쓸 수 없습니다]' + #13#10 + #13#10 +
     Dir + ' 에 파일을 쓸 수 없습니다 (액세스 거부).' + #13#10 +
+    Tried +
     '아래 순서로 확인해 주세요:' + #13#10 + #13#10 +
     '1) 설치 파일 우클릭 → "관리자 권한으로 실행" 으로 다시 시도.' + #13#10 + #13#10 +
-    '2) ' + Dir + ' 우클릭 → 속성 → [보안] 탭 →' + #13#10 +
-    '   Administrators 에 "쓰기"가 허용인지 (거부면 그게 원인).' + #13#10 + #13#10 +
-    '3) 백신/보안 SW 실시간 차단이면 일시 해제 후 재시도.' + #13#10 + #13#10 +
+    '2) 백신/보안 SW 실시간 차단이면 일시 해제 후 재시도.' + #13#10 + #13#10 +
+    '3) 그래도 안 되면 디스크 오류일 수 있습니다.' + #13#10 +
+    '   [컴퓨터] → C: 드라이브 우클릭 → 속성 → [도구] 탭 →' + #13#10 +
+    '   [검사] 실행, 재부팅한 뒤 다시 설치해 주세요.' + #13#10 + #13#10 +
     '진단 정보: ' + Diag + #13#10 +
     '(로그: C:\ProgramData\ChainRemote\updater.log)';
 end;
