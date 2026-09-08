@@ -602,7 +602,11 @@ class _PeerCardState extends State<_PeerCard>
             }
           }
         },
-        onLongPress: () => peerTabModel.select(peer),
+        // ★모바일에서 길게 누르기는 "폴더로 끌기"다(peers_view LongPressDraggable, 2026-09-09).
+        //   원본은 길게 누르면 다중 선택 모드로 들어갔는데, 아이패드에서 행을 잡고 있던 것만으로
+        //   그 모드가 켜져 모든 행 끝에 빈 체크박스가 남았다(새로고침해도 유지). 다중 선택은
+        //   메뉴의 [선택]으로만 들어간다. 데스크톱은 종전대로.
+        onLongPress: isMobile ? null : () => peerTabModel.select(peer),
         onSecondaryTapDown: (d) {
           // 우클릭 시 거래처 메뉴 표시. 더보기 버튼과 동일하다.
           _menuPos = RelativeRect.fromLTRB(d.globalPosition.dx,
