@@ -145,7 +145,7 @@ fn open_async() {
             OPENED.store(false, Ordering::SeqCst);
             return;
         };
-        let port = crate::rendezvous_mediator::cr_direct_port() as u16;
+        let port = direct_port();
         if add_mapping(&url, &service, &local_ip, port) {
             *ENDPOINT.lock().unwrap() = Some(format!("{external_ip}:{port}"));
             log::info!("ChainRemote UPnP 포트 매핑 성공: {external_ip}:{port}");
@@ -155,6 +155,20 @@ fn open_async() {
             OPENED.store(false, Ordering::SeqCst);
         }
     });
+}
+
+/// 매핑할 직결 포트. iOS 에는 rendezvous_mediator 가 아예 빠져 있어(lib.rs 게이트) 참조만으로
+///   컴파일이 깨진다 — 2026-09-09 아이패드 빌드에서 드러났다. iOS 는 뷰어라 이 조사가 돌 일이
+///   없으니(probe 는 거래처 서비스만 부른다) 값만 자리를 채운다.
+fn direct_port() -> u16 {
+    #[cfg(not(target_os = "ios"))]
+    {
+        crate::rendezvous_mediator::cr_direct_port() as u16
+    }
+    #[cfg(target_os = "ios")]
+    {
+        0
+    }
 }
 
 /// 임대가 끝나기 전에 다시 건다. 실패해도 조용히 — 다음 주기에 또 시도한다.
