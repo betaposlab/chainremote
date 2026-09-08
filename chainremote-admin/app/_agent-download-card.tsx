@@ -113,7 +113,9 @@ export function AgentDownloadCard({
           </p>
           <p className="mt-1 text-xs text-[#c7cde0]">
             설치 중 &quot;이 출처의 앱 설치 차단&quot; 이 뜨면 [설정] → &quot;이 출처 허용&quot; 을 켜고
-            다시 [설치]. 한 번만 하면 됩니다. 새 버전은 이 버튼으로 다시 받아 덮어 깝니다.
+            다시 [설치]. &quot;기기 보호를 위해 차단&quot;(Play 프로텍트) 이 뜨면 [세부정보] → [무시하고 설치],
+            그 버튼이 없으면 Play 스토어 → 프로필 → Play 프로텍트 → 설정에서 앱 검사를 잠깐 끄고 설치한 뒤
+            다시 켭니다. 켜도 설치된 앱은 그대로입니다. 새 버전은 이 버튼으로 다시 받아 덮어 깝니다.
           </p>
         </div>
         <a href={`/api/tenants/${tenantId}/android`} className="btn btn-ghost shrink-0">
