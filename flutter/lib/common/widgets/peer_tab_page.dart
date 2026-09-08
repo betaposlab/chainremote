@@ -110,22 +110,16 @@ class _PeerTabPageState extends State<PeerTabPage>
   }
 
   void _loadLocalOptions() {
-    // 데스크톱은 표 하나로 통일했다(2026-08-11) — 저장돼 있던 옛 보기 설정은 무시한다.
-    //   안 그러면 종전에 '작은 카드'를 골라 뒀던 사람이 폴더가 사라진 화면을 보게 된다
-    //   (폴더 렌더는 list 분기에만 있다).
+    // 표 하나로 통일했다(데스크톱 2026-08-11, 모바일 2026-09-09) — 저장돼 있던 옛 보기 설정은
+    //   무시한다. 폴더 렌더는 list 분기에만 있어서, 다른 보기로 시작하면 폴더가 사라진 화면이
+    //   된다. 모바일은 기본값이 카드(grid)라 아이패드 첫 로그인이 폴더도 머리글도 없는 카드
+    //   격자였고, [새 폴더] 버튼(목록 보기로 전환을 겸함)을 눌러야 표가 나왔다. 표는 폭에
+    //   맞춰 열을 접으므로(peer_card cols.*) 폰 세로에서도 그대로 쓴다.
+    peerCardUiType.value = PeerUiType.list;
+    // 표 정렬은 머리글이 정하고 여기서 복원한다(앱을 다시 켜도 보던 순서 그대로).
+    crTableSort.value = bind.mainGetLocalOption(key: 'cr-table-sort');
     if (isDesktop || isWebDesktop) {
-      peerCardUiType.value = PeerUiType.list;
-      // 표 정렬은 머리글이 정하고 여기서 복원한다(앱을 다시 켜도 보던 순서 그대로).
-      crTableSort.value = bind.mainGetLocalOption(key: 'cr-table-sort');
       return;
-    }
-    final uiType = bind.getLocalFlutterOption(k: kOptionPeerCardUiType);
-    if (uiType != '') {
-      peerCardUiType.value = int.parse(uiType) == 0
-          ? PeerUiType.grid
-          : int.parse(uiType) == 1
-              ? PeerUiType.tile
-              : PeerUiType.list;
     }
     hideAbTagsPanel.value =
         bind.mainGetLocalOption(key: kOptionHideAbTagsPanel) == 'Y';
