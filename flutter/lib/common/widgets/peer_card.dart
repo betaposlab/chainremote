@@ -87,22 +87,23 @@ CrBadge _crChip(BuildContext context,
   final w = _crEstBadgeWidth(label ?? '', hasIcon: true);
   return CrBadge(
       Tooltip(
-    message: tip,
-    waitDuration: const Duration(milliseconds: 300),
-    child: Container(
-      padding: EdgeInsets.symmetric(horizontal: label == null ? 3 : 5, vertical: 1),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 11, color: fg),
-        if (label != null) ...[
-          const SizedBox(width: 2),
-          Text(label,
-              style: TextStyle(
-                  fontSize: 9, fontWeight: FontWeight.w600, color: fg)),
-          ],
-        ]),
-      ),
+        message: tip,
+        waitDuration: const Duration(milliseconds: 300),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+              horizontal: label == null ? 3 : 5, vertical: 1),
+          decoration:
+              BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 11, color: fg),
+            if (label != null) ...[
+              const SizedBox(width: 2),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 9, fontWeight: FontWeight.w600, color: fg)),
+            ],
+          ]),
+        ),
       ),
       w);
 }
@@ -143,7 +144,11 @@ CrVanState? crVanState(BuildContext context, Peer peer) {
         '$van 데몬을 세 번 되살려 봤지만 안 됐습니다 — 방문이 필요합니다.');
   }
   if (peer.vanOk == 'N') {
-    return CrVanState('중지', '$van 중지', c.dangerBg, c.dangerFg,
+    return CrVanState(
+        '중지',
+        '$van 중지',
+        c.dangerBg,
+        c.dangerFg,
         // ★"되살리는 중"이라고 단정하지 않는다. 1.4.113 부터 에이전트는 **돌던 것이 멈췄을 때만**
         //   손대고, 리더기를 아직 안 켠 상태는 아예 '대기'로 보낸다. 여기 '중지'가 뜨는 건
         //   한 번 정상이던 데몬이 멈춘 경우라 되살리기를 시도하는 게 맞지만, 리더기 케이블처럼
@@ -151,8 +156,8 @@ CrVanState? crVanState(BuildContext context, Peer peer) {
         '$van 카드결제 데몬이 멈춰 있습니다.\n에이전트가 되살리기를 시도합니다 — 안 되면 리더기 연결을 확인하세요.');
   }
   if (peer.vanOk == 'Y') {
-    return CrVanState(null, '$van 정상', c.okBg, c.okFg,
-        '$van 카드결제 데몬 정상 (마지막 보고 기준).');
+    return CrVanState(
+        null, '$van 정상', c.okBg, c.okFg, '$van 카드결제 데몬 정상 (마지막 보고 기준).');
   }
   // 방금 켰거나 기기가 꺼져 있는 상태. 지시 전달 1회 + 결과 회신 1회라 주기 10분 × 2.
   // '대기'는 두 가지다: 방금 켜서 아직 회신 전이거나, **리더기를 안 켠 정상 상태**(1.4.113~).
@@ -216,6 +221,7 @@ const double _wAvatar = 34,
 /// 목록에 관제를 켠 거래처가 하나라도 있을 때만 그 열을 낸다.
 ///   한 곳도 안 켠 대리점에겐 빈 열 두 개가 그냥 소음이다. peers_view 가 목록을 만들 때 정한다.
 bool crShowFwCol = false, crShowVanCol = false;
+
 /// 디스크·OS 도 같은 원칙 — 한 줄도 값이 없으면 열을 안 그린다. 최근 세션 탭이 대표적인데,
 ///   거기 목록은 로컬 캐시라 디스크·OS 가 아예 없어 "—" 만 줄줄이 늘어섰다.
 bool crShowDiskCol = true, crShowOsCol = true;
@@ -260,14 +266,14 @@ bool crSortAscOf(String v) => !v.endsWith(':desc');
 /// 같은 열을 다시 누르면 방향만 뒤집고, 다른 열을 누르면 그 열의 오름차순으로 간다.
 void crToggleSort(String col) {
   final cur = crTableSort.value;
-  crTableSort.value = (crSortColOf(cur) == col && crSortAscOf(cur))
-      ? '$col:desc'
-      : '$col:asc';
+  crTableSort.value =
+      (crSortColOf(cur) == col && crSortAscOf(cur)) ? '$col:desc' : '$col:asc';
   bind.mainSetLocalOption(key: 'cr-table-sort', value: crTableSort.value);
 }
 
 /// 표의 한 셀 — 폭 고정 + 넘치면 말줄임. 열이 흔들리지 않게 모든 셀이 이걸 쓴다.
-Widget _crCell(double width, Widget child, {Alignment align = Alignment.centerLeft}) =>
+Widget _crCell(double width, Widget child,
+        {Alignment align = Alignment.centerLeft}) =>
     SizedBox(width: width, child: Align(alignment: align, child: child));
 
 Widget _crMuted(BuildContext context, String text) => Text(text,
@@ -322,8 +328,8 @@ Widget crTableHeader(BuildContext context, double width, int count,
           //   거래처가 수백 곳이 되면 "다 나온 건가"를 이 숫자로만 알 수 있다.
           if (count > 0)
             Text('$count곳',
-                style: TextStyle(
-                    fontSize: 10, color: CrColors.of(context).textDim))
+                    style: TextStyle(
+                        fontSize: 10, color: CrColors.of(context).textDim))
                 .marginOnly(left: 6),
         ])),
         if (cols.id) ...[
@@ -370,8 +376,7 @@ Widget? crSchedBadge(BuildContext context, Peer peer) {
       borderRadius: BorderRadius.circular(4),
     ),
     child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(Icons.schedule_rounded,
-          size: 9, color: CrColors.of(context).warnFg),
+      Icon(Icons.schedule_rounded, size: 9, color: CrColors.of(context).warnFg),
       const SizedBox(width: 3),
       Text(
         '예약',
@@ -498,8 +503,9 @@ String? crOsBadgeText(Peer peer) {
   } else if (os.isNotEmpty) {
     osShort = os.replaceFirst('Windows ', 'Win');
   }
-  final text =
-      osShort.isNotEmpty ? (bits.isNotEmpty ? '$osShort · $bits' : osShort) : bits;
+  final text = osShort.isNotEmpty
+      ? (bits.isNotEmpty ? '$osShort · $bits' : osShort)
+      : bits;
   return text.isEmpty ? null : text;
 }
 
@@ -522,7 +528,9 @@ Widget? crOsBadge(BuildContext context, Peer peer) {
       style: TextStyle(
         fontSize: 9,
         fontWeight: FontWeight.w600,
-        color: win7 ? CrColors.of(context).warnFg : CrColors.of(context).textSubtle,
+        color: win7
+            ? CrColors.of(context).warnFg
+            : CrColors.of(context).textSubtle,
       ),
     ),
   );
@@ -687,8 +695,8 @@ class _PeerCardState extends State<_PeerCard>
                 SizedBox(
                   width: _wAvatar,
                   child: Stack(children: [
-                    getChainRemoteAvatar(context,
-                        peer.alias.isEmpty ? peer.id : peer.alias,
+                    getChainRemoteAvatar(
+                        context, peer.alias.isEmpty ? peer.id : peer.alias,
                         size: 26),
                     if (_shouldBuildPasswordIcon(peer))
                       const Positioned(
@@ -760,8 +768,8 @@ class _PeerCardState extends State<_PeerCard>
                 ],
                 if (cols.os) ...[
                   const SizedBox(width: _wGap),
-                  _crCell(_wOs,
-                      crOsBadge(context, peer) ?? _crMuted(context, '—')),
+                  _crCell(
+                      _wOs, crOsBadge(context, peer) ?? _crMuted(context, '—')),
                 ],
                 if (cols.disk) ...[
                   const SizedBox(width: _wGap),
@@ -808,8 +816,8 @@ class _PeerCardState extends State<_PeerCard>
       message: st.tip,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        decoration: BoxDecoration(
-            color: st.bg, borderRadius: BorderRadius.circular(4)),
+        decoration:
+            BoxDecoration(color: st.bg, borderRadius: BorderRadius.circular(4)),
         child: Text(st.columnLabel,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -843,8 +851,7 @@ class _PeerCardState extends State<_PeerCard>
             child: Stack(
               children: [
                 getChainRemoteAvatar(
-                  context,
-                        peer.alias.isEmpty ? peer.id : peer.alias,
+                        context, peer.alias.isEmpty ? peer.id : peer.alias,
                         size: isPortrait ? 38 : 30)
                     .paddingAll(6),
                 if (_shouldBuildPasswordIcon(peer))
@@ -881,48 +888,48 @@ class _PeerCardState extends State<_PeerCard>
                       // 2줄: ID(부제) + 메모. 배지는 아래 3줄째로 내렸다 — 한 줄에 같이 두면
                       //   좁은 폭에서 서로를 밀어내 ID 가 통째로 사라지거나 배지가 잘렸다.
                       if (name.isNotEmpty || showNote)
-                      Row(
-                        children: [
-                          if (name.isNotEmpty) ...[
-                            Flexible(
-                              child: Tooltip(
-                                message: name,
-                                waitDuration: const Duration(seconds: 1),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    name,
-                                    style: isPortrait ? null : greyStyle,
-                                    textAlign: TextAlign.start,
-                                    overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            if (name.isNotEmpty) ...[
+                              Flexible(
+                                child: Tooltip(
+                                  message: name,
+                                  waitDuration: const Duration(seconds: 1),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      name,
+                                      style: isPortrait ? null : greyStyle,
+                                      textAlign: TextAlign.start,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                          ],
-                          if (showNote)
-                            Expanded(
-                              child: Tooltip(
-                                message: peer.note,
-                                waitDuration: const Duration(seconds: 1),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    peer.note,
-                                    style: isPortrait ? null : greyStyle,
-                                    textAlign: TextAlign.start,
-                                    overflow: TextOverflow.ellipsis,
-                                  ).marginOnly(
-                                      left: peerCardUiType.value ==
-                                              PeerUiType.list
-                                          ? 32
-                                          : 4),
+                              const SizedBox(width: 6),
+                            ],
+                            if (showNote)
+                              Expanded(
+                                child: Tooltip(
+                                  message: peer.note,
+                                  waitDuration: const Duration(seconds: 1),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      peer.note,
+                                      style: isPortrait ? null : greyStyle,
+                                      textAlign: TextAlign.start,
+                                      overflow: TextOverflow.ellipsis,
+                                    ).marginOnly(
+                                        left: peerCardUiType.value ==
+                                                PeerUiType.list
+                                            ? 32
+                                            : 4),
+                                  ),
                                 ),
-                              ),
-                            )
-                        ],
-                      ),
+                              )
+                          ],
+                        ),
                       // 3줄: 배지(관제 → 디스크 → OS). 자기 줄을 가지므로 ID 와 폭을 다투지 않는다.
                       if (crHasBadges(context, peer))
                         Row(children: [
@@ -1014,14 +1021,11 @@ class _PeerCardState extends State<_PeerCard>
           foregroundDecoration: deco.value,
           decoration: BoxDecoration(
             color: CrColors.of(context).cardBg,
-            borderRadius:
-                BorderRadius.circular(_cardRadius - _borderWidth),
-            border: Border.all(
-                color: CrColors.of(context).border, width: 1),
+            borderRadius: BorderRadius.circular(_cardRadius - _borderWidth),
+            border: Border.all(color: CrColors.of(context).border, width: 1),
           ),
           child: ClipRRect(
-            borderRadius:
-                BorderRadius.circular(_cardRadius - _borderWidth),
+            borderRadius: BorderRadius.circular(_cardRadius - _borderWidth),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 14, 12, 10),
               child: Column(
@@ -1209,19 +1213,32 @@ class _PeerCardState extends State<_PeerCard>
   //   자체를 모른다. 평소 연하게 깔아 "여기 뭔가 있다"만 전하고, 호버 때 또렷해진다.
   //   (톱니바퀴로 바꾸는 안은 기각 — 이건 설정이 아니라 동작 메뉴이고 삭제까지 들어
   //    있는데, 좌측에 진짜 [설정] 메뉴가 따로 있어 같은 아이콘이 두 뜻이 된다.)
-  Widget _actionMore(Peer peer) => Obx(() => AnimatedOpacity(
-        opacity: isMobile || _rowHover.value ? 1.0 : 0.45,
-        duration: const Duration(milliseconds: 140),
-        child: Listener(
-          onPointerDown: (e) {
-            final x = e.position.dx;
-            final y = e.position.dy;
-            _menuPos = RelativeRect.fromLTRB(x, y, x, y);
-          },
-          onPointerUp: (_) => _showPeerMenu(peer.id),
-          child: _neuMoreButton(context),
-        ),
-      ));
+  // ★Listener 가 아니라 GestureDetector 다(2026-09-09 아이패드). Listener 는 제스처 경쟁에
+  //   끼지 않아 탭이 행의 GestureDetector 로도 흘러간다 — 데스크톱은 행 탭이 "선택"이라
+  //   티가 안 났지만 모바일은 행 탭이 곧 접속이라, 더보기를 누르면 원격이 걸렸다.
+  //   안쪽 GestureDetector 가 탭을 이기므로 행에는 닿지 않는다.
+  // ★관찰값은 단락 평가 밖에서 먼저 읽는다(2026-09-09 아이패드 "빈 네모칸"의 진범).
+  //   `isMobile || _rowHover.value` 는 모바일에서 `_rowHover` 를 한 번도 읽지 않아 GetX 가
+  //   "Obx 안에 관찰값이 없다"는 예외를 던졌고, 릴리즈 빌드는 그 자리를 연회색 ErrorWidget 으로
+  //   그렸다 — 아이콘도 손잡이도 없는 상자, 탭은 행으로 흘러 접속이 걸렸다. 데스크톱은
+  //   isMobile 이 false 라 값을 읽어 멀쩡했으므로 코드만 봐서는 안 보이는 종류다.
+  Widget _actionMore(Peer peer) => Obx(() {
+        final hovered = _rowHover.value;
+        return AnimatedOpacity(
+          opacity: isMobile || hovered ? 1.0 : 0.45,
+          duration: const Duration(milliseconds: 140),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (e) {
+              final x = e.globalPosition.dx;
+              final y = e.globalPosition.dy;
+              _menuPos = RelativeRect.fromLTRB(x, y, x, y);
+            },
+            onTap: () => _showPeerMenu(peer.id),
+            child: _neuMoreButton(context),
+          ),
+        );
+      });
 
   // 뉴모 더보기 버튼. 행 호버 시 노출되며 우클릭으로도 같은 메뉴를 연다 (B안, 2026-06-06).
   Widget _neuMoreButton(BuildContext context) => Tooltip(
@@ -1245,8 +1262,10 @@ class _PeerCardState extends State<_PeerCard>
                   blurRadius: 6),
             ],
           ),
-          child:
-              Icon(Icons.more_vert, size: 18, color: CrColors.of(context).textFaint),
+          // 아이콘은 표면(neuSurface) 위 본문 잉크로 — 어느 팔레트든 대비가 난다. textFaint 는
+          //   라이트에서 회색 위 회색이라 아이패드에서 "빈 네모칸"으로 보였다(2026-09-09).
+          child: Icon(Icons.more_vert,
+              size: 18, color: CrColors.of(context).neuInk),
         ),
       );
 
@@ -1254,7 +1273,9 @@ class _PeerCardState extends State<_PeerCard>
   Widget _statusPill(bool online) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: online ? CrColors.of(context).neuOnBg : CrColors.of(context).neuOffBg,
+          color: online
+              ? CrColors.of(context).neuOnBg
+              : CrColors.of(context).neuOffBg,
           borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
@@ -1265,7 +1286,9 @@ class _PeerCardState extends State<_PeerCard>
               height: 6,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: online ? CrColors.of(context).neuOnDot : CrColors.of(context).neuOffDot,
+                color: online
+                    ? CrColors.of(context).neuOnDot
+                    : CrColors.of(context).neuOffDot,
               ),
             ),
             const SizedBox(width: 5),
@@ -1274,7 +1297,9 @@ class _PeerCardState extends State<_PeerCard>
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w800,
-                color: online ? CrColors.of(context).neuOnText : CrColors.of(context).neuOffText,
+                color: online
+                    ? CrColors.of(context).neuOnText
+                    : CrColors.of(context).neuOffText,
               ),
             ),
           ],
@@ -1699,10 +1724,7 @@ abstract class BasePeerCard extends StatelessWidget {
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Row(
         children: [
-          Text(
-              requested
-                  ? '원격 예약 취소 요청함$untilText'
-                  : '원격 예약 취소$untilText',
+          Text(requested ? '원격 예약 취소 요청함$untilText' : '원격 예약 취소$untilText',
               style: style),
           Expanded(
               child: Align(
@@ -1729,9 +1751,8 @@ abstract class BasePeerCard extends StatelessWidget {
             //   세션으로만 오는데 취소는 세션 없이 하기 때문이다.
             crSchedClearLocally(peer.id);
           }
-          showToast(ok
-              ? '원격 예약을 취소했습니다'
-              : '취소 요청을 보내지 못했습니다 — 네트워크나 로그인을 확인해 주세요');
+          showToast(
+              ok ? '원격 예약을 취소했습니다' : '취소 요청을 보내지 못했습니다 — 네트워크나 로그인을 확인해 주세요');
         }();
       },
       padding: menuPadding,
@@ -1835,7 +1856,8 @@ abstract class BasePeerCard extends StatelessWidget {
 
         return CustomAlertDialog(
           title: Row(children: [
-            Icon(Icons.folder_outlined, color: CrColors.of(context).accent, size: 22),
+            Icon(Icons.folder_outlined,
+                color: CrColors.of(context).accent, size: 22),
             SizedBox(width: 8),
             Text('폴더로 이동'),
           ]),
@@ -1851,7 +1873,8 @@ abstract class BasePeerCard extends StatelessWidget {
                       padding: EdgeInsets.only(bottom: 8),
                       child: Text('아직 폴더가 없습니다. 아래에서 새로 만드세요.',
                           style: TextStyle(
-                              fontSize: 12, color: CrColors.of(context).textMuted)),
+                              fontSize: 12,
+                              color: CrColors.of(context).textMuted)),
                     ),
                   ...folders.map((f) => ListTile(
                         dense: true,
@@ -1925,7 +1948,8 @@ abstract class BasePeerCard extends StatelessWidget {
               break;
             case PeerTabIndex.fav:
               // user_favorites DB (Phase 2-D).
-              bind.chainremoteRemoveFavorite(remoteId: id); // fire-and-forget (결과 미사용)
+              bind.chainremoteRemoveFavorite(
+                  remoteId: id); // fire-and-forget (결과 미사용)
               bind.chainremoteLoadFavorites();
               break;
             case PeerTabIndex.lan:
@@ -2268,7 +2292,8 @@ class AllCustomersPeerCard extends BasePeerCard {
     return menuItems;
   }
 
-  MenuEntryBase<String> _confirmCustomerAction(BuildContext context, String id) {
+  MenuEntryBase<String> _confirmCustomerAction(
+      BuildContext context, String id) {
     return MenuEntryButton<String>(
       childBuilder: (TextStyle? style) => Row(
         children: [
@@ -2713,16 +2738,16 @@ Widget build_more(BuildContext context, {bool invert = false}) {
                   ? Theme.of(context).scaffoldBackgroundColor
                   : Theme.of(context).colorScheme.background),
           child: Tooltip(
-            message: '메뉴 (이름 바꾸기 · 비밀번호 · 삭제 등)',
-            child: Icon(Icons.settings_outlined,
-                size: 18,
-                color: hover.value
-                    ? Theme.of(context).textTheme.titleLarge?.color
-                    : Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.color
-                        ?.withOpacity(0.5))))));
+              message: '메뉴 (이름 바꾸기 · 비밀번호 · 삭제 등)',
+              child: Icon(Icons.settings_outlined,
+                  size: 18,
+                  color: hover.value
+                      ? Theme.of(context).textTheme.titleLarge?.color
+                      : Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.color
+                          ?.withOpacity(0.5))))));
 }
 
 class TagPainter extends CustomPainter {
