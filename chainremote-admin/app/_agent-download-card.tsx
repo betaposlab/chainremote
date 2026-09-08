@@ -100,6 +100,26 @@ export function AgentDownloadCard({
           ChainGo 다운로드
         </a>
       </div>
+
+      {/* 안드로이드 HQ — 이동이 잦은 직원의 폰용(2026-09-09). 스토어 밖 APK 라 첫 설치 때
+          "이 출처 허용" 을 한 번 켜야 하는데, 여기서 미리 말해 주지 않으면 그 화면에서 멈춰
+          전화가 온다. 라우트가 android.json 을 보고 최신으로 넘긴다(버전은 안 박는다). */}
+      <div className="mt-4 flex flex-col items-start gap-3 border-t border-[#56699c] pt-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="text-sm text-[#eef1f7]">
+          <p>
+            <span className="font-medium text-white">안드로이드 앱 (직원 폰용)</span> —
+            매장을 돌면서 급히 다른 거래처를 봐야 할 때 폰으로 원격합니다. 폰 브라우저로
+            이 페이지에 로그인해 받으시면 됩니다.
+          </p>
+          <p className="mt-1 text-xs text-[#c7cde0]">
+            설치 중 &quot;이 출처의 앱 설치 차단&quot; 이 뜨면 [설정] → &quot;이 출처 허용&quot; 을 켜고
+            다시 [설치]. 한 번만 하면 됩니다. 새 버전은 이 버튼으로 다시 받아 덮어 깝니다.
+          </p>
+        </div>
+        <a href={`/api/tenants/${tenantId}/android`} className="btn btn-ghost shrink-0">
+          안드로이드 앱 다운로드
+        </a>
+      </div>
     </section>
   );
 }
