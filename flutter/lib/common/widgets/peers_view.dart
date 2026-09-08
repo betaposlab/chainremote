@@ -434,19 +434,35 @@ class _PeersViewState extends State<_PeersView>
   }
 
   // 루트에서 peer 카드를 드래그 가능하게 — 폴더 타일에 떨구면 그 폴더로 이동.
+  //
+  // ★터치 기기는 길게 누른 뒤에만 끌린다(2026-09-09 아이패드). 마우스용 Draggable 은 손가락이
+  //   닿자마자 행을 집어 올려서 목록을 스크롤할 방법이 없었다 — 위아래로 쓸면 거래처가
+  //   따라 움직였다. LongPressDraggable 은 API 가 같고, 짧은 스크롤 제스처는 목록에 넘긴다.
   Widget _draggablePeer(Peer p, Widget child) {
+    final feedback = Material(
+      color: Colors.transparent,
+      child: Opacity(
+        opacity: 0.85,
+        child: SizedBox(width: 260, height: 45, child: child),
+      ),
+    );
+    final whenDragging = Opacity(opacity: 0.35, child: child);
+    if (isMobile) {
+      return LongPressDraggable<String>(
+        data: p.id,
+        maxSimultaneousDrags: 1,
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        feedback: feedback,
+        childWhenDragging: whenDragging,
+        child: child,
+      );
+    }
     return Draggable<String>(
       data: p.id,
       maxSimultaneousDrags: 1,
       dragAnchorStrategy: pointerDragAnchorStrategy,
-      feedback: Material(
-        color: Colors.transparent,
-        child: Opacity(
-          opacity: 0.85,
-          child: SizedBox(width: 260, height: 45, child: child),
-        ),
-      ),
-      childWhenDragging: Opacity(opacity: 0.35, child: child),
+      feedback: feedback,
+      childWhenDragging: whenDragging,
       child: child,
     );
   }

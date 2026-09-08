@@ -64,16 +64,9 @@ class _ConnectionPageState extends State<ConnectionPage> {
     super.initState();
     _allPeersLoader.init(setState);
     _idFocusNode.addListener(onFocusChanged);
-    if (_idController.text.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        final lastRemoteId = await bind.mainGetLastRemoteId();
-        if (lastRemoteId != _idController.id) {
-          setState(() {
-            _idController.id = lastRemoteId;
-          });
-        }
-      });
-    }
+    // 상단 ID 칸은 늘 비워 둔다(2026-09-09 Chang). 원본은 마지막 접속 ID 를 채워 두는데,
+    //   본사 앱은 거래처 목록에서 눌러 붙는 게 정석이고, 채워진 ID 는 화살표 한 번에
+    //   엉뚱한 거래처로 붙는 사고 자리다. 데스크톱의 자동 채움도 같은 이유로 이미 뺐다.
     Get.put<TextEditingController>(_idEditingController);
   }
 
