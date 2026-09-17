@@ -20,7 +20,7 @@ import { SchedChip } from "./_sched-chip";
 import { VanChip } from "./_van-chip";
 import { AutoRefresh } from "./_auto-refresh";
 import { redirect } from "next/navigation";
-import { canWrite } from "@/lib/roles";
+import { canWrite, isPlatformOperator } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -240,7 +240,8 @@ export default async function CustomersPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <CustomerSearch />
-          <BulkPushButton />
+          {/* 푸시는 플랫폼 운영자 화면에만. 대리점은 자동 롤아웃으로 받는다(lib/roles isPlatformOperator). */}
+          {isPlatformOperator(session.user.role) && <BulkPushButton />}
           <Link
             href="/customers/new"
             className="rounded-lg btn btn-primary px-4 py-2 text-sm font-medium whitespace-nowrap"
@@ -492,7 +493,7 @@ export default async function CustomersPage({
                         **우리 테스트 기기에 시험 빌드를 못 넣는다** — 거래처에 내보내기 전
                         검증할 곳이 사라진다(2026-08-14 우리집 x64 검증에서 걸림).
                         서버 pushToCustomer 에는 원래 내부 기기 가드가 없었다 = 화면만 과했다. */}
-                    {c.remoteId && c.enrollStatus === "active" && (
+                    {isPlatformOperator(session.user.role) && c.remoteId && c.enrollStatus === "active" && (
                       <CustomerPushButton
                         customerId={c.id}
                         customerName={c.name}

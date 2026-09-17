@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireLiveUserOrThrow } from "@/lib/auth-guard";
 import * as data from "@/lib/data/pending-updates";
-import { canWrite } from "@/lib/roles";
+import { canWrite, isPlatformOperator } from "@/lib/roles";
 import { writeAudit } from "@/lib/data/audit";
 
 // 푸시는 거래처 작업이라 직원 포함 전원이 한다(3역할 체계, 2026-07-25) — 레거시 viewer 만
@@ -13,6 +13,10 @@ async function requireSession() {
   // 쿠키의 존재가 아니라 **계정이 지금도 살아 있는지**를 본다(퇴사자 즉시 차단).
   //   role 도 DB 현재값이라 권한 강등이 다음 클릭부터 바로 먹는다.
   const session = { user: await requireLiveUserOrThrow() };
+  // 푸시는 플랫폼 운영자만 — 화면에서 버튼을 숨겨도 액션은 직접 부를 수 있으므로 여기서 막는다.
+  if (!isPlatformOperator(session.user.role)) {
+    throw new Error("설치파일 푸시는 플랫폼 운영자만 할 수 있습니다");
+  }
   if (!canWrite(session.user.role)) {
     throw new Error("읽기 전용 계정은 이 작업 권한이 없습니다");
   }

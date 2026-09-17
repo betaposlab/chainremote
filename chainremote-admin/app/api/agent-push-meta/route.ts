@@ -16,6 +16,7 @@
 // 있으면 role 무관 허용(정보 노출 위험 없는 공개 빌드 메타).
 
 import { getLiveUser } from "@/lib/auth-guard";
+import { isPlatformOperator } from "@/lib/roles";
 import { fetchAgentPushMetaServer } from "@/lib/agent-push-meta";
 
 export async function GET() {
@@ -24,6 +25,11 @@ export async function GET() {
   const session = { user: await getLiveUser() };
   if (!session?.user) {
     return Response.json({ error: "로그인이 필요합니다" }, { status: 403 });
+  }
+  // 2026-09-18: 이 메타는 [최신 가져오기] 버튼 하나가 쓰고, 그 버튼은 이제 플랫폼 운영자
+  //   화면에만 있다. 응답에 NAS 주소가 실리므로 대리점 계정에는 내주지 않는다.
+  if (!isPlatformOperator(session.user.role)) {
+    return Response.json({ error: "권한이 없습니다" }, { status: 403 });
   }
 
   const result = await fetchAgentPushMetaServer();
