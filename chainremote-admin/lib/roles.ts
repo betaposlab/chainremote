@@ -67,3 +67,11 @@ export function canManageAccounts(role: string | undefined): boolean {
 export function canWrite(role: string | undefined): boolean {
   return !!role && role !== "viewer";
 }
+
+/** 플랫폼 운영 권한 — 설치파일을 거래처 PC 에 미는 일. 대리점(owner 포함)에는 없다.
+ *  2026-09-18 탑아이엔티 계정에서 [전체 일괄 푸시]가 보였다: 대리점이 임의 URL 의 exe 를
+ *  자기 거래처 전체에 설치시킬 수 있는 창이었고, 화면에 NAS 주소까지 그대로 나왔다.
+ *  대리점은 자동 롤아웃으로 이미 최신을 받으므로 이 버튼이 필요할 일 자체가 없다. */
+export function isPlatformOperator(role: string | undefined): boolean {
+  return role === "super_admin";
+}
