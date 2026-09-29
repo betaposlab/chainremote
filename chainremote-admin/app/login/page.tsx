@@ -60,6 +60,29 @@ export default async function LoginPage({
           <h1 className="text-lg font-semibold tracking-tight text-white">ChainRemote 관리 패널</h1>
         </div>
 
+        {/* 거래처(포스 앞에 앉은 사장님)의 입구 — 2026-09-29.
+            전화로 "626.kr 치세요" 다음에 할 말이 "초록색 큰 버튼 누르세요" 하나가 되게 한다.
+            슬래시도, 로그인도, 메뉴 찾기도 없다. 받는 파일이 무엇인지는 lib/quick-support.ts.
+            ★로그인 버튼(파랑)과 색을 달리한다 — 전화로 "파란 버튼"이라 하면 둘 중 뭔지 모른다.
+            ★맨 위에 둔다. 컴퓨터가 낯선 사람은 화면을 아래로 내리지 않는다.
+            ★<a> 에 download 를 주지 않는다 — 이름은 서버의 Content-Disposition 이 정한다. */}
+        <div>
+          <a
+            href="/api/quick-support"
+            style={{ borderWidth: "2px", borderColor: "#7CF2B0" }}
+            className="btn w-full bg-[#1FA867] py-4 text-lg font-bold text-white transition-colors hover:bg-[#23BD74]"
+          >
+            원격지원 받기
+          </a>
+          <p className="mt-2 text-center text-xs leading-relaxed text-[#d7dcea]">
+            담당자와 통화 중이신가요? 위 버튼을 누르고, 받은 파일을 눌러 실행해 주세요.
+          </p>
+        </div>
+
+        <div className="border-t border-white/10 pt-5">
+          <p className="mb-3 text-center text-xs text-[#b9bfd2]">대리점 직원 로그인</p>
+        </div>
+
         {errorMsg === "invalid" && (
           <div className="banner banner-danger">
             아이디 또는 비밀번호가 일치하지 않습니다.
