@@ -15,6 +15,14 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "16mb",
     },
   },
+  // 로그인 화면(626.kr 첫 화면)에서 브라우저에 Client Hints 를 청한다(2026-09-30). [원격지원 받기]를
+  //   누른 요청에 비트수·Windows 버전이 실려 와야 32/64비트 판을 맞게 고른다 — User-Agent 는 크롬이
+  //   모든 Windows 를 "NT 10.0; Win64" 로 고정해 보내서 못 믿는다(테스트1 실측). 라우트 쪽의
+  //   Critical-CH 가 두 번째 안전망이다(lib/quick-support.ts).
+  async headers() {
+    const ch = "Sec-CH-UA-Platform, Sec-CH-UA-Bitness, Sec-CH-UA-Platform-Version";
+    return [{ source: "/login", headers: [{ key: "Accept-CH", value: ch }] }];
+  },
 };
 
 export default nextConfig;
