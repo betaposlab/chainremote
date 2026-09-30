@@ -311,6 +311,37 @@ fn read_customer_name() -> String {
     hbb_common::config::get_enroll_customer_name()
 }
 
+/// 설치 화면의 답 — 같은 상호가 이미 있을 때 인스톨러가 물은 "같은 매장 교체 / 다른 매장"
+/// (2026-09-30). 레지스트리 HKLM\SOFTWARE\ChainRemote\EnrollAnswer = "replace" | "new".
+/// 한 번 쓰고 지운다 — 다음 재설치 때 옛 답이 남아 있으면 그때의 상황과 무관한 답이 된다.
+fn read_enroll_answer() -> Option<String> {
+    use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, KEY_WOW64_64KEY};
+    use winreg::RegKey;
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    for flags in [KEY_READ | KEY_WOW64_64KEY, KEY_READ | KEY_WOW64_32KEY] {
+        if let Ok(k) = hklm.open_subkey_with_flags("SOFTWARE\\ChainRemote", flags) {
+            if let Ok(v) = k.get_value::<String, _>("EnrollAnswer") {
+                let t = v.trim().to_ascii_lowercase();
+                if t == "replace" || t == "new" {
+                    return Some(t);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn clear_enroll_answer() {
+    use winreg::enums::{HKEY_LOCAL_MACHINE, KEY_SET_VALUE, KEY_WOW64_32KEY, KEY_WOW64_64KEY};
+    use winreg::RegKey;
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    for flags in [KEY_SET_VALUE | KEY_WOW64_64KEY, KEY_SET_VALUE | KEY_WOW64_32KEY] {
+        if let Ok(k) = hklm.open_subkey_with_flags("SOFTWARE\\ChainRemote", flags) {
+            let _ = k.delete_value("EnrollAnswer");
+        }
+    }
+}
+
 /// 패널·HQ 표시용 OS 정보 — (버전 라벨, 네이티브 OS 비트수). "Win7 · 64비트" 처럼 보여준다.
 /// ★프로세스 arch 아니라 OS 자체를 본다: 64비트 Win7 이 32비트 페이로드를 돌려도 여기선
 ///   "Windows 7" + "x64" 로 잡혀, arch 배지만 볼 때 생기던 착각(64비트=Win10 추정)을 없앤다.
@@ -369,12 +400,16 @@ fn read_os_info() -> (String, String) {
 fn enroll(remote_id: &str, tenant_slug: &str, enroll_key: &str) -> ResultType<String> {
     let name = read_customer_name();
     let hostname = crate::common::hostname();
+    // 설치 화면의 답(2026-09-30). 없으면 두 값 다 false — 서버는 공인 IP 로만 판단한다.
+    let answer = read_enroll_answer();
     let body = serde_json::json!({
         "remoteId": remote_id,
         "tenantSlug": tenant_slug,
         "enrollKey": enroll_key,
         "name": name,
         "hostname": hostname,
+        "replaceExisting": answer.as_deref() == Some("replace"),
+        "newSite": answer.as_deref() == Some("new"),
         // 기기지문 앵커: ID 가 바뀌어도(충돌/랜카드교체) 패널이 같은 거래처로 알아봐 상호 유지.
         // 빈 문자열이면 패널이 매칭에서 제외한다(폴백 안전장치).
         "machineUuid": hbb_common::get_machine_fingerprint(),
@@ -398,6 +433,11 @@ fn enroll(remote_id: &str, tenant_slug: &str, enroll_key: &str) -> ResultType<St
         token: String,
     }
     let r: Resp = resp.json()?;
+    // 답은 등록 한 번에만 쓴다. 남겨 두면 다음 재설치의 다른 상황에 옛 답이 붙는다.
+    if answer.is_some() {
+        clear_enroll_answer();
+        log::info!("[chainremote_heartbeat] enroll answer consumed: {:?}", answer);
+    }
     Ok(r.token)
 }
 
