@@ -260,6 +260,8 @@ export interface HeartbeatExtras {
   // 예약원격 창(048) — 지금 열린 창의 종료 시각(epoch 초). 0 이면 닫혀 있다는 **명시 보고**라
   //   저장된 값을 비운다. 필드 자체가 없으면(옛 에이전트) 손대지 않는다.
   schedOpenUntil?: number;
+  // 요청의 공인 IP(053) — 상호 충돌 판정의 증거. 라우트가 clientIp 로 뽑아 넘긴다.
+  ip?: string | null;
 }
 
 export async function recordHeartbeat(
@@ -447,6 +449,7 @@ export async function recordHeartbeat(
       ...upnpSet,
       ...endpointSet,
       ...schedSet,
+      ...(extras?.ip && extras.ip !== "unknown" ? { lastIp: extras.ip.slice(0, 64) } : {}),
     })
     .where(
       and(
@@ -842,6 +845,31 @@ function deviceAlive(lastHeartbeatAt: Date | null): boolean {
  * 자동 이동/교체는 대상 거래처의 기존 기기가 죽어있을 때만(안전핀 — 동명 매장·멀티포스 보호).
  * machine_uuid 앵커는 클론이미지 지문충돌 사고(2026-07-07)로 전면 비활성 유지.
  */
+/** 설치 화면의 상호 중복 조회(enroll-check). 같은 대리점 안에서 정규화 키가 같은 거래처만.
+ *  민감한 값은 싣지 않는다 — ID·마지막 접속·생존 여부면 사람이 "그 매장인가"를 판단할 수 있다. */
+export async function findCustomersByNameKey(
+  name: string,
+  tenantId: string,
+): Promise<{ remoteId: string | null; lastHeartbeatAt: string | null; alive: boolean }[]> {
+  const key = normalizeCustomerNameKey(name);
+  if (!key) return [];
+  const rows = await db
+    .select({
+      name: customers.name,
+      remoteId: customers.remoteId,
+      lastHeartbeatAt: customers.lastHeartbeatAt,
+    })
+    .from(customers)
+    .where(and(eq(customers.tenantId, tenantId), eq(customers.isActive, true)));
+  return rows
+    .filter((r) => r.name && normalizeCustomerNameKey(r.name) === key)
+    .map((r) => ({
+      remoteId: r.remoteId,
+      lastHeartbeatAt: r.lastHeartbeatAt ? new Date(r.lastHeartbeatAt).toISOString() : null,
+      alive: deviceAlive(r.lastHeartbeatAt),
+    }));
+}
+
 export async function enrollCustomer(
   input: {
     remoteId: string;
@@ -864,6 +892,11 @@ export async function enrollCustomer(
      * 인스톨러 UI 는 다음 사이클(화요일 이후)에 붙인다 — 서버만 먼저 받아 둔다.
      */
     newSite?: boolean;
+    /** 설치 화면에서 "같은 매장 — 포스 교체"를 고른 경우(2026-09-30). 사람의 답이 있으면
+     *  아래 IP 증거를 보지 않는다. */
+    replaceExisting?: boolean;
+    /** 등록 요청의 공인 IP. 옛 기기의 마지막 IP 와 같으면 같은 가게(같은 공유기)로 본다. */
+    ip?: string | null;
   },
   ctx: { tenantId: string },
 ): Promise<
@@ -896,6 +929,7 @@ export async function enrollCustomer(
     name: string;
     remoteId: string | null;
     lastHeartbeatAt: Date | null;
+    lastIp: string | null;
   } | null = null;
   let byNameCount = 0;
   if (nameKey) {
@@ -905,6 +939,7 @@ export async function enrollCustomer(
         name: customers.name,
         remoteId: customers.remoteId,
         lastHeartbeatAt: customers.lastHeartbeatAt,
+        lastIp: customers.lastIp,
       })
       .from(customers)
       .where(eq(customers.tenantId, ctx.tenantId));
@@ -1055,9 +1090,36 @@ export async function enrollCustomer(
     return { token: plaintext, created: false };
   }
 
-  // 2) 미지의 기기 ID + 기존 매장 상호(기기 없음/죽음) = 기기 교체.
-  if (byName && !deviceAlive(byName.lastHeartbeatAt)) {
-    const target = byName;
+  // 2) 미지의 기기 ID + 기존 매장 상호(기기 없음/죽음) = 기기 교체 **후보**.
+  //
+  // ★상호 하나만 보고 합치지 않는다(2026-09-30 Chang). 다른 동네에 같은 이름의 매장이 있고
+  //   그 집 포스가 마침 꺼져 있으면(밤이면 늘 그렇다) 신규 매장이 남의 행에 붙어 이력이
+  //   섞인다. 사람은 기억력이 좋지 않고, "본점·성수점"을 붙일 수 없는 상호도 많다.
+  //   합치는 조건은 둘뿐이다: ①설치 화면에서 사람이 "같은 매장 — 교체"라고 답함
+  //   ②새 기기의 공인 IP 가 옛 기기의 마지막 IP 와 같음(같은 공유기 = 같은 가게).
+  //   둘 다 아니면 새 행을 만들고 패널 알림으로 마스터에게 묻는다(3단계로 내려간다).
+  //   틀려도 방향이 안전하다 — 행이 하나 더 생길 뿐 이력은 안 섞이고, [교체로 합치기]가 있다.
+  const deadNameMatch = byName && !deviceAlive(byName.lastHeartbeatAt) ? byName : null;
+  const sameIp =
+    !!deadNameMatch &&
+    !!input.ip &&
+    input.ip !== "unknown" &&
+    !!deadNameMatch.lastIp &&
+    deadNameMatch.lastIp === input.ip;
+  // ③옛 행에 기기가 아예 없음(remoteId null) — 패널에서 먼저 등록해 두고 나중에 설치하는
+  //   온보딩 흐름. 빼앗을 기기가 없으니 남의 매장 이력이 섞일 위험도 없다.
+  const noDevice = !!deadNameMatch && !deadNameMatch.remoteId;
+  const mergeReason = input.newSite
+    ? null
+    : input.replaceExisting
+      ? "human"
+      : sameIp
+        ? "same_ip"
+        : noDevice
+          ? "no_device"
+          : null;
+  if (deadNameMatch && mergeReason) {
+    const target = deadNameMatch;
     const oldRemoteId = target.remoteId;
     try {
       await db.transaction(async (tx) => {
@@ -1081,7 +1143,12 @@ export async function enrollCustomer(
           tenantId: ctx.tenantId,
           customerId: target.id,
           type: "device_replaced",
-          detail: JSON.stringify({ from: oldRemoteId, to: remoteId, name: target.name }),
+          detail: JSON.stringify({
+            from: oldRemoteId,
+            to: remoteId,
+            name: target.name,
+            reason: mergeReason, // "human"=설치자가 답함 / "same_ip"=같은 공유기
+          }),
           resolvedAt: new Date(), // 자동 성립 — 감사 로그
         });
       });
@@ -1111,7 +1178,27 @@ export async function enrollCustomer(
       })
       .returning({ id: customers.id });
     await linkFavoritesToCustomer(remoteId, row.id, ctx.tenantId);
-    if (byNameCount > 0) {
+    if (deadNameMatch && !input.newSite) {
+      // 같은 상호의 옛 기기가 죽어 있는데 합칠 증거가 없었다. 새 행은 만들었고, 어느 쪽인지는
+      //   마스터가 [교체로 합치기]/[별개 매장] 으로 정한다. 알림은 **새 행**에 붙인다 — 합치면
+      //   새 행이 사라지므로 알림도 같이 정리된다.
+      await db.insert(customerAlerts).values({
+        tenantId: ctx.tenantId,
+        customerId: row.id,
+        type: "same_name_dead_device",
+        detail: JSON.stringify({
+          remoteId,
+          name,
+          oldCustomerId: deadNameMatch.id,
+          oldRemoteId: deadNameMatch.remoteId,
+          oldLastHeartbeatAt: deadNameMatch.lastHeartbeatAt
+            ? new Date(deadNameMatch.lastHeartbeatAt).toISOString()
+            : null,
+          oldLastIp: deadNameMatch.lastIp,
+          newIp: input.ip ?? null,
+        }),
+      });
+    } else if (byNameCount > 0) {
       // 동일 상호 거래처가 이미 있는데(기기 생존/다수) 새 기기로 또 등록됨 — 동명 매장이거나
       // 멀티포스(메인+오더). 자동 병합은 위험하니 배지로만 알린다.
       await db.insert(customerAlerts).values({

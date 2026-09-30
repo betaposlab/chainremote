@@ -169,7 +169,7 @@ describe("ER-02 deviceAlive 경계 + 시계스큐", () => {
     const T = await seedTenant("er02-a");
     const cid = await seedCustomer(T, "카페", "OLD0000001", EXACT_15M());
     const r = await enrollCustomer(
-      { remoteId: "NEWAA00001", name: "카페" },
+      { remoteId: "NEWAA00001", name: "카페", replaceExisting: true },
       { tenantId: T },
     );
     expect(r).not.toBe("cross_tenant");
@@ -422,7 +422,7 @@ describe("ER-08 상호 정규화 경계", () => {
     const T = await seedTenant("er08-a");
     const cid = await seedCustomer(T, "test분식", "TF00000001", DEAD_1H());
     await enrollCustomer(
-      { remoteId: "NEWTF00002", name: "ＴＥＳＴ분식" },
+      { remoteId: "NEWTF00002", name: "ＴＥＳＴ분식", replaceExisting: true },
       { tenantId: T },
     );
     expect((await row(cid)).remoteId).toBe("NEWTF00002"); // 전각/반각 동일 매장 교체
@@ -440,7 +440,7 @@ describe("ER-08 상호 정규화 경계", () => {
     const T = await seedTenant("er08-b");
     const cid = await seedCustomer(T, "카페1", "CF00000001", DEAD_1H());
     await enrollCustomer(
-      { remoteId: "NEWCF00002", name: "카페①" },
+      { remoteId: "NEWCF00002", name: "카페①", replaceExisting: true },
       { tenantId: T },
     );
     // 과매칭으로 교체가 성립한다(현재 동작). 별개 매장이었다면 오배선.
@@ -618,7 +618,7 @@ describe("ER-12 교체 시 다중 사용자 즐겨찾기 이전", () => {
     ]);
 
     await enrollCustomer(
-      { remoteId: "NEWAA00002", name: "공유매장" },
+      { remoteId: "NEWAA00002", name: "공유매장", replaceExisting: true },
       { tenantId: T },
     );
     expect((await row(cid)).remoteId).toBe("NEWAA00002"); // 교체 성립

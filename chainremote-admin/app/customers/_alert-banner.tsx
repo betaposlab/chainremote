@@ -7,8 +7,7 @@ import { useState, useTransition } from "react";
 import {
   moveFromAlertAction,
   renameFromAlertAction,
-  resolveAlertAction,
-} from "@/lib/actions/alerts";
+  resolveAlertAction, mergeFromAlertAction } from "@/lib/actions/alerts";
 
 export type AlertItem = {
   id: string;
@@ -20,6 +19,8 @@ export type AlertItem = {
     newName?: string;
     name?: string;
     reason?: string;
+    oldCustomerId?: string;
+    oldRemoteId?: string | null;
   };
 };
 
@@ -82,6 +83,37 @@ export function AlertBanner({ items, isOwner }: { items: AlertItem[]; isOwner: b
                       className={btn}
                     >
                       무시
+                    </button>
+                  </span>
+                )}
+              </>
+            ) : a.type === "same_name_dead_device" ? (
+              <>
+                <span>
+                  <span className="font-medium">“{a.detail.name}”</span> 이름으로 새 기기(ID{" "}
+                  {a.detail.remoteId})가 등록됐는데, 같은 이름의 거래처가 이미 있고 그 기기(ID{" "}
+                  {a.detail.oldRemoteId ?? "-"})는 꺼져 있습니다. 같은 공유기가 아니라서 합치지
+                  않았습니다 — 그 매장 포스를 바꾼 것이면 합치고, 다른 매장이면 별개로 두세요.
+                </span>
+                {isOwner && (
+                  <span className="inline-flex gap-1.5">
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => run(mergeFromAlertAction, a.id)}
+                      className={btn}
+                      title="새 기기를 기존 거래처에 붙입니다 (이력·즐겨찾기 유지, 새로 생긴 행은 정리)"
+                    >
+                      교체로 합치기
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => run(resolveAlertAction, a.id)}
+                      className={btn}
+                      title="이름만 같은 다른 매장입니다 — 두 거래처를 따로 둡니다"
+                    >
+                      별개 매장
                     </button>
                   </span>
                 )}

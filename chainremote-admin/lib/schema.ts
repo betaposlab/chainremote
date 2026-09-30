@@ -241,6 +241,9 @@ export const customers = pgTable(
     probeDirect: boolean("probe_direct"),
     probeAt: timestamp("probe_at", { withTimezone: true }),
     probeMs: integer("probe_ms"),
+    // 마지막 하트비트의 공인 IP(마이그 053). 같은 상호로 새 기기가 설치될 때 "같은 가게(같은
+    //   공유기)인가"를 가르는 유일한 증거. 이게 다르면 서버는 합치지 않는다.
+    lastIp: text("last_ip"),
     // 내부 기기(본사/Mac/빌드머신 — 진짜 거래처 아님, 마이그 013). true 면 일괄푸시에서 빼고
     // UI 에서 버전/푸시 숨김. pin_order = 표 상단 고정 순서(1=최상단, NULL=일반 거래처).
     isInternal: boolean("is_internal").notNull().default(false),
