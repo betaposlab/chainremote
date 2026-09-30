@@ -76,6 +76,10 @@ export default async function LoginPage({
           </a>
           <p className="mt-2 text-center text-xs leading-relaxed text-[#d7dcea]">
             담당자와 통화 중이신가요? 위 버튼을 누르고, 받은 파일을 눌러 실행해 주세요.
+            <br />
+            <span className="font-medium text-white">RustDesk</span> 창이 뜨면 정상입니다. 창에 있는
+            <span className="font-medium text-white"> 큰 숫자 9자리</span>와 그 아래
+            <span className="font-medium text-white"> 작은 글자 6자</span>를 담당자에게 불러 주세요.
           </p>
         </div>
 
