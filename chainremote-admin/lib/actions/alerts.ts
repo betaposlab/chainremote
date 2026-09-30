@@ -33,6 +33,13 @@ export async function renameFromAlertAction(id: string): Promise<boolean> {
   return ok;
 }
 
+export async function mergeFromAlertAction(id: string): Promise<boolean> {
+  const me = await requireOwnerSession();
+  const ok = await data.applyAlertMergeReplacement(id, me.tenantId);
+  revalidatePath("/customers");
+  return ok;
+}
+
 export async function moveFromAlertAction(id: string): Promise<boolean> {
   const me = await requireOwnerSession();
   const ok = await data.applyAlertMoveToNew(id, me.tenantId);

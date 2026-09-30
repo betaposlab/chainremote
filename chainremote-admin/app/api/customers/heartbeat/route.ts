@@ -73,6 +73,7 @@ export async function POST(req: Request) {
       os || undefined,
       osBits || undefined,
       {
+        ip, // 053 — 상호 충돌 판정의 증거(같은 공유기인가)
         diskTotal: asNum(body.diskTotal),
         diskFree: asNum(body.diskFree),
         tempBytes: asNum(body.tempBytes),

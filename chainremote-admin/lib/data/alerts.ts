@@ -1,10 +1,10 @@
 // 거래처 알림 데이터 레이어 — enroll "상호 = 교체 키" 매트릭스의 사람 결정 큐.
 // 미해결 알림 조회 + 마스터 처리 액션([이동]/[개명]/[무시]). tenantId 격리 강제.
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { normalizeCustomerNameKey } from "@/lib/data/customers";
-import { customerAlerts, customers, userFavorites } from "@/lib/schema";
+import { customerAlerts, customers, pendingUpdates, supportSessions, userFavorites } from "@/lib/schema";
 
 export type AlertDetail = {
   remoteId?: string;
@@ -13,6 +13,8 @@ export type AlertDetail = {
   name?: string;
   from?: string | null;
   to?: string;
+  oldCustomerId?: string;
+  oldRemoteId?: string | null;
   reason?: string;
 };
 
@@ -212,6 +214,84 @@ export async function applyAlertMoveToNew(id: string, tenantId: string): Promise
       detail: JSON.stringify({ remoteId: d.remoteId, from: src.name, to: d.newName }),
       resolvedAt: new Date(), // 감사 로그
     });
+  });
+  return true;
+}
+
+/**
+ * [교체로 합치기] — same_name_dead_device 알림. 같은 상호로 새 기기가 등록됐는데 합칠 증거가
+ * 없어 새 행을 만들어 둔 것을, 마스터가 "그 매장 포스를 바꾼 게 맞다"고 확인해 옛 행에 붙인다.
+ *
+ * 새 행은 몇 분 전에 생긴 것이라 지워도 잃을 게 없다 — 단 그 사이 붙은 원격 기록·즐겨찾기·
+ * 대기 중 푸시는 옛 행으로 옮긴다. remote_id 는 전역 unique 라 새 행의 값을 먼저 비운다.
+ */
+export async function applyAlertMergeReplacement(id: string, tenantId: string): Promise<boolean> {
+  const a = await getOpenAlert(id, tenantId);
+  if (!a || a.type !== "same_name_dead_device" || !a.customerId) return false;
+  const d = parseAlertDetail(a.detail) as { remoteId?: string; oldCustomerId?: string };
+  if (!d.remoteId || !d.oldCustomerId) return false;
+
+  const [fresh] = await db
+    .select({
+      id: customers.id,
+      remoteId: customers.remoteId,
+      heartbeatToken: customers.heartbeatToken,
+      lastVersion: customers.lastVersion,
+      lastHeartbeatAt: customers.lastHeartbeatAt,
+      lastIp: customers.lastIp,
+      os: customers.os,
+      osBits: customers.osBits,
+      arch: customers.arch,
+    })
+    .from(customers)
+    .where(and(eq(customers.id, a.customerId), eq(customers.tenantId, tenantId)))
+    .limit(1);
+  const [old] = await db
+    .select({ id: customers.id })
+    .from(customers)
+    .where(and(eq(customers.id, d.oldCustomerId), eq(customers.tenantId, tenantId)))
+    .limit(1);
+  // 알림 뒤에 기기가 딴 데로 갔거나 옛 행이 지워졌으면(스테일) 데이터 조작 없이 실패.
+  if (!fresh || !old || fresh.remoteId !== d.remoteId) return false;
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(customers)
+      .set({ remoteId: null, heartbeatToken: null })
+      .where(eq(customers.id, fresh.id));
+    await tx
+      .update(customers)
+      .set({
+        remoteId: fresh.remoteId,
+        heartbeatToken: fresh.heartbeatToken,
+        lastVersion: fresh.lastVersion,
+        lastHeartbeatAt: fresh.lastHeartbeatAt,
+        lastIp: fresh.lastIp,
+        os: fresh.os,
+        osBits: fresh.osBits,
+        arch: fresh.arch,
+        updatedAt: new Date(),
+      })
+      .where(eq(customers.id, old.id));
+    for (const t of [supportSessions, pendingUpdates, userFavorites] as const) {
+      await tx.update(t).set({ customerId: old.id }).where(eq(t.customerId, fresh.id));
+    }
+    await tx
+      .update(customerAlerts)
+      .set({ customerId: old.id })
+      .where(and(eq(customerAlerts.customerId, fresh.id), ne(customerAlerts.id, id)));
+    await tx.insert(customerAlerts).values({
+      tenantId,
+      customerId: old.id,
+      type: "device_replaced",
+      detail: JSON.stringify({ to: fresh.remoteId, reason: "owner_merge" }),
+      resolvedAt: new Date(),
+    });
+    await tx
+      .update(customerAlerts)
+      .set({ resolvedAt: new Date() })
+      .where(eq(customerAlerts.id, id));
+    await tx.delete(customers).where(eq(customers.id, fresh.id));
   });
   return true;
 }

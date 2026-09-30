@@ -113,7 +113,10 @@ describe("enroll 매트릭스 — 재설치(무해 경로)", () => {
 });
 
 describe("enroll 매트릭스 — 기기 교체 (새 기기 + 기존 상호)", () => {
-  it("대상 기기가 죽어있으면 그 거래처에 새 기기 연결 + 즐겨찾기 이전", async () => {
+  // ★2026-09-30 부터 "죽어 있음"만으로는 안 합친다. 설치자의 답(replaceExisting) 또는 같은
+  //   공인 IP 가 있어야 한다 — 규칙 자체는 enroll-same-name-guard.test.ts 가 잠근다. 여기서는
+  //   합쳐질 때의 동작(기기 연결·즐겨찾기 이전)을 본다.
+  it("대상 기기가 죽어있고 설치자가 교체라고 답하면 그 거래처에 새 기기 연결 + 즐겨찾기 이전", async () => {
     const tid = await seedTenant("t-replace");
     const uid = await seedUser(tid, "jaesung@t.co");
     const cid = await seedCustomer(tid, "태조산 메인", "RU32534786", DEAD());
@@ -127,7 +130,7 @@ describe("enroll 매트릭스 — 기기 교체 (새 기기 + 기존 상호)", (
 
     // 새 포스(새 ID)에 같은 상호로 설치
     const r = await enrollCustomer(
-      { remoteId: "AB11112222", name: "태조산메인" },
+      { remoteId: "AB11112222", name: "태조산메인", replaceExisting: true },
       { tenantId: tid },
     );
     expect(r).not.toBe("cross_tenant");

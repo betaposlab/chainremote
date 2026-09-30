@@ -30,6 +30,7 @@ export async function POST(req: Request) {
       hostname?: unknown;
       machineUuid?: unknown;
       newSite?: unknown;
+      replaceExisting?: unknown;
     };
     const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
     const remoteId = str(body.remoteId);
@@ -42,6 +43,8 @@ export async function POST(req: Request) {
     // 설치 화면에서 "다른 매장에 설치합니다"를 고른 경우(2026-08-16). 옛 인스톨러는 이 값을
     //   안 보내므로 undefined = 지금까지와 똑같이 동작한다(하위호환).
     const newSite = body.newSite === true || body.newSite === "true";
+    // 설치 화면에서 "같은 매장 — 포스 교체"를 고른 경우(2026-09-30). 옛 인스톨러는 안 보낸다.
+    const replaceExisting = body.replaceExisting === true || body.replaceExisting === "true";
 
     if (!remoteId) {
       return Response.json({ error: "remoteId 필수" }, { status: 400 });
@@ -56,7 +59,7 @@ export async function POST(req: Request) {
     }
 
     const result = await data.enrollCustomer(
-      { remoteId, name, hostname, machineUuid, newSite },
+      { remoteId, name, hostname, machineUuid, newSite, replaceExisting, ip },
       { tenantId },
     );
     if (result === "cross_tenant") {
