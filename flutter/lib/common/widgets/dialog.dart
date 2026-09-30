@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:bot_toast/bot_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hbb/common/hangul_qwerty.dart';
 import 'package:flutter_hbb/common/shared_state.dart';
 import 'package:flutter_hbb/common/widgets/setting_widgets.dart';
 import 'package:flutter_hbb/consts.dart';
@@ -710,6 +711,7 @@ class PasswordWidget extends StatefulWidget {
     this.errorText,
     this.title,
     this.maxLength,
+    this.initiallyVisible = false,
   }) : super(key: key);
 
   final TextEditingController controller;
@@ -719,6 +721,10 @@ class PasswordWidget extends StatefulWidget {
   final String? errorText;
   final String? title;
   final int? maxLength;
+
+  /// 처음부터 글자를 보여준다. 거래처 비밀번호(일회용 6자)에서 쓴다 — 한/영 상태가
+  /// 한글이면 *만 보여 틀린 줄 모른다. 눈 아이콘으로 다시 가릴 수 있다.
+  final bool initiallyVisible;
 
   @override
   State<PasswordWidget> createState() => _PasswordWidgetState();
@@ -733,6 +739,7 @@ class _PasswordWidgetState extends State<PasswordWidget> {
   @override
   void initState() {
     super.initState();
+    _passwordVisible = widget.initiallyVisible;
     if (widget.autoFocus) {
       _timer =
           Timer(Duration(milliseconds: 50), () => _focusNode.requestFocus());
@@ -903,7 +910,10 @@ _connectDialog(
       }
       final osUsername = osUsernameController?.text.trim() ?? '';
       final osPassword = osPasswordController?.text.trim() ?? '';
-      final password = passwordController?.text.trim() ?? '';
+      // 한글 상태로 친 일회용 비밀번호를 영타로 되돌린다(두벌식 1:1 이라 추측이 아니다).
+      // 임시 원격의 6자 비번을 한/영 확인 없이 넣어도 통과시키려는 자리 — hangul_qwerty.dart.
+      final typed = passwordController?.text.trim() ?? '';
+      final password = qwertyFromHangul(typed) ?? typed;
       if (passwordController != null && password.isEmpty) return;
       if (rememberAccount) {
         bind.sessionPeerOption(
@@ -1011,6 +1021,7 @@ _connectDialog(
           PasswordWidget(
             controller: passwordController,
             autoFocus: osUsernameController == null,
+            initiallyVisible: true,
           ),
           rememberWidget(
             translate('Remember password'),
