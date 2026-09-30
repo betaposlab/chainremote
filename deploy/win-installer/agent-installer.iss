@@ -25,7 +25,7 @@
 ;   PS5 에서도 동일 동작 — x64 경로도 이 문법으로 통일했다 (2026-06-10).
 
 #define APP_NAME       "ChainRemote"
-#define APP_VERSION    "1.4.147"
+#define APP_VERSION    "1.4.148"
 #define APP_PUBLISHER  "BetaposLab"
 #define APP_URL        "https://betaposlab.com"
 ; x64: 윈컴 Flutter 빌드 출력 (build-all.ps1)
@@ -114,6 +114,9 @@ Source: "..\custom-agent.txt"; DestDir: "{tmp}\custom_payload"; DestName: "custo
 ;   overlay 가 없으면(=자동업뎃은 늘 베이스다) 기존 설치본의 대리점 설정을 이어받는다.
 ;   그러지 않으면 업데이트 한 번에 enroll-key 와 unattended 가 번들 기본값으로 지워진다.
 Source: "extract-enroll-overlay.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
+; 상호 입력 단계에서 "같은 상호가 이미 있는가"를 패널에 묻는 스크립트(2026-09-30). 마법사 단계에서
+;   ExtractTemporaryFile 로 꺼내 쓴다 — [Run] 보다 앞이라 여기 두는 것만으로는 {tmp} 에 없다.
+Source: "enroll-check.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
 
 ; ChainRemote 단축아이콘·제어판 아이콘용 .ico — ProgramData 에 둔다.
 ;   {app} 은 코어 silent-install 이 매 업데이트마다 rd /s /q 로 밀어서 영구 보관이 안 된다
@@ -307,6 +310,8 @@ Filename: "schtasks.exe"; Parameters: "/Delete /TN ChainRemoteServiceWatchdog /F
 ;   /reg: 스위치는 Win7+ reg.exe 지원. 값이 없어도 조용히 실패(runhidden)라 무해.
 Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\ChainRemote /v CustomerName /f /reg:64"; Flags: runhidden; RunOnceId: "DelCustomerName64"
 Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\ChainRemote /v CustomerName /f /reg:32"; Flags: runhidden; RunOnceId: "DelCustomerName32"
+Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\ChainRemote /v EnrollAnswer /f /reg:64"; Flags: runhidden; RunOnceId: "DelEnrollAnswer64"
+Filename: "reg.exe"; Parameters: "delete HKLM\SOFTWARE\ChainRemote /v EnrollAnswer /f /reg:32"; Flags: runhidden; RunOnceId: "DelEnrollAnswer32"
 
 [UninstallDelete]
 ; ProgramData 잔재 정리. 위 [UninstallRun] 이 다 끝난 뒤에 Inno 가 처리하므로, 거기서
@@ -393,6 +398,84 @@ end;
 // ── auto-enroll: 거래처 상호 수집 + 레지스트리 기록 ─────────────────────────
 // 한국어 상호를 파일(CP949)/custom.txt 로 보내면 인코딩이 깨진다 → 레지스트리 REG_SZ(유니코드 네이티브)에 기록.
 // 에이전트(Rust)가 HKLM\SOFTWARE\ChainRemote\CustomerName 을 읽어 enroll 시 거래처명으로 쓴다.
+// 설치자의 답 — 같은 상호가 이미 있을 때 "같은 매장 교체(replace) / 다른 매장(new)".
+//   에이전트가 enroll 에 실어 보내고 한 번 쓰고 지운다(chainremote_heartbeat.rs read_enroll_answer).
+//   빈 문자열이면 값을 지운다 — 이전 설치의 답이 남아 이번 상황에 붙으면 안 된다.
+procedure CRWriteEnrollAnswer(Answer: String);
+begin
+  if Answer = '' then begin
+    RegDeleteValue(HKLM, 'SOFTWARE\ChainRemote', 'EnrollAnswer');
+    Exit;
+  end;
+  if RegWriteStringValue(HKLM, 'SOFTWARE\ChainRemote', 'EnrollAnswer', Answer) then
+    CRLog('installer: EnrollAnswer=' + Answer)
+  else
+    CRLog('installer: EnrollAnswer write FAILED');
+end;
+
+// 상호 페이지에서 [다음]을 누르는 순간 패널에 같은 상호가 있는지 묻는다(2026-09-30).
+//   서버는 이제 상호만 보고 합치지 않는다. 그 매장 포스를 바꾼 것인지, 이름만 같은 다른 매장인지는
+//   설치하는 사람이 제일 잘 알고, 화면이 알려 주면 기억하지 않아도 된다. 조회가 안 되면(오프라인·
+//   overlay 없음) 묻지 않고 넘어간다 — 서버가 공인 IP 로 판단하고, 그래도 애매하면 패널에 묻는다.
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Name, OutFile, Params, Seen: String;
+  Code: Integer;
+  Lines: TArrayOfString;
+  Answer: Integer;
+begin
+  Result := True;
+  if not Assigned(EnrollPage) then Exit;
+  if CurPageID <> EnrollPage.ID then Exit;
+  Name := Trim(EnrollPage.Values[0]);
+  CRWriteEnrollAnswer('');   // 이번 설치의 답은 아래에서 새로 정한다
+  if Name = '' then Exit;
+  try
+    ExtractTemporaryFile('enroll-check.ps1');
+  except
+    CRLog('installer: enroll-check.ps1 extract failed -> skip check');
+    Exit;
+  end;
+  OutFile := ExpandConstant('{tmp}\enroll-check.txt');
+  DeleteFile(OutFile);
+  Params := '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\enroll-check.ps1') + '"'
+    + ' -Setup "' + ExpandConstant('{srcexe}') + '"'
+    + ' -Name "' + Name + '"'
+    + ' -Out "' + OutFile + '"'
+    + ' -Log "' + ExpandConstant('{commonappdata}\ChainRemote\updater.log') + '"';
+  if not Exec('powershell.exe', Params, '', SW_HIDE, ewWaitUntilTerminated, Code) then begin
+    CRLog('installer: enroll-check exec failed -> skip check');
+    Exit;
+  end;
+  if Code <> 1 then Exit;   // 0 = 동명 없음, 2 = 조회 불가 → 둘 다 그냥 진행
+  if not LoadStringsFromFile(OutFile, Lines) then Exit;
+  if GetArrayLength(Lines) < 3 then Exit;
+  if Lines[2] = 'true' then begin
+    // 그 기기가 지금 켜져 있다 — 교체가 아니라 두 번째 포스(메인+오더)이거나 동명 매장이다.
+    //   서버가 어차피 새 행으로 두고 알림을 띄우므로 여기서는 묻지 않고 알려만 준다.
+    CRLog('installer: same name exists and alive (' + Lines[1] + ') -> proceed as new device');
+    Exit;
+  end;
+  Seen := '';
+  if (GetArrayLength(Lines) >= 4) and (Lines[3] <> '') then
+    Seen := #13#10 + '마지막 접속: ' + Copy(Lines[3], 1, 16) + ' (UTC)';
+  Answer := MsgBox(
+    '"' + Name + '" 은(는) 이미 등록된 거래처입니다.' + #13#10 +
+    '원격 ID: ' + Lines[1] + Seen + #13#10 + #13#10 +
+    '이 매장의 포스를 새것으로 바꾸는(교체) 설치인가요?' + #13#10 + #13#10 +
+    '[예]     같은 매장 — 포스 교체 (지원 이력을 이어갑니다)' + #13#10 +
+    '[아니오]  이름만 같은 다른 매장 (새 거래처로 등록합니다)' + #13#10 +
+    '[취소]    상호를 다시 입력합니다',
+    mbConfirmation, MB_YESNOCANCEL);
+  if Answer = IDYES then begin
+    CRWriteEnrollAnswer('replace');
+  end else if Answer = IDNO then begin
+    CRWriteEnrollAnswer('new');
+  end else begin
+    Result := False;   // 상호 페이지에 머문다
+  end;
+end;
+
 procedure CRWriteCustomerName(Name: String);
 begin
   if Name = '' then Exit;  // 빈칸이면 안 쓴다 → 서버가 hostname placeholder 로 명명.
