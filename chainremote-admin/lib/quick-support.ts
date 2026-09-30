@@ -53,11 +53,54 @@ export function quickSupportFilename(): string {
   return `rustdesk-host=${QUICK_SUPPORT_HOST},key=${QUICK_SUPPORT_KEY},.exe`;
 }
 
-/** User-Agent 로 어느 판을 줄지 고른다. Windows 가 아니면 null. */
-export function pickQuickSupportBuild(ua: string | null): "x64" | "x86" | null {
-  const s = ua ?? "";
-  if (!/Windows/i.test(s)) return null;
-  const is64 = /Win64|x64|WOW64|amd64/i.test(s);
-  const isWin10Plus = /Windows NT 1\d/i.test(s);
-  return is64 && isWin10Plus ? "x64" : "x86";
+/** 브라우저가 보내는 힌트. 요청 헤더에서 뽑아 넘긴다. */
+export type ClientHints = {
+  ua: string | null;
+  /** Sec-CH-UA-Platform — "Windows" 등(따옴표 포함으로 옴). 기본으로 늘 보내는 값. */
+  platform: string | null;
+  /** Sec-CH-UA-Bitness — "64"/"32". Accept-CH 로 요청해야 온다. */
+  bitness: string | null;
+  /** Sec-CH-UA-Platform-Version — Windows 는 "0.0.0"(7·8·8.1) / "1.0.0"~"12.0.0"(10) / "13.0.0"+(11). */
+  platformVersion: string | null;
+};
+
+const CH_ACCEPT = "Sec-CH-UA-Platform, Sec-CH-UA-Bitness, Sec-CH-UA-Platform-Version";
+/** 응답에 실어 두면 브라우저가 다음 요청부터(Critical 이면 이번 요청을 다시) 힌트를 보낸다. */
+export const CLIENT_HINT_HEADERS = { "Accept-CH": CH_ACCEPT, "Critical-CH": CH_ACCEPT, Vary: "Sec-CH-UA-Bitness, Sec-CH-UA-Platform-Version" };
+
+const unq = (v: string | null) => (v ?? "").replace(/"/g, "").trim();
+
+/** 어느 판을 줄지 고른다. Windows 가 아니면 null.
+ *
+ *  ★User-Agent 만 보면 틀린다(2026-09-30 테스트1 실측). 크롬은 101부터 UA 의 OS 부분을 모든
+ *  Windows 에서 "Windows NT 10.0; Win64; x64" 로 **고정**해 보낸다. Win7 32비트 크롬 109 가 그렇게
+ *  보내서 64비트 파일을 받았고 "이 파일의 버전이 실행 중인 Windows 와 호환되지 않습니다"가 떴다.
+ *  진짜 값은 Client Hints(비트수·플랫폼 버전)에만 있고, 그건 서버가 Accept-CH 로 청해야 온다.
+ *  힌트가 없으면 32비트 Sciter 판 — 그건 Win7~11, 32/64비트 어디서나 돈다(안전한 기본값). */
+export function pickQuickSupportBuild(h: ClientHints): "x64" | "x86" | null {
+  const ua = h.ua ?? "";
+  const platform = unq(h.platform);
+  if (platform ? platform !== "Windows" : !/Windows/i.test(ua)) return null;
+  // 옛 브라우저(UA 축소 이전)가 정직하게 말하는 Win7/8 은 힌트 없이도 안다.
+  if (/Windows NT (5|6)\./i.test(ua)) return "x86";
+  const bitness = unq(h.bitness);
+  const major = parseInt(unq(h.platformVersion).split(".")[0] ?? "", 10);
+  if (bitness === "64" && Number.isFinite(major) && major >= 1) return "x64";
+  return "x86";
+}
+
+/** 크롬 계열인데 아직 힌트가 안 실린 요청 — Critical-CH 로 되물으면 브라우저가 힌트를 붙여 다시 온다. */
+export function shouldAskForHints(h: ClientHints): boolean {
+  const ua = h.ua ?? "";
+  const chromium = /Chrome\//.test(ua) || !!h.platform;
+  return chromium && !h.bitness && !/Windows NT (5|6)\./i.test(ua);
+}
+
+export function readClientHints(headers: Headers): ClientHints {
+  return {
+    ua: headers.get("user-agent"),
+    platform: headers.get("sec-ch-ua-platform"),
+    bitness: headers.get("sec-ch-ua-bitness"),
+    platformVersion: headers.get("sec-ch-ua-platform-version"),
+  };
 }

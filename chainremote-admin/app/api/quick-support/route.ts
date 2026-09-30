@@ -8,10 +8,13 @@
 
 import { createHash } from "node:crypto";
 import {
+  CLIENT_HINT_HEADERS,
   QUICK_SUPPORT_BUILDS,
   QUICK_SUPPORT_SOURCES,
   pickQuickSupportBuild,
   quickSupportFilename,
+  readClientHints,
+  shouldAskForHints,
 } from "@/lib/quick-support";
 import { clientIp } from "@/lib/request-ip";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
@@ -55,7 +58,18 @@ export async function GET(req: Request) {
   const rl = rateLimit(`quick-support:${ip}`, 6, 60_000);
   if (!rl.allowed) return tooManyRequests(rl.retryAfterSec);
 
-  const arch = pickQuickSupportBuild(req.headers.get("user-agent"));
+  const hints = readClientHints(req.headers);
+  // 크롬 계열이 힌트 없이 왔으면 Critical-CH 로 되묻는다 — 브라우저가 이 응답을 버리고 힌트를
+  //   붙여 같은 요청을 다시 보낸다(사람 눈엔 안 보인다). 되묻기가 안 통하는 브라우저를 위해
+  //   몸통은 2초 뒤 32비트 판으로 가는 안내를 담는다.
+  if (shouldAskForHints(hints) && !new URL(req.url).searchParams.has("fallback")) {
+    const html = `<!doctype html><html lang="ko"><meta charset="utf-8"><meta http-equiv="refresh" content="2;url=/api/quick-support?fallback=1"><title>원격지원 준비</title><body style="font-family:system-ui,'Malgun Gothic',sans-serif;background:#2b364f;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0"><p>파일을 준비하고 있습니다…</p></body></html>`;
+    return new Response(html, {
+      status: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", ...CLIENT_HINT_HEADERS },
+    });
+  }
+  const arch = pickQuickSupportBuild(hints);
   if (!arch) {
     return page(
       200,
@@ -72,7 +86,7 @@ export async function GET(req: Request) {
     );
   }
   const name = quickSupportFilename();
-  console.log("[quick-support] served", arch, ip);
+  console.log("[quick-support] served", arch, ip, "bitness=", hints.bitness, "pv=", hints.platformVersion);
   return new Response(new Uint8Array(buf), {
     status: 200,
     headers: {
@@ -81,6 +95,7 @@ export async function GET(req: Request) {
       // 이름에 쉼표·등호가 있어 따옴표로 감싼다. 비ASCII 가 없어 filename* 는 필요 없다.
       "Content-Disposition": `attachment; filename="${name}"`,
       "Cache-Control": "no-store",
+      ...CLIENT_HINT_HEADERS,
     },
   });
 }
