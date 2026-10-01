@@ -118,15 +118,35 @@ class _CrQuickSupportStripState extends State<CrQuickSupportStrip> {
       final waiting = crQuickWaiting.toList();
       final code = crQuickCode.value;
       final c = CrColors.of(context);
+      // 우리 번호 — 전화를 받자마자 불러 줄 숫자라 대기가 있든 없든 늘 보인다.
+      //   (처음엔 대기가 없을 때만 흐리게 보였다. 대기가 뜨자 번호가 사라져 Chang 이
+      //    "101 이 어딨느냐" 고 물었다 — 2026-10-01.)
+      Widget codeChip() => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: c.okBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: c.okDot),
+            ),
+            child: Text('임시 원격 번호 $code',
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w800, color: c.okFg)),
+          );
       if (waiting.isEmpty) {
-        // 대기가 없을 때는 번호만 흐리게 — 전화를 받자마자 불러 줄 숫자라 찾으러 가게 두지 않는다.
         if (code.isEmpty) return const SizedBox.shrink();
         return Padding(
-          padding: const EdgeInsets.only(right: 14, bottom: 2),
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: Text('설치 전 거래처: 626.kr → 원격지원 받기 → 번호 $code',
-                style: TextStyle(fontSize: 11, color: c.neuSub)),
+          padding: const EdgeInsets.only(right: 12, bottom: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Text('설치 전 거래처: 626.kr → 초록 [원격지원 받기] → 이 번호',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11.5, color: c.neuSub)),
+              ),
+              const SizedBox(width: 8),
+              codeChip(),
+            ],
           ),
         );
       }
@@ -147,6 +167,7 @@ class _CrQuickSupportStripState extends State<CrQuickSupportStrip> {
             Text('🟢 임시 접속 대기 ${waiting.length}곳',
                 style: TextStyle(
                     fontSize: 12, fontWeight: FontWeight.w700, color: c.okFg)),
+            if (code.isNotEmpty) codeChip(),
             ...waiting.map((w) {
               final os = _shortOs(w.os);
               final label = [
