@@ -106,9 +106,25 @@ export async function updateCustomer(
   fields: CustomerFields,
   ctx: { tenantId: string },
 ) {
+  // 원격 ID 를 손으로 바꾸면 하트비트 토큰도 비운다 (2026-10-01 삼성공판장).
+  //   에이전트 ID 가 바뀐 기기는 옛 토큰을 버리고 register-heartbeat-token 으로 새 토큰을
+  //   받으려 드는데, 그 경로는 "토큰이 없는 행"에만 발급한다(H2 봉인). ID 만 고치고 토큰을
+  //   두면 에이전트는 영원히 409 — 패널에서는 ID 가 맞는데 왜 안 붙는지 알 길이 없다.
+  const [before] = await db
+    .select({ remoteId: customers.remoteId })
+    .from(customers)
+    .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
+    .limit(1);
+  if (!before) return null;
+  const remoteIdChanged =
+    fields.remoteId !== undefined && (fields.remoteId ?? null) !== (before.remoteId ?? null);
   const [row] = await db
     .update(customers)
-    .set({ ...fields, updatedAt: new Date() })
+    .set({
+      ...fields,
+      ...(remoteIdChanged ? { heartbeatToken: null } : {}),
+      updatedAt: new Date(),
+    })
     .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
     .returning();
   return row ?? null;
