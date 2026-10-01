@@ -8,6 +8,7 @@ import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/my_group.dart';
 import 'package:flutter_hbb/common/widgets/peers_view.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_disk.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_quick_support.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_van.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_easter.dart';
@@ -177,6 +178,8 @@ class _PeerTabPageState extends State<PeerTabPage>
                 )),
               ),
             ).paddingOnly(right: stateGlobal.isPortrait.isTrue ? 0 : 12)),
+        // 임시 접속 대기 — 사람이 전화기를 들고 기다리는 줄이라 경고들보다 위에 둔다.
+        const CrQuickSupportStrip(),
         _crVanAlertStrip(),
         _crVanMissingStrip(),
         _crDiskAlertStrip(),
