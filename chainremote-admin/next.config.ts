@@ -21,7 +21,10 @@ const nextConfig: NextConfig = {
   //   Critical-CH 가 두 번째 안전망이다(lib/quick-support.ts).
   async headers() {
     const ch = "Sec-CH-UA-Platform, Sec-CH-UA-Bitness, Sec-CH-UA-Platform-Version";
-    return [{ source: "/login", headers: [{ key: "Accept-CH", value: ch }] }];
+    return [
+      { source: "/login", headers: [{ key: "Accept-CH", value: ch }] },
+      { source: "/login/support", headers: [{ key: "Accept-CH", value: ch }] },
+    ];
   },
 };
 

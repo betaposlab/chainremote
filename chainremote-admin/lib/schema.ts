@@ -57,6 +57,10 @@ export const tenants = pgTable("tenants", {
   //   우리가 그 사례다(계정 베타포스랩 / 거래처엔 대전문성텔레콤).
   supportDisplayName: text("support_display_name"),
 
+  // 임시 원격 대리점 번호(마이그 054). 거래처가 626.kr 숫자판에 누르는 숫자 3자리.
+  //   DB 기본값(시퀀스)이 채우므로 앱 코드는 넣지 않는다.
+  quickCode: text("quick_code"),
+
   // 무인접속 에이전트(마이그 030). 켜면 [에이전트 다운로드] 의 custom.txt 가
   //   approve-mode=both 로 나간다 — 영구비번이 있을 때만 무클릭이고 없으면 수락창
   //   폴백이라 잘못 켜도 열린 문이 되진 않는다. 거래처용 클릭수락 정책은 그대로다.
@@ -551,6 +555,30 @@ export const releases = pgTable(
 //   ★60초 만료 + 소비 즉시 DELETE. 주소에 실려 방문기록·Referer 로 샐 수 있는 값이라
 //   재사용 창을 최대한 좁힌다 — 서명 토큰만으로는 '한 번만' 을 보장할 수 없다.
 //   저장은 해시(heartbeat 토큰과 같은 규칙) — DB 가 새도 티켓 자체는 못 쓴다.
+// 임시 원격 세션(마이그 054) — 626.kr 초록 버튼 한 번 = 한 행. 설계 배경은 lib/quick-support.ts.
+export const quickSupportSessions = pgTable(
+  "quick_support_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    token: text("token").notNull().unique(),
+    arch: text("arch"),
+    clickIp: text("click_ip"),
+    remoteId: text("remote_id"),
+    hostname: text("hostname"),
+    os: text("os"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    connected: boolean("connected").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantSeenIdx: index("idx_qs_sessions_tenant_seen").on(t.tenantId, t.lastSeenAt),
+  }),
+);
+
 export const panelTickets = pgTable("panel_tickets", {
   tokenHash: text("token_hash").primaryKey(),
   userId: uuid("user_id")

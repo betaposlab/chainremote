@@ -53,6 +53,43 @@ export function quickSupportFilename(): string {
   return `rustdesk-host=${QUICK_SUPPORT_HOST},key=${QUICK_SUPPORT_KEY},.exe`;
 }
 
+// ── 토큰이 실린 파일 이름 (2026-10-01) ────────────────────────────────────────────────
+// 상류 파서(src/custom_server.rs)는 파일 이름에서 설정을 두 형식으로 읽는다.
+//   ① `host=…,key=…`           — 위의 것. Windows 파일명엔 `:` `/` 를 못 써 주소(api)를 못 싣는다.
+//   ② `rustdesk-licensed-<X>`   — X = JSON 을 base64url 한 뒤 **뒤집은** 문자열. 서명 없는
+//                                  평문 JSON 도 그대로 받는다. 여기엔 https 주소가 들어간다.
+// RustDesk 는 api 주소가 있으면 켜지자마자 `{api}/api/sysinfo`, 15초마다 `{api}/api/heartbeat`
+// 로 **자기 ID** 를 보낸다(src/hbbs_http/sync.rs). 주소에 이 클릭만의 토큰을 넣어 두면
+// "어느 클릭 = 어느 ID" 가 추측 없이 맞는다. 받는 쪽은 app/api/qs/[token]/api/[kind].
+//
+// ★주소를 짧게 유지할 것. 파일 이름이 길면 `C:\Users\…\Downloads\` 와 합쳐 Windows 의
+//   260자 한계를 넘고, 브라우저가 이름을 **잘라** 저장한다 — 잘린 이름은 설정이 아니다.
+export const QUICK_SUPPORT_REPORT_BASE = "https://626.kr/api/qs";
+
+/** 토큰 형식 — 소문자·숫자 12자. 라우트가 이 모양만 받는다. */
+export const QUICK_SUPPORT_TOKEN_RE = /^[a-z0-9]{12}$/;
+
+/**
+ * 토큰을 실은 파일 이름. 이 토큰으로는 안전한 이름이 안 나오면 null — 토큰을 새로 뽑아 다시 부른다.
+ *
+ * 안전하지 않은 경우: 상류 파서가 `-licensed-` 를 `--` 로 바꾼 뒤 `--` 로 쪼갠다. base64url 엔
+ * `-` 가 나올 수 있어, X 가 `-` 로 시작하거나 `--` 를 품으면 엉뚱한 자리에서 잘린다.
+ */
+export function quickSupportFilenameWithToken(token: string): string | null {
+  if (!QUICK_SUPPORT_TOKEN_RE.test(token)) return null;
+  const json = JSON.stringify({
+    host: QUICK_SUPPORT_HOST,
+    key: QUICK_SUPPORT_KEY,
+    api: `${QUICK_SUPPORT_REPORT_BASE}/${token}`,
+  });
+  const x = Buffer.from(json, "utf8").toString("base64url").split("").reverse().join("");
+  if (x.startsWith("-") || x.endsWith("-") || x.includes("--")) return null;
+  return `rustdesk-licensed-${x}.exe`;
+}
+
+/** 대리점 번호 형식 — 숫자 3~4자. 고객이 숫자판으로 누른다. */
+export const QUICK_CODE_RE = /^[0-9]{3,4}$/;
+
 /** 브라우저가 보내는 힌트. 요청 헤더에서 뽑아 넘긴다. */
 export type ClientHints = {
   ua: string | null;

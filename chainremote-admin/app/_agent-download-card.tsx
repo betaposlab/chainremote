@@ -9,9 +9,12 @@ import { useState } from "react";
 export function AgentDownloadCard({
   tenantId,
   displayName,
+  quickCode,
 }: {
   tenantId: string;
   displayName: string;
+  /** 임시 원격 대리점 번호(마이그 054). 거래처가 626.kr 숫자판에 누르는 숫자. */
+  quickCode?: string | null;
 }) {
   const [downloading, setDownloading] = useState(false);
 
@@ -61,6 +64,25 @@ export function AgentDownloadCard({
 
   return (
     <section className="panel-card-spotlight mb-8 px-5 py-4">
+      {/* 임시 원격 번호 — 아직 에이전트가 없는 거래처를 전화로 처음 도울 때 쓴다(2026-10-01).
+          거래처는 영어도 비밀번호도 읽지 않는다. 이 숫자만 누르고 [수락] 을 누른다. */}
+      {quickCode && (
+        <div className="mb-4 flex flex-col gap-2 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <p className="text-sm text-[#eef1f7]">
+            <span className="font-medium text-white">처음 돕는 거래처(설치 전)</span> — 거래처가
+            인터넷 주소창에 <b className="text-white">626.kr</b> 을 치고 초록색{" "}
+            <b className="text-white">원격지원 받기</b> 를 누른 뒤 이 번호를 누르면, 본사 앱
+            홈에 <b className="text-white">임시 접속 대기</b> 로 뜹니다. 거래처는 [수락] 만 누릅니다.
+          </p>
+          <div
+            style={{ borderWidth: "2px", borderColor: "#7CF2B0" }}
+            className="shrink-0 rounded-lg bg-[#2b364f] px-5 py-2 text-center"
+          >
+            <div className="text-[11px] text-[#b9bfd2]">우리 번호</div>
+            <div className="text-3xl font-bold tracking-widest text-white">{quickCode}</div>
+          </div>
+        </div>
+      )}
       <h2 className="text-base font-semibold text-white">설치파일</h2>
 
       <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">

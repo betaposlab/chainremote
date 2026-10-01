@@ -65,21 +65,19 @@ export default async function LoginPage({
             슬래시도, 로그인도, 메뉴 찾기도 없다. 받는 파일이 무엇인지는 lib/quick-support.ts.
             ★로그인 버튼(파랑)과 색을 달리한다 — 전화로 "파란 버튼"이라 하면 둘 중 뭔지 모른다.
             ★맨 위에 둔다. 컴퓨터가 낯선 사람은 화면을 아래로 내리지 않는다.
-            ★<a> 에 download 를 주지 않는다 — 이름은 서버의 Content-Disposition 이 정한다. */}
+            ★2026-10-01: 버튼은 숫자판(/login/support)으로 간다. 거기서 대리점 번호를 누르면
+              받은 파일이 스스로 ID 를 알려 와, 고객이 숫자·비밀번호를 읽어 줄 일이 없다. */}
         <div>
           <a
-            href="/api/quick-support"
+            href="/login/support"
             style={{ borderWidth: "2px", borderColor: "#7CF2B0" }}
             className="btn w-full bg-[#1FA867] py-4 text-lg font-bold text-white transition-colors hover:bg-[#23BD74]"
           >
             원격지원 받기
           </a>
           <p className="mt-2 text-center text-xs leading-relaxed text-[#d7dcea]">
-            담당자와 통화 중이신가요? 위 버튼을 누르고, 받은 파일을 눌러 실행해 주세요.
-            <br />
-            <span className="font-medium text-white">RustDesk</span> 창이 뜨면 정상입니다. 창에 있는
-            <span className="font-medium text-white"> 큰 숫자 9자리</span>와 그 아래
-            <span className="font-medium text-white"> 작은 글자 6자</span>를 담당자에게 불러 주세요.
+            담당자와 통화 중이신가요? 위 버튼을 누르고, 담당자가 불러 주는
+            <span className="font-medium text-white"> 번호</span>를 눌러 주세요.
           </p>
         </div>
 
