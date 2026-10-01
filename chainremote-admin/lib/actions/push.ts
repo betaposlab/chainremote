@@ -57,29 +57,58 @@ function pickOptions(formData: FormData): data.PushOptions {
 /**
  * 단일 거래처 푸시. 거래처 표 행의 [v1.3.5 푸시] 버튼.
  */
-export async function pushToCustomerAction(customerId: string, formData: FormData) {
+export async function pushToCustomerAction(
+  customerId: string,
+  formData: FormData,
+): Promise<{ ok: boolean; alreadyQueued?: boolean; error?: string }> {
   const session = await requireSession();
   const asset = pickAsset(formData);
   const opts = pickOptions(formData);
-  const row = await data.pushToCustomer(customerId, asset, opts, {
-    tenantId: session.tenantId,
-    requestedBy: session.id,
-  });
+  let row;
+  try {
+    row = await data.pushToCustomer(customerId, asset, opts, {
+      tenantId: session.tenantId,
+      requestedBy: session.id,
+    });
+  } catch (e) {
+    const msg = userFacingPushError(e);
+    if (msg) return { ok: false, error: msg };
+    throw e;
+  }
   revalidatePath("/customers");
   return { ok: !!row, alreadyQueued: !row };
 }
 
 /**
+ * 서버 액션에서 던진 에러는 프로덕션에서 문장이 지워진 채 클라이언트로 가고, 다이얼로그는
+ * 흰 "This page couldn't load" 로 터진다(2026-10-01 실사고 — 스테이징 가드의 안내문이
+ * 로그에만 남고 Chang 화면엔 digest 숫자만 떴다). 검증 실패는 값으로 돌려 다이얼로그가
+ * 빨간 줄로 보여 주게 한다. 그 밖의 에러(DB 등)는 그대로 던진다.
+ */
+function userFacingPushError(e: unknown): string | null {
+  return e instanceof data.PushValidationError ? e.message : null;
+}
+
+/**
  * 일괄 푸시. 거래처 표 상단의 [전체 일괄 푸시] 버튼.
  */
-export async function pushBulkAction(formData: FormData) {
+export async function pushBulkAction(
+  formData: FormData,
+): Promise<{ inserted: number; eligible: number; error?: string }> {
   const session = await requireSession();
   const asset = pickAsset(formData);
   const opts = pickOptions(formData);
-  const result = await data.pushBulk(asset, opts, {
-    tenantId: session.tenantId,
-    requestedBy: session.id,
-  });
+  let result;
+  try {
+    result = await data.pushBulk(asset, opts, {
+      tenantId: session.tenantId,
+      requestedBy: session.id,
+    });
+  } catch (e) {
+    const msg = userFacingPushError(e);
+    if (msg) return { inserted: 0, eligible: 0, error: msg };
+    throw e;
+  }
   // 살아있는 플릿 전체에 설치를 거는 동작이라 남긴다. 나중에 "그날 왜 다 업뎃됐지"
   // 를 되짚을 유일한 단서다.
   await writeAudit({
