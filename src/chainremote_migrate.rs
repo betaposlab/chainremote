@@ -62,6 +62,26 @@ pub fn migrate_from_rustdesk_once() {
             return;
         }
 
+        // ★남의 RustDesk 를 우리 옛 설치로 오인하지 않는다 (2026-10-01).
+        //   이 마이그레이션은 2026-05 에 이름이 RustDesk 였던 **우리 포크**를 옮기려고 만든
+        //   것이고, 그 플릿은 다 넘어왔다. 그런데 "RustDesk 폴더가 있다"만 보고 돌아서:
+        //   ① 임시 원격(626.kr 초록 버튼)이 내려 준 상류 공식 exe 로 붙어 우리 에이전트를
+        //      설치하는 순간, 이 코드가 그 rustdesk.exe 를 죽였다 — 설치 도중 원격이 끊긴다.
+        //      테스트1 에서는 마커가 이미 있어 안 드러났고, 정작 대상인 신규 PC 에서만 터진다.
+        //   ② 거래처가 따로 쓰는 진짜 RustDesk 가 깔려 있으면 그 서비스를 지웠다.
+        //   우리 옛 설치는 "서비스가 있고 + 설정이 우리 서버를 가리킨다". 둘 다여야 옮긴다.
+        //   (임시 원격 exe 는 설정이 우리 서버를 가리키지만 포터블이라 서비스가 없다.)
+        if !(has_old_service && old_install_points_to_us()) {
+            log::info!(
+                "[chainremote_migrate] RustDesk 흔적이 있으나 우리 옛 설치가 아님 (data={}, service={}) — 건드리지 않는다.",
+                has_old_data,
+                has_old_service
+            );
+            let _ = std::fs::create_dir_all(&new_data_root);
+            let _ = std::fs::write(&marker, b"skipped_not_ours");
+            return;
+        }
+
         log::info!(
             "[chainremote_migrate] 옛 RustDesk 발견 (data={}, service={}). 마이그레이션 시작.",
             has_old_data,
@@ -167,6 +187,24 @@ fn old_local_service_root() -> Option<PathBuf> {
 #[cfg(target_os = "windows")]
 fn new_local_service_root() -> Option<PathBuf> {
     local_service_root_base().map(|p| p.join(NEW_APP_NAME))
+}
+
+/// 옛 RustDesk 설정이 우리 서버를 가리키는가 — 서비스 프로필과 사용자 프로필 둘 다 본다.
+/// 못 읽으면(권한·없음) 아니라고 답한다: 모르는 것을 지우는 쪽보다 안 건드리는 쪽이 안전하다.
+#[cfg(target_os = "windows")]
+fn old_install_points_to_us() -> bool {
+    const OURS: &[&str] = &["sepani.synology.me", "626.kr", "betaposlab"];
+    let roots = [old_local_service_root(), old_appdata_root()];
+    for root in roots.iter().flatten() {
+        let file = root.join("config").join("RustDesk2.toml");
+        if let Ok(bytes) = std::fs::read(&file) {
+            let text = String::from_utf8_lossy(&bytes).to_lowercase();
+            if OURS.iter().any(|needle| text.contains(needle)) {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 #[cfg(target_os = "windows")]
