@@ -213,11 +213,12 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 Filename: "schtasks.exe"; Parameters: "/Create /TN ChainRemoteServiceWatchdog /TR ""powershell -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\ChainRemote\watchdog.ps1"" /SC MINUTE /MO 10 /RU SYSTEM /RL HIGHEST /F"; StatusMsg: "ChainRemote 자동복구 등록 중..."; Flags: runhidden waituntilterminated
 Filename: "schtasks.exe"; Parameters: "/Run /TN ChainRemoteServiceWatchdog"; Flags: runhidden waituntilterminated
 
-; 5~7. 옛 RustDesk 잔재 정리 (마이그레이션 보조 — chainremote_migrate.rs 와 안전 중첩)
-Filename: "{cmd}"; Parameters: "/c del /F /Q ""%PUBLIC%\Desktop\RustDesk.lnk"" 2>nul"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c del /F /Q ""%USERPROFILE%\Desktop\RustDesk.lnk"" 2>nul"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c rmdir /S /Q ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\RustDesk"" 2>nul"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\CurrentVersion\Run"" /v RustDesk /f 2>nul"; Flags: runhidden
+; 5~7. (2026-10-01 삭제) "옛 RustDesk 잔재 정리" 네 줄이 여기 있었다 — 바탕화면 RustDesk.lnk,
+;    시작 메뉴 RustDesk 폴더, HKLM Run 의 RustDesk 값을 **조건 없이** 지웠다.
+;    2026-05 에 이름이 RustDesk 였던 우리 포크를 옮기던 보조였는데, 그 플릿은 다 넘어왔고
+;    이제 이 이름을 가진 건 거래처가 따로 쓰는 진짜 RustDesk 뿐이다. 설치·푸시 업데이트마다
+;    남의 프로그램 바로가기와 자동시작을 지우고 있었다. 우리 옛 설치의 정리는
+;    chainremote_migrate.rs 가 "우리 것일 때만" 한다. 이름만 보고 지우는 줄을 되살리지 말 것.
 
 ; 8. 바탕화면 바로가기 정리 — 거래처가 바꾼 아이콘 이름 존중 + 기본 아이콘 IconLocation 갱신.
 ;    현장은 영어를 못 읽는 사장님을 위해 아이콘 이름을 한글("포스원격" 등)로 바꿔 쓴다(코이노

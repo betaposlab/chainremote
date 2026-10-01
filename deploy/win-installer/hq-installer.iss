@@ -145,16 +145,9 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Fil
 ; 4. 서비스 재시작 (간단판 — HQ 는 watchdog 없으므로 1회 시도면 충분)
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Start-Service ChainRemote -ErrorAction Stop } catch {{ sc.exe start ChainRemote *>$null }"""; StatusMsg: "ChainRemote 서비스 시작 중..."; Flags: runhidden waituntilterminated
 
-; 5. 옛 RustDesk 단축아이콘 잔재 정리 (Phase 3-Win). install_me 가 APP_NAME=ChainRemote 를
-;    따라 ChainRemote.lnk 를 자동 생성하므로 RENAME 은 불필요. 옛 잔재만 제거.
-Filename: "{cmd}"; Parameters: "/c del /F /Q ""%PUBLIC%\Desktop\RustDesk.lnk"" 2>nul"; Flags: runhidden
-Filename: "{cmd}"; Parameters: "/c del /F /Q ""%USERPROFILE%\Desktop\RustDesk.lnk"" 2>nul"; Flags: runhidden
-
-; 6. 옛 Start Menu RustDesk 폴더 정리.
-Filename: "{cmd}"; Parameters: "/c rmdir /S /Q ""%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\RustDesk"" 2>nul"; Flags: runhidden
-
-; 7. RustDesk 자동시작 reg 제거 (우리 [Registry] 에서 ChainRemote 별도 등록)
-Filename: "{cmd}"; Parameters: "/c reg delete ""HKLM\Software\Microsoft\Windows\CurrentVersion\Run"" /v RustDesk /f 2>nul"; Flags: runhidden
+; 5~7. (2026-10-01 삭제) 옛 RustDesk 바로가기·시작 메뉴 폴더·HKLM Run 값을 조건 없이 지우던
+;    네 줄이 여기 있었다. 본사 직원 PC 에 진짜 RustDesk 가 깔려 있으면 그쪽 것을 지운다.
+;    우리 옛 설치(2026-05 이전)는 남아 있지 않다. 배경은 agent-installer.iss 같은 자리 주석.
 
 ; 8. 단축아이콘 IconLocation 갱신
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$wsh=New-Object -COM WScript.Shell; $ico='{commonappdata}\ChainRemote\chainremote.ico'; foreach($p in @('$env:PUBLIC\Desktop\ChainRemote.lnk','$env:USERPROFILE\Desktop\ChainRemote.lnk','$env:ProgramData\Microsoft\Windows\Start Menu\Programs\ChainRemote\ChainRemote.lnk')) {{ $expanded=[Environment]::ExpandEnvironmentVariables($p); if(Test-Path $expanded) {{ $s=$wsh.CreateShortcut($expanded); $s.IconLocation=$ico; $s.Save() } }"""; Flags: runhidden waituntilterminated
