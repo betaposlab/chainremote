@@ -177,6 +177,10 @@ export function CustomerPushButton({
             setError(null);
             startTransition(async () => {
               const result = await pushToCustomerAction(customerId, buildFormData(state));
+              if (result.error) {
+                setError(result.error);
+                return;
+              }
               if (result.alreadyQueued) {
                 setError("이미 대기 중인 푸시가 있습니다 — 표 새로고침 후 확인.");
                 return;
@@ -239,6 +243,10 @@ export function BulkPushButton() {
             setError(null);
             startTransition(async () => {
               const r = await pushBulkAction(buildFormData(state));
+              if (r.error) {
+                setError(r.error);
+                return;
+              }
               setResult({ inserted: r.inserted, eligible: r.eligible });
               // 다이얼로그는 열어둠 → 사용자가 결과 확인 후 닫음.
             });
