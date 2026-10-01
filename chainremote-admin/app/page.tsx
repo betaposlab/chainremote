@@ -69,7 +69,11 @@ export default async function Home() {
       </div>
 
       {canWrite(session.user.role) && (
-        <AgentDownloadCard tenantId={tenant.id} displayName={tenant.displayName} />
+        <AgentDownloadCard
+          tenantId={tenant.id}
+          displayName={tenant.displayName}
+          quickCode={tenant.quickCode}
+        />
       )}
 
       {/* 최신 버전 + 이번에 달라진 것. 대리점이 "내 거래처가 최신인가"를 스스로 판단하려면
