@@ -111,6 +111,26 @@ pub fn get_custom_server_from_string(s: &str) -> ResultType<CustomServer> {
 mod test {
     use super::*;
 
+    // ChainRemote: 임시 원격(626.kr 초록 버튼)이 내려 주는 파일 이름을 이 파서가 읽어야 한다.
+    // 이름은 패널(chainremote-admin/lib/quick-support.ts quickSupportFilenameWithToken)이 만든다 —
+    // 서명 없는 평문 JSON 을 base64url 해 뒤집은 것. 고객 PC 에서 도는 건 상류 공식 1.4.6 이고
+    // 이 파일은 포크 이후 손대지 않았으므로, 여기서 읽히면 거기서도 읽힌다.
+    // 상류 머지로 이 테스트가 깨지면 임시 원격의 자가 신고(api 주소)가 조용히 죽는다.
+    #[test]
+    fn test_chainremote_quick_support_filename() {
+        let name = "rustdesk-licensed-0nI2UDNmVGZzITMjJWYvMXcvkGch9icr5iNyYzLvozcwRHdoJiOikGchJCLi0TW4MUMylTMw0mZLx0UiZnUnljN3tWejpHat9GdtdWUFBjYOBzRxVWciJzQiojI5V2aiwiIytmL2IjNuMnciojI0N3boJye.exe";
+        let want = CustomServer {
+            host: "rs.626.kr".to_owned(),
+            key: "C2bqeqG0Nb0EQgmtomhzcykw69gRvbSLKfm019r1C8Y=".to_owned(),
+            api: "https://626.kr/api/qs/abc123def456".to_owned(),
+            relay: "".to_owned(),
+        };
+        assert_eq!(get_custom_server_from_string(name).unwrap(), want);
+        // Windows 가 같은 이름을 다시 받을 때 붙이는 " (1)".
+        let dup = name.replace(".exe", " (1).exe");
+        assert_eq!(get_custom_server_from_string(&dup).unwrap(), want);
+    }
+
     #[test]
     fn test_filename_license_string() {
         assert!(get_custom_server_from_string("rustdesk.exe").is_err());
