@@ -108,16 +108,68 @@ CrBadge _crChip(BuildContext context,
       w);
 }
 
+/// 접속 서버의 답장이 그 PC 에 닿지 않는 상태면 시작 시각, 아니면 null.
+///
+/// 이 상태의 PC 는 hbbs 엔 "온라인"으로 보이지만 원격 요청이 도착하지 않는다 — 수락 카드도
+/// 안 뜬다(2026-10-01 달인식자재마트, 17시간). 에이전트가 스스로 감지해 heartbeat 로 알린다.
+/// ★마지막 보고가 15분 넘게 묵었으면 믿지 않는다. 그 상태로 PC 를 끄면 서버엔 옛 값이 남는다.
+DateTime? crRzNoReplySince(Peer peer) {
+  if (peer.rzNoReplySince.isEmpty) return null;
+  final since = DateTime.tryParse(peer.rzNoReplySince);
+  final hb = DateTime.tryParse(peer.lastHeartbeatAt);
+  if (since == null || hb == null) return null;
+  if (DateTime.now().difference(hb).inMinutes >= 15) return null;
+  return since;
+}
+
+/// "응답 없음" 설명 — 표 셀·카드·스트립이 같은 문장을 쓴다.
+String crRzNoReplyTip(DateTime since) {
+  final m = DateTime.now().difference(since).inMinutes;
+  final ago = m < 1
+      ? '방금부터'
+      : m < 60
+          ? '$m분째'
+          : '${m ~/ 60}시간 ${m % 60}분째';
+  return '컴퓨터는 켜져 있지만 원격 요청이 닿지 않습니다 ($ago).\n'
+      '지금 접속하면 실패합니다. 거래처에서 그 컴퓨터를 한 번 사용하면(마우스·화면 터치) 풀리는 경우가 있습니다.';
+}
+
+/// 방화벽 관제 상태 — 스위치(켬)와 실제(해제됨/아직 켜짐)를 갈라 보여준다.
+///   처음엔 스위치만 보고 "켬"이라 했다. 지시는 PC 의 다음 보고(최대 10분) 때 전달되는데,
+///   그 사이에도 "켬"이라 실제로 꺼진 줄 알았다(2026-10-01 Chang: "가짜잖아").
+({String label, String tip, bool pending}) crFirewallState(Peer peer) {
+  if (peer.firewallEnabled == 'Y') {
+    return (
+      label: '해제 대기',
+      tip: '방화벽 자동 해제를 켜 두었지만 그 컴퓨터의 방화벽은 아직 켜져 있습니다.\n'
+          '컴퓨터가 다음 보고(최대 10분) 때 지시를 받아 끕니다.',
+      pending: true,
+    );
+  }
+  if (peer.firewallEnabled == 'N') {
+    return (
+      label: '해제됨',
+      tip: '방화벽 자동 해제 관제 켜짐 — 그 컴퓨터의 방화벽이 꺼져 있습니다. 다시 켜지면 에이전트가 바로 끕니다.',
+      pending: false,
+    );
+  }
+  return (
+    label: '켬',
+    tip: '방화벽 자동 해제 관제 켜짐 — 그 컴퓨터가 아직 방화벽 상태를 보고하지 않았습니다.',
+    pending: false,
+  );
+}
+
 CrBadge? crFirewallBadge(BuildContext context, Peer peer) {
   if (peer.firewallControl != 'Y') return null;
   final c = CrColors.of(context);
-  // 방화벽 관제는 켜짐/꺼짐뿐이라 상태가 갈리지 않는다 — 아이콘 하나면 충분하다.
+  final st = crFirewallState(peer);
   return _crChip(context,
       icon: Icons.shield_outlined,
       label: null,
       bg: c.chipBg,
-      fg: c.textSubtle,
-      tip: '방화벽 자동 해제 관제 켜짐 — 방화벽이 켜지면 에이전트가 바로 해제합니다.');
+      fg: st.pending ? c.warnFg : c.textSubtle,
+      tip: st.tip);
 }
 
 /// VAN 관제 상태 — 표시 문구·색·설명을 한 곳에서 정한다(배지와 표 열이 같은 판정을 쓴다).
@@ -755,16 +807,7 @@ class _PeerCardState extends State<_PeerCard>
                   const SizedBox(width: _wGap),
                   _crCell(
                       _wStatus,
-                      Row(mainAxisSize: MainAxisSize.min, children: [
-                        getOnline(6, peer.online),
-                        Text(peer.online ? '온라인' : '오프라인',
-                            style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: peer.online
-                                    ? CrColors.of(context).okDot
-                                    : CrColors.of(context).textDim)),
-                      ])),
+                      _crStatusCell(context, peer)),
                 ],
                 if (cols.os) ...[
                   const SizedBox(width: _wGap),
@@ -793,18 +836,59 @@ class _PeerCardState extends State<_PeerCard>
     );
   }
 
+  /// 상태 열 — 온라인 / 오프라인 / 응답 없음.
+  ///   "응답 없음" = hbbs 엔 온라인인데 원격 요청이 그 PC 에 닿지 않는 상태(crRzNoReplySince).
+  ///   초록 "온라인"으로 두면 눌러 보고서야 안 되는 걸 안다.
+  Widget _crStatusCell(BuildContext context, Peer peer) {
+    final c = CrColors.of(context);
+    final since = peer.online ? crRzNoReplySince(peer) : null;
+    if (since != null) {
+      return Tooltip(
+        message: crRzNoReplyTip(since),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          // getOnline(6, …) 과 같은 자리·크기 — 색만 다르다.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 4, 6, 4),
+            child: CircleAvatar(radius: 3, backgroundColor: c.warnFg),
+          ),
+          Flexible(
+            child: Text('응답 없음',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600, color: c.warnFg)),
+          ),
+        ]),
+      );
+    }
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      getOnline(6, peer.online),
+      Text(peer.online ? '온라인' : '오프라인',
+          style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: peer.online ? c.okDot : c.textDim)),
+    ]);
+  }
+
   /// 관제 열의 셀 — 안 켠 곳은 "—". 빈칸으로 두면 "값이 아직 없다"로 읽힌다.
   Widget _firewallCell(BuildContext context, Peer peer) {
     if (peer.firewallControl != 'Y') return _crMuted(context, '—');
     final c = CrColors.of(context);
+    final st = crFirewallState(peer);
+    final fg = st.pending ? c.warnFg : c.okFg;
     return Tooltip(
-      message: '방화벽 자동 해제 관제 켜짐 — 방화벽이 켜지면 에이전트가 바로 해제합니다.',
+      message: st.tip,
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.shield_outlined, size: 12, color: c.okFg),
+        Icon(Icons.shield_outlined, size: 12, color: fg),
         const SizedBox(width: 3),
-        Text('켬',
-            style: TextStyle(
-                fontSize: 11, fontWeight: FontWeight.w600, color: c.okFg)),
+        Flexible(
+          child: Text(st.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+        ),
       ]),
     );
   }
@@ -1085,17 +1169,33 @@ class _PeerCardState extends State<_PeerCard>
                   // 하단: 온라인 점 + 상태 + 더보기.
                   Row(
                     children: [
-                      getOnline(8, peer.online),
+                      // 온라인인데 요청이 안 닿는 상태면 초록 점 대신 경고색 — 표 보기와 같은 판정.
+                      if (peer.online && crRzNoReplySince(peer) != null)
+                        Tooltip(
+                          message: crRzNoReplyTip(crRzNoReplySince(peer)!),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(0, 4, 8, 4),
+                            child: CircleAvatar(
+                                radius: 3,
+                                backgroundColor: CrColors.of(context).warnFg),
+                          ),
+                        )
+                      else
+                        getOnline(8, peer.online),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          peer.online ? '온라인' : '오프라인',
+                          peer.online
+                              ? (crRzNoReplySince(peer) != null ? '응답 없음' : '온라인')
+                              : '오프라인',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 11,
                             color: peer.online
-                                ? CrColors.of(context).okDot
+                                ? (crRzNoReplySince(peer) != null
+                                    ? CrColors.of(context).warnFg
+                                    : CrColors.of(context).okDot)
                                 : CrColors.of(context).textDim,
                             fontWeight: FontWeight.w500,
                           ),

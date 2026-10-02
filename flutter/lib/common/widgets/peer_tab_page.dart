@@ -180,6 +180,7 @@ class _PeerTabPageState extends State<PeerTabPage>
             ).paddingOnly(right: stateGlobal.isPortrait.isTrue ? 0 : 12)),
         // 임시 접속 대기 — 사람이 전화기를 들고 기다리는 줄이라 경고들보다 위에 둔다.
         const CrQuickSupportStrip(),
+        _crRzNoReplyStrip(),
         _crVanAlertStrip(),
         _crVanMissingStrip(),
         _crDiskAlertStrip(),
@@ -354,6 +355,84 @@ class _PeerTabPageState extends State<PeerTabPage>
                         ),
                       ),
                     ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 원격 요청이 닿지 않는 거래처 스트립 — "온라인"으로 보이는데 붙을 수 없는 PC.
+  //   2026-10-01 달인식자재마트에서 이 상태가 매일 몇 시간씩 있었는데 아무도 몰랐다.
+  //   접속해 보고서야 아는 게 아니라, 걸리는 순간 목록 위에 뜬다. 칩 클릭 = 그 카드로 점프
+  //   (디스크 스트립과 같은 방식). 전체 거래처 모델 기준이라 어느 탭에서든 보인다.
+  Widget _crRzNoReplyStrip() {
+    return ListenableBuilder(
+      listenable: gFFI.allCustomersPeersModel,
+      builder: (context, _) {
+        final hit = gFFI.allCustomersPeersModel.peers
+            .map((p) => (p, crRzNoReplySince(p)))
+            .where((t) => t.$1.online && t.$2 != null)
+            .toList()
+          ..sort((a, b) => a.$2!.compareTo(b.$2!));
+        if (hit.isEmpty) return const SizedBox.shrink();
+        final c = CrColors.of(context);
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(right: 12, bottom: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: c.warnBannerBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: c.warnBannerBorder),
+          ),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Tooltip(
+                message: '컴퓨터는 켜져 있지만 원격 요청이 닿지 않는 상태입니다. 지금 접속하면 실패합니다.\n'
+                    '거래처에서 그 컴퓨터를 한 번 사용하면(마우스·화면 터치) 풀리는 경우가 있습니다.',
+                child: Text('⚠ 원격 요청이 닿지 않는 곳 ${hit.length}곳',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: c.warnBannerFg)),
+              ),
+              ...hit.map((t) {
+                final p = t.$1;
+                final name = p.alias
+                    .replaceFirst('⏳ ', '')
+                    .replaceFirst('🆕 ', '')
+                    .trim();
+                final label = name.isEmpty ? p.id : name;
+                final m = DateTime.now().difference(t.$2!).inMinutes;
+                final ago = m < 60 ? '$m분째' : '${m ~/ 60}시간째';
+                return InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    gFFI.peerTabModel
+                        .setCurrentTab(PeerTabIndex.customers.index);
+                    peerSearchBarOpen.value = true;
+                    peerSearchTextController.text = label;
+                    peerSearchText.value = label;
+                  },
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: c.warnBannerBorder),
+                    ),
+                    child: Text('$label · $ago',
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: c.warnFg)),
                   ),
                 );
               }),

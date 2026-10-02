@@ -55,6 +55,16 @@ struct CustomerRow {
     //   상태(사람이 가야 함)라 목록 위 스트립으로 띄운다.
     #[serde(rename = "firewallControl")]
     firewall_control: Option<bool>,
+    // 방화벽이 지금 실제로 켜져 있나(에이전트 보고). 관제 스위치(firewall_control)와는 별개다 —
+    //   스위치만 보고 "켬"이라 띄웠더니 실제로 꺼졌는지 알 길이 없었다(2026-10-01 Chang "가짜잖아").
+    #[serde(rename = "firewallEnabled")]
+    firewall_enabled: Option<bool>,
+    // 접속 서버 답장을 못 받는 상태의 시작 시각(마이그 055, ISO). 있으면 hbbs 가 "온라인"이라 해도
+    //   원격 요청이 그 PC 에 닿지 않는다. 꺼진 PC 의 옛 값에 속지 않도록 마지막 보고 시각을 같이 넘긴다.
+    #[serde(rename = "rzNoreplySince")]
+    rz_noreply_since: Option<String>,
+    #[serde(rename = "lastHeartbeatAt")]
+    last_heartbeat_at: Option<String>,
     #[serde(rename = "vanWatch")]
     van_watch: Option<String>,
     #[serde(rename = "vanOk")]
@@ -218,6 +228,14 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
         // 관제 상태(마이그028/036) — Peer 의 다른 필드처럼 문자열로 넘긴다.
         //   vanOk 만 3값이다: 'Y'=데몬 정상, 'N'=멈춤, ''=아직 보고 전(방금 켰거나 구버전 에이전트).
         "firewallControl": if c.firewall_control.unwrap_or(false) { "Y" } else { "" },
+        // 'Y'=방화벽 켜져 있음, 'N'=꺼져 있음, ''=미보고.
+        "firewallEnabled": match c.firewall_enabled {
+            Some(true) => "Y",
+            Some(false) => "N",
+            None => "",
+        },
+        "rzNoReplySince": c.rz_noreply_since.clone().unwrap_or_default(),
+        "lastHeartbeatAt": c.last_heartbeat_at.clone().unwrap_or_default(),
         "vanWatch": c.van_watch.clone().unwrap_or_default(),
         "vanOk": match c.van_ok {
             Some(true) => "Y",
