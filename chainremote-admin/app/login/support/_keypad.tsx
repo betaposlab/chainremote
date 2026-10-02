@@ -86,13 +86,17 @@ export function SupportKeypad() {
         <p className="text-sm text-[#b9bfd2]">원격지원</p>
         <h1 className="mt-1 text-2xl font-bold text-white">{phase.name}</h1>
         <ol className="mt-6 space-y-4 text-left text-base leading-relaxed text-[#eef1f7]">
+          {/* ★"다 받아진 뒤" 를 꼭 말한다(2026-10-02 테스트1). 받는 중에 누르면 윈도우가 아직 덜 받은
+              파일을 검사해 "게시자를 확인하지 못했습니다(서명 없음)" 경고를 한 번 더 띄운다 — 서명은
+              파일 맨 끝에 붙어 있어서, 덜 받은 파일엔 서명이 없는 것으로 보인다. */}
           <li>
             <span className="mr-2 font-bold text-[#7CF2B0]">1</span>
-            방금 받은 파일을 눌러 <b>실행</b>해 주세요.
+            아래쪽 파일이 <b>다 받아지면</b> 눌러서 <b>실행</b>해 주세요. 확인 창이 뜨면 [실행].
           </li>
+          {/* ★[설치하기] 를 누르면 RustDesk 가 서비스로 깔려 남는다 — 우리 에이전트를 설치할 일이다. */}
           <li>
             <span className="mr-2 font-bold text-[#7CF2B0]">2</span>
-            <b>RustDesk</b> 창이 뜨면 그대로 두세요. 정상입니다.
+            <b>RustDesk</b> 창이 뜨면 그대로 두세요. 창 안의 <b>[설치하기]</b> 는 누르지 마세요.
           </li>
           <li>
             <span className="mr-2 font-bold text-[#7CF2B0]">3</span>
