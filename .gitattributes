@@ -1,1 +1,4 @@
 * text=auto
+
+# 배치 파일은 CRLF 로 — LF 로 풀리면 cmd 가 goto 라벨을 못 찾는 경우가 있다.
+*.bat text eol=crlf
