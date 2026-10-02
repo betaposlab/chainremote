@@ -178,6 +178,8 @@ Type: files; Name: "{commonappdata}\ChainRemote\*.ico"
 Type: filesandordirs; Name: "{commonappdata}\ChainRemote\pending"
 Type: files; Name: "{commonappdata}\ChainRemote\restart-grace"
 Type: files; Name: "{commonappdata}\ChainRemote\session-operator"
+; 접속 서버 답장 수신 상태(chainremote_rz_status) — 지운 뒤 다시 깔았을 때 옛 "수신 불가"가 남지 않게.
+Type: files; Name: "{commonappdata}\ChainRemote\rz-status"
 Type: dirifempty; Name: "{commonappdata}\ChainRemote"
 
 [Code]
