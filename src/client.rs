@@ -446,6 +446,9 @@ impl Client {
                 hbb_common::sleep(0.001).await;
             }
         }
+        // ChainRemote: 4번째 바퀴(대리 전달)는 경주하는 두 시도 중 늘 있는 쪽 하나만 돈다.
+        //   둘 다 돌면 패널에 요청이 두 번 남고 상대가 중계 연결을 두 번 연다.
+        let cr_fallback_owner = stop_udp_tx.is_some();
         // Stop UDP NAT test task if still running
         stop_udp_tx.map(|tx| tx.send(()));
         let mut msg_out = RendezvousMessage::new();
@@ -477,17 +480,6 @@ impl Client {
         //   2026-10-01 달인)라면, 패널이 그 알림을 대신 전한다. 상대가 그렇게 받아 시작한 중계
         //   연결의 RelayResponse 는 hbbs 가 평소처럼 서명해 이 소켓으로 보내 주므로, 아래 match 가
         //   그대로 처리한다(신원 확인·암호화 동일). 그 상태가 아니면 패널이 즉시 거절해 바로 끝난다.
-        // ChainRemote: 대리 전달용 — hbbs 가 본 이 연결의 포트. 반드시 첫 PunchHoleRequest **앞에**
-        //   묻는다: hbbs 는 PunchHoleRequest 를 받는 순간 이 연결의 응답 통로(sink)를 tcp_punch 로
-        //   가져가, 그 뒤의 TestNatRequest 에는 답하지 않는다(rustdesk-server handle_tcp). 답을
-        //   기다리지 않고 바로 이어 보내므로 평소 접속에 늘어나는 시간은 없다. 답은 아래 첫 읽기에서
-        //   걸러 낸다. 로그인 안 된 실행(거래처 에이전트 등)은 묻지 않는다.
-        let mut cr_hbbs_port: u16 = 0;
-        if !crate::chainremote_auth::get_token().is_empty() {
-            let mut t = RendezvousMessage::new();
-            t.set_test_nat_request(TestNatRequest::default());
-            allow_err!(socket.send(&t).await);
-        }
         for i in 1..=4 {
             let msg_in = if i <= 3 {
                 log::info!(
@@ -499,19 +491,19 @@ impl Client {
                 );
                 socket.send(&msg_out).await?;
                 // below timeout should not bigger than hbbs's connection timeout.
-                let mut m = crate::get_next_nonkeyexchange_msg(&mut socket, Some(i * 3000)).await;
-                // ChainRemote: 위에서 물은 포트의 답이면 적어 두고 진짜 응답을 다시 읽는다.
-                let tnr_port = match m.as_ref().map(|x| &x.union) {
-                    Some(Some(rendezvous_message::Union::TestNatResponse(r))) => Some(r.port),
-                    _ => None,
-                };
-                if let Some(p) = tnr_port {
-                    cr_hbbs_port = p as u16;
-                    m = crate::get_next_nonkeyexchange_msg(&mut socket, Some(i * 3000)).await;
-                }
-                m
+                crate::get_next_nonkeyexchange_msg(&mut socket, Some(i * 3000)).await
             } else {
-                match Self::chainremote_rz_relay_fallback(&mut socket, &peer, cr_hbbs_port).await {
+                if !cr_fallback_owner {
+                    break;
+                }
+                match Self::chainremote_rz_relay_fallback(
+                    &mut socket,
+                    &peer,
+                    &rendezvous_server,
+                    my_addr,
+                )
+                .await
+                {
                     Some(m) => Some(m),
                     None => break,
                 }
@@ -667,20 +659,32 @@ impl Client {
 
     /// 접속 요청 대리 전달(패널 마이그 056) — `_start` 의 4번째 바퀴.
     ///
-    /// `hbbs_port` = hbbs 가 본 이 연결의 포트(첫 PunchHoleRequest 앞에 물어 둔 TestNatResponse).
-    /// hbbs 는 RelayResponse 를 "그 주소의 TCP 연결"로 돌려주므로(tcp_punch), 상대에게 알릴
-    /// 주소가 바로 이것이다. 패널에 남기고, 패널이 받아 주면(상대가 "응답 없음") 최대 20초 기다린다.
-    /// 그 사이 늦게 온 PunchHoleResponse/RelayResponse 도 그대로 돌려줘 원래 match 가 처리하게 한다.
+    /// hbbs 는 상대의 RelayResponse 를 "hbbs 가 본 이 연결의 주소"로 돌려주므로(tcp_punch), 상대에게
+    /// 알릴 것은 그 포트다. 이 연결로는 물을 수 없다 — hbbs 는 21116 의 TestNatRequest 에 답한 뒤
+    /// 연결을 닫는다(1.4.153 맥 실측: 접속이 통째로 죽었다). 그래서 **같은 로컬 포트**에서 NAT 시험
+    /// 포트(21115)로 따로 묻는다. NAT 종류 판별(`test_nat_type_`)과 같은 방식이고, 대부분의 공유기는
+    /// 목적지와 무관하게 같은 바깥 포트를 쓰므로 그 값이 곧 이 연결의 포트다(대칭형 NAT 면 어긋나
+    /// 20초 뒤 원래 오류로 끝난다 — 지금보다 나빠지지 않는다).
+    ///
+    /// 패널이 받아 주면(상대가 "응답 없음") 최대 20초 기다린다. 그 사이 늦게 온
+    /// PunchHoleResponse/RelayResponse 도 그대로 돌려줘 원래 match 가 처리하게 한다(신원 확인 동일).
     /// 해당 없음·실패면 None — 호출자는 원래 오류("Failed to connect via rendezvous server")로 간다.
     async fn chainremote_rz_relay_fallback(
         socket: &mut Stream,
         peer: &str,
-        hbbs_port: u16,
+        rendezvous_server: &str,
+        my_addr: SocketAddr,
     ) -> Option<RendezvousMessage> {
-        if hbbs_port == 0 || peer.is_empty() || !peer.chars().all(|c| c.is_ascii_alphanumeric()) {
+        if peer.is_empty() || !peer.chars().all(|c| c.is_ascii_alphanumeric()) {
             return None;
         }
-        let port = hbbs_port;
+        if my_addr.port() == 0 || crate::chainremote_auth::get_token().is_empty() {
+            return None;
+        }
+        let port = Self::chainremote_hbbs_seen_port(rendezvous_server, my_addr).await;
+        if port == 0 {
+            return None;
+        }
         let id = peer.to_owned();
         let accepted = tokio::task::spawn_blocking(move || {
             crate::chainremote_auth::request_rz_relay(&id, port)
@@ -690,7 +694,7 @@ impl Client {
         if !accepted {
             return None;
         }
-        log::info!("[chainremote] {peer} 은 응답 없음 상태 — 패널로 접속 요청을 전하고 기다린다(hbbs 포트 {port})");
+        log::info!("[chainremote] {peer} 은 응답 없음 상태 — 패널로 접속 요청을 전하고 기다린다(로컬 {} → hbbs 포트 {port})", my_addr.port());
         let deadline = Instant::now() + Duration::from_secs(20);
         loop {
             let left = deadline.saturating_duration_since(Instant::now()).as_millis() as u64;
@@ -698,11 +702,41 @@ impl Client {
                 log::warn!("[chainremote] 패널 대리 전달 후 20초 안에 응답이 없었다");
                 return None;
             }
-            let m = crate::get_next_nonkeyexchange_msg(socket, Some(left)).await?;
+            let Some(m) = crate::get_next_nonkeyexchange_msg(socket, Some(left)).await else {
+                log::warn!("[chainremote] 패널 대리 전달 대기 중 랑데부 연결이 끊겼다");
+                return None;
+            };
             match &m.union {
                 Some(rendezvous_message::Union::PunchHoleResponse(_))
                 | Some(rendezvous_message::Union::RelayResponse(_)) => return Some(m),
                 _ => continue,
+            }
+        }
+    }
+
+    /// hbbs 가 본 `my_addr` 의 바깥 포트 — 같은 로컬 포트에서 NAT 시험 포트로 묻는다. 실패면 0.
+    async fn chainremote_hbbs_seen_port(rendezvous_server: &str, my_addr: SocketAddr) -> u16 {
+        let nat_test = crate::increase_port(rendezvous_server, -1);
+        let mut s = match connect_tcp_local(&*nat_test, Some(my_addr), CONNECT_TIMEOUT).await {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("[chainremote] 대리 전달: NAT 시험 포트 연결 실패 {nat_test}: {e}");
+                return 0;
+            }
+        };
+        let mut m = RendezvousMessage::new();
+        m.set_test_nat_request(TestNatRequest::default());
+        if s.send(&m).await.is_err() {
+            return 0;
+        }
+        match crate::get_next_nonkeyexchange_msg(&mut s, Some(3000)).await {
+            Some(RendezvousMessage {
+                union: Some(rendezvous_message::Union::TestNatResponse(r)),
+                ..
+            }) if r.port > 0 && r.port <= u16::MAX as i32 => r.port as u16,
+            _ => {
+                log::warn!("[chainremote] 대리 전달: NAT 시험 포트가 답하지 않았다");
+                0
             }
         }
     }
