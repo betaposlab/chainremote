@@ -17,6 +17,7 @@ const LABEL: Record<string, string> = {
   "tenant.owner_password_reset": "대리점 관리자 비번 재설정",
   "session.unknown_peer": "목록에 없는 ID 로 원격",
   "push.bulk": "일괄 푸시",
+  "push.single": "단건 푸시(운영자)",
   "tenant.unattended_change": "무인접속 설정 변경",
   "customer.unattended_password_set": "무인접속 비밀번호 설정",
   "customer.unattended_password_clear": "무인접속 비밀번호 삭제",
