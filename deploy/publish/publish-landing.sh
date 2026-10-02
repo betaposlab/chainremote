@@ -81,8 +81,21 @@ if [[ -f "$CHAINGO_SRC" ]]; then
   cp "$CHAINGO_SRC" "$WORK/$CHAINGO_NAME"
   echo "    ChainGo ✓ $CHAINGO_NAME"
 else
-  echo "    ⚠ ChainGo 산출물 없음($CHAINGO_SRC) → HQ 만 갱신하고 ChainGo 는 건너뜀."
-  CHAINGO_NAME=""
+  # 올릴 ChainGo 가 없다. 그래도 페이지는 아래에서 ChainGo_v{이번 버전} 을 가리키게 바뀐다.
+  #   그 파일이 이미 서버에 있으면(같은 버전 재발행) 그대로 진행하고, 없으면 **올리기 전에**
+  #   멈춘다. 예전엔 올린 뒤에 검증해서, 멈췄을 땐 이미 링크가 404 인 페이지가 라이브였다
+  #   (2026-10-02 HQ 1.4.151 — ChainGo 동반 빌드가 일시 실패한 날). 멈추면 라이브 페이지는
+  #   직전 버전(HQ·ChainGo 둘 다 실재하는 파일) 그대로 남는다.
+  CG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -I --max-time 20 "$PUBLIC_BASE/downloads/$CHAINGO_NAME" || true)"
+  if [[ "$CG_CODE" == "200" ]]; then
+    echo "    ChainGo — 로컬 산출물은 없지만 서버에 $CHAINGO_NAME 이 이미 있어 그대로 가리킨다."
+    CHAINGO_NAME=""
+  else
+    echo "✗ ChainGo 산출물 없음($CHAINGO_SRC) — 서버에도 $CHAINGO_NAME 이 없다(HTTP $CG_CODE)." >&2
+    echo "  이대로 올리면 랜딩의 ChainGo 링크가 404 가 된다. 랜딩은 건드리지 않고 멈춘다." >&2
+    echo "  ./deploy/publish/release-chaingo.sh 로 빌드한 뒤 이 스크립트를 다시 돌릴 것." >&2
+    exit 1
+  fi
 fi
 
 # ── [3/6] index.html 버전 표기/링크 교체 ────────────────────────────────────
