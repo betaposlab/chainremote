@@ -332,6 +332,8 @@ Type: filesandordirs; Name: "{commonappdata}\ChainRemote\pending"
 ; 재접속 grace(원격 중 업데이트용)와 수락카드에 띄우는 상호.
 Type: files; Name: "{commonappdata}\ChainRemote\restart-grace"
 Type: files; Name: "{commonappdata}\ChainRemote\session-operator"
+; 접속 서버 답장 수신 상태(chainremote_rz_status) — 지운 뒤 다시 깔았을 때 옛 "수신 불가"가 남지 않게.
+Type: files; Name: "{commonappdata}\ChainRemote\rz-status"
 Type: files; Name: "{commonappdata}\ChainRemote\support-name.txt"
 ; 마지막에 빈 폴더만 정리. 언인스톨러가 든 installer 하위는 Inno 가 자기 순서에 지우므로
 ;   이 시점엔 아직 남아 있을 수 있고, 그러면 이 줄은 조용히 넘어간다(무해).
