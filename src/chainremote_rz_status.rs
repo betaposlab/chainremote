@@ -132,9 +132,97 @@ pub fn read_noreply_since() -> Option<u64> {
     parse(&s, now_epoch())
 }
 
+// ── 접속 요청 대리 전달(패널 마이그 056) ────────────────────────────────────────────────
+//
+// "수신 불가" 동안 hbbs 의 PunchHole(UDP)은 이 PC 에 닿지 않는다. 그 사이 HQ 가 접속을 걸면
+// 패널에 "hbbs 가 본 HQ 주소"를 남기고, --service 의 heartbeat 스레드가 그걸 가져와 이 파일에
+// 적는다. --server 의 등록 루프가 매초 이 파일을 보고, 있으면 hbbs 가 보냈어야 할 PunchHole 을
+// 스스로 만들어 평소 처리(handle_punch_hole)에 넘긴다 — 중계 서버 접속 + hbbs 에 RelayResponse.
+// 이후는 표준 절차 그대로다(hbbs 의 신원 서명, 암호화 포함).
+// ★파일 형식: `<epoch> <ipv4> <port> <relay|->` 한 줄. 60초 지난 건 버린다.
+
+const RELAY_MAX_AGE_SECS: u64 = 60;
+
+fn relay_path() -> Option<std::path::PathBuf> {
+    #[cfg(windows)]
+    {
+        Some(std::path::PathBuf::from(r"C:\ProgramData\ChainRemote\rz-relay"))
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
+fn valid_relay_host(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= 260
+        && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == ':')
+}
+
+fn format_relay(epoch: u64, ip: std::net::Ipv4Addr, port: u16, relay: &str) -> String {
+    let relay = if valid_relay_host(relay) { relay } else { "-" };
+    format!("{epoch} {ip} {port} {relay}\n")
+}
+
+fn parse_relay(content: &str, now: u64) -> Option<(std::net::SocketAddr, String)> {
+    let mut it = content.split_whitespace();
+    let epoch: u64 = it.next()?.parse().ok()?;
+    let ip: std::net::Ipv4Addr = it.next()?.parse().ok()?;
+    let port: u16 = it.next()?.parse().ok()?;
+    let relay = it.next()?;
+    if port == 0 || ip.is_unspecified() || now.saturating_sub(epoch) > RELAY_MAX_AGE_SECS || epoch > now + 60 {
+        return None;
+    }
+    let relay = if relay == "-" || !valid_relay_host(relay) { String::new() } else { relay.to_owned() };
+    Some((std::net::SocketAddr::new(ip.into(), port), relay))
+}
+
+/// --service(heartbeat): 패널에서 받은 요청을 --server 에 넘긴다. 쓰기는 임시 파일 → 이름 바꾸기로
+/// 한 번에 — 반쯤 쓴 파일을 --server 가 읽지 않게.
+pub fn put_relay_request(ip: std::net::Ipv4Addr, port: u16, relay: &str) -> bool {
+    let Some(p) = relay_path() else { return false };
+    let tmp = p.with_extension("tmp");
+    let body = format_relay(now_epoch(), ip, port, relay);
+    if std::fs::write(&tmp, body).is_err() {
+        return false;
+    }
+    std::fs::rename(&tmp, &p).is_ok()
+}
+
+/// --server(등록 루프): 대기 중인 요청이 있으면 가져가고 지운다.
+pub fn take_relay_request() -> Option<(std::net::SocketAddr, String)> {
+    let p = relay_path()?;
+    let s = std::fs::read_to_string(&p).ok()?;
+    let _ = std::fs::remove_file(&p);
+    let r = parse_relay(&s, now_epoch());
+    if r.is_none() {
+        log::warn!("[chainremote_rz_status] 대리 전달 요청을 읽지 못했다(형식·시간 초과) — 버린다");
+    }
+    r
+}
+
 #[cfg(test)]
 mod tests {
     use super::parse;
+
+    #[test]
+    fn relay_roundtrip_and_guards() {
+        use super::{format_relay, parse_relay};
+        let ip: std::net::Ipv4Addr = "182.210.192.200".parse().unwrap();
+        let s = format_relay(1790000000, ip, 54321, "relay.626.kr");
+        let (addr, relay) = parse_relay(&s, 1790000010).unwrap();
+        assert_eq!(addr.to_string(), "182.210.192.200:54321");
+        assert_eq!(relay, "relay.626.kr");
+        // 60초 넘으면 버린다.
+        assert!(parse_relay(&s, 1790000061).is_none());
+        // 이상한 중계 서버 이름은 빈 값으로(설정의 relay-server 를 쓰게 된다).
+        let s2 = format_relay(1790000000, ip, 1, "evil host;rm");
+        assert_eq!(parse_relay(&s2, 1790000001).unwrap().1, "");
+        // 포트 0·쓰레기는 거절.
+        assert!(parse_relay("1790000000 1.2.3.4 0 -", 1790000001).is_none());
+        assert!(parse_relay("garbage", 1790000001).is_none());
+    }
 
     #[test]
     fn ok_and_garbage_mean_not_lost() {
