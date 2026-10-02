@@ -114,6 +114,7 @@ export default async function CustomersPage({
       cleanupResult: customers.cleanupResult,
       firewallControl: customers.firewallControl,
       firewallEnabled: customers.firewallEnabled,
+      rzNoreplySince: customers.rzNoreplySince,
       firewallDisarmCount: customers.firewallDisarmCount,
       firewallLastDisarmAt: customers.firewallLastDisarmAt,
       vanWatch: customers.vanWatch,
@@ -465,6 +466,7 @@ export default async function CustomersPage({
                       lastVersion={c.lastVersion}
                       update={updateByCustomer.get(c.id) ?? null}
                       isInternal={c.isInternal}
+                      rzNoreplySince={c.rzNoreplySince}
                     />
                   </td>
                   <td className="px-4 py-3 text-[#b9bfd2] text-xs max-w-[16ch] truncate hidden md:table-cell">

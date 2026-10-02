@@ -260,6 +260,9 @@ export interface HeartbeatExtras {
   //   firewallDisarmed=이번 heartbeat 직전에 자동 해제했나(참이면 disarm_count++, 잦으면 업뎃 잦음 신호).
   firewallEnabled?: boolean;
   firewallDisarmed?: boolean;
+  // 요청 수신 불가(055) — 에이전트가 접속 서버 답장을 못 받기 시작한 시각(epoch 초).
+  //   null=풀림(값을 지운다), undefined=미보고(손대지 않는다).
+  rzNoReplySince?: number | null;
   // VAN 데몬 관제(036) — vanOk=데몬이 포트를 듣고 있나(표시용), vanRestarted=이번 heartbeat
   //   직전에 되살렸나(참이면 restart_count++), vanGaveUp=재실행으로 안 낫아 손 뗌(사람 호출).
   vanOk?: boolean | null;
@@ -362,6 +365,17 @@ export async function recordHeartbeat(
     firewallSet.firewallDisarmCount = sql`${customers.firewallDisarmCount} + 1`;
     firewallSet.firewallLastDisarmAt = new Date();
   }
+  // 요청 수신 불가(055). 에이전트 시계가 틀렸을 수 있으니 미래·터무니없는 과거는 지금으로 눌러 둔다
+  //   — 표시가 "−3분째"나 "20000일째"가 되는 것보다 "방금부터"가 낫다.
+  const rzSet: Record<string, unknown> = {};
+  if (extras?.rzNoReplySince === null) {
+    rzSet.rzNoreplySince = null;
+  } else if (typeof extras?.rzNoReplySince === "number") {
+    const nowMs = Date.now();
+    const ms = extras.rzNoReplySince * 1000;
+    const sane = ms <= nowMs + 60_000 && ms >= nowMs - 30 * 24 * 3600_000;
+    rzSet.rzNoreplySince = new Date(sane ? Math.min(ms, nowMs) : nowMs);
+  }
   // VAN 데몬 상태 반영 — 현재 정상 여부 + 이번에 되살렸으면 카운트/시각 갱신.
   //   ★관제를 켠 거래처에서만 반영한다. 에이전트는 heartbeat 응답을 받아야 관제가 꺼진 걸
   //   알기 때문에, 끄기 직전에 출발한 마지막 보고가 뒤늦게 도착한다. 그걸 그대로 저장하면
@@ -460,6 +474,7 @@ export async function recordHeartbeat(
       ...diskSet,
       ...cleanupSet,
       ...firewallSet,
+      ...rzSet,
       ...vanSet,
       ...natSet,
       ...upnpSet,
