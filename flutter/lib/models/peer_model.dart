@@ -46,6 +46,12 @@ class Peer {
   //   firewallControl·vanGaveUp: 'Y'|'' · vanWatch: VAN 종류('ksnet'|'') · vanOk: 'Y'|'N'|''(미보고)
   //   vanGaveUp='Y' 는 자동 복구를 포기한 상태 = 사람이 가야 한다는 뜻이라 목록 위 스트립으로 띄운다.
   String firewallControl;
+  // 방화벽이 실제로 켜져 있나: 'Y'|'N'|''(미보고). firewallControl(관제 스위치)과 별개.
+  String firewallEnabled;
+  // 접속 서버 답장을 못 받는 상태의 시작 시각(ISO, ''=정상/미보고) + 마지막 보고 시각.
+  //   판정은 crRzNoReplySince(peer) 로 — 꺼진 PC 의 옛 값에 속지 않게 보고 시각을 같이 본다.
+  String rzNoReplySince;
+  String lastHeartbeatAt;
   String vanWatch;
   String vanOk;
   String vanGaveUp;
@@ -84,6 +90,9 @@ class Peer {
         diskFree = json['diskFree'] ?? '',
         tempBytes = json['tempBytes'] ?? '',
         firewallControl = json['firewallControl'] ?? '',
+        firewallEnabled = json['firewallEnabled'] ?? '',
+        rzNoReplySince = json['rzNoReplySince'] ?? '',
+        lastHeartbeatAt = json['lastHeartbeatAt'] ?? '',
         vanWatch = json['vanWatch'] ?? '',
         vanOk = json['vanOk'] ?? '',
         vanGaveUp = json['vanGaveUp'] ?? '',
@@ -116,6 +125,9 @@ class Peer {
       'diskFree': diskFree,
       'tempBytes': tempBytes,
       'firewallControl': firewallControl,
+      'firewallEnabled': firewallEnabled,
+      'rzNoReplySince': rzNoReplySince,
+      'lastHeartbeatAt': lastHeartbeatAt,
       'vanWatch': vanWatch,
       'vanOk': vanOk,
       'vanGaveUp': vanGaveUp,
@@ -175,6 +187,9 @@ class Peer {
     this.diskFree = '',
     this.tempBytes = '',
     this.firewallControl = '',
+    this.firewallEnabled = '',
+    this.rzNoReplySince = '',
+    this.lastHeartbeatAt = '',
     this.vanWatch = '',
     this.vanOk = '',
     this.vanGaveUp = '',
