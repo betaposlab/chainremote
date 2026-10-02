@@ -274,8 +274,14 @@ async fn start_hbbs_sync_async() {
 }
 
 fn heartbeat_url() -> String {
+    // 유도된 기본 주소(http://<랑데부 호스트>:21114)로는 보내지 않는다 — 우리 서버엔 그 API 가 없다.
+    // 배경은 common.rs has_explicit_api_server.
+    let api = Config::get_option("api-server");
+    if !crate::common::has_explicit_api_server(&api) {
+        return "".to_owned();
+    }
     let url = crate::common::get_api_server(
-        Config::get_option("api-server"),
+        api,
         Config::get_option("custom-rendezvous-server"),
     );
     if url.is_empty() || crate::is_public(&url) {
