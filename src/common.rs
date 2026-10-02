@@ -1137,7 +1137,36 @@ pub fn get_local_option(key: &str) -> String {
     v
 }
 
+/// ChainRemote: 상류의 **Pro 서버 전용** 주기 통신(하트비트·sysinfo·감사 로그)을 걸 주소가
+/// 명시돼 있는가.
+///
+/// 상류는 api 주소가 비어 있으면 랑데부 서버에서 유도한다(`http://<호스트>:21114` — Pro 서버가
+/// 그 포트에서 API 를 연다). 우리 서버는 오픈소스 hbbs 라 그 포트에 아무도 없다. 그래서
+/// 모든 에이전트가 15초마다 없는 주소로 POST → 실패 → hbbs 를 TCP 프록시 삼아 재시도 →
+/// 18초 대기 후 또 실패를 반복했다. 2026-10-02 달인 PC 로그에서 6시간에 942번, 로그가
+/// 하루 2~3MB 씩 쌓였고 hbbs 21116 엔 에이전트마다 TCP 연결이 상시 하나씩 물려 있었다.
+///
+/// 누가 주소를 **명시**했을 때만(옵션 `api-server`, 또는 exe 이름에 실린 설정) 그 기능을 돌린다.
+/// ★`get_api_server` 자체는 건드리지 않는다 — 계정·주소록 등 다른 호출부의 동작을 바꾸지
+///   않으려는 것. `register-device=N` 을 기본으로 뒤집는 길도 있었으나 그 값은 hbbs 등록
+///   메시지(RegisterPk)에도 실려 나가 접속 경로를 건드린다.
+pub fn has_explicit_api_server(api_option: &str) -> bool {
+    if !api_option.trim().is_empty() {
+        return true;
+    }
+    #[cfg(windows)]
+    if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
+        if !lic.api.is_empty() {
+            return true;
+        }
+    }
+    false
+}
+
 pub fn get_audit_server(api: String, custom: String, typ: String) -> String {
+    if !has_explicit_api_server(&api) {
+        return "".to_owned();
+    }
     let url = get_api_server(api, custom);
     if url.is_empty() || is_public(&url) {
         return "".to_owned();
