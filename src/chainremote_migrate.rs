@@ -193,7 +193,11 @@ fn new_local_service_root() -> Option<PathBuf> {
 /// 못 읽으면(권한·없음) 아니라고 답한다: 모르는 것을 지우는 쪽보다 안 건드리는 쪽이 안전하다.
 #[cfg(target_os = "windows")]
 fn old_install_points_to_us() -> bool {
-    const OURS: &[&str] = &["sepani.synology.me", "626.kr", "betaposlab"];
+    // ★"626.kr" 은 넣지 않는다. 우리 포크가 RustDesk 라는 이름을 쓰던 시절(~2026-05)의 서버는
+    //   sepani 였고 626.kr 은 08-05 에 생겼다. 반대로 임시 원격(626.kr 초록 버튼)으로 받은 **상류**
+    //   RustDesk 는 rs.626.kr 을 가리킨다 — 거래처가 그 창의 [설치하기] 를 눌러 서비스까지 깔았다면
+    //   626.kr 로는 그것을 우리 옛 설치로 오인해, 그 설정(ID·키)을 ChainRemote 로 복사하게 된다.
+    const OURS: &[&str] = &["sepani.synology.me", "betaposlab"];
     let roots = [old_local_service_root(), old_appdata_root()];
     for root in roots.iter().flatten() {
         let file = root.join("config").join("RustDesk2.toml");
