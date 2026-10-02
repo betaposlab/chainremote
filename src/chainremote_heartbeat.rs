@@ -22,6 +22,10 @@ const REGISTER_URL: &str =
 const HEARTBEAT_URL: &str = "https://api.626.kr/api/customers/heartbeat";
 /// auto-enroll — agent 가 스스로 거래처 등록(custom.txt 에 tenant-slug+enroll-key 있을 때).
 const ENROLL_URL: &str = "https://api.626.kr/api/customers/enroll";
+/// 접속 요청 대리 전달(패널 마이그 056) — "수신 불가" 동안만 짧게 확인한다.
+const RZ_RELAY_URL: &str = "https://api.626.kr/api/customers/rz-relay";
+const RZ_RELAY_POLL: Duration = Duration::from_secs(2);
+const RZ_RELAY_IDLE: Duration = Duration::from_secs(5);
 /// 부팅 후 첫 heartbeat 까지 대기 — 네트워크 안정 + hbbs ID 발급 시간.
 const FIRST_DELAY: Duration = Duration::from_secs(60 * 2);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(60 * 10);
@@ -136,6 +140,73 @@ pub fn start_in_service() {
     std::thread::spawn(|| {
         run_loop();
     });
+    // 접속 요청 대리 전달 — 접속 서버 답장을 못 받는 동안에만 패널을 확인한다(평소엔 파일 하나를
+    //   5초마다 볼 뿐 통신 없음). 배경은 chainremote_rz_status 의 대리 전달 주석.
+    std::thread::spawn(|| {
+        rz_relay_poll_loop();
+    });
+}
+
+fn rz_relay_poll_loop() {
+    loop {
+        if crate::chainremote_rz_status::read_noreply_since().is_none() {
+            std::thread::sleep(RZ_RELAY_IDLE);
+            continue;
+        }
+        let token = hbb_common::config::LocalConfig::get_option(TOKEN_KEY);
+        let remote_id = hbb_common::config::Config::get_id();
+        if !token.is_empty()
+            && !remote_id.is_empty()
+            && remote_id.chars().all(|c| c.is_ascii_alphanumeric())
+        {
+            match fetch_rz_relay(&remote_id, &token) {
+                Ok(Some((ip, port, relay))) => {
+                    if crate::chainremote_rz_status::put_relay_request(ip, port, &relay) {
+                        log::info!(
+                            "[chainremote_heartbeat] 패널이 전한 접속 요청을 받았다 — {ip}:{port}"
+                        );
+                    } else {
+                        log::warn!("[chainremote_heartbeat] 접속 요청을 --server 에 넘기지 못했다");
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => log::debug!("[chainremote_heartbeat] rz-relay 확인 실패: {e}"),
+            }
+        }
+        std::thread::sleep(RZ_RELAY_POLL);
+    }
+}
+
+fn fetch_rz_relay(
+    remote_id: &str,
+    token: &str,
+) -> ResultType<Option<(std::net::Ipv4Addr, u16, String)>> {
+    #[derive(serde::Deserialize)]
+    struct Resp {
+        ip: Option<String>,
+        port: Option<u32>,
+        #[serde(rename = "relayServer")]
+        relay_server: Option<String>,
+    }
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()?;
+    let resp = client
+        .get(format!("{RZ_RELAY_URL}?remoteId={remote_id}"))
+        .header("X-ChainRemote-Token", token)
+        .send()?;
+    if !resp.status().is_success() {
+        bail!("rz-relay HTTP {}", resp.status());
+    }
+    let r: Resp = resp.json()?;
+    let (Some(ip), Some(port)) = (r.ip, r.port) else {
+        return Ok(None);
+    };
+    let ip: std::net::Ipv4Addr = ip.parse()?;
+    if port == 0 || port > 65535 {
+        return Ok(None);
+    }
+    Ok(Some((ip, port as u16, r.relay_server.unwrap_or_default())))
 }
 
 fn run_loop() {

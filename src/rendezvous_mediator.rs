@@ -240,6 +240,24 @@ impl RendezvousMediator {
                     if SHOULD_EXIT.load(Ordering::SeqCst) {
                         break;
                     }
+                    // ChainRemote: hbbs 의 PunchHole 이 이 PC 에 닿지 않는 동안 패널이 대신 전해 준
+                    //   접속 요청(chainremote_rz_status 의 대리 전달). hbbs 가 보냈어야 할 그 메시지를
+                    //   만들어 평소 처리에 넘긴다 — 중계 서버로 강제(이 상태에선 직결 펀칭도 같은 UDP 를 탄다).
+                    if let Some((hq_addr, relay)) = crate::chainremote_rz_status::take_relay_request() {
+                        log::info!("[chainremote_rz_status] 패널이 전한 접속 요청 — {hq_addr} 로 중계 연결을 시작한다");
+                        let ph = PunchHole {
+                            socket_addr: AddrMangle::encode(hq_addr).into(),
+                            relay_server: relay,
+                            nat_type: NatType::SYMMETRIC.into(),
+                            force_relay: true,
+                            ..Default::default()
+                        };
+                        let rz2 = rz.clone();
+                        let server2 = server.clone();
+                        tokio::spawn(async move {
+                            allow_err!(rz2.handle_punch_hole(ph, server2).await);
+                        });
+                    }
                     let now = Some(Instant::now());
                     let expired = last_register_resp.map(|x| x.elapsed().as_millis() as i64 >= REG_INTERVAL).unwrap_or(true);
                     let timeout = last_register_sent.map(|x| x.elapsed().as_millis() as i64 >= reg_timeout).unwrap_or(false);
