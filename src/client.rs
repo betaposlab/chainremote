@@ -472,18 +472,51 @@ impl Client {
             socket_addr_v6: ipv6.1.unwrap_or_default(),
             ..Default::default()
         });
-        for i in 1..=3 {
-            log::info!(
-                "#{} {} punch attempt with {}, id: {}",
-                i,
-                punch_type,
-                my_addr,
-                peer
-            );
-            socket.send(&msg_out).await?;
-            // below timeout should not bigger than hbbs's connection timeout.
-            if let Some(msg_in) =
-                crate::get_next_nonkeyexchange_msg(&mut socket, Some(i * 3000)).await
+        // ChainRemote: 4번째 바퀴 = 접속 요청 대리 전달. 세 번 다 응답이 없을 때만 돈다.
+        //   hbbs 는 상대를 온라인으로 알지만 상대가 hbbs 의 UDP 를 못 받는 상태("응답 없음",
+        //   2026-10-01 달인)라면, 패널이 그 알림을 대신 전한다. 상대가 그렇게 받아 시작한 중계
+        //   연결의 RelayResponse 는 hbbs 가 평소처럼 서명해 이 소켓으로 보내 주므로, 아래 match 가
+        //   그대로 처리한다(신원 확인·암호화 동일). 그 상태가 아니면 패널이 즉시 거절해 바로 끝난다.
+        // ChainRemote: 대리 전달용 — hbbs 가 본 이 연결의 포트. 반드시 첫 PunchHoleRequest **앞에**
+        //   묻는다: hbbs 는 PunchHoleRequest 를 받는 순간 이 연결의 응답 통로(sink)를 tcp_punch 로
+        //   가져가, 그 뒤의 TestNatRequest 에는 답하지 않는다(rustdesk-server handle_tcp). 답을
+        //   기다리지 않고 바로 이어 보내므로 평소 접속에 늘어나는 시간은 없다. 답은 아래 첫 읽기에서
+        //   걸러 낸다. 로그인 안 된 실행(거래처 에이전트 등)은 묻지 않는다.
+        let mut cr_hbbs_port: u16 = 0;
+        if !crate::chainremote_auth::get_token().is_empty() {
+            let mut t = RendezvousMessage::new();
+            t.set_test_nat_request(TestNatRequest::default());
+            allow_err!(socket.send(&t).await);
+        }
+        for i in 1..=4 {
+            let msg_in = if i <= 3 {
+                log::info!(
+                    "#{} {} punch attempt with {}, id: {}",
+                    i,
+                    punch_type,
+                    my_addr,
+                    peer
+                );
+                socket.send(&msg_out).await?;
+                // below timeout should not bigger than hbbs's connection timeout.
+                let mut m = crate::get_next_nonkeyexchange_msg(&mut socket, Some(i * 3000)).await;
+                // ChainRemote: 위에서 물은 포트의 답이면 적어 두고 진짜 응답을 다시 읽는다.
+                let tnr_port = match m.as_ref().map(|x| &x.union) {
+                    Some(Some(rendezvous_message::Union::TestNatResponse(r))) => Some(r.port),
+                    _ => None,
+                };
+                if let Some(p) = tnr_port {
+                    cr_hbbs_port = p as u16;
+                    m = crate::get_next_nonkeyexchange_msg(&mut socket, Some(i * 3000)).await;
+                }
+                m
+            } else {
+                match Self::chainremote_rz_relay_fallback(&mut socket, &peer, cr_hbbs_port).await {
+                    Some(m) => Some(m),
+                    None => break,
+                }
+            };
+            if let Some(msg_in) = msg_in
             {
                 match msg_in.union {
                     Some(rendezvous_message::Union::PunchHoleResponse(ph)) => {
@@ -630,6 +663,48 @@ impl Client {
             (feedback, rendezvous_server),
             true,
         ))
+    }
+
+    /// 접속 요청 대리 전달(패널 마이그 056) — `_start` 의 4번째 바퀴.
+    ///
+    /// `hbbs_port` = hbbs 가 본 이 연결의 포트(첫 PunchHoleRequest 앞에 물어 둔 TestNatResponse).
+    /// hbbs 는 RelayResponse 를 "그 주소의 TCP 연결"로 돌려주므로(tcp_punch), 상대에게 알릴
+    /// 주소가 바로 이것이다. 패널에 남기고, 패널이 받아 주면(상대가 "응답 없음") 최대 20초 기다린다.
+    /// 그 사이 늦게 온 PunchHoleResponse/RelayResponse 도 그대로 돌려줘 원래 match 가 처리하게 한다.
+    /// 해당 없음·실패면 None — 호출자는 원래 오류("Failed to connect via rendezvous server")로 간다.
+    async fn chainremote_rz_relay_fallback(
+        socket: &mut Stream,
+        peer: &str,
+        hbbs_port: u16,
+    ) -> Option<RendezvousMessage> {
+        if hbbs_port == 0 || peer.is_empty() || !peer.chars().all(|c| c.is_ascii_alphanumeric()) {
+            return None;
+        }
+        let port = hbbs_port;
+        let id = peer.to_owned();
+        let accepted = tokio::task::spawn_blocking(move || {
+            crate::chainremote_auth::request_rz_relay(&id, port)
+        })
+        .await
+        .unwrap_or(false);
+        if !accepted {
+            return None;
+        }
+        log::info!("[chainremote] {peer} 은 응답 없음 상태 — 패널로 접속 요청을 전하고 기다린다(hbbs 포트 {port})");
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            let left = deadline.saturating_duration_since(Instant::now()).as_millis() as u64;
+            if left == 0 {
+                log::warn!("[chainremote] 패널 대리 전달 후 20초 안에 응답이 없었다");
+                return None;
+            }
+            let m = crate::get_next_nonkeyexchange_msg(socket, Some(left)).await?;
+            match &m.union {
+                Some(rendezvous_message::Union::PunchHoleResponse(_))
+                | Some(rendezvous_message::Union::RelayResponse(_)) => return Some(m),
+                _ => continue,
+            }
+        }
     }
 
     /// Connect to the peer.

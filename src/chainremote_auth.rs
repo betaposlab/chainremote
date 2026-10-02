@@ -223,6 +223,30 @@ fn post_json(
     Ok((w.status_code, w.body))
 }
 
+/// 접속 요청 대리 전달(패널 마이그 056) — "응답 없음" 거래처에 hbbs 대신 패널이 알리게 한다.
+///
+/// `hq_port` 는 hbbs 가 본 이 HQ 의 포트(TestNatResponse). IP 는 패널이 요청자 IP 로 채운다.
+/// 패널이 받아 줬으면(그 거래처가 정말 "응답 없음" 상태) true — 호출자는 그때만 더 기다린다.
+/// 로그인 전·네트워크 오류·거절은 전부 false: 원래 오류를 그대로 내면 된다.
+pub fn request_rz_relay(remote_id: &str, hq_port: u16) -> bool {
+    let token = get_token();
+    if token.is_empty() || remote_id.is_empty() || hq_port == 0 {
+        return false;
+    }
+    let body = serde_json::json!({ "remoteId": remote_id, "hqPort": hq_port });
+    match post_json("/api/customers/rz-relay", body, Some(&token)) {
+        Ok((200, _)) => true,
+        Ok((code, _)) => {
+            log::info!("[chainremote_auth] rz-relay 요청 거절 HTTP {code} — 대리 전달 대상 아님");
+            false
+        }
+        Err(e) => {
+            log::warn!("[chainremote_auth] rz-relay 요청 실패: {e}");
+            false
+        }
+    }
+}
+
 /// 발급된 토큰·사용자를 메모리에 저장.
 fn store(tok: &TokenResponse) -> ResultType<()> {
     let user_json = serde_json::to_string(&tok.user)?;
