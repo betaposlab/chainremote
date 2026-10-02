@@ -302,6 +302,12 @@ class _ChainRemoteLoginPage extends StatefulWidget {
 class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  // 입력칸에 들어가면 내용 전체를 선택한다(2026-10-02 Chang). 탭으로 비밀번호 칸에 넘어가면
+  //   커서가 맨 끝에 있어 지우고 다시 치려면 백스페이스를 여러 번 누르거나 마우스로 긁어야
+  //   했다. 전체 선택이면 바로 치는 것이 곧 덮어쓰기다 — 윈도우 기본 입력칸과 같은 동작.
+  //   마우스로 누르면 Flutter 가 누른 자리에 커서를 다시 놓으므로 클릭 동작은 그대로다.
+  late final FocusNode _emailFocus = _selectAllOnFocus(_emailCtrl);
+  late final FocusNode _passwordFocus = _selectAllOnFocus(_passwordCtrl);
   bool _busy = false;
   bool _rememberId = false;
   bool _rememberPw = false;
@@ -323,8 +329,24 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
     }
   }
 
+  FocusNode _selectAllOnFocus(TextEditingController ctrl) {
+    final node = FocusNode();
+    node.addListener(() {
+      if (!node.hasFocus) return;
+      // 포커스가 들어오는 그 프레임엔 TextField 가 선택을 자기 식으로 정리한다 — 한 프레임 뒤에 덮는다.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !node.hasFocus || ctrl.text.isEmpty) return;
+        ctrl.selection =
+            TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
+      });
+    });
+    return node;
+  }
+
   @override
   void dispose() {
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
@@ -542,6 +564,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
                           const SizedBox(height: 28),
                           _buildField(
                             controller: _emailCtrl,
+                            focusNode: _emailFocus,
                             label: '아이디',
                             autofocus: true,
                             textInputAction: TextInputAction.next,
@@ -549,6 +572,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
                           const SizedBox(height: 14),
                           _buildField(
                             controller: _passwordCtrl,
+                            focusNode: _passwordFocus,
                             label: '비밀번호',
                             obscure: true,
                             textInputAction: TextInputAction.done,
@@ -631,6 +655,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
   /// 입력란. 포커스되면 브랜드색 border 로 강조한다.
   Widget _buildField({
     required TextEditingController controller,
+    FocusNode? focusNode,
     required String label,
     String? hint,
     bool obscure = false,
@@ -640,6 +665,7 @@ class _ChainRemoteLoginPageState extends State<_ChainRemoteLoginPage> {
   }) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       enabled: !_busy,
       autofocus: autofocus,
       obscureText: obscure,
