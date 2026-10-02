@@ -135,6 +135,8 @@ Source: "migrate-server-address.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstal
 ; 바탕화면 바로가기 정리 — 거래처가 바꾼 이름을 살리고 영어 기본 아이콘 중복을 지운다.
 ;   (ASCII 전용 — 위 migrate-server-address.ps1 과 같은 이유.)
 Source: "keep-custom-icon.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
+; 임시 원격(626.kr 초록 버튼)으로 받은 파일 정리 — 우리가 발급한 이름만 지운다(ASCII 전용, PS2).
+Source: "cleanup-quick-support.ps1"; DestDir: "{tmp}"; Flags: deleteafterinstall ignoreversion
 
 ; 제거 로직 — Inno 가 모르는 것들(코어가 XCOPY 한 설치폴더·서비스·바로가기·watchdog)을 지운다.
 ;   ★{tmp} 가 아니라 ProgramData — 제거 시점엔 {tmp} 가 이미 사라지고 없다.
@@ -237,6 +239,11 @@ Filename: "schtasks.exe"; Parameters: "/Run /TN ChainRemoteServiceWatchdog"; Fla
 ;    ExpandEnvironmentVariables(=%VAR% 만 해석)에 넘기고 있어 처음부터 한 번도 안 걸렸다.
 ;    실패해도 install 을 깨지 않는다(최악이 기본 아이콘이 남는 것 = 이 기능 생기기 전 동작).
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\keep-custom-icon.ps1"" -CommonDesktop ""{commondesktop}"" -UserDesktop ""{userdesktop}"" -StartMenuLnk ""{commonprograms}\ChainRemote\ChainRemote.lnk"" -AppExe ""{code:CRAgentDir}\ChainRemote.exe"" -IconFile ""{commonappdata}\ChainRemote\chainremote.ico"" -Log ""{commonappdata}\ChainRemote\updater.log"""; StatusMsg: "ChainRemote 바로가기 확인 중..."; Flags: runhidden waituntilterminated
+
+; 8.4. 임시 원격 파일 정리 (2026-10-02) — 626.kr [원격지원 받기] 를 누를 때마다 다운로드 폴더에
+;    RustDesk 사본(11~24MB)이 하나씩 쌓인다. 에이전트가 깔리면 쓸 일이 없다. 파일 이름이 우리가
+;    발급한 것임을 증명할 때만 지우고, 지금 원격에 쓰이는 사본은 죽이지 않고 재부팅 때 지운다.
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{tmp}\cleanup-quick-support.ps1"" -Log ""{commonappdata}\ChainRemote\updater.log"""; Flags: runhidden waituntilterminated
 
 ; 8.5. 인스톨 후 self-test 스모크 — Service/Process/Exe 3종 체크를 updater.log 에 PASS/FAIL 기록.
 ;     (경로는 CRAgentDir — 64비트 Win7 (x86) 설치까지 3개 조합 모두 정확. 종전 {commonpf} 는
