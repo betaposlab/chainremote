@@ -173,6 +173,10 @@ fn run_loop() {
 fn nap_watching_sched(total: Duration) {
     const SLICE: Duration = Duration::from_secs(10);
     let had_sched = crate::chainremote_sched::status().is_some();
+    // 접속 서버 답장 수신 상태가 뒤집히면(수신 불가 ↔ 정상) 10분을 다 채우지 않고 바로 보고한다.
+    //   본사가 "지금 붙을 수 없는 PC"를 10분 늦게 아는 것과 1분 안에 아는 것은 다르다.
+    //   상태 파일은 45초 문턱을 넘어야 바뀌므로 여기서 깜빡이며 보고가 쏟아질 일은 없다.
+    let had_noreply = crate::chainremote_rz_status::read_noreply_since().is_some();
     let mut slept = Duration::ZERO;
     while slept < total {
         let this = if total - slept < SLICE { total - slept } else { SLICE };
@@ -180,6 +184,10 @@ fn nap_watching_sched(total: Duration) {
         slept += this;
         if !had_sched && crate::chainremote_sched::status().is_some() {
             log::info!("[chainremote_heartbeat] 예약이 생겼다 — 남은 잠을 깬다");
+            return;
+        }
+        if crate::chainremote_rz_status::read_noreply_since().is_some() != had_noreply {
+            log::info!("[chainremote_heartbeat] 접속 서버 답장 수신 상태가 바뀌었다 — 바로 보고한다");
             return;
         }
     }
@@ -467,6 +475,13 @@ fn send_heartbeat(
         //   Symmetric 이 몇 대인지가 UPnP 를 만들지 말지를 정한다(2026-08-11 낭성 사례).
         "natType": hbb_common::config::Config::get_nat_type(),
     });
+    // 접속 서버 답장을 못 받는 상태인가(마이그 055) — 시작 시각(epoch 초), 아니면 null.
+    //   null 을 **항상** 싣는다: 풀렸을 때 서버의 옛 값을 지워야 한다(키가 없으면 서버는 손대지 않는다).
+    //   이 값이 있는 동안 본사 화면은 "온라인"이 아니라 "요청 수신 불가"로 보여준다.
+    body["rzNoReplySince"] = match crate::chainremote_rz_status::read_noreply_since() {
+        Some(since) => since.into(),
+        None => serde_json::Value::Null,
+    };
     // 공유기 UPnP 지원 여부(마이그040) — ""=측정 전 "no"=IGD 없음 "found"=광고만 "yes"=제어까지 OK.
     //   홀펀칭이 실패하는 거래처를 직결로 돌릴 유일한 길이 UPnP 인데, 공유기가 켜 뒀어야 한다.
     //   포트 매핑 본체를 만들기 전에 "몇 곳이나 되는가"부터 세려는 것(chainremote_upnp 주석).

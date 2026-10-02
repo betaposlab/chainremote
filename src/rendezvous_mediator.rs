@@ -195,6 +195,8 @@ impl RendezvousMediator {
                 last_register_resp = Some(Instant::now());
                 fails = 0;
                 reg_timeout = MIN_REG_TIMEOUT;
+                // ChainRemote: 답장이 들어온다 — 상태 파일에만 적는다(동작 변경 없음).
+                crate::chainremote_rz_status::note_reply();
                 let mut latency = last_register_sent
                     .map(|x| x.elapsed().as_micros() as i64)
                     .unwrap_or(0);
@@ -251,6 +253,8 @@ impl RendezvousMediator {
                     if timeout || (last_register_sent.is_none() && expired) {
                         if timeout {
                             fails += 1;
+                            // ChainRemote: 답장 없는 재시도 — 상태 파일에만 적는다(동작 변경 없음).
+                            crate::chainremote_rz_status::note_timeout();
                             if fails >= MAX_FAILS2 {
                                 Config::update_latency(&host, -1);
                                 old_latency = 0;

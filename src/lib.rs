@@ -39,6 +39,8 @@ pub mod chainremote_auth;
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
 pub mod chainremote_data;
 pub mod chainremote_direct;
+// 접속 서버 답장 수신 상태(관찰만) — rendezvous_mediator 가 적고 heartbeat 가 읽는다.
+pub mod chainremote_rz_status;
 pub mod chainremote_upnp;
 // 연결 경로 점검(프로브) — HQ 에서만. 거래처 에이전트(Sciter/32비트)에는 없다.
 #[cfg(any(target_os = "android", target_os = "ios", feature = "flutter"))]
