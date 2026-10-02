@@ -582,6 +582,29 @@ export const quickSupportSessions = pgTable(
   }),
 );
 
+// 접속 요청 대리 전달(마이그 056) — 배경은 lib/data/rz-relay.ts 와 마이그 파일.
+export const rzRelayRequests = pgTable(
+  "rz_relay_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    hqIp: text("hq_ip").notNull(),
+    hqPort: integer("hq_port").notNull(),
+    relayServer: text("relay_server"),
+    requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  },
+  (t) => ({
+    customerCreatedIdx: index("idx_rz_relay_customer_created").on(t.customerId, t.createdAt),
+  }),
+);
+
 export const panelTickets = pgTable("panel_tickets", {
   tokenHash: text("token_hash").primaryKey(),
   userId: uuid("user_id")
