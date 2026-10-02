@@ -34,6 +34,7 @@ export async function POST(req: Request) {
       cleanupResult?: unknown;
       firewallEnabled?: unknown;
       firewallDisarmed?: unknown;
+      rzNoReplySince?: unknown;
       vanOk?: unknown;
       vanRestarted?: unknown;
       vanGaveUp?: unknown;
@@ -93,6 +94,14 @@ export async function POST(req: Request) {
         firewallEnabled:
           typeof body.firewallEnabled === "boolean" ? body.firewallEnabled : undefined,
         firewallDisarmed: body.firewallDisarmed === true,
+        // 요청 수신 불가(055). 숫자(epoch 초)=그 상태, null=풀림(명시 신호 — 옛 값을 지운다),
+        //   키 없음(undefined)=옛 에이전트라 모름 → 손대지 않는다.
+        rzNoReplySince:
+          typeof body.rzNoReplySince === "number" && Number.isFinite(body.rzNoReplySince)
+            ? body.rzNoReplySince
+            : body.rzNoReplySince === null
+              ? null
+              : undefined,
         // null 은 "판정 보류"(리더기 대기)라는 **명시 신호**다 — 필드 누락(undefined)과 달리
         //   기존 값을 비워야 한다. 안 그러면 한 번 박힌 빨간 '중지'가 안 풀린다.
         vanOk:

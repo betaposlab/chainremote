@@ -66,16 +66,41 @@ export function computeUpdateHealth(
   return null;
 }
 
+/** 이보다 오래 보고가 없으면 "요청 수신 불가" 값을 믿지 않는다 — 그 상태로 PC 를 끄면
+ *  서버엔 옛 값이 남는다(본사 앱 crRzNoReplySince 와 같은 문턱). */
+export const RZ_NOREPLY_FRESH_MIN = 15;
+
+/**
+ * 원격 요청이 닿지 않는 상태인가(마이그 055). 그렇다면 몇 분째인지, 아니면 null.
+ *
+ * 에이전트가 접속 서버의 답장을 못 받는 동안 heartbeat 에 시작 시각을 실어 보낸다. 그 PC 는
+ * 켜져 있고 보고도 오지만 원격을 걸면 실패한다 — 수락 카드도 안 뜬다.
+ */
+export function rzNoReplyMinutes(
+  rzNoreplySince: Date | string | null | undefined,
+  lastHeartbeatAt: Date | string | null | undefined,
+  now: number = Date.now(),
+): number | null {
+  if (!rzNoreplySince || !lastHeartbeatAt) return null;
+  const hb = new Date(lastHeartbeatAt).getTime();
+  const since = new Date(rzNoreplySince).getTime();
+  if (!Number.isFinite(hb) || !Number.isFinite(since)) return null;
+  if (now - hb >= RZ_NOREPLY_FRESH_MIN * 60_000) return null;
+  return Math.max(0, Math.floor((now - since) / 60_000));
+}
+
 export function CustomerStatus({
   lastHeartbeatAt,
   lastVersion,
   update,
   isInternal = false,
+  rzNoreplySince = null,
 }: {
   lastHeartbeatAt: Date | null;
   lastVersion: string | null;
   update?: UpdateInfo;
   isInternal?: boolean;
+  rzNoreplySince?: Date | null;
 }) {
   // 내부 기기(본사/Mac/빌드머신)는 자동업뎃 대상이 아니라 상태 칸을 통째로 비운다.
   if (isInternal) {
@@ -86,14 +111,33 @@ export function CustomerStatus({
 
   const heartbeat = renderHeartbeat(lastHeartbeatAt, lastVersion);
 
-  if (!health || health.kind === "ok") {
+  // 보고는 오는데 원격 요청이 안 닿는 상태 — 초록 "방금" 옆에 따로 띄운다. 초록만 보면
+  //   붙을 수 있는 줄 안다.
+  const noReplyMin = rzNoReplyMinutes(rzNoreplySince, lastHeartbeatAt);
+  const noReply =
+    noReplyMin === null ? null : (
+      <span
+        className="inline-flex w-fit items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-medium text-amber-300"
+        title={
+          "컴퓨터는 켜져 있지만 원격 요청이 닿지 않습니다. 지금 접속하면 실패합니다.\n" +
+          "거래처에서 그 컴퓨터를 한 번 사용하면(마우스·화면 터치) 풀리는 경우가 있습니다."
+        }
+      >
+        ⚠ 요청 수신 불가 ·{" "}
+        {noReplyMin < 60 ? `${noReplyMin}분째` : `${Math.floor(noReplyMin / 60)}시간째`}
+      </span>
+    );
+
+  const showUpdate = !!health && health.kind !== "ok";
+  if (!showUpdate && !noReply) {
     return heartbeat;
   }
 
   return (
     <div className="flex flex-col gap-1">
       {heartbeat}
-      <UpdateBadge health={health} />
+      {noReply}
+      {showUpdate && <UpdateBadge health={health} />}
     </div>
   );
 }
