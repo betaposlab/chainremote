@@ -102,7 +102,7 @@ figcaption{font-size:8.2pt;color:var(--ink-3);margin-top:2mm;line-height:1.5}
 .trio p{margin:0;font-size:9pt;color:var(--ink-2);line-height:1.6}
 /* 요금 */
 .price{margin-top:4.5mm;border-top:2px solid var(--ink)}
-.price .row{display:grid;grid-template-columns:42mm 1fr;gap:5mm;padding:2.1mm 0;
+.price .row{display:grid;grid-template-columns:42mm 1fr;gap:5mm;padding:1.6mm 0;
  border-bottom:1px solid var(--rule);align-items:baseline}
 .price .k{font-size:9.2pt;font-weight:700;color:var(--ink-3)}
 .price .v{font-size:11.5pt;font-weight:700}
@@ -121,7 +121,15 @@ figcaption{font-size:8.2pt;color:var(--ink-3);margin-top:2mm;line-height:1.5}
 .visit{margin-top:auto;background:var(--tint);border-left:3px solid var(--accent);
  padding:3.2mm 5mm;font-size:9.4pt;color:var(--ink-2);line-height:1.65}
 .visit b{color:var(--ink);font-weight:700}
-.contact{margin-top:5mm;padding-top:4mm;border-top:2px solid var(--ink);
+/* 설치 전 매장용 임시 원격(626.kr 초록 버튼). ★2쪽의 "4단계 통화" 비판과 부딪치지 않게
+   주력 기능이 아니라 '설치용' 비상구로만 말한다. 찾아간다와 한 상자에 쌓는다 — 둘 다
+   "설치를 어떻게 하나"에 대한 답이고, 4쪽엔 상자 하나 더 들일 높이가 없다(가로로 나누면
+   왼쪽이 네 줄이 돼 연락처가 종이 밖으로 밀렸다). */
+.visit.pair{padding:2.6mm 5mm}
+.visit.pair > div + div{margin-top:1mm}
+.visit.pair .how{font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:8.6pt;color:var(--accent);
+ white-space:nowrap}
+.contact{margin-top:4mm;padding-top:3.5mm;border-top:2px solid var(--ink);
  display:flex;justify-content:space-between;align-items:flex-end;gap:8mm}
 .contact .lines{font-size:10.5pt;line-height:1.68}
 .contact .lines b{font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:12.5pt}
@@ -446,11 +454,12 @@ table.hqt tr:last-child td{border-bottom:none}
     <div><div class="n">01</div><h4>문의</h4><p>전화나 이메일 한 번이면 됩니다.</p></div>
     <div><div class="n">02</div><h4>계정 발급</h4><p>대리점 전용 관리 화면 주소와 아이디를 드립니다.</p></div>
     <div><div class="n">03</div><h4>설치파일 받기</h4><p>관리 화면에서 대리점 전용 파일을 받으십니다.</p></div>
-    <div><div class="n">04</div><h4>거래처 설치</h4><p>원격이나 방문하시는 김에 한 곳씩. 서두르실 필요 없습니다.</p></div>
+    <div><div class="n">04</div><h4>거래처 설치</h4><p>원격으로 한 곳씩. 매장에 안 가셔도 됩니다.</p></div>
   </div>
 
-  <div class="visit">
-    <b>전국 어디든 찾아갑니다.</b> 포스 한 대에 직접 깔아 원격까지 걸어 보여드립니다.
+  <div class="visit pair">
+    <div><b>안 깔린 매장도 원격으로.</b> 사장님께 전화로 <span class="how">626.kr → [원격지원 받기] → 대리점 번호</span> 만 불러 드리면, 그 원격으로 설치까지 끝냅니다.</div>
+    <div><b>전국 어디든 찾아갑니다.</b> 포스 한 대에 직접 깔아 원격까지 걸어 보여드립니다.</div>
   </div>
 
   <div class="contact">
