@@ -37,8 +37,8 @@ export const MANUALS: Manual[] = [
     title: "설치 매뉴얼",
     desc: "HQ 앱과 거래처 에이전트를 내려받아 설치하는 방법. 설치 후 확인 절차까지.",
     downloadName: "ChainRemote_설치_매뉴얼.pdf",
-    version: "v1.4.138",
-    updated: "2026-08-28",
+    version: "v1.4.153",
+    updated: "2026-10-06",
   },
   {
     slug: "hq",
@@ -46,8 +46,8 @@ export const MANUALS: Manual[] = [
     title: "HQ 사용법",
     desc: "화면 구성, 세 개의 탭, 원격 접속, 도구 모음, 지원기록 남기기, 자주 막히는 곳.",
     downloadName: "ChainRemote_본사HQ_사용매뉴얼.pdf",
-    version: "v1.4.138",
-    updated: "2026-08-28",
+    version: "v1.4.153",
+    updated: "2026-10-06",
   },
   {
     slug: "panel",
@@ -55,8 +55,8 @@ export const MANUALS: Manual[] = [
     title: "관리 패널 사용법",
     desc: "대시보드, 거래처 등록과 배포, 지원기록 검색, 사용자 권한, 자주 막히는 곳.",
     downloadName: "ChainRemote_관리패널_사용매뉴얼.pdf",
-    version: "v1",
-    updated: "2026-08-28",
+    version: "v2",
+    updated: "2026-10-06",
   },
   {
     slug: "agent",
@@ -64,8 +64,8 @@ export const MANUALS: Manual[] = [
     title: "거래처 설치·사용 매뉴얼",
     desc: "거래처 POS 에 에이전트를 까는 방법과, 원격지원을 받을 때 거래처가 할 일.",
     downloadName: "ChainRemote_거래처_설치사용_매뉴얼.pdf",
-    version: "v1.4.138",
-    updated: "2026-08-28",
+    version: "v1.4.153",
+    updated: "2026-10-06",
   },
 ];
 
