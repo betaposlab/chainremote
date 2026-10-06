@@ -56,4 +56,4 @@ ChainRemote 는 [GNU Affero General Public License v3](LICENCE) 에 따라 배�
 
 - 회사: 베타포스랩 (BetaPosLab)
 - 홈페이지: https://betaposlab.com
-- 기술 문의: zentars004@gmail.com
+- 기술 문의: betapos@icloud.com

@@ -2678,7 +2678,7 @@ class _AboutState extends State<_About> {
                         .marginSymmetric(vertical: 4.0)),
               SelectionArea(
                   child: const Text(
-                          '회사: 베타포스랩 (BetaPosLab)\n기술지원: zentars004@gmail.com')
+                          '회사: 베타포스랩 (BetaPosLab)\n기술지원: betapos@icloud.com')
                       .marginSymmetric(vertical: 6.0)),
               const SizedBox(height: 8),
               const Divider(),
