@@ -395,8 +395,8 @@ class _PeerTabPageState extends State<PeerTabPage>
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Tooltip(
-                message: '컴퓨터는 켜져 있지만 원격 요청이 닿지 않는 상태입니다. 지금 접속하면 실패합니다.\n'
-                    '거래처에서 그 컴퓨터를 한 번 사용하면(마우스·화면 터치) 풀리는 경우가 있습니다.',
+                message: '컴퓨터는 켜져 있지만 원격 요청이 닿지 않는 상태입니다. 그래도 접속하면 관리 패널을 거쳐 20초쯤 뒤 연결됩니다.\n'
+                    '안 되면 거래처에서 그 컴퓨터를 한 번 사용해 달라고 하세요(마우스·화면 터치).',
                 child: Text('⚠ 원격 요청이 닿지 않는 곳 ${hit.length}곳',
                     style: TextStyle(
                         fontSize: 12,
