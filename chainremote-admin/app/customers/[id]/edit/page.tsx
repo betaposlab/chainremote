@@ -11,6 +11,8 @@ import { DeleteButton } from "./_delete";
 import { MoveDeviceCard } from "../_move-device";
 import { UnattendedPasswordCard } from "../_unattended-password";
 import { canWrite } from "@/lib/roles";
+import { listRzHistory } from "@/lib/data/rz-history";
+import { RzHistoryCard } from "../_rz-history";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +44,7 @@ export default async function EditCustomerPage({
 
   const staff = await listTenantStaff(tenant.id);
   const folderRows = await listFolders(tenant.id);
+  const rzHistory = await listRzHistory(tenant.id, row.id);
   // 현재 폴더명(초기값) — folder_id 를 이름으로 되짚는다. 폴더 없으면 빈칸.
   const currentFolderName =
     folderRows.find((f) => f.id === row.folderId)?.name ?? null;
@@ -84,6 +87,8 @@ export default async function EditCustomerPage({
           current={row.unattendedPassword}
         />
       ) : null}
+      {/* 읽기 전용이라 권한 구분 없이 보인다. 기록이 없으면 카드도 없다. */}
+      <RzHistoryCard items={rzHistory} />
       {canWrite(session.user.role) ? (
         <MoveDeviceCard
           customerId={row.id}

@@ -8,8 +8,8 @@ import { hashHeartbeatToken } from "@/lib/heartbeat-token";
 
 /** 에이전트가 이 안에 가져가야 한다. HQ 는 그보다 짧게 기다린다(접속 창 20초). */
 const PICKUP_WINDOW_MS = 60_000;
-/** 이보다 오래된 행은 다음 요청 때 지운다. */
-const PURGE_AFTER_MS = 3600_000;
+/** 이보다 오래된 행은 다음 요청 때 지운다. 실패 원인을 가르는 이력이라 30일 둔다(057). */
+const PURGE_AFTER_MS = 30 * 24 * 3600_000;
 /** 본사 앱·패널의 "응답 없음" 판정과 같은 문턱(app/customers/_status.tsx RZ_NOREPLY_FRESH_MIN). */
 const NOREPLY_FRESH_MS = 15 * 60_000;
 
@@ -54,16 +54,34 @@ export async function createRzRelayRequest(input: {
     .where(and(eq(customers.tenantId, input.tenantId), eq(customers.remoteId, input.remoteId)))
     .limit(1);
   if (!c) return { ok: false, reason: "not_found" };
-  const fresh =
-    !!c.rzNoreplySince &&
-    !!c.lastHeartbeatAt &&
-    Date.now() - new Date(c.lastHeartbeatAt).getTime() < NOREPLY_FRESH_MS;
-  if (!fresh) return { ok: false, reason: "not_noreply" };
+  const stale =
+    !c.lastHeartbeatAt ||
+    Date.now() - new Date(c.lastHeartbeatAt).getTime() >= NOREPLY_FRESH_MS;
+  const rejected = !c.rzNoreplySince ? "not_noreply" : stale ? "stale" : null;
 
   await db
     .delete(rzRelayRequests)
     .where(lt(rzRelayRequests.createdAt, new Date(Date.now() - PURGE_AFTER_MS)))
     .catch(() => undefined);
+
+  // ★거절도 남긴다(057). HQ 가 여기 물었다는 건 hbbs 경로가 이미 실패했다는 뜻이라, 거절된
+  //   요청이 "어디서 끊겼나"를 가르는 핵심 단서다. 이력이 실패해도 HQ 응답은 그대로 간다.
+  if (rejected) {
+    await db
+      .insert(rzRelayRequests)
+      .values({
+        tenantId: input.tenantId,
+        customerId: c.id,
+        hqIp: ip,
+        hqPort: input.hqPort,
+        relayServer: relay,
+        requestedBy: input.userId,
+        rejectedReason: rejected,
+      })
+      .catch(() => undefined);
+    // HQ 에는 예전처럼 한 가지 사유만 — 둘 다 "기다리지 말고 원래 오류를 내라"는 뜻이다.
+    return { ok: false, reason: "not_noreply" };
+  }
 
   const [row] = await db
     .insert(rzRelayRequests)
@@ -98,6 +116,7 @@ export async function takeRzRelayRequest(
       WHERE c.remote_id = ${remoteId}
         AND c.heartbeat_token = ${hashHeartbeatToken(token)}
         AND r2.consumed_at IS NULL
+        AND r2.rejected_reason IS NULL
         AND r2.created_at > ${since}
       ORDER BY r2.created_at
       LIMIT 1
