@@ -599,9 +599,33 @@ export const rzRelayRequests = pgTable(
     requestedBy: uuid("requested_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    // 057 — 거절된 요청도 남긴다. null=받아들임. 'not_noreply' | 'stale'.
+    rejectedReason: text("rejected_reason"),
   },
   (t) => ({
     customerCreatedIdx: index("idx_rz_relay_customer_created").on(t.customerId, t.createdAt),
+  }),
+);
+
+// "응답 없음" 구간 이력(마이그 057) — 한 구간 = 한 행. 배경은 마이그 파일.
+export const rzNoreplyEpisodes = pgTable(
+  "rz_noreply_episodes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    // 'cleared' = 풀림 보고 / 'replaced' = 풀림 보고 없이 새 시작 시각이 옴.
+    endReason: text("end_reason"),
+  },
+  (t) => ({
+    customerStartedIdx: index("idx_rz_noreply_ep_customer_started").on(t.customerId, t.startedAt),
   }),
 );
 

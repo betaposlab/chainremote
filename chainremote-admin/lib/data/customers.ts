@@ -20,6 +20,7 @@ import { generateHeartbeatToken, hashHeartbeatToken } from "@/lib/heartbeat-toke
 import { autoQueueIfBehind } from "@/lib/data/pending-updates";
 import { getAgentPushMetaCached } from "@/lib/agent-push-meta";
 import { maskUnverifiedDoor } from "@/lib/data/upnp-probe";
+import { recordNoreplyEpisode } from "@/lib/data/rz-history";
 
 export interface CustomerFields {
   name: string;
@@ -494,6 +495,14 @@ export async function recordHeartbeat(
       isInternal: customers.isInternal,
     });
   if (!row) return false;
+  // 응답 없음 구간 이력(057). 이력은 곁가지라 실패해도 heartbeat 는 성공으로 둔다.
+  if ("rzNoreplySince" in rzSet) {
+    try {
+      await recordNoreplyEpisode(row.tenantId, row.id, rzSet.rzNoreplySince as Date | null);
+    } catch (e) {
+      console.error("[rz-history] heartbeat:", e instanceof Error ? e.message : e);
+    }
+  }
   // 자동 롤아웃(2026-07-20) — 구버전 보고면 이 자리에서 업데이트 큐잉. 최신이면 문자열 비교
   // 한 번으로 끝(추가 DB 비용 0). 실패해도 heartbeat 는 안 깨진다.
   try {
