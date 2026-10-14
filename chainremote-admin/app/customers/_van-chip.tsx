@@ -12,6 +12,17 @@ function fmtDate(iso: string | null): string {
   return iso.slice(5, 10).replace("-", "/"); // MM/DD
 }
 
+function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
 export function VanChip({
   kind,
   ok,
@@ -21,6 +32,8 @@ export function VanChip({
   lastRestartAt,
   recoveredCount,
   unrecoveredCount,
+  reportedAt = null,
+  resetAt = null,
 }: {
   kind: string | null;
   ok: boolean | null;
@@ -34,6 +47,10 @@ export function VanChip({
   recoveredCount: number;
   /** 재시작했는데 여전히 닫혀 있던 횟수. */
   unrecoveredCount: number;
+  /** 에이전트가 마지막으로 데몬 상태를 알려온 시각(058). 없으면 아직 한 번도 안 왔다는 뜻. */
+  reportedAt?: string | null;
+  /** 마지막으로 카운터를 0 으로 되돌린 시각(058). "재시작 없음"이 언제부터인지 말해 준다. */
+  resetAt?: string | null;
 }) {
   if (!kind) return null;
 
@@ -52,7 +69,11 @@ export function VanChip({
   const restarts =
     restartCount > 0
       ? `재시작 시도 ${restartCount}회${lastRestartAt ? ` (마지막 ${fmtDate(lastRestartAt)})` : ""} · ${outcome}`
-      : "재시작 시도 없음";
+      : resetAt
+        ? `재시작 시도 없음 (${fmtDate(resetAt)} 초기화 이후)`
+        : "재시작 시도 없음";
+  // "재시작 0" 이 건강인지 감시 중단인지는 이 한 줄로 갈린다(058).
+  const checked = reportedAt ? `마지막 확인 ${fmtTime(reportedAt)}` : "데몬 상태 보고 아직 없음";
 
   // 데몬이 아예 없는 건 고장이 아니라 설정 실수다. 사람을 부르는 대신 "관제를 끄세요"라고
   // 말해야 한다 — 같은 빨강으로 묶으면 있지도 않은 고장을 고치러 나간다.
@@ -102,6 +123,7 @@ export function VanChip({
       title={[
         `${name} 카드결제 데몬 관제 켜짐`,
         ok ? "데몬 정상" : "데몬 멈춤 — 곧 자동으로 되살립니다",
+        checked,
         restarts,
       ].join(" · ")}
     >

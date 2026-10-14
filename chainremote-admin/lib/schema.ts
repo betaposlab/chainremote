@@ -218,6 +218,10 @@ export const customers = pgTable(
     //   "성패를 모르는 구간"(이 기능 이전 기록)이고, 화면은 그걸 실패로 읽지 않는다.
     vanRecoveredCount: integer("van_recovered_count").notNull().default(0),
     vanUnrecoveredCount: integer("van_unrecovered_count").notNull().default(0),
+    // 058 — 에이전트가 VAN 판정(vanOk)을 마지막으로 실어 보낸 시각. "카운터가 안 오른다"가
+    //   건강인지 감시 중단인지 가르는 유일한 단서다. / 마지막으로 카운터를 0 으로 되돌린 시각.
+    vanReportedAt: timestamp("van_reported_at", { withTimezone: true }),
+    vanResetAt: timestamp("van_reset_at", { withTimezone: true }),
     vanGaveUp: boolean("van_gave_up").notNull().default(false),
     // 데몬이 그 기기에 아예 없음(마이그037) — 다른 VAN 거래처에 관제를 잘못 켠 경우.
     //   vanGaveUp 과 함께 참이 되지만 조치가 정반대다: 이쪽은 관제만 끄면 끝난다.
@@ -626,6 +630,33 @@ export const rzNoreplyEpisodes = pgTable(
   },
   (t) => ({
     customerStartedIdx: index("idx_rz_noreply_ep_customer_started").on(t.customerId, t.startedAt),
+  }),
+);
+
+// VAN 재시작 카운터 초기화 이력(마이그 058) — 한 행 = 초기화 한 번 = 그 전까지의 한 구간.
+export const vanRestartResets = pgTable(
+  "van_restart_resets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id, { onDelete: "cascade" }),
+    remoteId: text("remote_id"),
+    vanKind: text("van_kind"),
+    restartCount: integer("restart_count").notNull(),
+    recoveredCount: integer("recovered_count").notNull(),
+    unrecoveredCount: integer("unrecovered_count").notNull(),
+    lastRestartAt: timestamp("last_restart_at", { withTimezone: true }),
+    periodFrom: timestamp("period_from", { withTimezone: true }),
+    resetAt: timestamp("reset_at", { withTimezone: true }).notNull().defaultNow(),
+    resetBy: uuid("reset_by").references(() => users.id, { onDelete: "set null" }),
+    reason: text("reason"),
+  },
+  (t) => ({
+    customerResetIdx: index("idx_van_resets_customer_reset").on(t.customerId, t.resetAt),
   }),
 );
 

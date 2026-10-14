@@ -13,6 +13,9 @@ import { UnattendedPasswordCard } from "../_unattended-password";
 import { canWrite } from "@/lib/roles";
 import { listRzHistory } from "@/lib/data/rz-history";
 import { RzHistoryCard } from "../_rz-history";
+import { listVanResets } from "@/lib/data/van-reset";
+import { VanResetCard } from "../_van-reset";
+import { vanLabel } from "@/lib/van-constants";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +48,8 @@ export default async function EditCustomerPage({
   const staff = await listTenantStaff(tenant.id);
   const folderRows = await listFolders(tenant.id);
   const rzHistory = await listRzHistory(tenant.id, row.id);
+  const vanResets = await listVanResets(tenant.id, row.id);
+  const iso = (d: Date | null) => (d ? d.toISOString() : null);
   // 현재 폴더명(초기값) — folder_id 를 이름으로 되짚는다. 폴더 없으면 빈칸.
   const currentFolderName =
     folderRows.find((f) => f.id === row.folderId)?.name ?? null;
@@ -87,6 +92,35 @@ export default async function EditCustomerPage({
           current={row.unattendedPassword}
         />
       ) : null}
+      {/* VAN 데몬 재시작 숫자 — 포스를 바꾸면 옛 기기 숫자가 새 기기 옆에 붙으므로 여기서 접는다(058).
+          관제를 켠 적도 없고 기록도 없으면 카드가 없다. */}
+      <VanResetCard
+        customerId={row.id}
+        customerName={row.name}
+        vanLabel={vanLabel(row.vanWatch)}
+        watching={!!row.vanWatch}
+        current={{
+          restartCount: row.vanRestartCount,
+          recoveredCount: row.vanRecoveredCount,
+          unrecoveredCount: row.vanUnrecoveredCount,
+          lastRestartAt: iso(row.vanLastRestartAt),
+          reportedAt: iso(row.vanReportedAt),
+          resetAt: iso(row.vanResetAt),
+        }}
+        history={vanResets.map((h) => ({
+          resetAt: h.resetAt.toISOString(),
+          periodFrom: iso(h.periodFrom),
+          remoteId: h.remoteId,
+          vanLabel: vanLabel(h.vanKind),
+          restartCount: h.restartCount,
+          recoveredCount: h.recoveredCount,
+          unrecoveredCount: h.unrecoveredCount,
+          lastRestartAt: iso(h.lastRestartAt),
+          reason: h.reason,
+          by: h.by,
+        }))}
+        canWrite={canWrite(session.user.role)}
+      />
       {/* 읽기 전용이라 권한 구분 없이 보인다. 기록이 없으면 카드도 없다. */}
       <RzHistoryCard items={rzHistory} />
       {canWrite(session.user.role) ? (

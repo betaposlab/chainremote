@@ -398,6 +398,12 @@ export async function recordHeartbeat(
   if (typeof extras?.vanGaveUp === "boolean") {
     vanSet.vanGaveUp = sql`CASE WHEN ${watched} THEN ${extras.vanGaveUp}::boolean ELSE false END`;
   }
+  // 마지막 판정 시각(058). vanOk 키가 실려 왔다는 것 자체가 "에이전트가 데몬을 확인했다"는
+  //   뜻이라 참/거짓/보류(null)를 가리지 않는다. 키가 없으면(옛 에이전트) 손대지 않는다.
+  //   이 값이 없으면 "재시작 0" 이 건강한 건지 감시가 죽은 건지 패널에서 가를 수 없었다.
+  if (extras !== undefined && "vanOk" in extras && extras.vanOk !== undefined) {
+    vanSet.vanReportedAt = sql`CASE WHEN ${watched} THEN now() ELSE ${customers.vanReportedAt} END`;
+  }
   if (typeof extras?.vanMissing === "boolean") {
     vanSet.vanMissing = sql`CASE WHEN ${watched} THEN ${extras.vanMissing}::boolean ELSE false END`;
   }
@@ -782,6 +788,7 @@ export async function setVanWatch(
       vanLastRestartAt: null,
       vanRecoveredCount: 0,
       vanUnrecoveredCount: 0,
+      vanReportedAt: null,
     })
     .where(and(eq(customers.remoteId, remoteId), eq(customers.tenantId, tenantId)))
     .returning({ id: customers.id });
