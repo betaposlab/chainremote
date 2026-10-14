@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS van_restart_resets (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id          uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   customer_id        uuid NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  -- 그때 그 거래처에 붙어 있던 기기와 VAN. 교체 뒤에 보면 "옛 기기 것" 임을 알 수 있다.
+  -- 숫자를 쌓은 기기 = 마지막 재시작 때 붙어 있던 기기(교체 알림으로 되짚는다). 초기화 당시
+  --   기기가 아니다 — 교체 뒤 초기화하면 옛 기기 숫자가 새 기기 이름표를 달기 때문.
   remote_id          text,
   van_kind           text,
   restart_count      integer NOT NULL,

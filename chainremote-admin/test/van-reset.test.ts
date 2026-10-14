@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { eq } from "drizzle-orm";
 import { testDb } from "./helpers/db";
-import { customers, tenants, vanRestartResets } from "@/lib/schema";
+import { customerAlerts, customers, tenants, vanRestartResets } from "@/lib/schema";
 import { recordHeartbeat, registerHeartbeatToken, setVanWatch } from "@/lib/data/customers";
 import { listVanResets, resetVanCounters } from "@/lib/data/van-reset";
 
@@ -100,6 +100,45 @@ describe("카운터 초기화", () => {
     await resetVanCounters({ tenantId: a.tenantId, customerId: a.customerId, userId: null, reason: null });
     expect(await listVanResets(b.tenantId, a.customerId)).toHaveLength(0);
     expect(await listVanResets(a.tenantId, a.customerId)).toHaveLength(1);
+  });
+});
+
+describe("숫자를 쌓은 기기", () => {
+  it("포스 교체 뒤 초기화하면 이력의 기기는 지금 기기가 아니라 마지막 재시작 때 기기다", async () => {
+    const s = await seed("vr-g", "VR00000007");
+    await setVanWatch("VR00000007", "ksnet", s.tenantId);
+    await beat("VR00000007", s.token, { vanOk: true, vanRestarted: true });
+    // 그 뒤 포스 교체 — 서버의 교체 처리가 남기는 것과 같은 모양(알림 + 행의 기기 ID 교체).
+    await testDb().insert(customerAlerts).values({
+      tenantId: s.tenantId,
+      customerId: s.customerId,
+      type: "device_replaced",
+      detail: JSON.stringify({ from: "VR00000007", to: "NEW0000007", name: "vr-g" }),
+      createdAt: new Date(Date.now() + 1000),
+    });
+    await testDb().update(customers).set({ remoteId: "NEW0000007" }).where(eq(customers.id, s.customerId));
+
+    expect(
+      await resetVanCounters({ tenantId: s.tenantId, customerId: s.customerId, userId: null, reason: "포스 교체" }),
+    ).toEqual({ ok: true });
+    const [h] = await listVanResets(s.tenantId, s.customerId);
+    expect(h.remoteId).toBe("VR00000007");
+  });
+
+  it("교체가 마지막 재시작보다 먼저였으면 지금 기기가 맞다", async () => {
+    const s = await seed("vr-h", "VR00000008");
+    await setVanWatch("VR00000008", "ksnet", s.tenantId);
+    await testDb().insert(customerAlerts).values({
+      tenantId: s.tenantId,
+      customerId: s.customerId,
+      type: "device_replaced",
+      detail: JSON.stringify({ from: "OLD0000008", to: "VR00000008", name: "vr-h" }),
+      createdAt: new Date(Date.now() - 60_000),
+    });
+    await beat("VR00000008", s.token, { vanOk: true, vanRestarted: true });
+    await resetVanCounters({ tenantId: s.tenantId, customerId: s.customerId, userId: null, reason: null });
+    const [h] = await listVanResets(s.tenantId, s.customerId);
+    expect(h.remoteId).toBe("VR00000008");
   });
 });
 
