@@ -309,6 +309,19 @@ header{position:sticky;top:0;z-index:60;background:rgba(11,12,14,.72);backdrop-f
 .hq-row .label{font-weight:600;font-size:.94rem;display:flex;gap:8px;align-items:center}
 .hq-row .flow{color:var(--ash);font-size:.93rem;font-weight:300}
 .notice{margin-top:14px;display:flex;gap:10px;align-items:flex-start;font-size:.86rem;color:#8a93ad;line-height:1.6;font-weight:300}
+/* 설치 전 매장용 임시 원격(626.kr 숫자판). 위 3단계가 "설치된 뒤" 라면 이 상자는 "설치 전" 이다. */
+.quick{margin-top:18px;border:1px solid var(--edge);background:var(--deep);border-radius:var(--r-card);padding:28px 30px;display:grid;grid-template-columns:1.05fr 1fr;gap:30px;align-items:start}
+.quick .kicker{display:inline-block;font-size:.76rem;letter-spacing:.04em;color:var(--mint);border:1px solid rgba(61,220,132,.35);border-radius:9999px;padding:3px 10px;margin-bottom:12px}
+.quick h3{margin-bottom:8px}
+.quick p{font-size:.92rem;color:var(--mist);line-height:1.65;font-weight:300}
+.quick .say{margin-top:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.95rem;color:#fff;background:var(--cobalt);border:1px solid var(--hairline);border-radius:10px;padding:12px 14px;line-height:1.6}
+.quick .say b{color:var(--lilac)}
+.quick ol{list-style:none;counter-reset:q;display:flex;flex-direction:column;gap:12px;margin:0;padding:0}
+.quick ol li{counter-increment:q;position:relative;padding-left:36px;font-size:.92rem;color:var(--mist);line-height:1.6;font-weight:300}
+.quick ol li::before{content:counter(q);position:absolute;left:0;top:1px;width:26px;height:26px;border-radius:50%;background:var(--grad-cta);color:#fff;font-weight:700;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+.quick ol li b,.quick p b{color:#fff;font-weight:600}
+.quick .foot{grid-column:1/-1;text-align:left;font-size:.84rem;color:#8a93ad;line-height:1.6;font-weight:300;border-top:1px solid var(--edge);padding-top:14px;margin-top:4px}
+@media(max-width:960px){.quick{grid-template-columns:1fr;gap:20px;padding:22px 20px}}
 
 /* 다운로드 */
 .dl .ver{font-size:.83rem;color:var(--ash);margin-top:2px;font-weight:300}
@@ -894,7 +907,7 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
       <div class="step">
         <div class="num">1</div>
         <h3 class="h3">방문 시 한 번 설치</h3>
-        <p>방문 시 <code>ChainRemote Agent</code>를 한 번 설치합니다. 거래처는 손댈 것이 없습니다.</p>
+        <p>방문해서, 또는 아래 <b>임시 원격</b>으로 들어가서 <code>ChainRemote Agent</code>를 한 번 설치합니다. 거래처는 손댈 것이 없습니다.</p>
       </div>
       <div class="step">
         <div class="num">2</div>
@@ -910,6 +923,22 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
     <div class="hq-row reveal">
       <span class="label"><svg class="ic" style="width:18px;height:18px"><use href="#i-person"/></svg> 본사 직원은</span>
       <span class="flow">설치 → 로그인 → 즐겨찾기에서 거래처 클릭 = <b style="color:#fff">바로 원격 시작</b></span>
+    </div>
+    <!-- 설치 전 매장: 626.kr 숫자판으로 바로 원격(임시 원격). 위 3단계는 "설치된 뒤" 이야기라
+         "아직 안 깔린 매장은?" 이 빠져 있었다(2026-10-15 Chang). 문구는 패널 숫자판·대리점 안내서와 같은 말. -->
+    <div class="quick reveal">
+      <div>
+        <span class="kicker">아직 설치 전이라면</span>
+        <h3 class="h3">626.kr 에서 바로 — 임시 원격</h3>
+        <p>안 깔린 매장도 전화 한 통이면 원격이 됩니다. 사장님께 이 한 줄만 불러 주세요. 숫자 9자리도, 비밀번호도 읽어 줄 필요가 없습니다.</p>
+        <div class="say">626.kr → <b>[원격지원 받기]</b> → 대리점 번호 <b>101</b></div>
+      </div>
+      <ol>
+        <li><b>거래처</b>가 626.kr 의 초록 버튼을 누르고 불러 준 번호를 누르면 파일이 받아집니다. 다 받아진 뒤 실행만 하면 됩니다.</li>
+        <li><b>본사 앱</b> 홈에 그 PC 가 "임시 접속 대기"로 바로 뜹니다. [접속]을 누릅니다.</li>
+        <li><b>거래처</b> 화면의 '수락'을 누르면 연결됩니다. 그 원격으로 Agent 까지 설치해 두면 다음부터는 위 3단계 그대로 — '수락'만.</li>
+      </ol>
+      <p class="foot">대리점 번호는 대리점마다 다르고 관리 패널 첫 화면에 있습니다. 임시 원격은 서명된 공식 RustDesk 실행 파일을 빌려 쓰므로 창 이름이 RustDesk 로 보이지만, 연결은 저희 서버로만 됩니다.</p>
     </div>
     <div class="notice reveal">
       <svg class="chk" style="stroke:#8a93ad"><use href="#i-alert"/></svg>
