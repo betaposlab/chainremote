@@ -270,6 +270,10 @@ header{position:sticky;top:0;z-index:60;background:rgba(11,12,14,.72);backdrop-f
 /* 관제 섹션 */
 .controlbg{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .panelmock{position:relative;background:var(--deep);border:1px solid var(--edge);border-radius:14px;box-shadow:var(--sh-xl)}
+/* 사용방법 소개 영상(15초·무음 루프). 제목과 3단계 사이, 글 폭보다 조금 넓게. */
+.howto-video{max-width:880px;margin:0 auto 14px;aspect-ratio:16/9;background:#0b0c0e;border:1px solid var(--edge);border-radius:14px;overflow:hidden;box-shadow:var(--sh-xl)}
+.howto-video video{display:block;width:100%;height:100%;object-fit:cover;background:#0b0c0e}
+.howto-video-cap{text-align:center;font-size:.86rem;color:#8a93ad;font-weight:300;margin:0 auto 44px}
 .panelmock .phead{padding:14px 20px;border-bottom:1px solid var(--inkline);font-size:.9rem;font-weight:600;display:flex;gap:9px;align-items:center}
 .panelmock .prow{display:flex;align-items:center;gap:13px;padding:13px 20px}
 .panelmock .prow + .prow{border-top:1px solid var(--inkline)}
@@ -876,6 +880,16 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
       <h2 class="h2">설치 한 번, 그 다음엔 '수락'만</h2>
       <p class="body">설치는 단 한 번. 그 다음부터는 원격이 올 때 '수락'만 누르면 됩니다.</p>
     </div>
+    <!-- 접속 과정 15초 영상. 소리가 없어 브라우저가 자동재생을 막지 않는다. 화면 가까이 올 때만
+         받고(아래 스크립트), 벗어나면 멈춘다. 영상·포스터는 클라우드(626.kr)에 한 벌만 두고 두 주소가
+         같은 파일을 본다 — Cafe24 는 일일 트래픽 한도가 있어 방문마다 받는 파일을 두기엔 맞지 않다. -->
+    <figure class="howto-video reveal">
+      <video id="introVideo" muted loop playsinline preload="none"
+             poster="https://626.kr/main/media/intro-poster.jpg"
+             data-src="https://626.kr/main/media/intro.mp4"
+             aria-label="접속 과정 15초 영상 — 본사에서 거래처를 더블클릭하면 거래처 화면에 수락 카드가 뜨고, 수락을 누르면 바로 원격이 시작됩니다"></video>
+    </figure>
+    <p class="howto-video-cap">15초로 보는 접속 과정 · 소리 없음</p>
     <div class="grid g3 stagger">
       <div class="step">
         <div class="num">1</div>
@@ -1039,6 +1053,31 @@ footer{border-top:1px solid var(--inkline);padding:36px 0 48px;background:var(--
     es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
   }, {threshold:.18});
   document.querySelectorAll('.reveal,.stagger,.panelmock').forEach(function(el){ io.observe(el); });
+})();
+</script>
+<script>
+// 소개 영상 — 화면 가까이 와야 받기 시작하고, 보일 때만 돈다. 4.6MB 를 첫 화면에서 미리 받지 않는다.
+//   움직임 줄이기 설정(prefers-reduced-motion)이면 자동재생 대신 컨트롤을 보여 준다.
+(function(){
+  var v = document.getElementById('introVideo'); if(!v) return;
+  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function load(){
+    if(v.getAttribute('src')) return;
+    v.src = v.getAttribute('data-src');
+    if(still){ v.controls = true; return; }
+    var p = v.play(); if(p && p.catch) p.catch(function(){ v.controls = true; });
+  }
+  if(!('IntersectionObserver' in window)){ load(); return; }
+  new IntersectionObserver(function(es, o){
+    es.forEach(function(e){ if(e.isIntersecting){ load(); o.disconnect(); } });
+  }, {rootMargin:'320px 0px'}).observe(v);
+  if(still) return;
+  new IntersectionObserver(function(es){
+    es.forEach(function(e){
+      if(!v.getAttribute('src')) return;
+      if(e.isIntersecting){ var p = v.play(); if(p && p.catch) p.catch(function(){}); } else { v.pause(); }
+    });
+  }, {threshold:.25}).observe(v);
 })();
 </script>
 </body>

@@ -223,6 +223,17 @@ PYC
 if ssh -o BatchMode=yes -o ConnectTimeout=10 "$CLOUD" "mkdir -p $CLOUD_DIR" 2>/dev/null; then
   scp -o BatchMode=yes -q "$WORK/index-cloud.html" "$CLOUD:$CLOUD_DIR/index.html"
   scp -o BatchMode=yes -q "$(dirname "$INDEX_SRC")/logo.png" "$CLOUD:$CLOUD_DIR/logo.png"
+  # 소개 영상(2026-10-15) — 사용방법 섹션의 15초 무음 루프. ★여기(클라우드)에만 둔다. Cafe24 는
+  #   일일 트래픽 한도가 있어 방문마다 받는 4.6MB 를 두기엔 맞지 않고, 클라우드 한도(하루 33GB)로는
+  #   7,000회 분량이다. 두 주소의 페이지가 모두 https://626.kr/main/media/ 절대주소를 본다.
+  MEDIA_SRC="$(dirname "$INDEX_SRC")/media"
+  if [[ -f "$MEDIA_SRC/intro.mp4" && -f "$MEDIA_SRC/intro-poster.jpg" ]]; then
+    ssh -o BatchMode=yes "$CLOUD" "mkdir -p $CLOUD_DIR/media"
+    scp -o BatchMode=yes -q "$MEDIA_SRC/intro.mp4" "$MEDIA_SRC/intro-poster.jpg" "$CLOUD:$CLOUD_DIR/media/"
+  else
+    echo "✗ $MEDIA_SRC 에 intro.mp4 / intro-poster.jpg 가 없습니다 — 페이지가 가리키는 영상이 빠진 채 나갑니다." >&2
+    exit 1
+  fi
   # 사이트맵은 정본 호스트에 산다 — canonical 이 626.kr/main/ 이라 여기여야 유효하다.
   scp -o BatchMode=yes -q "$(dirname "$INDEX_SRC")/sitemap.xml" "$CLOUD:$CLOUD_DIR/sitemap.xml"
   # -L: /main → /main/ 301 을 따라간다(2026-08-06 슬래시 정규화 이후). 안 그러면 정상 배포를
@@ -236,6 +247,20 @@ if ssh -o BatchMode=yes -o ConnectTimeout=10 "$CLOUD" "mkdir -p $CLOUD_DIR" 2>/d
     SM="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://626.kr/main/sitemap.xml)"
     [[ "$SM" == "200" ]] && echo "    ✓ https://626.kr/main/sitemap.xml" \
       || echo "    ⚠ sitemap.xml → HTTP $SM"
+    # 영상은 "올렸다"가 아니라 **받아진다**까지 본다 — 크기가 같고, 구간 요청(206)에 답해야
+    #   브라우저가 끝까지 안 받고도 재생을 시작한다.
+    for m in intro.mp4 intro-poster.jpg; do
+      LOCAL_SZ="$(stat -f%z "$MEDIA_SRC/$m" 2>/dev/null || stat -c%s "$MEDIA_SRC/$m")"
+      LIVE_SZ="$(curl -sI --max-time 20 "https://626.kr/main/media/$m" | tr -d '\r' | awk 'tolower($1)=="content-length:"{print $2}')"
+      if [[ "$LIVE_SZ" == "$LOCAL_SZ" ]]; then
+        echo "    ✓ https://626.kr/main/media/$m ($LIVE_SZ bytes)"
+      else
+        echo "    ✗ https://626.kr/main/media/$m — 크기 불일치(로컬 $LOCAL_SZ / 공개 ${LIVE_SZ:-없음})" >&2
+        exit 1
+      fi
+    done
+    RANGE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -r 0-1023 https://626.kr/main/media/intro.mp4)"
+    [[ "$RANGE" == "206" ]] && echo "    ✓ 구간 요청 206" || { echo "    ✗ 영상 구간 요청이 $RANGE — 재생이 끝까지 받은 뒤에야 시작됩니다" >&2; exit 1; }
   else
     echo "    ⚠ https://626.kr/main → HTTP $CODE (Caddy 설정 확인 필요). Cafe24 배포는 정상입니다."
   fi

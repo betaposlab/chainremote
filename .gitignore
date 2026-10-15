@@ -128,3 +128,6 @@ manual-shots/
 # 스텝 자료실 / 관리패널 로그인 비번 (로컬 전용, 절대 커밋 금지)
 deploy/publish/.staff-pw
 deploy/publish/.panel-pw
+
+# 랜딩 소개 영상의 포스터 — 위 이미지 무시 규칙에서 제외(영상과 함께 발행 스크립트가 올린다)
+!deploy/web/chainremote/media/*.jpg
