@@ -204,9 +204,9 @@ echo "    ✓ 무결성 확인"
 # ── [4/5] 발행 (기존 검증된 스크립트 재사용) ─────────────────────────────────
 echo "[4/5] 발행 (NAS + 채널 + 랜딩)..."
 if [[ "$KIND" == "agent" ]]; then
-  NAS_HOST=chang@100.93.42.91 bash "$REPO/deploy/publish/release-agent.sh" "$DEST" "$NOTES"
+  NAS_HOST="${NAS_HOST:-chang@100.93.42.91}" bash "$REPO/deploy/publish/release-agent.sh" "$DEST" "$NOTES"
 else
-  NAS_HOST=chang@100.93.42.91 bash "$REPO/deploy/publish/publish-hq.sh" "$DEST" "$NOTES"
+  NAS_HOST="${NAS_HOST:-chang@100.93.42.91}" bash "$REPO/deploy/publish/publish-hq.sh" "$DEST" "$NOTES"
   # ChainGo(포터블 HQ) 동반 갱신 — 자동업뎃 경로가 없는 무설치 exe 라 여기 안 묶으면
   # 영원히 옛 버전 고착(1.4.38 5개월 사고, 2026-07-16). 실패해도 HQ 발행 자체는 유효라 경고만.
   if ! bash "$REPO/deploy/publish/release-chaingo.sh"; then
