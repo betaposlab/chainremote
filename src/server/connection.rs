@@ -606,6 +606,12 @@ impl Connection {
                         ipc::Data::CmErr(e) => {
                             if e != "expected" {
                                 // cm closed before connection
+                                // [ChainRemote] 카드를 못 띄웠으면 끊기 전에 이유를 본사에 말한다. 안 그러면
+                                //   HQ 는 "피어에 의해 초기화"(네트워크 끊김 취급)로 보고 4분짜리 자동 재접속을
+                                //   돈다 — 다시 붙어도 카드는 또 안 뜬다. 패널 보고용 기록도 남긴다.
+                                //   (chainremote_cm_status 머리말, 2026-10-17 세종싱싱활어회배달)
+                                crate::chainremote_cm_status::note_failure(&e);
+                                conn.send_login_error(crate::chainremote_cm_status::hq_message(&e)).await;
                                 conn.on_close(&format!("connection manager error: {}", e), false).await;
                                 break;
                             }
@@ -5433,6 +5439,8 @@ async fn start_ipc(
     }
 
     let _res = tx_stream_ready.send(()).await;
+    // [ChainRemote] 카드가 떴다 — 예전에 못 띄운 기록이 있으면 지운다(패널 경고 해제).
+    crate::chainremote_cm_status::note_ok();
     let mut stream = stream.ok_or(anyhow!("none stream"))?;
     loop {
         tokio::select! {

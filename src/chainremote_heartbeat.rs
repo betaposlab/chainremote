@@ -553,6 +553,17 @@ fn send_heartbeat(
         Some(since) => since.into(),
         None => serde_json::Value::Null,
     };
+    // 수락 카드를 못 띄운 기록(마이그 059) — 시각(epoch 초) + 코드(os error 번호, 없으면 "cm").
+    //   null 을 항상 싣는다: 카드가 다시 정상으로 뜨면 서버의 옛 경고를 지워야 한다.
+    match crate::chainremote_cm_status::read_failure() {
+        Some((at, code)) => {
+            body["cmFailAt"] = at.into();
+            body["cmFailCode"] = code.into();
+        }
+        None => {
+            body["cmFailAt"] = serde_json::Value::Null;
+        }
+    }
     // 공유기 UPnP 지원 여부(마이그040) — ""=측정 전 "no"=IGD 없음 "found"=광고만 "yes"=제어까지 OK.
     //   홀펀칭이 실패하는 거래처를 직결로 돌릴 유일한 길이 UPnP 인데, 공유기가 켜 뒀어야 한다.
     //   포트 매핑 본체를 만들기 전에 "몇 곳이나 되는가"부터 세려는 것(chainremote_upnp 주석).
