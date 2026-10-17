@@ -264,6 +264,9 @@ export interface HeartbeatExtras {
   // 요청 수신 불가(055) — 에이전트가 접속 서버 답장을 못 받기 시작한 시각(epoch 초).
   //   null=풀림(값을 지운다), undefined=미보고(손대지 않는다).
   rzNoReplySince?: number | null;
+  // 수락 카드를 못 띄운 기록(059) — epoch 초 + 코드. null=정상 복귀(지움), undefined=미보고.
+  cmFailAt?: number | null;
+  cmFailCode?: string;
   // VAN 데몬 관제(036) — vanOk=데몬이 포트를 듣고 있나(표시용), vanRestarted=이번 heartbeat
   //   직전에 되살렸나(참이면 restart_count++), vanGaveUp=재실행으로 안 낫아 손 뗌(사람 호출).
   vanOk?: boolean | null;
@@ -377,6 +380,20 @@ export async function recordHeartbeat(
     const sane = ms <= nowMs + 60_000 && ms >= nowMs - 30 * 24 * 3600_000;
     rzSet.rzNoreplySince = new Date(sane ? Math.min(ms, nowMs) : nowMs);
   }
+  // 수락 카드 실패 기록(059). 시계가 틀린 PC 의 미래·터무니없는 과거는 지금으로 눌러 둔다.
+  //   코드는 영숫자 16자까지만 — 유효 토큰 하나로 긴 문자열을 밀어 넣지 못하게.
+  const cmSet: Record<string, unknown> = {};
+  if (extras?.cmFailAt === null) {
+    cmSet.cmFailAt = null;
+    cmSet.cmFailCode = null;
+  } else if (typeof extras?.cmFailAt === "number") {
+    const nowMs = Date.now();
+    const ms = extras.cmFailAt * 1000;
+    const sane = ms <= nowMs + 60_000 && ms >= nowMs - 30 * 24 * 3600_000;
+    cmSet.cmFailAt = new Date(sane ? Math.min(ms, nowMs) : nowMs);
+    const code = (extras.cmFailCode ?? "").replace(/[^0-9A-Za-z]/g, "").slice(0, 16);
+    cmSet.cmFailCode = code || "cm";
+  }
   // VAN 데몬 상태 반영 — 현재 정상 여부 + 이번에 되살렸으면 카운트/시각 갱신.
   //   ★관제를 켠 거래처에서만 반영한다. 에이전트는 heartbeat 응답을 받아야 관제가 꺼진 걸
   //   알기 때문에, 끄기 직전에 출발한 마지막 보고가 뒤늦게 도착한다. 그걸 그대로 저장하면
@@ -482,6 +499,7 @@ export async function recordHeartbeat(
       ...cleanupSet,
       ...firewallSet,
       ...rzSet,
+      ...cmSet,
       ...vanSet,
       ...natSet,
       ...upnpSet,

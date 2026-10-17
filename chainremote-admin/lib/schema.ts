@@ -203,6 +203,9 @@ export const customers = pgTable(
     // 접속 서버 답장을 못 받는 상태의 시작 시각(마이그 055) — 에이전트 보고. NULL=정상/미보고.
     //   값이 있는 동안은 hbbs 가 "온라인"이라 해도 원격 요청이 그 PC 에 닿지 않는다.
     rzNoreplySince: timestamp("rz_noreply_since", { withTimezone: true }),
+    // 수락 카드를 못 띄운 기록(마이그 059) — 시각 + os error 번호(없으면 'cm'). 카드가 다시 뜨면 지운다.
+    cmFailAt: timestamp("cm_fail_at", { withTimezone: true }),
+    cmFailCode: text("cm_fail_code"),
     firewallDisarmCount: integer("firewall_disarm_count").notNull().default(0),
     firewallLastDisarmAt: timestamp("firewall_last_disarm_at", { withTimezone: true }),
     // VAN 카드결제 데몬 관제(마이그 036) — 거래처마다 VAN 사가 달라 on/off 가 아니라 종류를 담는다.

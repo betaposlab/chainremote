@@ -89,18 +89,58 @@ export function rzNoReplyMinutes(
   return Math.max(0, Math.floor((now - since) / 60_000));
 }
 
+/**
+ * 수락 카드를 못 띄운 기록(마이그 059)을 사람이 읽을 말로. 기록이 없거나 30일 넘게 묵었으면 null.
+ *
+ * 카드가 안 뜨는 건 거래처 쪽에선 아무 일도 없어 보이는 고장이라, 여기서 먼저 드러내야 한다.
+ * 에이전트는 카드가 한 번이라도 정상으로 뜨면 기록을 지우므로 이 값이 있으면 "아직 안 고쳐짐"이다.
+ */
+export function cmFailInfo(
+  cmFailAt: Date | string | null | undefined,
+  cmFailCode: string | null | undefined,
+  now: number = Date.now(),
+): { label: string; detail: string } | null {
+  if (!cmFailAt) return null;
+  const at = new Date(cmFailAt).getTime();
+  if (!Number.isFinite(at) || now - at > 30 * 24 * 3600_000) return null;
+  const d = new Date(at).toLocaleString("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const cause =
+    cmFailCode === "740"
+      ? "이 PC 는 프로그램을 관리자 권한으로 돌리게 세팅돼 있어 수락 창이 막혔습니다(오류 740)."
+      : cmFailCode && cmFailCode !== "cm"
+        ? `수락 창을 띄우지 못했습니다(오류 ${cmFailCode}).`
+        : "수락 창을 띄우지 못했습니다.";
+  return {
+    label: `⚠ 수락 창 실패 · ${d}`,
+    detail:
+      `${cause}\n` +
+      "지금은 626.kr 임시 원격으로 접속하세요. 수락 창이 다시 정상으로 뜨면 이 표시는 저절로 사라집니다.",
+  };
+}
+
 export function CustomerStatus({
   lastHeartbeatAt,
   lastVersion,
   update,
   isInternal = false,
   rzNoreplySince = null,
+  cmFailAt = null,
+  cmFailCode = null,
 }: {
   lastHeartbeatAt: Date | null;
   lastVersion: string | null;
   update?: UpdateInfo;
   isInternal?: boolean;
   rzNoreplySince?: Date | null;
+  cmFailAt?: Date | null;
+  cmFailCode?: string | null;
 }) {
   // 내부 기기(본사/Mac/빌드머신)는 자동업뎃 대상이 아니라 상태 칸을 통째로 비운다.
   if (isInternal) {
@@ -129,8 +169,20 @@ export function CustomerStatus({
       </span>
     );
 
+  // 수락 카드를 못 띄운 기록 — 보고가 초록이어도 원격은 카드에서 막힌다.
+  const cmInfo = cmFailInfo(cmFailAt, cmFailCode);
+  const cmFail =
+    cmInfo === null ? null : (
+      <span
+        className="inline-flex w-fit items-center gap-1 rounded bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-medium text-rose-300"
+        title={cmInfo.detail}
+      >
+        {cmInfo.label}
+      </span>
+    );
+
   const showUpdate = !!health && health.kind !== "ok";
-  if (!showUpdate && !noReply) {
+  if (!showUpdate && !noReply && !cmFail) {
     return heartbeat;
   }
 
@@ -138,6 +190,7 @@ export function CustomerStatus({
     <div className="flex flex-col gap-1">
       {heartbeat}
       {noReply}
+      {cmFail}
       {showUpdate && <UpdateBadge health={health} />}
     </div>
   );

@@ -35,6 +35,8 @@ export async function POST(req: Request) {
       firewallEnabled?: unknown;
       firewallDisarmed?: unknown;
       rzNoReplySince?: unknown;
+      cmFailAt?: unknown;
+      cmFailCode?: unknown;
       vanOk?: unknown;
       vanRestarted?: unknown;
       vanGaveUp?: unknown;
@@ -102,6 +104,15 @@ export async function POST(req: Request) {
             : body.rzNoReplySince === null
               ? null
               : undefined,
+        // 수락 카드를 못 띄운 기록(059). 숫자(epoch 초)=그 시각, null=정상으로 돌아옴(옛 값 지움),
+        //   키 없음=옛 에이전트라 모름 → 손대지 않는다. 코드는 짧은 문자열만 받는다.
+        cmFailAt:
+          typeof body.cmFailAt === "number" && Number.isFinite(body.cmFailAt)
+            ? body.cmFailAt
+            : body.cmFailAt === null
+              ? null
+              : undefined,
+        cmFailCode: typeof body.cmFailCode === "string" ? body.cmFailCode : undefined,
         // null 은 "판정 보류"(리더기 대기)라는 **명시 신호**다 — 필드 누락(undefined)과 달리
         //   기존 값을 비워야 한다. 안 그러면 한 번 박힌 빨간 '중지'가 안 풀린다.
         vanOk:
