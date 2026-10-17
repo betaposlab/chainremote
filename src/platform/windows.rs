@@ -531,6 +531,14 @@ extern "C" {
         show: BOOL,
         token_pid: &mut DWORD,
     ) -> HANDLE;
+    fn LaunchProcessWinEx(
+        cmd: *const u16,
+        session_id: DWORD,
+        as_user: BOOL,
+        show: BOOL,
+        token_pid: &mut DWORD,
+        run_as_invoker: BOOL,
+    ) -> HANDLE;
     fn GetSessionUserTokenWin(
         lphUserToken: LPHANDLE,
         dwSessionId: DWORD,
@@ -812,13 +820,21 @@ pub fn run_exe_in_session(
         .collect();
     let wstr = wstr.as_ptr();
     let mut token_pid = 0;
+    // 우리 실행파일(--cm·--tray 등)만 __COMPAT_LAYER=RunAsInvoker 로 띄운다. PC 전체에
+    //   RunAsAdmin 이 걸린 거래처에서 수락 카드가 os error 740 으로 못 뜨던 것(windows.cc 주석).
+    //   VAN 데몬처럼 남의 프로그램을 띄우는 호출은 환경을 그대로 둔다.
+    let is_self = std::env::current_exe()
+        .ok()
+        .map(|p| p.to_string_lossy().eq_ignore_ascii_case(exe))
+        .unwrap_or(false);
     let h = unsafe {
-        LaunchProcessWin(
+        LaunchProcessWinEx(
             wstr,
             session_id,
             TRUE,
             if show { TRUE } else { FALSE },
             &mut token_pid,
+            if is_self { TRUE } else { FALSE },
         )
     };
     if h.is_null() {

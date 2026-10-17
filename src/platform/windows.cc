@@ -197,6 +197,35 @@ static DWORD GetFallbackUserPid(DWORD dwSessionId)
     return dwFallbackPid;
 }
 
+// 사용자 환경 블록을 복사하되 __COMPAT_LAYER 를 RunAsInvoker 로 바꿔 끼운다.
+//
+// 2026-10-17 세종싱싱활어회배달: 포스 벤더가 모든 프로그램을 관리자 권한으로 띄우려고
+// 시스템 환경변수 __COMPAT_LAYER=RunAsAdmin 을 걸어 둔 PC 였다. 그 환경을 물려받은 채
+// 사용자 토큰으로 수락 카드(--cm)를 띄우면 CreateProcessAsUser 가 os error 740(권한 상승
+// 필요)으로 거절한다 — 카드는 영영 안 뜨고 본사엔 "피어에 의해 초기화"만 남는다.
+// 우리 실행파일을 띄울 때만 그 요구를 끈다. 남의 프로그램(VAN 데몬 재실행)은 손대지
+// 않는다 — 그쪽은 벤더가 정한 방식대로 떠야 한다.
+static LPVOID CopyEnvRunAsInvoker(LPVOID src, std::vector<wchar_t> &out)
+{
+    static const wchar_t kKey[] = L"__COMPAT_LAYER=";
+    const size_t kKeyLen = sizeof(kKey) / sizeof(wchar_t) - 1;
+    out.clear();
+    const wchar_t *p = (const wchar_t *)src;
+    while (p && *p)
+    {
+        size_t len = wcslen(p);
+        if (_wcsnicmp(p, kKey, kKeyLen) != 0)
+        {
+            out.insert(out.end(), p, p + len + 1);
+        }
+        p += len + 1;
+    }
+    static const wchar_t kSet[] = L"__COMPAT_LAYER=RunAsInvoker";
+    out.insert(out.end(), kSet, kSet + sizeof(kSet) / sizeof(wchar_t)); // 끝 널 포함
+    out.push_back(L'\0');                                                   // 블록 종료
+    return out.data();
+}
+
 // START the app as system
 extern "C"
 {
@@ -230,7 +259,7 @@ extern "C"
         return IsWindows10OrGreater();
     }
 
-    HANDLE LaunchProcessWin(LPCWSTR cmd, DWORD dwSessionId, BOOL as_user, BOOL show, DWORD *pDwTokenPid)
+    HANDLE LaunchProcessWinEx(LPCWSTR cmd, DWORD dwSessionId, BOOL as_user, BOOL show, DWORD *pDwTokenPid, BOOL run_as_invoker)
     {
         HANDLE hProcess = NULL;
         HANDLE hToken = NULL;
@@ -249,6 +278,8 @@ extern "C"
             wcscpy_s(buf, MAX_PATH, cmd);
             PROCESS_INFORMATION pi;
             LPVOID lpEnvironment = NULL;
+            LPVOID lpEnvUse = NULL;
+            std::vector<wchar_t> envCopy;
             DWORD dwCreationFlags = DETACHED_PROCESS;
             if (as_user)
             {
@@ -257,11 +288,16 @@ extern "C"
                                        hToken,         // New token
                                        TRUE);          // Inheritance
             }
-            if (lpEnvironment)
+            lpEnvUse = lpEnvironment;
+            if (lpEnvironment && run_as_invoker)
+            {
+                lpEnvUse = CopyEnvRunAsInvoker(lpEnvironment, envCopy);
+            }
+            if (lpEnvUse)
             {
                 dwCreationFlags |= CREATE_UNICODE_ENVIRONMENT;
             }
-            if (CreateProcessAsUserW(hToken, NULL, buf, NULL, NULL, FALSE, dwCreationFlags, lpEnvironment, NULL, &si, &pi))
+            if (CreateProcessAsUserW(hToken, NULL, buf, NULL, NULL, FALSE, dwCreationFlags, lpEnvUse, NULL, &si, &pi))
             {
                 CloseHandle(pi.hThread);
                 hProcess = pi.hProcess;
@@ -271,6 +307,11 @@ extern "C"
                 DestroyEnvironmentBlock(lpEnvironment);
         }
         return hProcess;
+    }
+
+    HANDLE LaunchProcessWin(LPCWSTR cmd, DWORD dwSessionId, BOOL as_user, BOOL show, DWORD *pDwTokenPid)
+    {
+        return LaunchProcessWinEx(cmd, dwSessionId, as_user, show, pDwTokenPid, FALSE);
     }
 
     // Switch the current thread to the specified desktop
