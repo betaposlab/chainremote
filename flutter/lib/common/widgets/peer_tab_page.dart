@@ -114,8 +114,10 @@ class _PeerTabPageState extends State<PeerTabPage>
     // 표 하나로 통일했다(데스크톱 2026-08-11, 모바일 2026-09-09) — 저장돼 있던 옛 보기 설정은
     //   무시한다. 폴더 렌더는 list 분기에만 있어서, 다른 보기로 시작하면 폴더가 사라진 화면이
     //   된다. 모바일은 기본값이 카드(grid)라 아이패드 첫 로그인이 폴더도 머리글도 없는 카드
-    //   격자였고, [새 폴더] 버튼(목록 보기로 전환을 겸함)을 눌러야 표가 나왔다. 표는 폭에
-    //   맞춰 열을 접으므로(peer_card cols.*) 폰 세로에서도 그대로 쓴다.
+    //   격자였고, [새 폴더] 버튼(목록 보기로 전환을 겸함)을 눌러야 표가 나왔다.
+    //   ★폰 세로는 이 list 경로(폴더)를 타되 행은 표가 아니라 카드로 그린다(peers_view
+    //   _buildTableList portrait). 처음엔 "표가 폭에 맞춰 열을 접으니 폰 세로에서도 된다"고
+    //   보고 아이패드로만 확인했는데, 폰 세로에선 카드가 표 행 높이에 갇혀 잘렸다(2026-10-19).
     peerCardUiType.value = PeerUiType.list;
     // 표 정렬은 머리글이 정하고 여기서 복원한다(앱을 다시 켜도 보던 순서 그대로).
     crTableSort.value = bind.mainGetLocalOption(key: 'cr-table-sort');

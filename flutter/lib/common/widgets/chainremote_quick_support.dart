@@ -140,8 +140,12 @@ class _CrQuickSupportStripState extends State<CrQuickSupportStrip> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Flexible(
+                // 폰에선 한 줄에 안 들어가 "받…" 에서 잘려 정작 "이 번호" 가 안 보였다
+                //   (2026-10-19 아이폰). 좁으면 두 줄로 접는다 — 넓은 데스크톱은 그대로 한 줄.
                 child: Text('설치 전 거래처: 626.kr → 초록 [원격지원 받기] → 이 번호',
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
                     style: TextStyle(fontSize: 11.5, color: c.neuSub)),
               ),
               const SizedBox(width: 8),

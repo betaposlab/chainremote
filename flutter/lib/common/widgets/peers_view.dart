@@ -869,6 +869,12 @@ class _PeersViewState extends State<_PeersView>
                         // 이게 없으면 폴더에 든 거래처가 검색 결과에서 통째로 사라진다
                         // (루트는 폴더타일+미소속만 그리므로). 검색을 지우면 폴더로 복귀.
                         final searching = peerSearchText.value.trim().isNotEmpty;
+                        // 폰 세로는 폴더 경로를 타되 행은 카드다(peer_card _buildPortrait).
+                        //   카드는 표가 아니라 맞출 열이 없으니 머리글을 안 그리고, 행 높이도
+                        //   카드가 정한다. ★표 행 높이(34)에 카드를 넣으면 OS 그림·ID·톱니가
+                        //   잘리고, 머리글은 끝까지 남는 상태·관제 열이 폭을 다 먹어 '거래처'
+                        //   칸이 0 이 되며 글자가 겹친다(2026-10-19 아이폰, 시스템 글자 XXXL).
+                        final portrait = stateGlobal.isPortrait.isTrue;
                         // 폴더는 즐겨찾기·전체거래처 탭에서만 — recent 는 네이티브라 device_group_name 없음.
                         final foldersApply = (widget.peerTabIndex ==
                                     PeerTabIndex.fav ||
@@ -948,17 +954,19 @@ class _PeersViewState extends State<_PeersView>
                             // 지금 이 화면이 담고 있는 대수 — 폴더 안이면 그 폴더 것만이다.
                             //   탭 전체 수를 그대로 두면 4대짜리 폴더에 들어가서도 30곳으로
                             //   보여 "왜 안 나오지"가 된다. 검색 중이면 이미 걸러진 수다.
-                            crTableHeader(
-                                context,
-                                avail - space,
-                                open != null
-                                    ? (grouped[open]?.length ?? 0)
-                                    : peers.length,
-                                sortable: widget.peers.loadEvent !=
-                                    LoadEvent.recent),
+                            //   폰 세로엔 머리글이 없다 — 정렬은 툴바의 정렬 메뉴가 맡는다.
+                            if (!portrait)
+                              crTableHeader(
+                                  context,
+                                  avail - space,
+                                  open != null
+                                      ? (grouped[open]?.length ?? 0)
+                                      : peers.length,
+                                  sortable: widget.peers.loadEvent !=
+                                      LoadEvent.recent),
                             Expanded(
-                                child: _buildTableList(
-                                    rows, cols, foldersApply, open, buildOnePeer)),
+                                child: _buildTableList(rows, cols, foldersApply,
+                                    open, buildOnePeer, portrait)),
                           ]);
                         });
                       })
@@ -990,8 +998,9 @@ class _PeersViewState extends State<_PeersView>
   }
 
   // 표 본체 — 위 _buildPeersView 에서 머리글과 짝으로 쓴다(분리해 둔 건 중첩이 깊어져서다).
+  /// [portrait] = 폰 세로. 행을 표 행(고정 높이)이 아니라 카드(자연 높이)로 그린다.
   Widget _buildTableList(List<dynamic> rows, int cols, bool foldersApply,
-      String? open, Widget Function(Peer, bool) buildOnePeer) {
+      String? open, Widget Function(Peer, bool) buildOnePeer, bool portrait) {
     return ListView.builder(
                             controller: _scrollController,
                             itemCount: rows.length,
@@ -999,7 +1008,9 @@ class _PeersViewState extends State<_PeersView>
                               final row = rows[index];
                               // 표는 줄 간격이 좁아야 훑힌다. 카드 격자용 space/2(6px)를
                               //   그대로 쓰면 행 하나당 12px 이 낭비돼 화면당 대수가 준다.
-                              final double topMargin = index == 0 ? 0 : 3;
+                              //   폰 세로는 카드라 종전 카드 목록과 같은 간격을 쓴다.
+                              final double topMargin =
+                                  index == 0 ? 0 : (portrait ? space / 2 : 3);
                               if (row is _FolderBack) {
                                 return _buildFolderBackBar(row.name)
                                     .marginOnly(right: space, top: topMargin);
@@ -1017,7 +1028,7 @@ class _PeersViewState extends State<_PeersView>
                                     cell = _buildNewFolderTile();
                                   } else {
                                     final peer = c as Peer;
-                                    final w = buildOnePeer(peer, false);
+                                    final w = buildOnePeer(peer, portrait);
                                     // 루트에서만 드래그 가능(폴더 안/미적용 탭은 그대로).
                                     cell = (foldersApply && open == null)
                                         ? _draggablePeer(peer, w)
