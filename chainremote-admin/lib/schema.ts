@@ -212,6 +212,9 @@ export const customers = pgTable(
     //   에이전트가 null 을 보내 지운다. "해제 대기"가 실제로는 실패였던 걸 아무도 몰랐던 일의 처방.
     firewallDisarmError: text("firewall_disarm_error"),
     firewallDisarmErrorAt: timestamp("firewall_disarm_error_at", { withTimezone: true }),
+    // 알려진 감염 흔적(061) — 코드 목록, ''=깨끗, NULL=미보고. 화면은 운영자에게만.
+    infectSigns: text("infect_signs"),
+    infectCheckedAt: timestamp("infect_checked_at", { withTimezone: true }),
     // VAN 카드결제 데몬 관제(마이그 036) — 거래처마다 VAN 사가 달라 on/off 가 아니라 종류를 담는다.
     //   vanWatch=null/빈값이면 관제 off(기본), 'ksnet' 이면 에이전트가 KSCAT 의 27015 를 감시하다
     //   닫히면 되살린다. vanOk=마지막 점검 결과, vanGaveUp=재실행으로 안 낫아 손 뗌(사람이 갈 일).

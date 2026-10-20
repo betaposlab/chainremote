@@ -2,6 +2,7 @@
 // 프레임워크 의존 없음(revalidatePath/redirect 없음) — 후처리는 호출 측 몫.
 // 모든 함수는 tenantId 격리 강제. 호출자는 자기 세션의 tenantId 만 넘긴다.
 
+import { sanitizeInfectSigns } from "@/lib/infect-signs";
 import {
   and,
   desc,
@@ -270,6 +271,9 @@ export interface HeartbeatExtras {
   // 방화벽을 끄지 못하는 이유(060) — epoch 초 + 코드. null=풀림(지움), undefined=미보고.
   firewallDisarmErrorAt?: number | null;
   firewallDisarmError?: string;
+  // 알려진 감염 흔적(061) — 점검 시각(epoch 초) + 코드 목록(''=깨끗). 둘 다 와야 반영한다.
+  infectCheckedAt?: number;
+  infectSigns?: string;
   // VAN 데몬 관제(036) — vanOk=데몬이 포트를 듣고 있나(표시용), vanRestarted=이번 heartbeat
   //   직전에 되살렸나(참이면 restart_count++), vanGaveUp=재실행으로 안 낫아 손 뗌(사람 호출).
   vanOk?: boolean | null;
@@ -412,6 +416,16 @@ export async function recordHeartbeat(
     const code = (extras.firewallDisarmError ?? "").replace(/[^0-9A-Za-z]/g, "").slice(0, 16);
     fwErrSet.firewallDisarmError = code || "fw";
   }
+  // 알려진 감염 흔적(061) — 시계 보정은 위와 같은 규칙. 코드는 아는 것만 남긴다
+  //   (엉뚱한 문자열이 화면에 그대로 찍히지 않게). 빈 문자열 = 점검했고 깨끗함 → 옛 경고를 지운다.
+  const infectSet: Record<string, unknown> = {};
+  if (typeof extras?.infectCheckedAt === "number" && typeof extras.infectSigns === "string") {
+    const nowMs = Date.now();
+    const ms = extras.infectCheckedAt * 1000;
+    const sane = ms <= nowMs + 60_000 && ms >= nowMs - 30 * 24 * 3600_000;
+    infectSet.infectCheckedAt = new Date(sane ? Math.min(ms, nowMs) : nowMs);
+    infectSet.infectSigns = sanitizeInfectSigns(extras.infectSigns);
+  }
   // VAN 데몬 상태 반영 — 현재 정상 여부 + 이번에 되살렸으면 카운트/시각 갱신.
   //   ★관제를 켠 거래처에서만 반영한다. 에이전트는 heartbeat 응답을 받아야 관제가 꺼진 걸
   //   알기 때문에, 끄기 직전에 출발한 마지막 보고가 뒤늦게 도착한다. 그걸 그대로 저장하면
@@ -519,6 +533,7 @@ export async function recordHeartbeat(
       ...rzSet,
       ...cmSet,
       ...fwErrSet,
+      ...infectSet,
       ...vanSet,
       ...natSet,
       ...upnpSet,

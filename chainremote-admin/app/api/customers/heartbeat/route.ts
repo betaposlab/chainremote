@@ -39,6 +39,8 @@ export async function POST(req: Request) {
       cmFailCode?: unknown;
       firewallDisarmErrorAt?: unknown;
       firewallDisarmError?: unknown;
+      infectCheckedAt?: unknown;
+      infectSigns?: unknown;
       vanOk?: unknown;
       vanRestarted?: unknown;
       vanGaveUp?: unknown;
@@ -126,6 +128,13 @@ export async function POST(req: Request) {
               : undefined,
         firewallDisarmError:
           typeof body.firewallDisarmError === "string" ? body.firewallDisarmError : undefined,
+        // 알려진 감염 흔적(061) — 점검 시각 + 코드 목록(빈 문자열 = 깨끗). 둘 중 하나라도 없으면
+        //   옛 에이전트이거나 아직 점검 전이다 → 손대지 않는다.
+        infectCheckedAt:
+          typeof body.infectCheckedAt === "number" && Number.isFinite(body.infectCheckedAt)
+            ? body.infectCheckedAt
+            : undefined,
+        infectSigns: typeof body.infectSigns === "string" ? body.infectSigns : undefined,
         // null 은 "판정 보류"(리더기 대기)라는 **명시 신호**다 — 필드 누락(undefined)과 달리
         //   기존 값을 비워야 한다. 안 그러면 한 번 박힌 빨간 '중지'가 안 풀린다.
         vanOk:
