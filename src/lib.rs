@@ -90,6 +90,11 @@ mod chainremote_updater;
 #[cfg(target_os = "windows")]
 mod chainremote_heartbeat;
 
+// 외부 명령 실행 — 시간 제한·강제 종료가 있는 한 곳(2026-10-20). 관제 감시가 netsh 하나에
+// 10분 붙잡힌 사고 뒤로 감시 기능의 외부 명령은 전부 여기를 거친다. 시간 초과 동작을 맥에서도
+// 단위 시험하려고 플랫폼 게이트 없이 둔다.
+pub mod chainremote_proc;
+
 // 방화벽 자동 해제 관제 (마이그 028, Agent/옵션B+ 빌드만 — 윈도우만).
 // heartbeat 응답이 켜고, 로컬 감시 스레드가 방화벽 재활성을 감지해 즉시 끈다 + 경고 알림 억제.
 #[cfg(target_os = "windows")]

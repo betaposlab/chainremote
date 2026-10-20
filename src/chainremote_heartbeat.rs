@@ -616,6 +616,17 @@ fn send_heartbeat(
         if disarmed {
             body["firewallDisarmed"] = true.into();
         }
+        // 끄기에 실패하고 있으면 그 이유(마이그 060). 실패가 없으면 null 을 **명시해서** 보낸다 —
+        //   키를 빼면 서버는 옛 에이전트로 보고 옛 값을 그대로 둔다(한 번 박힌 "해제 실패"가 안 풀린다).
+        match crate::chainremote_firewall::last_failure() {
+            Some((at, code)) => {
+                body["firewallDisarmErrorAt"] = at.into();
+                body["firewallDisarmError"] = code.into();
+            }
+            None => {
+                body["firewallDisarmErrorAt"] = serde_json::Value::Null;
+            }
+        }
         disarmed
     } else {
         false

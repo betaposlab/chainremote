@@ -507,33 +507,31 @@ fn launch_in_user_session(exe: &str) -> bool {
     }
 }
 
-/// 표준출력을 받아오는 외부 명령 실행(창 없음). 실패하면 None.
+/// 외부 명령 하나를 기다리는 최대 시간. 감시 주기(30초)와 같다 — 한 주기를 넘겨 붙잡히지 않게.
+///   종전엔 시간 제한이 없어, wmic 처럼 가끔 멈추는 명령 하나가 데몬 감시 전체를 멈출 수 있었다
+///   (2026-10-19 방화벽 감시가 netsh 하나에 10분 붙잡힌 것과 같은 구조).
+const CMD_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// 표준출력을 받아오는 외부 명령 실행(창 없음). 실행 불가·시간 초과면 None.
+///   실패 코드로 끝나도 출력은 돌려준다(종전 동작 그대로 — 판단은 출력 내용으로 한다).
 fn run_capture(program: &str, args: &[&str]) -> Option<String> {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    let out = std::process::Command::new(program)
-        .args(args)
-        .creation_flags(CREATE_NO_WINDOW)
-        .output()
-        .ok()?;
-    // 한국어 윈도우 콘솔은 CP949 라 UTF-8 로 못 읽는 글자가 섞인다. 우리가 보는 건 숫자와
-    // 영문 상태값뿐이라 손실 변환으로 충분하다.
-    Some(String::from_utf8_lossy(&out.stdout).into_owned())
+    match crate::chainremote_proc::capture(program, args, CMD_TIMEOUT) {
+        Ok(out) => Some(out),
+        Err(e) => {
+            log::warn!("[chainremote_van] {} 실패: {}", program, e);
+            None
+        }
+    }
 }
 
+/// 출력 없이 성공 여부만(taskkill). 실패 코드는 흔해서(이미 끝난 프로세스 등) 기록하지 않고,
+///   실행 불가·시간 초과만 기록한다.
 fn run_hidden(program: &str, args: &[&str]) -> bool {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    match std::process::Command::new(program)
-        .args(args)
-        .creation_flags(CREATE_NO_WINDOW)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-    {
-        Ok(s) => s.success(),
+    match crate::chainremote_proc::run(program, args, CMD_TIMEOUT) {
+        Ok(()) => true,
+        Err(crate::chainremote_proc::RunError::Exit(_)) => false,
         Err(e) => {
-            log::warn!("[chainremote_van] run {} failed: {}", program, e);
+            log::warn!("[chainremote_van] {} 실패: {}", program, e);
             false
         }
     }

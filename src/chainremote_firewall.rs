@@ -15,17 +15,30 @@
 //!
 //! 감시는 전부 로컬(레지스트리 읽기)이라 NAS/서버에 부하가 없다. 저사양 POS 도 무해.
 //! LocalSystem 서비스 컨텍스트라 netsh/레지스트리 쓰기에 UAC 가 없다.
+//!
+//! ★끄는 명령에는 시간 제한이 있다(2026-10-20). 테스트1(윈7 32비트)에서 netsh 가 끝나지 않아
+//! 감시가 10분 동안 멈췄고(16:25:34 → 16:35:46), 실매장 샵단란주점은 켜 둔 뒤로 한 번도 못 껐는데
+//! HQ 엔 "해제 대기"만 떴다. 이제 netsh 는 `chainremote_proc` 로 돌려 시간이 넘으면 끊고,
+//! 실패 이유를 heartbeat 로 보내 패널·HQ 에 "해제 실패"로 보이게 한다.
 
 #![cfg(target_os = "windows")]
 
+use crate::chainremote_proc::{self, RunError};
 use hbb_common::log;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::sync::Mutex;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// 이 거래처가 방화벽 자동 해제 대상인가 — heartbeat 응답이 매번 갱신한다.
 static CONTROL: AtomicBool = AtomicBool::new(false);
 /// 마지막 heartbeat 보고 이후 자동 해제가 한 번이라도 일어났나(보고 후 서버가 카운트++).
 static DISARMED_PENDING: AtomicBool = AtomicBool::new(false);
+/// 끄기에 실패하고 있으면 (마지막 실패 시각 epoch 초, 이유 코드). 끄는 데 성공하거나 꺼진 걸
+///   보거나 관제가 꺼지면 지운다. heartbeat 가 이걸 실어 보낸다(패널 마이그 060).
+static LAST_FAILURE: Mutex<Option<(u64, String)>> = Mutex::new(None);
+
+/// netsh 를 기다리는 최대 시간. 평소엔 1~2초면 끝난다. 이걸 넘기면 끊고 다음 주기에 다시 한다.
+const NETSH_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// 감시 주기 — 방화벽이 다시 켜졌을 때 인바운드(주문 전달·프린터 공유) 단절이 지속되는 최대 시간.
 /// 5초면 오더포스가 사실상 못 느낀다(주문은 재시도로 통과). 로컬 레지스트리 몇 개 읽기라
@@ -65,6 +78,39 @@ pub fn clear_disarmed() {
     DISARMED_PENDING.store(false, Ordering::Relaxed);
 }
 
+/// heartbeat 용 — 끄기에 실패하고 있으면 (마지막 실패 시각 epoch 초, 이유 코드).
+pub fn last_failure() -> Option<(u64, String)> {
+    LAST_FAILURE.lock().ok().and_then(|g| g.clone())
+}
+
+fn set_failure(code: String) {
+    let at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    if let Ok(mut g) = LAST_FAILURE.lock() {
+        *g = Some((at, code));
+    }
+}
+
+fn clear_failure() {
+    if let Ok(mut g) = LAST_FAILURE.lock() {
+        *g = None;
+    }
+}
+
+/// 연속 실패 뒤 다음 시도까지의 간격. 첫 실패는 일시적일 수 있어 다음 주기에 바로 다시 한다.
+///   거듭 실패하면 간격을 늘린다 — 방화벽 서비스가 꺼져 있는 PC 처럼 매번 실패하는 곳에서
+///   5초마다 명령을 띄우고 기록을 쌓지 않게.
+fn retry_delay(consecutive_failures: u32) -> Duration {
+    match consecutive_failures {
+        0 | 1 => Duration::ZERO,
+        2 => Duration::from_secs(30),
+        3 => Duration::from_secs(120),
+        _ => Duration::from_secs(300),
+    }
+}
+
 /// 감시 스레드 시작 — heartbeat 로프와 함께 서비스 진입점에서 1회 호출.
 /// CONTROL 이 off 인 동안은 그냥 잠만 잔다(대다수 거래처).
 pub fn start_watch() {
@@ -73,26 +119,62 @@ pub fn start_watch() {
     if hbb_common::config::LocalConfig::get_option(CONTROL_CACHE_KEY) == "Y" {
         CONTROL.store(true, Ordering::Relaxed);
     }
-    std::thread::spawn(|| loop {
-        std::thread::sleep(WATCH_INTERVAL);
-        if !CONTROL.load(Ordering::Relaxed) {
-            continue;
-        }
-        // 관제 대상이면: 알림 억제 정책을 확인·보정하고(방화벽이 꺼진 상태에서도 경고가
-        // 뜨므로 해제 여부와 무관하게 매 주기 자가치유 — 업데이트/정책 새로고침이 되돌려도
-        // 다음 주기에 복구), 방화벽이 켜졌으면 즉시 끈다.
-        ensure_notifications_suppressed();
-        match firewall_state() {
-            Some(true) => {
-                log::info!("[chainremote_firewall] firewall re-enabled → disarming (netsh off)");
-                if disarm_all_profiles() {
-                    DISARMED_PENDING.store(true, Ordering::Relaxed);
-                    // 업데이트가 방화벽을 되살릴 때 알림 정책까지 되돌렸을 수 있어 즉시 재보정.
-                    ensure_notifications_suppressed();
+    std::thread::spawn(|| {
+        let mut failures: u32 = 0;
+        let mut next_try = Instant::now();
+        loop {
+            std::thread::sleep(WATCH_INTERVAL);
+            if !CONTROL.load(Ordering::Relaxed) {
+                // 관제를 끈 거래처에 옛 실패를 계속 보고하지 않는다.
+                if failures > 0 {
+                    failures = 0;
+                    clear_failure();
                 }
+                continue;
             }
-            Some(false) => {}
-            None => {}
+            // 관제 대상이면: 알림 억제 정책을 확인·보정하고(방화벽이 꺼진 상태에서도 경고가
+            // 뜨므로 해제 여부와 무관하게 매 주기 자가치유 — 업데이트/정책 새로고침이 되돌려도
+            // 다음 주기에 복구), 방화벽이 켜졌으면 즉시 끈다.
+            ensure_notifications_suppressed();
+            match firewall_state() {
+                Some(true) => {
+                    if Instant::now() < next_try {
+                        continue;
+                    }
+                    log::info!("[chainremote_firewall] firewall re-enabled → disarming (netsh off)");
+                    match disarm_all_profiles() {
+                        Ok(()) => {
+                            failures = 0;
+                            clear_failure();
+                            DISARMED_PENDING.store(true, Ordering::Relaxed);
+                            // 업데이트가 방화벽을 되살릴 때 알림 정책까지 되돌렸을 수 있어 즉시 재보정.
+                            ensure_notifications_suppressed();
+                        }
+                        Err(e) => {
+                            failures = failures.saturating_add(1);
+                            let wait = retry_delay(failures);
+                            log::warn!(
+                                "[chainremote_firewall] netsh off 실패({}) — 연속 {}회, {}초 뒤 다시",
+                                e,
+                                failures,
+                                wait.as_secs()
+                            );
+                            set_failure(e.code());
+                            next_try = Instant::now() + wait;
+                        }
+                    }
+                }
+                Some(false) => {
+                    // 꺼져 있으면 목적은 이룬 것이다. 시간 초과로 끊은 명령이 실제로는 끄고
+                    //   멈췄던 경우도 여기서 정리된다.
+                    if failures > 0 {
+                        failures = 0;
+                        clear_failure();
+                    }
+                    next_try = Instant::now();
+                }
+                None => {}
+            }
         }
     });
 }
@@ -127,10 +209,12 @@ fn firewall_state() -> Option<bool> {
 
 /// 전 프로파일 즉시 해제 — 레지스트리만 쓰면 서비스 리프레시 전까지 미적용이라, 즉시
 /// 반영되는 netsh 를 쓴다(netsh 가 EnableFirewall=0 도 같이 써 위 판정과 일관). 창 없이 실행.
-fn disarm_all_profiles() -> bool {
-    run_hidden(
+/// ★시간 제한 안에서만 기다린다 — 끝나지 않는 netsh 하나가 감시 전체를 10분 붙잡았다(모듈 머리 주석).
+fn disarm_all_profiles() -> Result<(), RunError> {
+    chainremote_proc::run(
         "netsh",
         &["advfirewall", "set", "allprofiles", "state", "off"],
+        NETSH_TIMEOUT,
     )
 }
 
@@ -165,26 +249,6 @@ fn ensure_notifications_suppressed() {
         }
         Err(e) => {
             log::warn!("[chainremote_firewall] open Notifications policy key failed: {}", e);
-        }
-    }
-}
-
-/// 콘솔 창 없이 외부 명령 실행(netsh). LocalSystem 세션0 이라 창이 뜰 일은 없지만 방어적으로
-/// CREATE_NO_WINDOW. 성공(exit 0) 시 true.
-fn run_hidden(program: &str, args: &[&str]) -> bool {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    match std::process::Command::new(program)
-        .args(args)
-        .creation_flags(CREATE_NO_WINDOW)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-    {
-        Ok(s) => s.success(),
-        Err(e) => {
-            log::warn!("[chainremote_firewall] run {} failed: {}", program, e);
-            false
         }
     }
 }
