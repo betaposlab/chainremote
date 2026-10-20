@@ -119,6 +119,8 @@ export default async function CustomersPage({
       cmFailCode: customers.cmFailCode,
       firewallDisarmCount: customers.firewallDisarmCount,
       firewallLastDisarmAt: customers.firewallLastDisarmAt,
+      firewallDisarmError: customers.firewallDisarmError,
+      firewallDisarmErrorAt: customers.firewallDisarmErrorAt,
       vanWatch: customers.vanWatch,
       vanOk: customers.vanOk,
       vanGaveUp: customers.vanGaveUp,
@@ -427,6 +429,12 @@ export default async function CustomersPage({
                           lastDisarmAt={
                             c.firewallLastDisarmAt
                               ? c.firewallLastDisarmAt.toISOString()
+                              : null
+                          }
+                          disarmError={c.firewallDisarmError}
+                          disarmErrorAt={
+                            c.firewallDisarmErrorAt
+                              ? c.firewallDisarmErrorAt.toISOString()
                               : null
                           }
                         />

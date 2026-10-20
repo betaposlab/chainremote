@@ -37,6 +37,8 @@ export async function POST(req: Request) {
       rzNoReplySince?: unknown;
       cmFailAt?: unknown;
       cmFailCode?: unknown;
+      firewallDisarmErrorAt?: unknown;
+      firewallDisarmError?: unknown;
       vanOk?: unknown;
       vanRestarted?: unknown;
       vanGaveUp?: unknown;
@@ -113,6 +115,17 @@ export async function POST(req: Request) {
               ? null
               : undefined,
         cmFailCode: typeof body.cmFailCode === "string" ? body.cmFailCode : undefined,
+        // 방화벽을 끄지 못하는 이유(060). 규칙은 cmFail 과 같다: 숫자=그 시각, null=풀림(지움),
+        //   키 없음=옛 에이전트라 모름 → 손대지 않는다.
+        firewallDisarmErrorAt:
+          typeof body.firewallDisarmErrorAt === "number" &&
+          Number.isFinite(body.firewallDisarmErrorAt)
+            ? body.firewallDisarmErrorAt
+            : body.firewallDisarmErrorAt === null
+              ? null
+              : undefined,
+        firewallDisarmError:
+          typeof body.firewallDisarmError === "string" ? body.firewallDisarmError : undefined,
         // null 은 "판정 보류"(리더기 대기)라는 **명시 신호**다 — 필드 누락(undefined)과 달리
         //   기존 값을 비워야 한다. 안 그러면 한 번 박힌 빨간 '중지'가 안 풀린다.
         vanOk:

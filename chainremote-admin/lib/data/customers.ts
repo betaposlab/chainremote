@@ -267,6 +267,9 @@ export interface HeartbeatExtras {
   // 수락 카드를 못 띄운 기록(059) — epoch 초 + 코드. null=정상 복귀(지움), undefined=미보고.
   cmFailAt?: number | null;
   cmFailCode?: string;
+  // 방화벽을 끄지 못하는 이유(060) — epoch 초 + 코드. null=풀림(지움), undefined=미보고.
+  firewallDisarmErrorAt?: number | null;
+  firewallDisarmError?: string;
   // VAN 데몬 관제(036) — vanOk=데몬이 포트를 듣고 있나(표시용), vanRestarted=이번 heartbeat
   //   직전에 되살렸나(참이면 restart_count++), vanGaveUp=재실행으로 안 낫아 손 뗌(사람 호출).
   vanOk?: boolean | null;
@@ -394,6 +397,21 @@ export async function recordHeartbeat(
     const code = (extras.cmFailCode ?? "").replace(/[^0-9A-Za-z]/g, "").slice(0, 16);
     cmSet.cmFailCode = code || "cm";
   }
+  // 방화벽 끄기 실패 이유(060) — 위 수락 카드 기록과 같은 규칙(시계 보정·영숫자 16자).
+  //   관제를 끈 직후 늦게 도착한 보고가 남아도 화면은 관제가 켜진 거래처에만 칩을 그리고,
+  //   에이전트가 관제 꺼짐을 받으면 다음 보고에서 null 로 지운다.
+  const fwErrSet: Record<string, unknown> = {};
+  if (extras?.firewallDisarmErrorAt === null) {
+    fwErrSet.firewallDisarmErrorAt = null;
+    fwErrSet.firewallDisarmError = null;
+  } else if (typeof extras?.firewallDisarmErrorAt === "number") {
+    const nowMs = Date.now();
+    const ms = extras.firewallDisarmErrorAt * 1000;
+    const sane = ms <= nowMs + 60_000 && ms >= nowMs - 30 * 24 * 3600_000;
+    fwErrSet.firewallDisarmErrorAt = new Date(sane ? Math.min(ms, nowMs) : nowMs);
+    const code = (extras.firewallDisarmError ?? "").replace(/[^0-9A-Za-z]/g, "").slice(0, 16);
+    fwErrSet.firewallDisarmError = code || "fw";
+  }
   // VAN 데몬 상태 반영 — 현재 정상 여부 + 이번에 되살렸으면 카운트/시각 갱신.
   //   ★관제를 켠 거래처에서만 반영한다. 에이전트는 heartbeat 응답을 받아야 관제가 꺼진 걸
   //   알기 때문에, 끄기 직전에 출발한 마지막 보고가 뒤늦게 도착한다. 그걸 그대로 저장하면
@@ -500,6 +518,7 @@ export async function recordHeartbeat(
       ...firewallSet,
       ...rzSet,
       ...cmSet,
+      ...fwErrSet,
       ...vanSet,
       ...natSet,
       ...upnpSet,
