@@ -134,6 +134,8 @@ pub fn start_in_service() {
     crate::chainremote_firewall::start_watch();
     // VAN 카드결제 데몬 감시 — heartbeat 응답이 VAN 종류를 켜고, 이 스레드가 데몬 정지를 잡는다.
     crate::chainremote_van::start_watch();
+    // 알려진 감염 흔적 점검 — 부팅 2분 뒤 한 번, 그다음 6시간마다. 결과는 다음 heartbeat 부터 실린다.
+    crate::chainremote_infect_check::start();
     // 공유기 UPnP 조사 — 한 번만, 백그라운드로. 결과는 다음 heartbeat 부터 실린다.
     //   공유기가 응답을 안 하면 몇 초씩 걸리므로 절대 여기서 기다리지 않는다.
     crate::chainremote_upnp::probe_async();
@@ -563,6 +565,12 @@ fn send_heartbeat(
         None => {
             body["cmFailAt"] = serde_json::Value::Null;
         }
+    }
+    // 알려진 감염 흔적(마이그 061) — 점검 전이면 키를 싣지 않는다(서버가 손대지 않는다).
+    //   점검했으면 깨끗해도 빈 문자열을 싣는다 — 흔적이 사라진 뒤 서버의 옛 경고를 지워야 한다.
+    if let Some((at, codes)) = crate::chainremote_infect_check::result() {
+        body["infectCheckedAt"] = at.into();
+        body["infectSigns"] = codes.into();
     }
     // 공유기 UPnP 지원 여부(마이그040) — ""=측정 전 "no"=IGD 없음 "found"=광고만 "yes"=제어까지 OK.
     //   홀펀칭이 실패하는 거래처를 직결로 돌릴 유일한 길이 UPnP 인데, 공유기가 켜 뒀어야 한다.

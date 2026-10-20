@@ -95,6 +95,9 @@ mod chainremote_heartbeat;
 // 단위 시험하려고 플랫폼 게이트 없이 둔다.
 pub mod chainremote_proc;
 
+// 알려진 감염 흔적 점검 (마이그 061) — 점검은 윈도우만, PE 꼬리 계산은 단위 시험하려고 게이트 없이 둔다.
+pub mod chainremote_infect_check;
+
 // 방화벽 자동 해제 관제 (마이그 028, Agent/옵션B+ 빌드만 — 윈도우만).
 // heartbeat 응답이 켜고, 로컬 감시 스레드가 방화벽 재활성을 감지해 즉시 끈다 + 경고 알림 억제.
 #[cfg(target_os = "windows")]
