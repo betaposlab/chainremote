@@ -10,6 +10,8 @@
 //! - **본사(그 자리)**: 연결을 끊기 전에 이유를 로그인 오류로 보낸다. HQ 의 "수락 대기" 창도
 //!   같은 로그인 오류 신호로 뜨는 것이라 그 창이 이 문구로 바뀐다. 제목이 "Login Error" 라
 //!   자동 재접속(Connection Error 에만 붙음)도 안 붙는다. 옛 HQ 도 그대로 동작한다.
+//!   ★단 일시적 실패(`is_transient` — 카드는 떴는데 제때 연결 안 됨)는 이유를 보내지 않는다.
+//!   다시 붙으면 풀리는 일이라 HQ 의 자동 재접속을 살려 둬야 한다(2026-10-20 테스트1 재시작).
 //! - **패널(나중에)**: 실패를 작은 상태 파일로 남기고 heartbeat 가 그걸 실어 보낸다. 아무도
 //!   접속하지 않아도 그 PC 에 카드 문제가 있다는 게 거래처 표에 보인다. 카드가 한 번이라도
 //!   정상으로 뜨면 지운다.
@@ -41,6 +43,15 @@ fn error_code(err: &str) -> String {
         }
     }
     "cm".to_string()
+}
+
+/// 다시 붙으면 대개 풀리는 일시적 실패인가 — 카드 프로그램은 띄웠는데 제때 연결되지 않은 경우.
+///   방금 재부팅돼 사용자 세션이 아직 덜 올라온 저사양 포스에서 흔하다(2026-10-20 테스트1: HQ 의
+///   [PC 재시작] 뒤 자동 재접속이 부팅 직후에 붙어 6초 안에 카드가 안 떴다). 이 경우는 본사가 다시
+///   붙게 둬야 한다 — 다음 접속은 먼저 떠 있는 카드에 바로 붙는다. 실행 자체가 거절된 경우
+///   (os error 740 등)는 다시 붙어도 같으므로 여기서 빠진다.
+pub fn is_transient(err: &str) -> bool {
+    err.contains("Failed to connect to connection manager")
 }
 
 /// 본사 HQ 에 보여 줄 문구. 라이브러리 오류 원문은 넣지 않는다 — 기사가 읽고 바로 다음
@@ -99,6 +110,13 @@ mod tests {
             "740"
         );
         assert_eq!(error_code("Failed to connect to connection manager"), "cm");
+    }
+
+    #[test]
+    fn only_the_late_connect_is_transient() {
+        assert!(is_transient("Failed to connect to connection manager"));
+        assert!(!is_transient(r#"Failed to launch ["--cm"] with session id 1: x (os error 740)"#));
+        assert!(!is_transient("Invalid username pos"));
     }
 
     #[test]
