@@ -48,6 +48,8 @@ class Peer {
   String firewallControl;
   // 방화벽이 실제로 켜져 있나: 'Y'|'N'|''(미보고). firewallControl(관제 스위치)과 별개.
   String firewallEnabled;
+  // 방화벽을 끄지 못하고 있는 이유(마이그 060): timeout|exitN|spawn|wait, ''=실패 없음/미보고.
+  String firewallDisarmError;
   // 접속 서버 답장을 못 받는 상태의 시작 시각(ISO, ''=정상/미보고) + 마지막 보고 시각.
   //   판정은 crRzNoReplySince(peer) 로 — 꺼진 PC 의 옛 값에 속지 않게 보고 시각을 같이 본다.
   String rzNoReplySince;
@@ -91,6 +93,7 @@ class Peer {
         tempBytes = json['tempBytes'] ?? '',
         firewallControl = json['firewallControl'] ?? '',
         firewallEnabled = json['firewallEnabled'] ?? '',
+        firewallDisarmError = json['firewallDisarmError'] ?? '',
         rzNoReplySince = json['rzNoReplySince'] ?? '',
         lastHeartbeatAt = json['lastHeartbeatAt'] ?? '',
         vanWatch = json['vanWatch'] ?? '',
@@ -126,6 +129,7 @@ class Peer {
       'tempBytes': tempBytes,
       'firewallControl': firewallControl,
       'firewallEnabled': firewallEnabled,
+      'firewallDisarmError': firewallDisarmError,
       'rzNoReplySince': rzNoReplySince,
       'lastHeartbeatAt': lastHeartbeatAt,
       'vanWatch': vanWatch,
@@ -188,6 +192,7 @@ class Peer {
     this.tempBytes = '',
     this.firewallControl = '',
     this.firewallEnabled = '',
+    this.firewallDisarmError = '',
     this.rzNoReplySince = '',
     this.lastHeartbeatAt = '',
     this.vanWatch = '',

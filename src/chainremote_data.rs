@@ -59,6 +59,10 @@ struct CustomerRow {
     //   스위치만 보고 "켬"이라 띄웠더니 실제로 꺼졌는지 알 길이 없었다(2026-10-01 Chang "가짜잖아").
     #[serde(rename = "firewallEnabled")]
     firewall_enabled: Option<bool>,
+    // 방화벽을 끄지 못하고 있는 이유(마이그 060) — timeout / exitN / spawn / wait. 켜져 있는데 이게
+    //   있으면 "해제 대기"가 아니라 "해제 실패"다(2026-10-20 테스트1·샵단란주점).
+    #[serde(rename = "firewallDisarmError")]
+    firewall_disarm_error: Option<String>,
     // 접속 서버 답장을 못 받는 상태의 시작 시각(마이그 055, ISO). 있으면 hbbs 가 "온라인"이라 해도
     //   원격 요청이 그 PC 에 닿지 않는다. 꺼진 PC 의 옛 값에 속지 않도록 마지막 보고 시각을 같이 넘긴다.
     #[serde(rename = "rzNoreplySince")]
@@ -234,6 +238,7 @@ fn customer_to_peer_json(c: &CustomerRow, with_marker: bool) -> Option<serde_jso
             Some(false) => "N",
             None => "",
         },
+        "firewallDisarmError": c.firewall_disarm_error.clone().unwrap_or_default(),
         "rzNoReplySince": c.rz_noreply_since.clone().unwrap_or_default(),
         "lastHeartbeatAt": c.last_heartbeat_at.clone().unwrap_or_default(),
         "vanWatch": c.van_watch.clone().unwrap_or_default(),

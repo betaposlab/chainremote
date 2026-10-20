@@ -134,10 +134,33 @@ String crRzNoReplyTip(DateTime since) {
       '그래도 접속하면 관리 패널을 거쳐 20초쯤 뒤 연결됩니다. 안 되면 거래처에서 그 컴퓨터를 한 번 사용해 달라고 하세요(마우스·화면 터치).';
 }
 
+/// 방화벽을 끄지 못한 이유 코드(에이전트 chainremote_proc::RunError::code)를 사람 말로.
+///   패널의 firewallErrorText(_firewall-chip.tsx)와 같은 문구를 쓴다.
+String crFirewallErrorText(String code) {
+  if (code == 'timeout') return '끄는 명령이 30초 안에 끝나지 않음';
+  if (code == 'spawn') return '끄는 명령을 실행하지 못함';
+  if (code == 'wait') return '끄는 명령의 상태를 확인하지 못함';
+  if (code.startsWith('exit')) {
+    final n = code.substring(4);
+    return n.isEmpty ? '끄는 명령이 실패함' : '끄는 명령이 실패함(코드 $n)';
+  }
+  return '끄지 못함($code)';
+}
+
 /// 방화벽 관제 상태 — 스위치(켬)와 실제(해제됨/아직 켜짐)를 갈라 보여준다.
 ///   처음엔 스위치만 보고 "켬"이라 했다. 지시는 PC 의 다음 보고(최대 10분) 때 전달되는데,
 ///   그 사이에도 "켬"이라 실제로 꺼진 줄 알았다(2026-10-01 Chang: "가짜잖아").
+///   ★켜져 있는데 끄기 실패 이유가 함께 오면 "해제 실패"다(마이그 060). 테스트1 은 끄는 명령이
+///   10분 멈췄고 샵단란주점은 한 번도 못 껐는데, 둘 다 "해제 대기"로 보여 아무도 몰랐다(2026-10-20).
 ({String label, String tip, bool pending}) crFirewallState(Peer peer) {
+  if (peer.firewallEnabled == 'Y' && peer.firewallDisarmError.isNotEmpty) {
+    return (
+      label: '해제 실패',
+      tip: '방화벽 자동 해제를 켜 두었지만 그 컴퓨터의 방화벽을 끄지 못하고 있습니다.\n'
+          '이유: ${crFirewallErrorText(peer.firewallDisarmError)}. 에이전트가 계속 다시 시도합니다.',
+      pending: true,
+    );
+  }
   if (peer.firewallEnabled == 'Y') {
     return (
       label: '해제 대기',
