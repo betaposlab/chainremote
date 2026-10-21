@@ -610,14 +610,20 @@ impl Connection {
                                 //   HQ 는 "피어에 의해 초기화"(네트워크 끊김 취급)로 보고 4분짜리 자동 재접속을
                                 //   돈다 — 다시 붙어도 카드는 또 안 뜬다. 패널 보고용 기록도 남긴다.
                                 //   (chainremote_cm_status 머리말, 2026-10-17 세종싱싱활어회배달)
-                                crate::chainremote_cm_status::note_failure(&e);
-                                // ★일시적 실패(카드는 띄웠는데 제때 연결 안 됨)는 이유를 보내지 않고 연결만
-                                //   닫는다 — 1.4.156 이전 동작 그대로라 HQ 가 다시 붙고, 다음 접속은 먼저 떠 있는
-                                //   카드에 바로 붙는다. 1.4.156 은 이것까지 "재시도 없는 로그인 오류"로 보내,
-                                //   [PC 재시작] 뒤 자동 재접속이 부팅 직후에 멈추고 "626.kr 임시 원격" 안내가
-                                //   떴다(2026-10-20 테스트1). 실행이 거절된 경우(740 등)만 이유를 보낸다.
-                                if !crate::chainremote_cm_status::is_transient(&e) {
-                                    conn.send_login_error(crate::chainremote_cm_status::hq_message(&e)).await;
+                                // ★이미 승인된 세션(수락했거나 재시작 유예로 들어온 세션)에서 카드 프로그램이
+                                //   사라진 건 "카드를 못 띄웠다"가 아니다 — 윈도우 재시작·로그오프가 사용자
+                                //   프로세스를 먼저 끈 것이다. 여기서 이유를 보내면 HQ 가 로그인 오류로 받아
+                                //   재시작 대기·자동 재접속에 들어가지 못한다(2026-10-21 테스트2 [PC 재시작]:
+                                //   "수락 창을 띄우지 못했습니다"가 뜨고 멈춤). 연결만 닫으면 HQ 는 끊김을
+                                //   재시작으로 보고 재접속한다(client io_loop is_restarting_remote_device).
+                                if !conn.authorized {
+                                    crate::chainremote_cm_status::note_failure(&e);
+                                    // ★일시적 실패(카드는 띄웠는데 제때 연결 안 됨)는 이유를 보내지 않고 연결만
+                                    //   닫는다 — 1.4.156 이전 동작 그대로라 HQ 가 다시 붙고, 다음 접속은 먼저 떠 있는
+                                    //   카드에 바로 붙는다(2026-10-20 테스트1). 실행이 거절된 경우(740 등)만 이유를 보낸다.
+                                    if !crate::chainremote_cm_status::is_transient(&e) {
+                                        conn.send_login_error(crate::chainremote_cm_status::hq_message(&e)).await;
+                                    }
                                 }
                                 conn.on_close(&format!("connection manager error: {}", e), false).await;
                                 break;
