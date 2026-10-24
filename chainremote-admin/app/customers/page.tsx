@@ -292,19 +292,8 @@ export default async function CustomersPage({
         </div>
       )}
 
-      {/* 알려진 감염 흔적(061) — 운영자에게만. 재고 포스를 다시 세팅하던 방식으로 나간 매장을 가려내려는 것
-          (docs/chainremote/INCIDENTS.md 2026-10-20). 대리점 관리자에게도 보이게 할지는 결과를 보고 정한다. */}
-      {isPlatformOperator(session.user.role) &&
-        rows.some((c) => (c.infectSigns ?? "") !== "") && (
-          <div className="mb-4 banner banner-danger">
-            ⚠ 알려진 감염 흔적이 보이는 기기{" "}
-            <span className="font-semibold">
-              {rows.filter((c) => (c.infectSigns ?? "") !== "").length}대
-            </span>{" "}
-            — 아래 <span className="font-medium text-[#ffb3b6]">감염 의심</span> 표시에 마우스를 올리면
-            무엇이 보였는지 나옵니다. 이 표시는 운영자에게만 보입니다.
-          </div>
-        )}
+      {/* 알려진 감염 흔적(061)은 상단 배너로 알리지 않는다(2026-10-24 Chang) — 원인이 우리가 아니고 손쓸 수
+          있는 것도 없어 경보로 띄울 일이 아니다. 기록은 계속 쌓이고 표 안의 회색 "흔적" 표시로만 남긴다. */}
 
       <div className="panel-table-wrap overflow-x-auto">
         <table className="panel-table">
