@@ -59,6 +59,7 @@ pub fn tool_from_arg(arg: &str) -> Option<Tool> {
 #[cfg(windows)]
 mod imp {
     use super::{spec, Spec, Tool};
+    use hbb_common::log;
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use std::path::PathBuf;
