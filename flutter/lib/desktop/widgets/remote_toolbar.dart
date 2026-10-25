@@ -420,6 +420,11 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
 
     toolbarItems
         .add(_ControlMenu(id: widget.id, ffi: widget.ffi, state: widget.state));
+    // 윈도우 도구 — 거래처 화면에 장치 관리자 등을 띄운다. 거래처 화면을 조작하는 일이라
+    //   기본 원격 연결에서만(파일전송·카메라 창 X). 보일지는 메뉴가 스스로 판단한다.
+    if (widget.ffi.connType == ConnType.defaultConn) {
+      toolbarItems.add(_WinToolMenu(ffi: widget.ffi));
+    }
     toolbarItems.add(_DisplayMenu(
       id: widget.id,
       ffi: widget.ffi,
@@ -913,6 +918,72 @@ class _ControlMenu extends StatelessWidget {
                     trailingIcon: e.trailingIcon);
               }
             }).toList());
+  }
+}
+
+/// 윈도우 도구를 아는 에이전트 첫 버전. 옛 에이전트는 요청을 조용히 무시하므로,
+///   눌러도 아무 일 없는 메뉴를 보이지 않으려고 가린다.
+const String _kWinToolMinAgent = '1.4.161';
+
+/// 메뉴에 거는 도구들. 번호는 프로토콜 CrWinTool.Tool 과 같아야 한다
+///   (에이전트 src/chainremote_wintool.rs 의 고정 표). null 은 구분선.
+const List<(int, String, IconData)?> _kWinTools = [
+  (0, '장치 관리자', Icons.developer_board_outlined),
+  (1, '장치 및 프린터', Icons.print_outlined),
+  (2, '서비스', Icons.miscellaneous_services_outlined),
+  (3, '작업 관리자', Icons.monitor_heart_outlined),
+  null,
+  (4, '네트워크 연결', Icons.lan_outlined),
+  (5, '사운드', Icons.volume_up_outlined),
+  (6, '날짜와 시간', Icons.schedule_outlined),
+  null,
+  (7, '프로그램 추가/제거', Icons.apps_outlined),
+  (8, '이벤트 뷰어', Icons.receipt_long_outlined),
+  (9, '시스템 정보', Icons.info_outline),
+];
+
+/// 원격 툴바 [윈도우 도구] — 고르면 거래처 화면에 그 도구 창이 열린다.
+///   번호만 보낸다. 실제 실행은 에이전트가 사용자 권한으로 하고, 관리자 권한이 필요하면
+///   거래처 화면에 평소처럼 UAC 창이 뜬다. 못 여는 경우는 에이전트가 이유를 띄운다.
+class _WinToolMenu extends StatelessWidget {
+  final FFI ffi;
+  const _WinToolMenu({Key? key, required this.ffi}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // 피어 정보가 오면 FfiModel 이 알려 주므로 그때 다시 판단한다(키보드 메뉴와 같은 방식).
+    final ffiModel = Provider.of<FfiModel>(context);
+    final pi = ffiModel.pi;
+    final v = pi.platformAdditions['chainremote_version'];
+    final supported = pi.platform == kPeerPlatformWindows &&
+        v is String &&
+        v.isNotEmpty &&
+        versionCmp(v, _kWinToolMinAgent) >= 0;
+    // 거래처가 키보드 제어를 막아 두었으면 에이전트도 거절한다 — 메뉴부터 감춘다.
+    if (!supported || !ffiModel.keyboard) return Offstage();
+    return _IconSubmenuButton(
+      tooltip: '거래처 PC 의 윈도우 도구 열기',
+      label: '윈도우 도구',
+      icon: Icon(Icons.handyman_outlined,
+          size: 16, color: CrColors.of(context).tileAccent),
+      ffi: ffi,
+      color: _ToolbarTheme.blueColor,
+      hoverColor: _ToolbarTheme.hoverBlueColor,
+      menuChildrenGetter: (_) => _kWinTools.map<Widget>((t) {
+        if (t == null) return Divider();
+        final (n, name, icon) = t;
+        return MenuButton(
+          ffi: ffi,
+          onPressed: () =>
+              bind.sessionCrWinTool(sessionId: ffi.sessionId, tool: n),
+          child: Row(children: [
+            Icon(icon, size: 16),
+            const SizedBox(width: 8),
+            Text(name),
+          ]),
+        );
+      }).toList(),
+    );
   }
 }
 

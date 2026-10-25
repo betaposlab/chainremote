@@ -716,6 +716,14 @@ pub fn core_main() -> Option<Vec<String>> {
                 }
             }
             return None;
+        } else if args[0] == "--cr-wintool" {
+            // 윈도우 도구 도우미 — 에이전트가 사용자 세션에 띄운다. 사용자 권한으로 도구를
+            //   연 뒤 바로 끝난다(chainremote_wintool 머리말).
+            #[cfg(target_os = "windows")]
+            if let Some(n) = args.get(1) {
+                crate::chainremote_wintool::helper_main(n);
+            }
+            return None;
         } else if args[0] == "--cm" {
             // call connection manager to establish connections
             // meanwhile, return true to call flutter window to show control panel

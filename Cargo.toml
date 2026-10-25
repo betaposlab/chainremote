@@ -122,6 +122,10 @@ winapi = { version = "0.3", features = [
     "cfgmgr32",
     "ioapiset",
     "winspool",
+    # 윈도우 도구 도우미: ShellExecuteEx 전 COM(STA) 초기화 + System32 경로.
+    "combaseapi",
+    "objbase",
+    "sysinfoapi",
 ] }
 windows = { version = "0.61", features = [
     "Win32",

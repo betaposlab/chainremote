@@ -464,6 +464,23 @@ impl<T: InvokeUiSession> Session<T> {
         self.send(Data::Message(msg_out));
     }
 
+    /// ChainRemote 윈도우 도구 — 거래처 화면에 정해진 도구를 띄워 달라고 한다. 번호만 간다.
+    ///   모르는 번호는 보내지 않는다(에이전트도 거절하지만 여기서 먼저 거른다).
+    pub fn cr_win_tool(&self, tool: i32) {
+        use hbb_common::protobuf::Enum;
+        let Some(t) = cr_win_tool::Tool::from_i32(tool) else {
+            log::warn!("[cr_wintool] 모르는 번호 {} — 안 보냄", tool);
+            return;
+        };
+        let mut w = CrWinTool::new();
+        w.tool = t.into();
+        let mut misc = Misc::new();
+        misc.set_cr_win_tool(w);
+        let mut msg_out = Message::new();
+        msg_out.set_misc(misc);
+        self.send(Data::Message(msg_out));
+    }
+
     pub fn cr_annotate(&self, op: i32, points: Vec<(f32, f32)>, argb: u32, width: f32, end_stroke: bool) {
         let mut a = CrAnnotate::new();
         a.op = match op {

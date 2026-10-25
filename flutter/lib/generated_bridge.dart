@@ -1350,6 +1350,12 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kSessionCrSchedReqConstMeta;
 
+  /// ChainRemote 윈도우 도구 — 원격 중인 거래처 화면에 장치 관리자 등을 띄운다(번호는 CrWinTool.Tool).
+  Future<void> sessionCrWinTool(
+      {required UuidValue sessionId, required int tool, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kSessionCrWinToolConstMeta;
+
   /// ChainRemote 예약원격 — 사장님이 카드에서 누른 답.
   ///
   /// ★창이 실제로 열리는 유일한 입구다. 본사 메시지는 카드를 띄울 뿐이고, 이 호출은
@@ -6725,6 +6731,26 @@ class RustdeskImpl implements Rustdesk {
       const FlutterRustBridgeTaskConstMeta(
         debugName: "session_cr_sched_req",
         argNames: ["sessionId", "start", "end", "hqNow", "label", "extend"],
+      );
+
+  Future<void> sessionCrWinTool(
+      {required UuidValue sessionId, required int tool, dynamic hint}) {
+    var arg0 = _platform.api2wire_Uuid(sessionId);
+    var arg1 = api2wire_i32(tool);
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) =>
+          _platform.inner.wire_session_cr_win_tool(port_, arg0, arg1),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kSessionCrWinToolConstMeta,
+      argValues: [sessionId, tool],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kSessionCrWinToolConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "session_cr_win_tool",
+        argNames: ["sessionId", "tool"],
       );
 
   Future<void> cmSchedAnswer(
@@ -13713,6 +13739,25 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_session_cr_sched_reqPtr.asFunction<
           void Function(int, ffi.Pointer<wire_uint_8_list>, int, int, int,
               ffi.Pointer<wire_uint_8_list>, bool)>();
+
+  void wire_session_cr_win_tool(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> session_id,
+    int tool,
+  ) {
+    return _wire_session_cr_win_tool(
+      port_,
+      session_id,
+      tool,
+    );
+  }
+
+  late final _wire_session_cr_win_toolPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Int32)>>('wire_session_cr_win_tool');
+  late final _wire_session_cr_win_tool = _wire_session_cr_win_toolPtr
+      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>, int)>();
 
   void wire_cm_sched_answer(
     int port_,

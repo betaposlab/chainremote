@@ -3779,6 +3779,56 @@ impl Connection {
                             }
                         }
                     }
+                    // ChainRemote 윈도우 도구 — 본사가 거래처 화면에 장치 관리자 등을 띄운다.
+                    //   화면제어 세션이고 거래처가 키보드 제어를 열어 둔 때만. 키보드로 할 수 있는
+                    //   일 이상을 하지 않는다. 여기서는 도우미만 띄우고 바로 돌아온다 — UAC 를
+                    //   기다리는 건 도우미다(chainremote_wintool 머리말: [실행] 철회 사고).
+                    #[cfg(windows)]
+                    Some(misc::Union::CrWinTool(w)) => {
+                        let text = match w.tool.enum_value() {
+                            Err(n) => {
+                                log::warn!("[cr_wintool] 모르는 번호 {} — 무시", n);
+                                None
+                            }
+                            Ok(tool) => {
+                                let name = crate::chainremote_wintool::spec(tool).name;
+                                if !self.is_remote() || !self.peer_keyboard_enabled() {
+                                    log::info!("[cr_wintool] {} 거절 — 키보드 제어 꺼짐", name);
+                                    Some(
+                                        "거래처가 키보드 제어를 막아 두어 열 수 없습니다."
+                                            .to_owned(),
+                                    )
+                                } else {
+                                    match crate::chainremote_wintool::request(tool) {
+                                        Ok(()) => {
+                                            log::info!(
+                                                "[cr_wintool] {} by {} ({})",
+                                                name,
+                                                self.lr.my_name,
+                                                self.lr.my_id
+                                            );
+                                            None
+                                        }
+                                        Err(e) => {
+                                            log::warn!("[cr_wintool] {} 실패: {:?}", name, e);
+                                            e.hq_text(name)
+                                        }
+                                    }
+                                }
+                            }
+                        };
+                        if let Some(text) = text {
+                            let mut msg_out = Message::new();
+                            msg_out.set_message_box(MessageBox {
+                                msgtype: "nook-nocancel-hasclose".to_owned(),
+                                title: "윈도우 도구".to_owned(),
+                                text,
+                                link: "".to_owned(),
+                                ..Default::default()
+                            });
+                            self.send(msg_out).await;
+                        }
+                    }
                     Some(misc::Union::MessageQuery(mq)) => {
                         if let Some(msg_out) = video_service::make_display_changed_msg(
                             mq.switch_display as _,

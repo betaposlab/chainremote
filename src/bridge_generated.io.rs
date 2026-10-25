@@ -1779,6 +1779,15 @@ pub extern "C" fn wire_session_cr_sched_req(
 }
 
 #[no_mangle]
+pub extern "C" fn wire_session_cr_win_tool(
+    port_: i64,
+    session_id: *mut wire_uint_8_list,
+    tool: i32,
+) {
+    wire_session_cr_win_tool_impl(port_, session_id, tool)
+}
+
+#[no_mangle]
 pub extern "C" fn wire_cm_sched_answer(
     port_: i64,
     conn_id: i32,

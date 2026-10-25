@@ -4042,6 +4042,24 @@ fn wire_session_cr_sched_req_impl(
         },
     )
 }
+fn wire_session_cr_win_tool_impl(
+    port_: MessagePort,
+    session_id: impl Wire2Api<uuid::Uuid> + UnwindSafe,
+    tool: impl Wire2Api<i32> + UnwindSafe,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap::<_, _, _, ()>(
+        WrapInfo {
+            debug_name: "session_cr_win_tool",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_session_id = session_id.wire2api();
+            let api_tool = tool.wire2api();
+            move |task_callback| Ok(session_cr_win_tool(api_session_id, api_tool))
+        },
+    )
+}
 fn wire_cm_sched_answer_impl(
     port_: MessagePort,
     conn_id: impl Wire2Api<i32> + UnwindSafe,

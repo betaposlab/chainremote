@@ -2248,6 +2248,13 @@ pub fn session_cr_sched_req(
     }
 }
 
+/// ChainRemote 윈도우 도구 — 원격 중인 거래처 화면에 장치 관리자 등을 띄운다(번호는 CrWinTool.Tool).
+pub fn session_cr_win_tool(session_id: SessionID, tool: i32) {
+    if let Some(session) = sessions::get_session_by_session_id(&session_id) {
+        session.cr_win_tool(tool);
+    }
+}
+
 /// ChainRemote 예약원격 — 사장님이 카드에서 누른 답.
 ///
 /// ★창이 실제로 열리는 유일한 입구다. 본사 메시지는 카드를 띄울 뿐이고, 이 호출은
