@@ -2032,8 +2032,17 @@ class _KeyboardMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var ffiModel = Provider.of<FfiModel>(context);
-    if (!ffiModel.keyboard) return Offstage();
+    // ★Provider.of<FfiModel>(context) 는 탭바 꼬리에서 메인 창의 전역 모델을 잡는다(_WinToolMenu 주석).
+    //   그 모델의 keyboard 는 늘 기본값(참)이라 거래처가 키보드 제어를 꺼도 이 메뉴가 남았다.
+    //   이 세션의 모델을 직접 듣는다 — 안쪽 항목들은 원래부터 ffi.ffiModel 을 썼다.
+    return ListenableBuilder(
+      listenable: ffi.ffiModel,
+      builder: (context, _) =>
+          ffi.ffiModel.keyboard ? _menu(context) : Offstage(),
+    );
+  }
+
+  Widget _menu(BuildContext context) {
     toolbarToggles() {
       final toggles = toolbarKeyboardToggles(ffi)
           .map((e) => CkbMenuButton(
