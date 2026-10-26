@@ -371,6 +371,9 @@ const MILLI1: Duration = Duration::from_millis(1);
 const SEND_TIMEOUT_VIDEO: u64 = 12_000;
 const SEND_TIMEOUT_OTHER: u64 = SEND_TIMEOUT_VIDEO * 10;
 const SESSION_TIMEOUT: Duration = Duration::from_secs(30);
+/// ChainRemote: 재시작 재접속 유예 파일이 받아들일 수 있는 가장 먼 만료(지금 기준).
+///   정상 유예는 300초 — 그보다 훨씬 먼 파일은 누가 손으로 만든 것이다(consume 쪽 주석).
+const RESTART_GRACE_MAX_AHEAD_SECS: u64 = 15 * 60;
 
 impl Connection {
     pub async fn start(
@@ -2380,6 +2383,19 @@ impl Connection {
             if now > exp {
                 let _ = std::fs::remove_file(&p);
                 log::info!("[restart-grace] expired now={} exp={}", now, exp);
+                return false;
+            }
+            // ★만료가 지나치게 먼 파일은 우리가 쓴 게 아니다(2026-10-26). 정상 유예는 서비스·인스톨러
+            //   둘 다 300초다. 그런데 이 폴더는 일반 사용자도 새 파일을 만들 수 있어 — 예약원격 승인과
+            //   HQ [지금 설치]가 사용자 화면에서 이 폴더에 쓰므로 잠글 수 없다 — "ID:10년 뒤"를 적어
+            //   두면 그 ID 는 영영 수락 없이 들어왔다. 한 번 들른 누군가가 남긴 파일이 영구 통로가 되는 것.
+            //   시계 보정 여유를 두고 15분을 넘으면 버린다.
+            //   (같은 세션에 상주하며 파일을 계속 새로 쓰는 프로그램은 이걸로 못 막는다 — 그건 수락
+            //   카드를 대신 누를 수도 있는 자리라 파일 검사의 몫이 아니다.)
+            if exp > now + RESTART_GRACE_MAX_AHEAD_SECS {
+                let _ = std::fs::remove_file(&p);
+                log::warn!("[restart-grace] reject: exp too far ahead now={} exp={}", now, exp);
+                Self::grace_diag(&format!("reject exp too far ahead now={} exp={}", now, exp));
                 return false;
             }
             // ★ 삭제 안 함(1회용 아님): 재부팅 *직전* 재접속(block1 이 reboot 초기화 중 즉시 재시도)이

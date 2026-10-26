@@ -37,6 +37,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// 본사를 믿고 무제한을 허용하면 사실상 영구 비밀번호가 된다.
 const MAX_WINDOW_SECS: i64 = 24 * 60 * 60;
 
+/// 승인 시각이 지금보다 이만큼 앞서 있어도 봐준다 — 시계가 뒤로 튀는 포스 때문이다.
+///   넘으면 창을 버린다(`implausible`). 버려도 창이 닫힐 뿐이라 실패 방향은 안전하다.
+const GRANT_CLOCK_SLACK_SECS: i64 = 10 * 60;
+
 /// 마지막 접속이 끝난 뒤 이만큼 조용하면 창을 닫는다.
 ///
 /// ★**첫 작업이 끝난 뒤부터** 센다. 창이 열리자마자 세면 "23시에 허용받고 1시에 작업"이
@@ -130,6 +134,18 @@ pub fn grant(start: i64, end: i64, hq_now: i64, label: &str) -> String {
     )
 }
 
+/// 파일에 적힌 창이 `grant()` 가 쓴 모양으로 말이 되는가 — 아니면 누가 손으로 만든 것이다.
+///
+/// ★이 파일은 정상적으로도 사장님 화면(일반 사용자 권한)이 쓴다. 그래서 이 폴더를 잠글 수 없고,
+/// 그 PC 에서 일반 사용자 권한으로 도는 무엇이든 파일을 직접 만들 수 있다(2026-10-26 확인).
+/// `grant()` 의 창은 승인 시각이 "그때 지금"이고 끝이 승인 후 24시간 안이다. 그런데 승인 시각을
+/// 미래로 적으면 아래 24시간 상한(`t - granted_at`)이 음수라 무력해져, 끝을 10년 뒤로 둔 창이
+/// 그대로 통했다 — 한 번 들른 누군가가 남긴 파일이 영구 무수락 통로가 된다. 그런 창은 버린다.
+/// 24시간 이내로 꾸민 창까지는 못 가른다(내용이 정상과 같다). 그 창은 트레이에 "예약" 으로 보인다.
+fn implausible(w: &SchedWindow, t: i64) -> bool {
+    w.granted_at > t + GRANT_CLOCK_SLACK_SECS || w.end > w.granted_at + MAX_WINDOW_SECS
+}
+
 /// 지금 이 순간 창이 열려 있는가 = 수락 없이 통과시켜도 되는가.
 ///
 /// 닫혀 있으면 마커도 치운다 — 만료된 창이 파일로 남아 다음 판정을 헷갈리게 하지 않는다.
@@ -138,6 +154,17 @@ pub fn is_open() -> bool {
         return false;
     };
     let t = now();
+
+    if implausible(&w, t) {
+        log::warn!(
+            "[chainremote_sched] 말이 안 되는 창을 버린다 (granted_at={} end={} now={})",
+            w.granted_at,
+            w.end,
+            t
+        );
+        clear();
+        return false;
+    }
 
     // ① 약속한 구간 밖
     if t < w.start || t >= w.end {
@@ -176,6 +203,11 @@ pub fn is_open() -> bool {
 pub fn status() -> Option<SchedWindow> {
     let w = read()?;
     let t = now();
+    // 손으로 만든 창은 화면에도 "걸려 있다"고 보이지 않는다 — 통과 판정(is_open)과 같은 기준.
+    if implausible(&w, t) {
+        clear();
+        return None;
+    }
     // 끝난 창은 없는 것이다. 여기서 치워야 만료된 마커가 남아 다음 판정을 헷갈리지 않는다.
     if t >= w.end {
         clear();
@@ -279,5 +311,27 @@ mod tests {
         w.last_session_end = Some(0);
         w.in_session = true;
         assert!(open_at(&w, IDLE_CLOSE_SECS * 5));
+    }
+
+    #[test]
+    fn grant_shaped_windows_are_plausible() {
+        let t = 1_000_000;
+        // grant() 가 쓰는 모양: 승인=지금, 끝은 승인 후 24시간 이내.
+        assert!(!implausible(&win(t, t + 3600, t), t));
+        assert!(!implausible(&win(t, t + MAX_WINDOW_SECS, t), t + 10));
+        // 승인 뒤 시계가 몇 분 뒤로 튄 포스 — 여유 안이면 그대로 둔다.
+        assert!(!implausible(&win(t, t + 3600, t), t - GRANT_CLOCK_SLACK_SECS));
+    }
+
+    #[test]
+    fn hand_made_windows_are_dropped() {
+        let t = 1_000_000;
+        let ten_years = 10 * 365 * 24 * 3600;
+        // 승인 시각을 미래로 적어 24시간 상한을 무력화한 파일.
+        assert!(implausible(&win(t, t + ten_years, t + ten_years), t));
+        // 승인은 지금인데 끝이 24시간을 넘는 파일.
+        assert!(implausible(&win(t, t + MAX_WINDOW_SECS + 1, t), t));
+        // 시계 여유를 1초라도 넘으면 버린다.
+        assert!(implausible(&win(t, t + 60, t + GRANT_CLOCK_SLACK_SECS + 1), t));
     }
 }
