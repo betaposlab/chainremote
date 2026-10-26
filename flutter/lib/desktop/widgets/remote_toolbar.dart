@@ -951,16 +951,28 @@ class _WinToolMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 피어 정보가 오면 FfiModel 이 알려 주므로 그때 다시 판단한다(키보드 메뉴와 같은 방식).
-    final ffiModel = Provider.of<FfiModel>(context);
-    final pi = ffiModel.pi;
-    final v = pi.platformAdditions['chainremote_version'];
-    final supported = pi.platform == kPeerPlatformWindows &&
-        v is String &&
-        v.isNotEmpty &&
-        versionCmp(v, _kWinToolMinAgent) >= 0;
-    // 거래처가 키보드 제어를 막아 두었으면 에이전트도 거절한다 — 메뉴부터 감춘다.
-    if (!supported || !ffiModel.keyboard) return Offstage();
+    // ★Provider.of<FfiModel>(context) 로 찾으면 안 된다. 이 툴바는 탭바 꼬리에 붙어 있어 세션
+    //   페이지의 Provider 바깥이라, 거기서 찾으면 메인 창의 전역 모델이 잡힌다 — 상대 정보가 늘
+    //   비어 있어 메뉴가 영영 안 뜬다(2026-10-26 테스트2 실기기, HQ 는 Windows·1.4.161 을 받았는데도).
+    //   이 세션의 모델을 직접 듣는다. 피어 정보·권한이 바뀌면 그 모델이 notifyListeners 한다.
+    final model = ffi.ffiModel;
+    return ListenableBuilder(
+      listenable: model,
+      builder: (context, _) {
+        final pi = model.pi;
+        final v = pi.platformAdditions['chainremote_version'];
+        final supported = pi.platform == kPeerPlatformWindows &&
+            v is String &&
+            v.isNotEmpty &&
+            versionCmp(v, _kWinToolMinAgent) >= 0;
+        // 거래처가 키보드 제어를 막아 두었으면 에이전트도 거절한다 — 메뉴부터 감춘다.
+        if (!supported || !model.keyboard) return Offstage();
+        return _menu(context);
+      },
+    );
+  }
+
+  Widget _menu(BuildContext context) {
     return _IconSubmenuButton(
       tooltip: '거래처 PC 의 윈도우 도구 열기',
       label: '윈도우 도구',
