@@ -86,7 +86,9 @@ reqwest = { version = "0.12", features = ["blocking", "socks", "json", "native-t
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 # https://github.com/rustdesk/rustdesk/discussions/10197, not use cpal on linux
-cpal = { git = "https://github.com/rustdesk-org/cpal", branch = "osx-screencapturekit" }
+# rustdesk-org/cpal (osx-screencapturekit @ 6b374bc) 를 libs/cpal 로 들여왔다.
+# 고친 곳은 WASAPI 루프백 하나 — 윈10 1703 이전에서 소리가 안 나가던 것. 내역은 libs/cpal/CHAINREMOTE.md
+cpal = { path = "libs/cpal" }
 ringbuf = "0.3"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
@@ -212,7 +214,7 @@ android-wakelock = { git = "https://github.com/rustdesk-org/android-wakelock" }
 
 [workspace]
 members = ["libs/scrap", "libs/hbb_common", "libs/enigo", "libs/clipboard", "libs/virtual_display", "libs/virtual_display/dylib", "libs/portable", "libs/remote_printer"]
-exclude = ["vdi/host", "examples/custom_plugin"]
+exclude = ["vdi/host", "examples/custom_plugin", "libs/cpal"]
 
 # Patch libxdo-sys to use a stub implementation that doesn't require libxdo
 # This allows building and running on systems without libxdo installed (e.g., Wayland-only)
