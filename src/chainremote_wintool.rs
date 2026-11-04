@@ -46,6 +46,8 @@ pub fn spec(tool: Tool) -> Spec {
         Tool::PROGRAMS => ("프로그램 추가/제거", "control.exe", "appwiz.cpl", "appwiz.cpl"),
         Tool::EVENT_VIEWER => ("이벤트 뷰어", "eventvwr.msc", "", ""),
         Tool::SYSTEM_INFO => ("시스템 정보", "msinfo32.exe", "", ""),
+        // 홈 에디션에는 파일 자체가 없다 — 그때는 "이 PC 에는 … 없습니다" 로 끝난다.
+        Tool::GROUP_POLICY => ("그룹 정책 편집기", "gpedit.msc", "", ""),
     };
     Spec { name, file, args, cpl }
 }
@@ -232,7 +234,8 @@ mod tests {
     fn helper_arg_accepts_only_known_numbers() {
         assert_eq!(tool_from_arg("0"), Some(Tool::DEVICE_MANAGER));
         assert_eq!(tool_from_arg(" 9 "), Some(Tool::SYSTEM_INFO));
-        assert_eq!(tool_from_arg("10"), None);
+        assert_eq!(tool_from_arg("10"), Some(Tool::GROUP_POLICY));
+        assert_eq!(tool_from_arg("11"), None);
         assert_eq!(tool_from_arg("-1"), None);
         assert_eq!(tool_from_arg("cmd.exe"), None);
         assert_eq!(tool_from_arg(""), None);

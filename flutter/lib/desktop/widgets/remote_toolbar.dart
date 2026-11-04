@@ -939,8 +939,13 @@ const List<(int, String, IconData)?> _kWinTools = [
   null,
   (7, '프로그램 추가/제거', Icons.apps_outlined),
   (8, '이벤트 뷰어', Icons.receipt_long_outlined),
+  (10, '그룹 정책 편집기', Icons.policy_outlined),
   (9, '시스템 정보', Icons.info_outline),
 ];
+
+/// 나중에 붙은 도구는 그 번호를 아는 에이전트에만 보인다 — 옛 에이전트는 모르는 번호를
+///   조용히 버려서, 눌러도 아무 일이 없다. 여기 없는 번호는 [_kWinToolMinAgent] 를 따른다.
+const Map<int, String> _kWinToolItemMinAgent = {10: '1.4.164'};
 
 /// 원격 툴바 [윈도우 도구] — 고르면 거래처 화면에 그 도구 창이 열린다.
 ///   번호만 보낸다. 실제 실행은 에이전트가 사용자 권한으로 하고, 관리자 권한이 필요하면
@@ -967,12 +972,17 @@ class _WinToolMenu extends StatelessWidget {
             versionCmp(v, _kWinToolMinAgent) >= 0;
         // 거래처가 키보드 제어를 막아 두었으면 에이전트도 거절한다 — 메뉴부터 감춘다.
         if (!supported || !model.keyboard) return Offstage();
-        return _menu(context);
+        return _menu(context, v as String);
       },
     );
   }
 
-  Widget _menu(BuildContext context) {
+  Widget _menu(BuildContext context, String agentVersion) {
+    final tools = _kWinTools.where((t) {
+      if (t == null) return true;
+      final min = _kWinToolItemMinAgent[t.$1];
+      return min == null || versionCmp(agentVersion, min) >= 0;
+    }).toList();
     return _IconSubmenuButton(
       tooltip: '거래처 PC 의 윈도우 도구 열기',
       label: '윈도우 도구',
@@ -981,7 +991,7 @@ class _WinToolMenu extends StatelessWidget {
       ffi: ffi,
       color: _ToolbarTheme.blueColor,
       hoverColor: _ToolbarTheme.hoverBlueColor,
-      menuChildrenGetter: (_) => _kWinTools.map<Widget>((t) {
+      menuChildrenGetter: (_) => tools.map<Widget>((t) {
         if (t == null) return Divider();
         final (n, name, icon) = t;
         return MenuButton(
