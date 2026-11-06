@@ -29,6 +29,7 @@ import './kb_layout_type_chooser.dart';
 import 'package:flutter_hbb/utils/scale.dart';
 import 'package:flutter_hbb/common/widgets/custom_scale_base.dart';
 import 'package:flutter_hbb/common/widgets/chainremote_history.dart';
+import 'package:flutter_hbb/common/widgets/chainremote_wintool.dart';
 
 class ToolbarState {
   late RxBool _pin;
@@ -921,35 +922,10 @@ class _ControlMenu extends StatelessWidget {
   }
 }
 
-/// 윈도우 도구를 아는 에이전트 첫 버전. 옛 에이전트는 요청을 조용히 무시하므로,
-///   눌러도 아무 일 없는 메뉴를 보이지 않으려고 가린다.
-const String _kWinToolMinAgent = '1.4.161';
-
-/// 메뉴에 거는 도구들. 번호는 프로토콜 CrWinTool.Tool 과 같아야 한다
-///   (에이전트 src/chainremote_wintool.rs 의 고정 표). null 은 구분선.
-const List<(int, String, IconData)?> _kWinTools = [
-  (0, '장치 관리자', Icons.developer_board_outlined),
-  (1, '장치 및 프린터', Icons.print_outlined),
-  (2, '서비스', Icons.miscellaneous_services_outlined),
-  (3, '작업 관리자', Icons.monitor_heart_outlined),
-  null,
-  (4, '네트워크 연결', Icons.lan_outlined),
-  (5, '사운드', Icons.volume_up_outlined),
-  (6, '날짜와 시간', Icons.schedule_outlined),
-  null,
-  (7, '프로그램 추가/제거', Icons.apps_outlined),
-  (8, '이벤트 뷰어', Icons.receipt_long_outlined),
-  (10, '그룹 정책 편집기', Icons.policy_outlined),
-  (9, '시스템 정보', Icons.info_outline),
-];
-
-/// 나중에 붙은 도구는 그 번호를 아는 에이전트에만 보인다 — 옛 에이전트는 모르는 번호를
-///   조용히 버려서, 눌러도 아무 일이 없다. 여기 없는 번호는 [_kWinToolMinAgent] 를 따른다.
-const Map<int, String> _kWinToolItemMinAgent = {10: '1.4.164'};
-
 /// 원격 툴바 [윈도우 도구] — 고르면 거래처 화면에 그 도구 창이 열린다.
 ///   번호만 보낸다. 실제 실행은 에이전트가 사용자 권한으로 하고, 관리자 권한이 필요하면
 ///   거래처 화면에 평소처럼 UAC 창이 뜬다. 못 여는 경우는 에이전트가 이유를 띄운다.
+///   보일 조건과 도구 표는 모바일 ⋮ 메뉴와 같이 쓴다(chainremote_wintool.dart).
 class _WinToolMenu extends StatelessWidget {
   final FFI ffi;
   const _WinToolMenu({Key? key, required this.ffi}) : super(key: key);
@@ -964,25 +940,14 @@ class _WinToolMenu extends StatelessWidget {
     return ListenableBuilder(
       listenable: model,
       builder: (context, _) {
-        final pi = model.pi;
-        final v = pi.platformAdditions['chainremote_version'];
-        final supported = pi.platform == kPeerPlatformWindows &&
-            v is String &&
-            v.isNotEmpty &&
-            versionCmp(v, _kWinToolMinAgent) >= 0;
-        // 거래처가 키보드 제어를 막아 두었으면 에이전트도 거절한다 — 메뉴부터 감춘다.
-        if (!supported || !model.keyboard) return Offstage();
-        return _menu(context, v as String);
+        final v = crWinToolAgentVersion(model);
+        return v == null ? Offstage() : _menu(context, v);
       },
     );
   }
 
   Widget _menu(BuildContext context, String agentVersion) {
-    final tools = _kWinTools.where((t) {
-      if (t == null) return true;
-      final min = _kWinToolItemMinAgent[t.$1];
-      return min == null || versionCmp(agentVersion, min) >= 0;
-    }).toList();
+    final tools = crWinToolsFor(agentVersion);
     return _IconSubmenuButton(
       tooltip: '거래처 PC 의 윈도우 도구 열기',
       label: '윈도우 도구',

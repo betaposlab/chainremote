@@ -18,6 +18,7 @@ import '../../common.dart';
 import '../../common/widgets/overlay.dart';
 import '../../common/widgets/dialog.dart';
 import '../../common/widgets/chainremote_session_record.dart';
+import '../../common/widgets/chainremote_wintool.dart';
 import '../../common/widgets/remote_input.dart';
 import '../../models/input_model.dart';
 import '../../models/model.dart';
@@ -645,6 +646,50 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
         color: MyTheme.canvasColor, child: Stack(children: paints));
   }
 
+  /// ChainRemote [윈도우 도구] — 상대가 윈도우 거래처면 ⋮ 메뉴 맨 위에 붙는다(안드로이드
+  ///   상대의 뒤로·홈·전원과 같은 자리). 고르면 도구 목록이 한 번 더 뜬다. 보일 조건과 도구
+  ///   표는 데스크톱 툴바와 같은 것을 쓴다(chainremote_wintool.dart).
+  List<TTextMenu> _getWinToolMenus() {
+    final v = crWinToolAgentVersion(gFFI.ffiModel);
+    if (v == null) return [];
+    return [
+      TTextMenu(
+        child: Text('윈도우 도구'),
+        trailingIcon: Icon(Icons.handyman_outlined, color: MyTheme.accent),
+        onPressed: () => _showWinTools(v),
+      ),
+    ];
+  }
+
+  void _showWinTools(String agentVersion) {
+    final items = crWinToolsFor(agentVersion).map<PopupMenuEntry<int>>((t) {
+      if (t == null) return const PopupMenuDivider();
+      final (n, name, icon) = t;
+      return PopupMenuItem<int>(
+        value: n,
+        child: Row(children: [
+          Icon(icon, size: 20, color: MyTheme.accent),
+          const SizedBox(width: 12),
+          Text(name),
+        ]),
+      );
+    }).toList();
+    // ⋮ 메뉴가 닫힌 뒤에 띄운다(대화 옵션 메뉴와 같은 방식).
+    Future.delayed(Duration.zero, () async {
+      if (!mounted) return;
+      final size = MediaQuery.of(context).size;
+      final n = await showMenu<int>(
+        context: context,
+        position: RelativeRect.fromLTRB(120, size.height, 120, size.height),
+        items: items,
+        elevation: 8,
+      );
+      if (n != null) {
+        await bind.sessionCrWinTool(sessionId: sessionId, tool: n);
+      }
+    });
+  }
+
   List<TTextMenu> _getMobileActionMenus() {
     if (gFFI.ffiModel.pi.platform != kPeerPlatformAndroid ||
         !gFFI.ffiModel.keyboard) {
@@ -684,7 +729,10 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     final size = MediaQuery.of(context).size;
     final x = 120.0;
     final y = size.height;
-    final mobileActionMenus = _getMobileActionMenus();
+    final mobileActionMenus = [
+      ..._getWinToolMenus(),
+      ..._getMobileActionMenus(),
+    ];
     final menus = toolbarControls(context, id, gFFI);
 
     final List<PopupMenuEntry<int>> more = [
