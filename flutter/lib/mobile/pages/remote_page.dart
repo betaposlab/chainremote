@@ -467,6 +467,23 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     );
   }
 
+  /// ChainRemote: 거래처 소리 켜기/끄기 — 데스크톱 툴바의 음소거 버튼처럼 하단 바에 꺼내 둔다.
+  ///   같은 설정(disable-audio)이라 TV(화면 설정) 목록의 '거래처 소리 안 듣기'와 늘 같은 값이다.
+  Widget _muteButton() {
+    final muted = bind.sessionGetToggleOptionSync(
+        sessionId: sessionId, arg: 'disable-audio');
+    return IconButton(
+      color: Colors.white,
+      tooltip: muted ? '거래처 소리 켜기' : '거래처 소리 끄기',
+      icon: Icon(muted ? Icons.volume_off_rounded : Icons.volume_up_rounded),
+      onPressed: () async {
+        await bind.sessionToggleOption(
+            sessionId: sessionId, value: 'disable-audio');
+        if (mounted) setState(() {});
+      },
+    );
+  }
+
   Widget getBottomAppBar() {
     final ffiModel = Provider.of<FfiModel>(context);
     return BottomAppBar(
@@ -476,7 +493,13 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
         mainAxisSize: MainAxisSize.max,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: <Widget>[
-          Row(
+          // ChainRemote: 아이콘이 화면 폭보다 많으면(소리 버튼을 더해 375pt 폭 세로 화면 등) 넘친 만큼만
+          //   줄인다. 넓은 화면에선 그대로다 — scaleDown 은 키우지 않는다.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
               children: <Widget>[
                     IconButton(
                       color: Colors.white,
@@ -490,9 +513,14 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                       icon: Icon(Icons.tv),
                       onPressed: () {
                         setState(() => _showEdit = false);
-                        showOptions(context, widget.id, gFFI.dialogManager);
+                        // 대화상자의 '거래처 소리 안 듣기'로 바꿨을 수 있다 — 닫히면 소리 아이콘을 다시 그린다.
+                        showOptions(context, widget.id, gFFI.dialogManager)
+                            .then((_) {
+                          if (mounted) setState(() {});
+                        });
                       },
-                    )
+                    ),
+                    if (ffiModel.permissions['audio'] != false) _muteButton(),
                   ] +
                   (isWebDesktop || ffiModel.viewOnly || !ffiModel.keyboard
                       ? []
@@ -552,6 +580,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
                       },
                     ),
                   ]),
+            ),
+          ),
           Obx(() => IconButton(
                 color: Colors.white,
                 icon: Icon(Icons.expand_more),
@@ -1179,7 +1209,8 @@ class CursorPaint extends StatelessWidget {
   }
 }
 
-void showOptions(
+/// ChainRemote: 대화상자가 닫힐 때 끝나는 Future 를 돌려준다 — 하단 바 소리 아이콘을 다시 그리려고.
+Future<void> showOptions(
     BuildContext context, String id, OverlayDialogManager dialogManager) async {
   var displays = <Widget>[];
   final pi = gFFI.ffiModel.pi;
@@ -1250,7 +1281,7 @@ void showOptions(
     }
   }
 
-  dialogManager.show((setState, close, context) {
+  await dialogManager.show((setState, close, context) {
     var viewStyle =
         (viewStyleRadios.isNotEmpty ? viewStyleRadios[0].groupValue : '').obs;
     var imageQuality =
