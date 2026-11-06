@@ -26,6 +26,7 @@ import '../../models/platform_model.dart';
 import '../../utils/image.dart';
 import '../widgets/dialog.dart';
 import '../widgets/custom_scale_widget.dart';
+import '../widgets/chainremote_menu_constraints.dart';
 
 final initText = '1' * 1024;
 
@@ -683,6 +684,7 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
         position: RelativeRect.fromLTRB(120, size.height, 120, size.height),
         items: items,
         elevation: 8,
+        constraints: crMobileMenuConstraints(MediaQuery.of(context), ios: isIOS),
       );
       if (n != null) {
         await bind.sessionCrWinTool(sessionId: sessionId, tool: n);
@@ -757,6 +759,8 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
         position: RelativeRect.fromLTRB(x, y, x, y),
         items: more,
         elevation: 8,
+        // ChainRemote: iOS 가로에선 위쪽 띠의 탭을 iOS 가 가져가 맨 위 항목이 안 눌렸다(그 함수 주석).
+        constraints: crMobileMenuConstraints(MediaQuery.of(context), ios: isIOS),
       );
       if (index != null) {
         if (index < mobileActionMenus.length) {
