@@ -61,7 +61,8 @@ static KIND: Mutex<String> = Mutex::new(String::new());
 static RESTARTED_PENDING: AtomicBool = AtomicBool::new(false);
 /// 마지막 점검에서 데몬이 정상이었나(표시용). 관제 off 면 의미 없다.
 static LAST_OK: AtomicBool = AtomicBool::new(false);
-/// 이번 부팅에서 데몬이 **한 번이라도** 정상이었나. 복구는 이게 참일 때만 한다.
+/// 에이전트가 켜진 뒤(보통 부팅) 데몬이 **한 번이라도** 정상이었나. 복구는 이게 참일 때만 한다 —
+///   예외는 포스앱이 떠 있을 때다(POS_RACE). 메모리에만 있는 값이라 에이전트가 다시 뜨면 거짓에서 시작한다.
 ///
 /// ★2026-08-13 Chang: KSCAT 데몬은 **IC 리더기가 켜져 있어야** 뜬다. 그래서 "포트가 닫혀
 ///   있다"는 고장만이 아니라 **영업 준비 전(리더기 꺼짐)이라는 정상 상태**이기도 하다.
@@ -87,6 +88,19 @@ static FAILURES: AtomicU32 = AtomicU32::new(0);
 static BAD_STREAK: AtomicU32 = AtomicU32::new(0);
 /// 이 시각까지는 복구를 시도하지 않는다(포기 후 휴지, 재실행 직후 유예).
 static QUIET_UNTIL: Mutex<Option<Instant>> = Mutex::new(None);
+/// 포스앱이 떠 있는데 데몬 서비스가 한 번도 안 켜진 상태로 본 것. 이때는 '대기'가 아니라 '중지'로 보고한다.
+///   현장에서 되풀이된 모양이다(2026-11-14 참새집, Chang): 포스앱(OKPOS)이 데몬보다 먼저 뜨면 KSCAT 은
+///   떠 있는데 서비스가 '중지'로 남는다. 관제는 이걸 리더기 대기로 보고 손대지 않았고, 매장은 결제가
+///   안 되는 채 영업하다가 전화를 걸어왔다.
+static POS_RACE: AtomicBool = AtomicBool::new(false);
+/// 위 판정 로그를 매 주기 찍지 않기 위한 1회 플래그.
+static POS_RACE_LOGGED: AtomicBool = AtomicBool::new(false);
+/// 지금 보고 있는 데몬 프로세스와 처음 본 시각 — 막 뜬 데몬을 죽이지 않으려고 나이를 잰다.
+static DAEMON_SEEN: Mutex<Option<(u32, Instant)>> = Mutex::new(None);
+/// 방금 다시 띄웠다 — 유예가 끝났는데도 서비스가 안 켜져 있으면 그 재실행은 실패로 센다.
+static RELAUNCH_PENDING: AtomicBool = AtomicBool::new(false);
+/// 로그인 전 대기 로그를 매 주기 찍지 않기 위한 1회 플래그.
+static PRELOGIN_LOGGED: AtomicBool = AtomicBool::new(false);
 
 /// 점검 주기. 카드 결제는 손님이 카드를 내미는 순간에만 필요하니 초 단위 반응이 필요 없고,
 /// 30초면 "결제 한 건 실패하고 다시 긁으면 된다" 수준으로 수습된다. netstat 한 번이 전부라
@@ -107,6 +121,16 @@ const MAX_FAILURES: u32 = 3;
 ///   늦어지는 것뿐이고, 이 관제의 목표는 "결제 한 건 실패하고 다시 긁으면 된다" 수준이라
 ///   충분히 감당된다. 죽이는 쪽의 손해가 훨씬 크므로 늦는 편을 택한다.
 const BAD_STREAK_NEEDED: u32 = 2;
+/// 포스앱 — 이게 떠 있으면 매장이 영업 중이다. 데몬 서비스가 한 번도 안 켜졌을 때 '리더기를 아직 안 켠
+///   영업 준비 전'인지 '영업 중인데 결제가 안 되는 고장'인지를 이걸로 가른다.
+///   OKPOS 는 바탕화면 바로가기가 실행기(OKPosUpgrade.exe)를 띄우고, 실행기가 업데이트를 확인한 뒤
+///   본 앱 OKPos.exe 를 띄운다 — 떠 있는 동안 남는 건 OKPos.exe 다(2026-11-16 설치본에서 확인).
+///   다른 포스앱은 작업 관리자 '세부 정보'에서 실행 파일 이름을 확인해 한 줄씩 더한다.
+const POS_APPS: &[&str] = &["OKPos.exe"];
+/// 포스앱이 떠 있을 때, 데몬 프로세스를 처음 본 뒤 이만큼 지나도 서비스가 안 켜졌으면 고장으로 본다.
+///   KSCAT 은 뜨면 곧 서비스를 켜지만 부팅 직후엔 자동 실행 자체가 늦다(Chang) — 막 떠서 서비스를
+///   켜는 중인 걸 죽이지 않으려는 여유다.
+const POS_RACE_GRACE: Duration = Duration::from_secs(120);
 
 /// 관제 종류 로컬 캐시 — 재부팅 직후 heartbeat 를 기다리지 않고 바로 무장한다.
 const KIND_CACHE_KEY: &str = "chainremote-van-kind";
@@ -128,6 +152,9 @@ pub fn set_kind(kind: &str) {
             WAITING_LOGGED.store(false, Ordering::Relaxed);
             NOT_INSTALLED.store(false, Ordering::Relaxed);
             FAILURES.store(0, Ordering::Relaxed);
+            POS_RACE.store(false, Ordering::Relaxed);
+            POS_RACE_LOGGED.store(false, Ordering::Relaxed);
+            RELAUNCH_PENDING.store(false, Ordering::Relaxed);
         }
     }
     if hbb_common::config::LocalConfig::get_option(KIND_CACHE_KEY) != kind {
@@ -144,8 +171,9 @@ pub fn set_kind(kind: &str) {
 ///   None 은 서버가 "아직 판정 못 함"으로 받아 회색 '대기'로 그린다 — 서버도 화면도 손댈 것
 ///   없이 사실에 맞는 표시가 된다(2026-08-13 Chang: "모든 게 정상이면 정상 메시지를 내야 한다").
 ///
-///   판정을 보류하는 조건은 tick 의 게이트와 같다: 프로세스는 있는데 이번 부팅에서 한 번도
-///   정상이었던 적이 없을 때. 한 번이라도 돌았다가 멈춘 것이면 진짜 고장이라 false 가 나간다.
+///   판정을 보류하는 조건은 tick 의 게이트와 같다: 프로세스는 있는데 에이전트가 켜진 뒤 한 번도
+///   정상이었던 적이 없을 때. 한 번이라도 돌았다가 멈춘 것이면 진짜 고장이라 false 가 나가고,
+///   포스앱이 떠 있는데 서비스가 안 켜진 것(POS_RACE)도 영업 중 고장이라 false 가 나간다.
 pub fn current_ok() -> Option<bool> {
     let on = KIND.lock().map(|k| !k.is_empty()).unwrap_or(false);
     if !on {
@@ -155,7 +183,11 @@ pub fn current_ok() -> Option<bool> {
         return Some(true);
     }
     // 아직 한 번도 안 돌았고 프로그램은 떠 있다 = 리더기를 안 켠 것으로 본다.
-    if !EVER_OK.load(Ordering::Relaxed) && !NOT_INSTALLED.load(Ordering::Relaxed) {
+    //   단 포스앱이 떠 있으면 영업 중이라 대기가 아니다 — '중지'로 보고한다(POS_RACE).
+    if !EVER_OK.load(Ordering::Relaxed)
+        && !NOT_INSTALLED.load(Ordering::Relaxed)
+        && !POS_RACE.load(Ordering::Relaxed)
+    {
         return None;
     }
     Some(false)
@@ -232,6 +264,9 @@ fn tick(d: &'static Daemon) {
         GAVE_UP.store(false, Ordering::Relaxed);
         NOT_INSTALLED.store(false, Ordering::Relaxed);
         EVER_OK.store(true, Ordering::Relaxed);
+        POS_RACE.store(false, Ordering::Relaxed);
+        POS_RACE_LOGGED.store(false, Ordering::Relaxed);
+        RELAUNCH_PENDING.store(false, Ordering::Relaxed);
         cache_path_if_missing(d);
         return;
     }
@@ -257,6 +292,33 @@ fn tick(d: &'static Daemon) {
         return;
     }
 
+    // 방금 다시 띄웠는데 유예(START_GRACE)가 끝나도 서비스가 안 켜졌다 = 그 재실행은 실패다.
+    //   ★종전엔 실행만 되면 실패로 세지 않았다. 서비스가 끝내 안 켜지는 고장(리더기 꺼짐·케이블)이면
+    //   약 2분마다 끝없이 껐다 켰다 — "3번 실패하면 손을 뗀다"가 실행 자체가 안 될 때만 지켜진 셈이다.
+    if RELAUNCH_PENDING.swap(false, Ordering::Relaxed) {
+        log::warn!(
+            "[chainremote_van] {} 다시 띄웠지만 {}초 안에 서비스가 안 켜졌다 — 실패로 센다",
+            d.kind,
+            START_GRACE.as_secs()
+        );
+        note_failure();
+        if GAVE_UP.load(Ordering::Relaxed) {
+            return;
+        }
+    }
+
+    // ★로그인 전에는 띄울 사용자 화면이 없다. 이때 실행은 반드시 실패하는데, 그걸 실패로 세면
+    //   로그인하기도 전에(밤사이 재부팅 등) '복구 실패'로 굳어 그날 내내 손을 놓는다. 그러면 아래
+    //   포스앱 판정도 막힌다. 로그인할 때까지 아무것도 세지 않고 기다린다.
+    if crate::platform::windows::is_prelogin() {
+        BAD_STREAK.store(0, Ordering::Relaxed);
+        if !PRELOGIN_LOGGED.swap(true, Ordering::Relaxed) {
+            log::info!("[chainremote_van] 로그인 전 — 띄울 화면이 없어 기다린다");
+        }
+        return;
+    }
+    PRELOGIN_LOGGED.store(false, Ordering::Relaxed);
+
     // ★리더기 대기와 진짜 고장은 **프로세스 유무**로 갈린다.
     //
     //   KSCAT 은 IC 리더기가 꺼져 있어도 프로세스로는 떠 있다 — 리더기 스위치가 좌우하는 건
@@ -267,16 +329,41 @@ fn tick(d: &'static Daemon) {
     //
     //   프로세스가 **있는데** 포트만 닫혀 있을 때가 애매한 자리다. 그건 리더기를 아직 안 켠
     //   정상 상태일 수도, 데몬만 멈춘 고장일 수도 있다. 둘을 시간축으로 가른다 —
-    //   이번 부팅에서 한 번이라도 정상이었다면 "돌던 것이 멈춘" 고장이고, 한 번도 없었다면
-    //   아직 안 켠 것이다.
-    if find_pid(d.process).is_some() && !EVER_OK.load(Ordering::Relaxed) {
-        if !WAITING_LOGGED.swap(true, Ordering::Relaxed) {
-            log::info!(
-                "[chainremote_van] {} 아직 정상인 적 없음 — 리더기 대기로 보고 손대지 않는다",
-                d.kind
-            );
+    //   에이전트가 켜진 뒤(보통 부팅) 한 번이라도 정상이었다면 "돌던 것이 멈춘" 고장이고,
+    //   한 번도 없었다면 아직 안 켠 것이다.
+    //
+    //   ★단 포스앱이 떠 있으면 매장은 영업 중이다 — '아직 안 켠' 상태가 아니다. 현장에서 되풀이된
+    //   고장이 바로 이 모양이었다(2026-11-14 참새집, Chang): 포스앱(OKPOS)이 데몬보다 먼저 뜨면
+    //   KSCAT 은 떠 있는데 서비스가 '중지'로 남고, 처음부터 한 번도 안 돌았으니 위 시간축으로는
+    //   리더기 대기와 똑같아 보인다. 사람은 [서비스 시작]을 누르거나 KSCAT 을 껐다 켜서 살린다
+    //   (포스앱이 떠 있어도 껐다 켜면 산다 — Chang). 그래서 포스앱이 떠 있고 이 데몬 프로세스를
+    //   본 지 POS_RACE_GRACE 가 지났으면 고장으로 보고 아래 복구로 넘긴다.
+    match find_pid(d.process) {
+        Some(pid) => {
+            let age = daemon_age(pid);
+            if !EVER_OK.load(Ordering::Relaxed) {
+                // 나이를 먼저 본다 — 막 뜬 데몬이면 tasklist 를 한 번 더 돌릴 필요도 없다.
+                if !(age >= POS_RACE_GRACE && pos_app_running()) {
+                    POS_RACE.store(false, Ordering::Relaxed);
+                    if !WAITING_LOGGED.swap(true, Ordering::Relaxed) {
+                        log::info!(
+                            "[chainremote_van] {} 아직 정상인 적 없음 — 리더기 대기로 보고 손대지 않는다",
+                            d.kind
+                        );
+                    }
+                    return;
+                }
+                POS_RACE.store(true, Ordering::Relaxed);
+                if !POS_RACE_LOGGED.swap(true, Ordering::Relaxed) {
+                    log::warn!(
+                        "[chainremote_van] 포스앱이 떠 있는데 {} 서비스가 {}초째 안 켜짐 — 대기가 아니라 고장으로 본다",
+                        d.kind,
+                        age.as_secs()
+                    );
+                }
+            }
         }
-        return;
+        None => forget_daemon(),
     }
 
     // 여기까지 왔으면 "이번 점검은 확실히 비정상"이다. 그래도 연속으로 그래야 손을 댄다.
@@ -355,6 +442,8 @@ fn recover(d: &'static Daemon) {
         true => {
             log::info!("[chainremote_van] launched {}", path);
             RESTARTED_PENDING.store(true, Ordering::Relaxed);
+            // 유예가 끝났을 때 서비스가 켜졌는지로 이 재실행의 성패를 센다(tick 의 RELAUNCH_PENDING).
+            RELAUNCH_PENDING.store(true, Ordering::Relaxed);
             // 데몬이 포트를 열 시간을 준다. 다음 주기에 또 판정하면 뜨는 중인 걸 죽인다.
             set_quiet(START_GRACE);
         }
@@ -376,6 +465,35 @@ fn note_failure() {
              (reader cable / COM mismatch needs a human)",
             n
         );
+    }
+}
+
+/// 포스앱이 떠 있나 — 매장이 영업 중이라는 신호(POS_APPS 주석).
+fn pos_app_running() -> bool {
+    POS_APPS.iter().any(|p| find_pid(p).is_some())
+}
+
+/// 이 데몬 프로세스를 처음 본 뒤 지난 시간. 다른 프로세스(재실행·재부팅)면 지금부터 다시 잰다.
+///   에이전트가 늦게 떠서 이미 떠 있던 데몬을 처음 보는 경우엔 실제보다 짧게 잰다 — 손대는 게
+///   늦어질 뿐이라 안전한 쪽이다.
+fn daemon_age(pid: u32) -> Duration {
+    let now = Instant::now();
+    let Ok(mut g) = DAEMON_SEEN.lock() else {
+        return Duration::ZERO;
+    };
+    if let Some((p, t)) = *g {
+        if p == pid {
+            return now.saturating_duration_since(t);
+        }
+    }
+    *g = Some((pid, now));
+    Duration::ZERO
+}
+
+/// 데몬 프로세스가 사라졌다 — 다음에 뜨는 프로세스는 새로 나이를 잰다.
+fn forget_daemon() {
+    if let Ok(mut g) = DAEMON_SEEN.lock() {
+        *g = None;
     }
 }
 
