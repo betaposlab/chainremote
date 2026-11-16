@@ -129,7 +129,7 @@ const BAD_STREAK_NEEDED: u32 = 2;
 const POS_APPS: &[&str] = &["OKPos.exe"];
 /// 포스앱이 떠 있을 때, 데몬 프로세스를 처음 본 뒤 이만큼 지나도 서비스가 안 켜졌으면 고장으로 본다.
 ///   KSCAT 은 뜨면 곧 서비스를 켜지만 부팅 직후엔 자동 실행 자체가 늦다(Chang) — 막 떠서 서비스를
-///   켜는 중인 걸 죽이지 않으려는 여유다.
+///   켜는 중인 걸 죽이지 않으려는 여유다. 이 여유는 판정을 **미루기만** 하고 되돌리지는 않는다(tick).
 const POS_RACE_GRACE: Duration = Duration::from_secs(120);
 
 /// 관제 종류 로컬 캐시 — 재부팅 직후 heartbeat 를 기다리지 않고 바로 무장한다.
@@ -342,8 +342,17 @@ fn tick(d: &'static Daemon) {
         Some(pid) => {
             let age = daemon_age(pid);
             if !EVER_OK.load(Ordering::Relaxed) {
-                // 나이를 먼저 본다 — 막 뜬 데몬이면 tasklist 를 한 번 더 돌릴 필요도 없다.
-                if !(age >= POS_RACE_GRACE && pos_app_running()) {
+                // 막 뜬 데몬은 서비스를 켜는 중일 수 있어 아직 판정하지 않는다. 나이를 먼저 보는 건
+                //   그때는 tasklist 를 한 번 더 돌릴 필요가 없어서다.
+                //   ★단 이미 내린 판정(POS_RACE)은 **그대로 둔다.** 우리가 다시 띄운 데몬도 새 pid 라
+                //   나이가 0 부터 다시 세지는데, 종전엔 여기서 판정을 '대기'로 되돌렸다. 다시 띄워도
+                //   서비스가 안 켜지는 고장이면 재실행 직후 2분마다 화면이 빨간 '중지'에서 회색 '대기'로
+                //   돌아갔고, 그때 걸린 보고의 재시작은 서버가 '회복 못 함'으로도 세지 않았다
+                //   (vanOk null 은 어느 쪽으로도 안 센다 — 2026-11-16 테스트2 시험 중 검토로 발견).
+                if age < POS_RACE_GRACE {
+                    return;
+                }
+                if !pos_app_running() {
                     POS_RACE.store(false, Ordering::Relaxed);
                     if !WAITING_LOGGED.swap(true, Ordering::Relaxed) {
                         log::info!(
