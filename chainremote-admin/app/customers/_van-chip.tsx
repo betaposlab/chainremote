@@ -1,8 +1,9 @@
 // VAN 카드결제 데몬 관제 칩(마이그 036) — 관제를 켠 거래처에만 표시.
 //   데몬이 멈추면 화면엔 아무 표시도 없이 카드만 안 긁힌다. 그래서 여기서는 "지금 정상인가"를
 //   가장 크게 보여주고, 되살린 누적 횟수를 옆에 붙인다(잦으면 그 기기 데몬이 불안정하다는 신호).
-//   gaveUp 은 재실행으로 안 낫는 고장이라는 뜻이라 빨강으로 띄운다 — 리더기가 빠졌거나 COM
-//   포트가 어긋난 경우가 대부분이고, 사람이 가야 한다.
+//   gaveUp 은 세 번 다시 띄워도 안 켜졌다는 뜻이라 빨강으로 띄운다 — 리더기가 꺼졌거나(토스 프론트)
+//   빠졌거나 COM 포트가 어긋난 경우가 대부분이다. 1.4.168~ 에이전트는 그 뒤에도 영업 중이면 10분마다
+//   다시 띄우므로 리더기만 켜면 저절로 살아나고, 그보다 낮으면 사람이 [서비스 시작]을 눌러야 한다.
 //   관제 off 인 대다수 거래처는 null 을 돌려 아무것도 그리지 않는다.
 
 import { vanLabel } from "@/lib/van-constants";
@@ -34,6 +35,7 @@ export function VanChip({
   unrecoveredCount,
   reportedAt = null,
   resetAt = null,
+  slowRetry = false,
 }: {
   kind: string | null;
   ok: boolean | null;
@@ -51,6 +53,8 @@ export function VanChip({
   reportedAt?: string | null;
   /** 마지막으로 카운터를 0 으로 되돌린 시각(058). "재시작 없음"이 언제부터인지 말해 준다. */
   resetAt?: string | null;
+  /** 이 기기 에이전트가 손을 뗀 뒤에도 영업 중 10분마다 다시 띄우나(VAN_SLOW_RETRY_SINCE 이상). */
+  slowRetry?: boolean;
 }) {
   if (!kind) return null;
 
@@ -88,12 +92,20 @@ export function VanChip({
     );
   }
 
-  // 손 뗀 상태가 가장 급하다 — 자동 복구가 안 되는 고장이라 사람이 안 가면 계속 결제 불가다.
+  // 손 뗀 상태가 가장 급하다 — 리더기를 고치거나 켜기 전까지 결제 불가다. 무엇을 하면 풀리는지는
+  //   에이전트 버전에 따라 다르다(slowRetry).
   if (gaveUp) {
     return (
       <span
         className="inline-block px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap bg-rose-500/15 text-rose-300 font-medium"
-        title={`${name} 데몬 자동 복구 실패 — 재실행으로 안 낫습니다. 리더기 연결·COM 포트를 확인하세요 · ${restarts}`}
+        title={[
+          `${name} 데몬 자동 복구 실패 — 세 번 다시 띄워도 서비스가 안 켜졌습니다`,
+          "리더기(토스 프론트)가 꺼졌는지, 연결·COM 포트를 확인하세요",
+          slowRetry
+            ? "포스앱이 켜져 있는 동안은 10분마다 다시 띄우므로 리더기를 켜면 저절로 살아납니다"
+            : "이 기기 에이전트는 다시 시도하지 않습니다 — 리더기를 켠 뒤 KSCAT [서비스 시작]을 누르세요",
+          restarts,
+        ].join(" · ")}
       >
         💳 {name} 복구 실패
       </span>

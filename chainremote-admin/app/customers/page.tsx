@@ -19,6 +19,8 @@ import { FirewallChip } from "./_firewall-chip";
 import { InfectChip } from "./_infect-chip";
 import { SchedChip } from "./_sched-chip";
 import { VanChip } from "./_van-chip";
+import { VAN_SLOW_RETRY_SINCE } from "@/lib/van-constants";
+import { isVersionNewer } from "@/lib/data/pending-updates";
 import { AutoRefresh } from "./_auto-refresh";
 import { redirect } from "next/navigation";
 import { canWrite, isPlatformOperator } from "@/lib/roles";
@@ -478,6 +480,10 @@ export default async function CustomersPage({
                           unrecoveredCount={c.vanUnrecoveredCount}
                           reportedAt={c.vanReportedAt ? c.vanReportedAt.toISOString() : null}
                           resetAt={c.vanResetAt ? c.vanResetAt.toISOString() : null}
+                          slowRetry={
+                            !!c.lastVersion &&
+                            !isVersionNewer(VAN_SLOW_RETRY_SINCE, c.lastVersion)
+                          }
                         />
                       </div>
                     ) : (
