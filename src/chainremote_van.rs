@@ -18,9 +18,13 @@
 //! 안전장치 둘:
 //!   - 포트에 연결이 붙어 있으면(승인 진행 중) 손대지 않는다.
 //!   - 리더기 케이블이 빠졌거나 COM 이 어긋난 고장은 재실행으로 안 낫는다. 연속 실패가
-//!     쌓이면 **완전히 손을 떼고** 패널로 사람을 부른다. 되풀이 재시작은 POS 를 괴롭히는
+//!     쌓이면 빠른 재시도를 멈추고 패널로 사람을 부른다. 되풀이 재시작은 POS 를 괴롭히는
 //!     데다, 하필 A/S 기사가 리더기를 붙잡고 있는 중에 프로세스를 죽여 작업을 방해한다.
 //!     사람이 고쳐서 데몬이 살아나면 아래 정상 경로가 저절로 다시 무장시킨다(수동 조작 불필요).
+//!     ★단 포스앱이 떠 있는 동안(영업 중)은 SLOW_RETRY_INTERVAL 마다 한 번씩 계속 띄운다.
+//!     KSCAT 은 켜진 뒤 약 3분만 스스로 리더기를 찾고 그 뒤로는 다시 찾지 않아서, 리더기(토스
+//!     프론트)를 늦게 켠 매장은 누군가 KSCAT 을 다시 켜 주기 전까지 결제가 안 된다
+//!     (2026-11-17 테스트2 실측 — DAEMON_SELF_RETRY).
 //!
 //! 감시는 관제를 켠 거래처에서만 돈다. 나머지는 스레드가 잠만 잔다.
 
@@ -75,7 +79,8 @@ static LAST_OK: AtomicBool = AtomicBool::new(false);
 static EVER_OK: AtomicBool = AtomicBool::new(false);
 /// 위 대기 로그를 매 주기(90초) 찍지 않기 위한 1회 플래그.
 static WAITING_LOGGED: AtomicBool = AtomicBool::new(false);
-/// 복구를 포기한 상태 — 재실행으로 안 낫는 고장이라는 뜻. 패널이 이걸 사람에게 알린다.
+/// 빠른 재시도(MAX_FAILURES)를 다 쓴 상태 — 재실행으로 안 낫는 고장이라는 뜻. 패널이 이걸 사람에게
+///   알린다. 포스앱이 떠 있는 동안은 간격을 크게 벌려 계속 시도한다(slow_retry).
 static GAVE_UP: AtomicBool = AtomicBool::new(false);
 /// 이 기기에 데몬 자체가 없다 = 다른 VAN 을 쓰는 거래처에 관제를 잘못 켰다는 뜻.
 ///   같은 '복구 실패'라도 해야 할 일이 정반대다 — 리더기 고장은 사람이 가야 하고, 이쪽은
@@ -86,7 +91,7 @@ static FAILURES: AtomicU32 = AtomicU32::new(0);
 /// 연속으로 "확실히 비정상"이었던 점검 횟수. 정상이거나 판정 불가면 0으로 돌아간다.
 ///   손대기 전에 이게 BAD_STREAK_NEEDED 에 닿아야 한다 — 아래 상수 주석 참조.
 static BAD_STREAK: AtomicU32 = AtomicU32::new(0);
-/// 이 시각까지는 복구를 시도하지 않는다(포기 후 휴지, 재실행 직후 유예).
+/// 이 시각까지는 복구를 시도하지 않는다(재실행 직후 유예 — 데몬이 스스로 서비스를 켤 시간).
 static QUIET_UNTIL: Mutex<Option<Instant>> = Mutex::new(None);
 /// 포스앱이 떠 있는데 데몬 서비스가 한 번도 안 켜진 상태로 본 것. 이때는 '대기'가 아니라 '중지'로 보고한다.
 ///   현장에서 되풀이된 모양이다(2026-11-14 참새집, Chang): 포스앱(OKPOS)이 데몬보다 먼저 뜨면 KSCAT 은
@@ -99,6 +104,9 @@ static POS_RACE_LOGGED: AtomicBool = AtomicBool::new(false);
 static DAEMON_SEEN: Mutex<Option<(u32, Instant)>> = Mutex::new(None);
 /// 방금 다시 띄웠다 — 유예가 끝났는데도 서비스가 안 켜져 있으면 그 재실행은 실패로 센다.
 static RELAUNCH_PENDING: AtomicBool = AtomicBool::new(false);
+/// 마지막으로 복구를 시도한 시각. 두 군데서 쓴다 — ① 그 직후 처음 보는 데몬 프로세스는 우리가
+///   띄운 것이라 이 시각부터 나이를 잰다(daemon_age) ② 손을 뗀 뒤 다음 시도까지의 간격(slow_retry).
+static LAST_ATTEMPT: Mutex<Option<Instant>> = Mutex::new(None);
 /// 로그인 전 대기 로그를 매 주기 찍지 않기 위한 1회 플래그.
 static PRELOGIN_LOGGED: AtomicBool = AtomicBool::new(false);
 
@@ -106,10 +114,29 @@ static PRELOGIN_LOGGED: AtomicBool = AtomicBool::new(false);
 /// 30초면 "결제 한 건 실패하고 다시 긁으면 된다" 수준으로 수습된다. netstat 한 번이 전부라
 /// 저사양 POS 도 부담이 없다.
 const WATCH_INTERVAL: Duration = Duration::from_secs(30);
-/// 재실행 후 데몬이 포트를 열 때까지 주는 시간. 이 안에 다시 판정하면 멀쩡한 걸 또 죽인다.
-const START_GRACE: Duration = Duration::from_secs(60);
-/// 이만큼 연속 실패하면 손을 뗀다. 재실행으로 안 낫는 원인(리더기 케이블·COM 불일치 등)이다.
+/// KSCAT 이 리더기 없이 켜졌을 때 스스로 다시 시도하는 시간(+여유).
+///
+/// ★2026-11-17 테스트2 실측(KSCAT v2.4.0.8 자체 로그): 켜질 때 리더기가 없으면 "리더기 초기화
+///   실패 → 서비스시작 실패"를 약 18초 간격으로 11번, 켜진 뒤 약 187초 동안 되풀이하고 **그 뒤로는
+///   다시 시도하지 않는다.** 프로그램은 트레이에 남고 서비스만 계속 '중지'다. 그 안에 리더기가
+///   돌아오면 다음 시도에서 스스로 서비스를 켜고(다시 띄우고 37초 뒤 켜짐), 지나서 돌아오면
+///   아무 일도 일어나지 않는다(10분 넘게 관찰). 이미 돌고 있는 서비스는 리더기가 빠져도 꺼지지 않는다.
+///   그러니 막 뜬 데몬은 이 시간 동안 건드리지 않고, 이 시간이 지나도록 서비스가 없을 때 껐다
+///   켜는 것이 맞다. 종전 60초·120초로는 KSCAT 이 아직 스스로 찾는 중에 실패로 세고 죽였다
+///   (같은 날 아침: 우리가 띄운 처음 두 개를 11번 중 5번째 시도 무렵에 죽였다).
+const DAEMON_SELF_RETRY: Duration = Duration::from_secs(200);
+/// 재실행 후 데몬이 스스로 서비스를 켤 때까지 주는 시간. 이 안에 판정하면 아직 리더기를 찾는
+///   중인 걸 죽인다(DAEMON_SELF_RETRY).
+const START_GRACE: Duration = DAEMON_SELF_RETRY;
+/// 이만큼 연속 실패하면 빠른 재시도를 멈추고 사람을 부른다(패널 '복구 실패'). 재실행으로 안 낫는
+///   원인(리더기 꺼짐·케이블·COM 불일치 등)이다. 포스앱이 떠 있으면 SLOW_RETRY_INTERVAL 로 계속 시도한다.
 const MAX_FAILURES: u32 = 3;
+/// 빠른 재시도를 다 쓴 뒤, 포스앱이 떠 있는 동안(영업 중) 한 번씩 더 띄우는 간격.
+///   리더기(토스 프론트)를 늦게 켠 매장은 KSCAT 이 이미 손을 놓은 뒤라 저절로는 안 산다
+///   (DAEMON_SELF_RETRY). 영업 중에 결제가 그날 내내 막히지 않게, 리더기가 돌아오면 이 간격
+///   안에 살아나게 한다. 리더기가 꺼진 채 영업하는 동안은 KSCAT 이 이 간격으로 다시 뜨지만,
+///   그동안은 어차피 카드 결제가 안 되는 시간이다(2026-11-17 Chang 결정: 10분).
+const SLOW_RETRY_INTERVAL: Duration = Duration::from_secs(600);
 /// 손대기 전에 요구하는 연속 비정상 횟수 = **디바운스**.
 ///
 /// ★왜 필요한가(2026-08-16 감사 A6): 종전엔 단 한 번의 점검에서 LISTEN 이 안 보이면 곧바로
@@ -127,10 +154,11 @@ const BAD_STREAK_NEEDED: u32 = 2;
 ///   본 앱 OKPos.exe 를 띄운다 — 떠 있는 동안 남는 건 OKPos.exe 다(2026-11-16 설치본에서 확인).
 ///   다른 포스앱은 작업 관리자 '세부 정보'에서 실행 파일 이름을 확인해 한 줄씩 더한다.
 const POS_APPS: &[&str] = &["OKPos.exe"];
-/// 포스앱이 떠 있을 때, 데몬 프로세스를 처음 본 뒤 이만큼 지나도 서비스가 안 켜졌으면 고장으로 본다.
-///   KSCAT 은 뜨면 곧 서비스를 켜지만 부팅 직후엔 자동 실행 자체가 늦다(Chang) — 막 떠서 서비스를
-///   켜는 중인 걸 죽이지 않으려는 여유다. 이 여유는 판정을 **미루기만** 하고 되돌리지는 않는다(tick).
-const POS_RACE_GRACE: Duration = Duration::from_secs(120);
+/// 포스앱이 떠 있을 때, 데몬 프로세스가 뜬 뒤 이만큼 지나도 서비스가 안 켜졌으면 고장으로 본다.
+///   KSCAT 은 뜬 뒤 약 3분은 스스로 리더기를 찾는다(DAEMON_SELF_RETRY) — 그동안 죽이면 스스로 살아날
+///   것까지 죽인다. 부팅 직후엔 자동 실행 자체도 늦다(Chang). 이 여유는 판정을 **미루기만** 하고
+///   되돌리지는 않는다(tick).
+const POS_RACE_GRACE: Duration = DAEMON_SELF_RETRY;
 
 /// 관제 종류 로컬 캐시 — 재부팅 직후 heartbeat 를 기다리지 않고 바로 무장한다.
 const KIND_CACHE_KEY: &str = "chainremote-van-kind";
@@ -281,9 +309,11 @@ fn tick(d: &'static Daemon) {
         return;
     }
 
-    // 손을 뗀 상태면 복구를 시도하지 않는다. 감시는 계속 돌므로, 사람이 리더기를 고치고
+    // 손을 뗀 상태면 빠른 복구는 하지 않는다. 감시는 계속 돌므로, 사람이 리더기를 고치고
     // 데몬을 켜는 순간 위 정상 경로가 실패 카운트와 포기 상태를 털고 다시 무장한다.
+    //   영업 중(포스앱)이면 느린 재시도만 이어 간다(slow_retry).
     if GAVE_UP.load(Ordering::Relaxed) {
+        slow_retry(d);
         return;
     }
 
@@ -345,7 +375,7 @@ fn tick(d: &'static Daemon) {
                 // 막 뜬 데몬은 서비스를 켜는 중일 수 있어 아직 판정하지 않는다. 나이를 먼저 보는 건
                 //   그때는 tasklist 를 한 번 더 돌릴 필요가 없어서다.
                 //   ★단 이미 내린 판정(POS_RACE)은 **그대로 둔다.** 우리가 다시 띄운 데몬도 새 pid 라
-                //   나이가 0 부터 다시 세지는데, 종전엔 여기서 판정을 '대기'로 되돌렸다. 다시 띄워도
+                //   나이를 다시 재는데(daemon_age), 종전엔 여기서 판정을 '대기'로 되돌렸다. 다시 띄워도
                 //   서비스가 안 켜지는 고장이면 재실행 직후 2분마다 화면이 빨간 '중지'에서 회색 '대기'로
                 //   돌아갔고, 그때 걸린 보고의 재시작은 서버가 '회복 못 함'으로도 세지 않았다
                 //   (vanOk null 은 어느 쪽으로도 안 센다 — 2026-11-16 테스트2 시험 중 검토로 발견).
@@ -393,6 +423,11 @@ fn tick(d: &'static Daemon) {
 
 /// 재실행 시도. 프로세스가 남아 있으면(데몬만 멈춘 B 상태) 먼저 정리하고 띄운다.
 fn recover(d: &'static Daemon) {
+    // 띄우지 못하고 끝나는 갈래(경로 모름 등)도 시도는 시도다 — 느린 재시도가 매 주기 두드리지 않게
+    //   여기서 적는다.
+    if let Ok(mut g) = LAST_ATTEMPT.lock() {
+        *g = Some(Instant::now());
+    }
     let pid = find_pid(d.process);
     // ★죽이기 **전에** 경로를 확보한다. 캐시는 데몬이 정상일 때만 채워지므로(tick 의
     //   listening 분기), 우리가 붙은 뒤로 한 번도 정상인 적이 없고 설치 위치가 fallbacks 밖이면
@@ -463,18 +498,59 @@ fn recover(d: &'static Daemon) {
     }
 }
 
-/// 복구 실패 누적. 한계를 넘으면 **그만 시도한다** — 재실행으로 안 낫는 고장이라 계속
-/// 두드려봐야 POS 만 시달린다. 재개는 시간이 아니라 사실로 판단한다: 데몬이 실제로 살아나면
+/// 복구 실패 누적. 한계를 넘으면 **빠른 재시도를 멈춘다** — 재실행으로 안 낫는 고장이라 계속
+/// 두드려봐야 POS 만 시달린다. 포기 상태는 시간이 아니라 사실로 푼다: 데몬이 실제로 살아나면
 /// tick 의 정상 경로가, 사람이 패널에서 관제를 껐다 켜면 set_kind 가 이 상태를 턴다.
+/// 그 사이 영업 중(포스앱)이면 slow_retry 가 간격을 크게 벌려 계속 시도한다.
 fn note_failure() {
     let n = FAILURES.fetch_add(1, Ordering::Relaxed) + 1;
     if n >= MAX_FAILURES && !GAVE_UP.swap(true, Ordering::Relaxed) {
         log::warn!(
-            "[chainremote_van] gave up after {} attempts — stopping until the daemon comes back \
-             (reader cable / COM mismatch needs a human)",
-            n
+            "[chainremote_van] gave up after {} attempts — 사람을 부른다. 포스앱이 떠 있는 동안은 {}분마다 한 번씩만 더 띄운다",
+            n,
+            SLOW_RETRY_INTERVAL.as_secs() / 60
         );
     }
+}
+
+/// 손을 뗀 뒤의 느린 재시도 — 영업 중(포스앱이 떠 있음)일 때만, SLOW_RETRY_INTERVAL 에 한 번 껐다 켠다.
+///   KSCAT 은 켜진 뒤 약 3분만 스스로 리더기를 찾으므로(DAEMON_SELF_RETRY), 그 뒤에 리더기를 켠
+///   매장은 누가 다시 켜 줘야만 산다. 여기서 아주 손을 놓으면 그날 영업 내내 결제가 막힌다.
+///   포기 상태(패널 '복구 실패')는 살아날 때까지 그대로 둔다 — 사람을 부르는 신호다.
+fn slow_retry(d: &'static Daemon) {
+    // 설치 안 됨은 띄울 것이 없다. 유예 중이면 방금 띄운 것이 아직 스스로 리더기를 찾는 중이다.
+    if NOT_INSTALLED.load(Ordering::Relaxed) || in_quiet_period() {
+        return;
+    }
+    if RELAUNCH_PENDING.swap(false, Ordering::Relaxed) {
+        log::info!(
+            "[chainremote_van] {} 다시 띄웠지만 서비스가 안 켜졌다 — {}분 뒤 다시 본다(포스앱이 떠 있을 때만)",
+            d.kind,
+            SLOW_RETRY_INTERVAL.as_secs() / 60
+        );
+    }
+    let due = LAST_ATTEMPT
+        .lock()
+        .ok()
+        .and_then(|g| *g)
+        .map(|t| t.elapsed() >= SLOW_RETRY_INTERVAL)
+        .unwrap_or(true);
+    // 영업 중인지(tasklist)는 때가 됐을 때만 본다.
+    if !due || crate::platform::windows::is_prelogin() || !pos_app_running() {
+        BAD_STREAK.store(0, Ordering::Relaxed);
+        return;
+    }
+    // 죽이기 전 디바운스는 빠른 복구와 같다(BAD_STREAK_NEEDED).
+    let streak = BAD_STREAK.fetch_add(1, Ordering::Relaxed) + 1;
+    if streak < BAD_STREAK_NEEDED {
+        return;
+    }
+    BAD_STREAK.store(0, Ordering::Relaxed);
+    log::info!(
+        "[chainremote_van] 손을 뗀 상태지만 포스앱이 떠 있다(영업 중) — {} 를 한 번 더 띄운다",
+        d.process
+    );
+    recover(d);
 }
 
 /// 포스앱이 떠 있나 — 매장이 영업 중이라는 신호(POS_APPS 주석).
@@ -482,7 +558,9 @@ fn pos_app_running() -> bool {
     POS_APPS.iter().any(|p| find_pid(p).is_some())
 }
 
-/// 이 데몬 프로세스를 처음 본 뒤 지난 시간. 다른 프로세스(재실행·재부팅)면 지금부터 다시 잰다.
+/// 이 데몬 프로세스가 뜬 뒤 지난 시간. 처음 보는 프로세스(재실행·재부팅)면 지금부터 다시 잰다 —
+///   단 우리가 방금 띄운 것이면 띄운 시각부터 잰다. 재실행 직후엔 유예(START_GRACE) 동안 프로세스를
+///   들여다보지 않으므로, 처음 본 시각부터 재면 KSCAT 이 스스로 찾는 시간을 두 번 기다리게 된다.
 ///   에이전트가 늦게 떠서 이미 떠 있던 데몬을 처음 보는 경우엔 실제보다 짧게 잰다 — 손대는 게
 ///   늦어질 뿐이라 안전한 쪽이다.
 fn daemon_age(pid: u32) -> Duration {
@@ -495,8 +573,20 @@ fn daemon_age(pid: u32) -> Duration {
             return now.saturating_duration_since(t);
         }
     }
-    *g = Some((pid, now));
-    Duration::ZERO
+    let since = launched_recently(now).unwrap_or(now);
+    *g = Some((pid, since));
+    now.saturating_duration_since(since)
+}
+
+/// 방금 우리가 띄웠다면 그 시각. 유예가 끝나고 처음 들여다볼 때까지만 쳐 준다 — 그보다 오래된
+///   시도를 남이 나중에 띄운 프로세스에 갖다 붙이면 막 뜬 것을 죽일 수 있다.
+fn launched_recently(now: Instant) -> Option<Instant> {
+    let t = LAST_ATTEMPT.lock().ok().and_then(|g| *g)?;
+    if now.saturating_duration_since(t) <= START_GRACE + WATCH_INTERVAL * 4 {
+        Some(t)
+    } else {
+        None
+    }
 }
 
 /// 데몬 프로세스가 사라졌다 — 다음에 뜨는 프로세스는 새로 나이를 잰다.
