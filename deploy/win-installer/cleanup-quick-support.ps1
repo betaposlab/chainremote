@@ -10,7 +10,7 @@
 #   rustdesk-licensed-<X>.exe   X = reversed base64url of JSON that starts with our host,
 #                               key and report URL - so every X we issue ends with the same
 #                               fixed tail (QS_TAIL). Computed from the panel's code, see
-#                               chainremote-admin/lib/quick-support.ts.
+#                               패널 저장소의 lib/quick-support.ts.
 #   rustdesk-host=rs.626.kr,key=<our key>,*.exe   the older format from the same button.
 # A RustDesk the shop uses for its own purposes never matches either pattern.
 #

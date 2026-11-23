@@ -9,7 +9,9 @@
 
 ## 1. 새로 작성된 컴포넌트 (RustDesk 에 없음)
 
-### 1-1. 관리 패널 — `chainremote-admin/`
+### 1-1. 관리 패널 — 별도 저장소 (2026-11-23 까지는 `chainremote-admin/`)
+- **저장소**: 2026-11-23 별도 비공개 저장소로 옮겼다. RustDesk 를 고친 것이 아니라 HTTP 로만 이야기하는
+  따로 선 프로그램이고, 그 전까지의 역사는 이 저장소 기록에 그대로 남아 있다. 바닥 DB 스키마(옛 `db/migrations/`)도 같이 옮겼다.
 - **스택**: Next.js 16 + TypeScript + Drizzle ORM + PostgreSQL 16
 - **기능**: 멀티테넌트 회사 등록 / 거래처 풀 / 직원 즐겨찾기 / 지원 이력 / 권한 관리 (`super_admin` / `owner` / `member`)
 - **API**: Bearer JWT (24 시간 TTL) 인증의 REST API. 본사 데스크톱 앱이 이 API 로 거래처 목록과 즐겨찾기를 동기화.

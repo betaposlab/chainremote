@@ -112,7 +112,7 @@ mod test {
     use super::*;
 
     // ChainRemote: 임시 원격(626.kr 초록 버튼)이 내려 주는 파일 이름을 이 파서가 읽어야 한다.
-    // 이름은 패널(chainremote-admin/lib/quick-support.ts quickSupportFilenameWithToken)이 만든다 —
+    // 이름은 패널(패널 저장소 lib/quick-support.ts 의 quickSupportFilenameWithToken)이 만든다 —
     // 서명 없는 평문 JSON 을 base64url 해 뒤집은 것. 고객 PC 에서 도는 건 상류 공식 1.4.6 이고
     // 이 파일은 포크 이후 손대지 않았으므로, 여기서 읽히면 거기서도 읽힌다.
     // 상류 머지로 이 테스트가 깨지면 임시 원격의 자가 신고(api 주소)가 조용히 죽는다.

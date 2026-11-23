@@ -137,6 +137,21 @@ echo "    ✓ v$V_RS (4곳 일치)"
 echo "[0.7/5] 인스톨러 중괄호 수지 확인..."
 python3 "$REPO/deploy/win-installer/check-braces.py" || exit 1
 
+# ── [0.8/5] 무인접속 비밀번호 — "없음"과 "빈 값"을 가르는 계약 ──────────────
+# 패널은 하트비트 응답에서 키 없음(=그대로 둬라)과 빈 값(=지워라)을 다르게 보낸다. 에이전트가
+# 둘을 Option 으로 갈라 받지 않으면 지우기가 조용히 죽어, 한 번 연 문을 원격으로 닫을 수 없게
+# 된다. 무인접속 설치본이 아닌 거래처가 값을 받아 심지 않게 하는 게이트도 같이 본다.
+# 패널 시험이 이 소스를 직접 읽어 지키던 것인데, 패널이 비공개 저장소로 옮겨 가면서
+# (2026-11-23, 체인2 D-028) 그 시험이 이 파일을 볼 수 없게 돼 여기로 옮겼다.
+echo "[0.8/5] 무인접속 비밀번호 계약 확인..."
+HB_SRC="$REPO/src/chainremote_heartbeat.rs"
+if grep -q 'unattended_password: Option<String>' "$HB_SRC" && grep -q 'is_unattended_agent()' "$HB_SRC"; then
+  echo "    ✓ Option 으로 받기 · 무인접속 설치본 게이트 있음"
+else
+  echo "    ✗ $HB_SRC 에서 무인접속 비밀번호 계약(Option 으로 받기·설치본 게이트)이 사라졌다" >&2
+  exit 1
+fi
+
 # ── [1/5] 빌드 스크립트 전송 + WMI 분리 실행 (SSH 끊겨도 생존) ──────────────
 echo "[1/5] 릴리즈 빌드 스크립트 전송 + 백그라운드 실행..."
 STATUS_FILE="_release_${KIND}.status"

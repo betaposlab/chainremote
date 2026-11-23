@@ -152,7 +152,7 @@ class IconFont {
 // ★상류의 ColorThemeExtension 에 필드를 밀어 넣지 않고 별도 확장으로 둔다 — 그쪽은
 //   RustDesk 코드라 업스트림 머지 때마다 충돌한다. 우리 것은 우리 클래스에.
 //
-// dark 값은 관리 패널과 같은 팔레트다(chainremote-admin/app/globals.css
+// dark 값은 관리 패널과 같은 팔레트다(패널 저장소 app/globals.css
 //   void #2b364f / abyss #313c58 / deep #3d4e7a / cobalt #3b5291 / edge #566999).
 //   Chang 이 밝기 조정을 네 번 거쳐 확정한 값이라 가독성이 이미 검증돼 있다.
 //

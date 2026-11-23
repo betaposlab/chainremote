@@ -24,8 +24,10 @@ ssh root@115.68.192.153 'caddy validate --config /etc/caddy/Caddyfile && systemc
 
 ## 패널 재배포
 
-`deploy/cloud/redeploy-panel.sh` 하나뿐이다. NAS 판은 2026-08-14 삭제했다 — NAS 옛 스택을
-중지한 날 그 스크립트는 "배포했는데 아무것도 안 바뀜"을 만드는 지뢰가 됐다.
+2026-11-23 부터 **패널 저장소**(비공개 betaposlab/chainremote-panel, 로컬 `~/내작업/ChainRemotePanel`)의
+`deploy/redeploy-panel.sh` 하나뿐이다(체인2 결정 D-028). 이 폴더의 `redeploy-panel.sh` 는 그 사실을
+말하고 멈추는 안내만 남겼다. NAS 판은 2026-08-14 삭제했다 — NAS 옛 스택을 중지한 날 그 스크립트는
+"배포했는데 아무것도 안 바뀜"을 만드는 지뢰가 됐다.
 
 ## 백업 (`backup/`)
 
