@@ -1,1 +1,1 @@
-{"conn-type":"outgoing","default-settings":{"allow-remote-config-modification":"Y","view_style":"adaptive","approve-mode":"click"}}
+{"conn-type":"outgoing","default-settings":{"allow-remote-config-modification":"Y","view_style":"adaptive","scroll_style":"scrolledge","approve-mode":"click"}}
