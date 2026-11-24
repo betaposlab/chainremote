@@ -74,6 +74,24 @@ const INSTALL_VERIFY_SECS: u64 = 30 * 60;
 /// 미보고 결과 보관 슬롯 — "<push_id>|<status>|<reason>". push 는 거래처당 순차라 1슬롯이면 된다.
 const PENDING_REPORT_KEY: &str = "push-pending-report";
 
+// ── 푸시 종류 둘 (패널 마이그 062, 2026-11-24 체인2 결정 D-104 — 체인1 거래처를 체인2 로) ────────
+/// "다른 프로그램 설치"(install_other)를 받아 두는 이름 — 업데이트 파일과 섞이지 않게 따로 둔다.
+const OTHER_FILE: &str = "ChainRemote_Push_Other.exe";
+/// install_other 를 띄운 뒤 끝나기를 기다리는 상한. 넘기면 failed("timeout") — 프로세스는 죽이지 않는다.
+const OTHER_WAIT: Duration = Duration::from_secs(60 * 60);
+/// LocalConfig key prefix — install_other 를 띄웠다는 표시. 기다리는 사이 에이전트가 다시 뜨면(정전·서비스
+/// 재시작) 같은 프로그램을 또 돌리지 않고 "결과 모름"으로 닫는다.
+const OTHER_LAUNCHED_PREFIX: &str = "push-other-launched:";
+/// LocalConfig key prefix — remove_chain1 확인 기한(unix epoch sec).
+const REMOVE_VERIFY_PREFIX: &str = "push-remove-verify:";
+/// 언인스톨러를 띄운 뒤 이 시간이 지나도 우리가 살아 있으면 지우기가 실패한 것으로 본다.
+const REMOVE_VERIFY_SECS: u64 = 30 * 60;
+/// Inno 언인스톨러 자리 — 설치본의 UninstallFilesDir({commonappdata}\ChainRemote\installer).
+/// 설치 폴더가 아니다: 업데이트마다 설치 폴더를 통째로 밀어서 거기 두면 사라진다.
+const UNINSTALLER_PATH: &str = r"C:\ProgramData\ChainRemote\installer\unins000.exe";
+/// 푸시 지우기의 언인스톨러 기록. 언인스톨이 ProgramData\ChainRemote 를 지우므로 윈도우 Temp 에 남긴다.
+const REMOVE_LOG_PATH: &str = r"C:\Windows\Temp\ChainRemote_push_uninstall.log";
+
 fn flog(msg: &str) {
     let _ = std::fs::create_dir_all(r"C:\ProgramData\ChainRemote");
     if let Ok(mut f) = std::fs::OpenOptions::new()
@@ -106,6 +124,14 @@ struct PendingResponse {
     window_end_hour: u32,
     #[serde(default = "default_randomize_max_sec")]
     randomize_max_sec: u32,
+    /// 푸시 종류(패널 마이그 062) — update · install_other · remove_chain1. 응답에 없으면 update 라
+    /// 이 칸이 없던 옛 패널과도 그대로 맞물린다.
+    #[serde(default = "default_kind")]
+    kind: String,
+}
+
+fn default_kind() -> String {
+    "update".to_string()
 }
 
 fn default_end_hour() -> u32 {
@@ -155,6 +181,21 @@ fn tick() -> ResultType<()> {
     let Some(push_id) = pending.id.clone() else {
         return Ok(());
     };
+
+    // 종류별 갈래(패널 마이그 062, 2026-11-24 체인2 결정 D-104). update 는 아래 기존 흐름 그대로다 —
+    //   플릿 업데이트의 생명줄이라 새 종류는 여기서 따로 빠지고, 아래 코드는 손대지 않았다.
+    match pending.kind.as_str() {
+        "update" => {}
+        "install_other" => return tick_install_other(&remote_id, &token, &push_id, &pending),
+        "remove_chain1" => return tick_remove_chain1(&remote_id, &token, &push_id, &pending),
+        other => {
+            // 모르는 종류를 업데이트로 돌리면, 옛 판이 새 종류를 받아 잘못 돌리던 바로 그 꼴이 된다.
+            let msg = format!("unknown push kind {:?} — not run", other);
+            flog(&msg);
+            finish_report(&remote_id, &token, &push_id, "failed", &msg);
+            return Ok(());
+        }
+    }
 
     flog(&format!(
         "pending detected: id={}, target=v{}, window={}~{}, max_delay={}s",
@@ -589,3 +630,228 @@ fn download_to(url: &str, dest: &PathBuf) -> ResultType<()> {
 }
 
 // verify_sha256 은 chainremote_update_common 으로 이전 (빈/불량 expected sha 가드 추가됨).
+
+// ── 푸시 종류 둘 (2026-11-24 체인2 결정 D-104) ──────────────────────────────────────────────
+
+/// 새 종류(install_other·remove_chain1)의 관문 — 업데이트와 같은 셋: 영업시간 창·무작위 지연·원격 중 미룸.
+/// 다 통과하면 true. 업데이트 흐름(tick 안)은 같은 관문을 제자리에 그대로 두었다 — 그 흐름은 손대지 않는다.
+fn other_kind_guards_pass(push_id: &str, pending: &PendingResponse) -> bool {
+    if !within_business_window(pending.window_start_hour, pending.window_end_hour) {
+        flog(&format!(
+            "[{}] outside business window (win={}~{}) → waiting next poll",
+            pending.kind, pending.window_start_hour, pending.window_end_hour
+        ));
+        return false;
+    }
+    let now_epoch = now_epoch_sec();
+    let first_seen = first_seen_at(push_id, now_epoch);
+    let ready = first_seen + compute_delay(push_id, pending.randomize_max_sec);
+    if now_epoch < ready {
+        flog(&format!(
+            "[{}] randomize delay: ready in {}s",
+            pending.kind,
+            ready - now_epoch
+        ));
+        return false;
+    }
+    let alive = crate::Connection::alive_conns();
+    if !alive.is_empty() {
+        flog(&format!(
+            "[{}] active sessions ({} conn) → deferring",
+            pending.kind,
+            alive.len()
+        ));
+        return false;
+    }
+    true
+}
+
+/// 푸시 종류 "다른 프로그램 설치"(install_other) — 체인2 설치본을 체인1 푸시로 조용히 까는 길(D-104).
+/// 판 비교 없음 · 인자 없음 · 끝까지 기다려 종료 코드로 판정(0 = applied, 그 밖 = failed "exit=N").
+/// 그 프로그램의 종료 코드 약속은 그쪽 몫이다(체인2 설치 프로그램 = 0 성공·1 실패·2 잘못된 인자).
+fn tick_install_other(
+    remote_id: &str,
+    token: &str,
+    push_id: &str,
+    pending: &PendingResponse,
+) -> ResultType<()> {
+    flog(&format!(
+        "[install_other] pending id={} target={}",
+        push_id, pending.target_version
+    ));
+    let launched_key = format!("{}{}", OTHER_LAUNCHED_PREFIX, push_id);
+    // 띄워 놓고 기다리던 사이에 에이전트가 다시 떴다(정전·서비스 재시작). 결과는 모른다 — 같은 프로그램을
+    //   두 번 돌리지 않고 닫는다. 성공 여부는 그 프로그램 쪽(체인2 등록)으로 패널이 따로 본다.
+    if !hbb_common::config::LocalConfig::get_option(&launched_key).is_empty() {
+        hbb_common::config::LocalConfig::set_option(launched_key, String::new());
+        let msg = "agent restarted while waiting for the program; result unknown";
+        flog(&format!("[install_other] {}", msg));
+        finish_report(remote_id, token, push_id, "failed", msg);
+        return Ok(());
+    }
+    if !is_valid_sha256_hex(&pending.asset_sha256) {
+        let msg = "invalid asset_sha256 in push manifest";
+        flog(&format!("[install_other] {}", msg));
+        finish_report(remote_id, token, push_id, "failed", msg);
+        return Ok(());
+    }
+    if !other_kind_guards_pass(push_id, pending) {
+        return Ok(());
+    }
+
+    let path = PathBuf::from(PENDING_DIR).join(OTHER_FILE);
+    ensure_pending_dir(&path)?;
+    if !(path.exists() && verify_sha256(&path, &pending.asset_sha256).is_ok()) {
+        flog(&format!(
+            "[install_other] downloading {} ({} bytes)...",
+            pending.asset_url, pending.asset_size
+        ));
+        // 지나가는 회선 사고 하나로 failed 가 박히지 않게 업데이트와 같은 5회 규칙(DL_MAX_ATTEMPTS).
+        let outcome = download_to(&pending.asset_url, &path)
+            .map_err(|e| format!("download failed: {}", e))
+            .and_then(|_| {
+                verify_sha256(&path, &pending.asset_sha256).map_err(|e| {
+                    format!(
+                        "sha mismatch (manifest expected={}): {}",
+                        pending.asset_sha256.trim(),
+                        e
+                    )
+                })
+            });
+        if let Err(msg) = outcome {
+            let n = bump_dl_attempt(push_id);
+            if n < DL_MAX_ATTEMPTS {
+                flog(&format!(
+                    "[install_other] {} — attempt {}/{}, will retry next poll",
+                    msg, n, DL_MAX_ATTEMPTS
+                ));
+                return Ok(());
+            }
+            let msg = format!("{} (after {} attempts)", msg, n);
+            flog(&format!("[install_other] {}", msg));
+            finish_report(remote_id, token, push_id, "failed", &msg);
+            return Ok(());
+        }
+        clear_dl_attempt(push_id);
+        flog("[install_other] download verified");
+    }
+
+    // 띄우기 직전에 원격을 한 번 더 본다 — 받는 사이에 직원이 붙었을 수 있다.
+    if !crate::Connection::alive_conns().is_empty() {
+        flog("[install_other] a session started during download → deferring");
+        return Ok(());
+    }
+    hbb_common::config::LocalConfig::set_option(launched_key.clone(), now_epoch_sec().to_string());
+    let cmd = format!("\"{}\"", path.to_string_lossy());
+    let outcome = crate::chainremote_updater::run_in_active_session_and_wait(&cmd, OTHER_WAIT);
+    hbb_common::config::LocalConfig::set_option(launched_key, String::new());
+    // 받아 둔 파일은 지운다 — 다음 install_other 는 새 행·새 파일이고, sha 대조로만 재사용을 판단하는
+    //   업데이트 파일과 달리 남겨 둘 까닭이 없다.
+    let _ = std::fs::remove_file(&path);
+    match outcome {
+        Ok(Some(0)) => {
+            flog("[install_other] exit=0 → applied");
+            finish_report(remote_id, token, push_id, "applied", "exit=0");
+        }
+        Ok(Some(code)) => {
+            let msg = format!("exit={}", code);
+            flog(&format!("[install_other] {} → failed", msg));
+            finish_report(remote_id, token, push_id, "failed", &msg);
+        }
+        Ok(None) => {
+            let msg = format!(
+                "timeout after {}s (program may still be running)",
+                OTHER_WAIT.as_secs()
+            );
+            flog(&format!("[install_other] {}", msg));
+            finish_report(remote_id, token, push_id, "failed", &msg);
+        }
+        Err(e) => {
+            let msg = format!("launch failed: {}", e);
+            flog(&format!("[install_other] {}", msg));
+            finish_report(remote_id, token, push_id, "failed", &msg);
+        }
+    }
+    Ok(())
+}
+
+/// 푸시 종류 "체인1 지우기"(remove_chain1, D-104) — 체인2 가 그 PC 에서 자리 잡은 뒤 체인1 이 스스로 빠진다.
+/// 성공하면 이 에이전트가 사라져 보고할 수 없다 — 그 행은 체인2 의 "체인1 없음" 알림으로 패널이 닫는다.
+/// 기한(30분)이 지나도 우리가 살아 있으면 지우기가 실패한 것이라 failed 를 보고한다.
+fn tick_remove_chain1(
+    remote_id: &str,
+    token: &str,
+    push_id: &str,
+    pending: &PendingResponse,
+) -> ResultType<()> {
+    flog(&format!("[remove_chain1] pending id={}", push_id));
+    let verify_key = format!("{}{}", REMOVE_VERIFY_PREFIX, push_id);
+    if let Ok(deadline) = hbb_common::config::LocalConfig::get_option(&verify_key).parse::<u64>() {
+        let now = now_epoch_sec();
+        if now < deadline {
+            flog(&format!(
+                "[remove_chain1] uninstaller launched earlier — waiting {}s more",
+                deadline - now
+            ));
+            return Ok(());
+        }
+        hbb_common::config::LocalConfig::set_option(verify_key, String::new());
+        let msg = format!(
+            "still installed {}s after launching the uninstaller",
+            REMOVE_VERIFY_SECS
+        );
+        flog(&format!("[remove_chain1] {}", msg));
+        finish_report(remote_id, token, push_id, "failed", &msg);
+        return Ok(());
+    }
+    if !other_kind_guards_pass(push_id, pending) {
+        return Ok(());
+    }
+    if !std::path::Path::new(UNINSTALLER_PATH).exists() {
+        let msg = format!("uninstaller not found: {}", UNINSTALLER_PATH);
+        flog(&format!("[remove_chain1] {}", msg));
+        finish_report(remote_id, token, push_id, "failed", &msg);
+        return Ok(());
+    }
+    hbb_common::config::LocalConfig::set_option(
+        verify_key.clone(),
+        (now_epoch_sec() + REMOVE_VERIFY_SECS).to_string(),
+    );
+    match launch_uninstaller_detached() {
+        Ok(()) => flog("[remove_chain1] uninstaller launched (detached) — this agent should stop soon"),
+        Err(e) => {
+            hbb_common::config::LocalConfig::set_option(verify_key, String::new());
+            let msg = format!("uninstaller launch failed: {}", e);
+            flog(&format!("[remove_chain1] {}", msg));
+            finish_report(remote_id, token, push_id, "failed", &msg);
+        }
+    }
+    Ok(())
+}
+
+/// 언인스톨러를 이 에이전트의 프로세스 나무 **밖에서** 띄운다.
+///
+/// 언인스톨러는 서비스를 멈추고 ChainRemote.exe 를 끝낸다. 에이전트가 곧바로 띄우면 언인스톨러가 우리의
+/// 자식이라, 프로세스 나무째 끝내는 명령(taskkill /T)에 같이 끌려 죽는다 — 2026-08-20 설치 쪽 17대 사고와
+/// 같은 함정이다(이번 판에서 언인스톨 스크립트의 /T 도 뺐다 — 둘 다 막아 둔다). 그래서 cmd 가 `start` 로
+/// 띄우고 곧바로 끝나게 해, 언인스톨러의 부모가 남지 않게 한다. 서비스 세션(0)에서 돌아 사장님 화면엔
+/// 아무것도 뜨지 않는다. 바탕화면 바로 가기는 언인스톨 스크립트가 모든 사용자 바탕화면을 뒤져 지운다.
+fn launch_uninstaller_detached() -> ResultType<()> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let system_root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".to_string());
+    let cmd_exe = format!(r"{}\System32\cmd.exe", system_root);
+    let args = format!(
+        "/c start \"\" \"{}\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=\"{}\"",
+        UNINSTALLER_PATH, REMOVE_LOG_PATH
+    );
+    flog(&format!("[remove_chain1] {} {}", cmd_exe, args));
+    let status = std::process::Command::new(&cmd_exe)
+        .raw_arg(&args)
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()?;
+    if !status.success() {
+        bail!("cmd start returned {:?}", status.code());
+    }
+    Ok(())
+}

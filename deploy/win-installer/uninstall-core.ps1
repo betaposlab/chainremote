@@ -67,7 +67,11 @@ if ($null -eq $svc) {
 Write-Log ("sc delete (exit=" + $LASTEXITCODE + ")")
 
 # 4) Kill every ChainRemote process, including the LocalSystem service host and the tray.
-& taskkill.exe /F /IM ChainRemote.exe /T 2>&1 | Out-Null
+#    No /T (2026-11-24): /IM already matches every ChainRemote.exe (service, tray, --cm/--server
+#    children all share the image name). The only extra thing /T reaches is a process the agent
+#    itself started -- such as this uninstaller when a push runs it -- so /T would kill the
+#    uninstall half way. The installer dropped /T for the same reason on 2026-08-20.
+& taskkill.exe /F /IM ChainRemote.exe 2>&1 | Out-Null
 Write-Log ("taskkill (exit=" + $LASTEXITCODE + ")")
 for ($i = 0; $i -lt 15; $i++) {
     if (-not @(Get-Process ChainRemote -ErrorAction SilentlyContinue).Count) { break }

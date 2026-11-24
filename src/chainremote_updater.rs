@@ -411,6 +411,70 @@ pub(crate) fn spawn_silent_install(setup_path: &PathBuf) -> ResultType<()> {
     Ok(())
 }
 
+/// 다른 프로그램을 **주어진 명령줄 그대로**(인자를 덧붙이지 않고) 활성 사용자 세션에 SYSTEM 으로 띄우고,
+/// 끝날 때까지 기다려 종료 코드를 돌려준다. 시간 안에 안 끝나면 `Ok(None)` — 그 프로세스는 죽이지
+/// 않는다(설치가 아직 도는 중일 수 있다).
+///
+/// 2026-11-24(체인2 결정 D-104) 푸시 종류 "다른 프로그램 설치"용. 세션 고르기·실행 길은 위
+/// spawn_silent_install 과 똑같다 — 그 길은 업데이트로 플릿 전체에서 검증돼 있다. 다른 점은 둘뿐이다:
+/// Inno 인자를 붙이지 않는다(그 프로그램의 약속이 아니다), 그리고 결과를 판 번호가 아니라 종료 코드로 본다.
+/// 실행 길은 창을 숨긴 채(SW_HIDE)·콘솔 없이(DETACHED_PROCESS) 띄운다.
+pub(crate) fn run_in_active_session_and_wait(
+    cmd: &str,
+    timeout: std::time::Duration,
+) -> ResultType<Option<u32>> {
+    use winapi::shared::winerror::WAIT_TIMEOUT;
+    use winapi::um::{
+        handleapi::CloseHandle, processthreadsapi::GetExitCodeProcess,
+        synchapi::WaitForSingleObject, winbase::WAIT_OBJECT_0,
+    };
+
+    let mut sid = crate::platform::get_current_session_id(false);
+    if sid == 0xFFFF_FFFF {
+        match crate::platform::get_current_process_session_id() {
+            Some(s) => {
+                flog("no active console session → falling back to service session");
+                sid = s;
+            }
+            None => bail!("no active console session and failed to get service session id"),
+        }
+    }
+    flog(&format!(
+        "launch_privileged_process (wait) session={} cmd={}",
+        sid, cmd
+    ));
+    let h = crate::platform::launch_privileged_process(sid, cmd)?;
+    if h.is_null() {
+        bail!("launch_privileged_process returned null handle (session={})", sid);
+    }
+    let ms = timeout.as_millis().min((u32::MAX - 1) as u128) as u32;
+    let waited = unsafe { WaitForSingleObject(h, ms) };
+    let result = if waited == WAIT_OBJECT_0 {
+        let mut code: u32 = 0;
+        if unsafe { GetExitCodeProcess(h, &mut code) } == 0 {
+            Err(format!(
+                "GetExitCodeProcess failed: {}",
+                std::io::Error::last_os_error()
+            ))
+        } else {
+            Ok(Some(code))
+        }
+    } else if waited == WAIT_TIMEOUT {
+        Ok(None)
+    } else {
+        Err(format!(
+            "WaitForSingleObject returned {}: {}",
+            waited,
+            std::io::Error::last_os_error()
+        ))
+    };
+    unsafe { CloseHandle(h) };
+    match result {
+        Ok(v) => Ok(v),
+        Err(msg) => bail!("{}", msg),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! latest.json 매니페스트 파싱 테스트. 버전비교/sha256 검증 테스트는
