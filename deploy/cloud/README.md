@@ -31,7 +31,7 @@ ssh root@115.68.192.153 'caddy validate --config /etc/caddy/Caddyfile && systemc
 
 ## 백업 (`backup/`)
 
-매일 03:40 클라우드가 DB·hbbs 키·스택 설정을 묶어 **서버 안에 만들어 두고**, 04:10 집 NAS 가
+매일 03:40 클라우드가 DB·hbbs 키·스택 설정·체인2 서버 폴더를 묶어 **서버 안에 만들어 두고**, 04:10 집 NAS 가
 **가져간다.** 서버가 삭제되는 경우(미결제 9일)를 넘기려고 백업 본은 NAS 에 둔다.
 
 | 파일 | 어디에 | 하는 일 |
@@ -46,4 +46,27 @@ ssh root@115.68.192.153 'caddy validate --config /etc/caddy/Caddyfile && systemc
 `command=…,no-port-forwarding,…` 로만 등록돼 있어, 다른 명령·터널은 거절된다(둘 다 실제로 시험함).
 
 확인: NAS `tail ~/cr-cloud-backup/receive.log` 에 매일 `OK pulled`, 클라우드
-`tail /var/log/chainremote-backup.log` 에 `OK built` 다음 `SERVE … -> <집 IP>`.
+`tail /var/log/chainremote-backup.log` 에 `OK built … 체인2 포함` 다음 `SERVE … -> <집 IP>`.
+
+## 체인2 서버 (2026-11-26~)
+
+체인리모트 2 의 중계 서버가 같은 클라우드에서 **docker 밖 systemd 서비스**로 돈다.
+체인1 의 포트·Caddy·hbbs/hbbr 는 그대로다.
+
+| 무엇 | 자리 |
+|---|---|
+| 서비스 | `bplr-server`(systemd, 사용자 `bplr`) — CPU 60%·메모리 1GiB 상한 |
+| 폴더 | `/opt/chainremote2/` — `bin/`(실행파일) · `data/`(서버 키·설정, bplr 만 읽음) · `dist/`(설치본 원본, 패널이 읽음) |
+| 포트 | `8443/tcp` — ufw 허용(docker 밖이라 ufw 가 실제로 걸린다) |
+| 패널 쪽 | compose 의 admin 에 **예외 하나**: 환경 `BPLR_*` 일곱 줄(값은 `.env`) + `/opt/chainremote2/dist:/chain2:ro` |
+
+- ★compose 파일은 저장소에 없다. 서버의 `/opt/chainremote/docker-compose.yml` 이 원본이고, 매일 백업
+  묶음(`stack.tar.gz`)에만 남는다. 패널 재배포 스크립트는 compose·`.env` 를 건드리지 않으므로 이 예외는
+  배포 뒤에도 남는다.
+- 백업 묶음에 `chain2-data.tar.gz`(체인2 서버 폴더)가 더해졌다. 서버 키는 다시 만들 수 없다 — 잃으면
+  이미 깐 매장이 서버를 믿지 못한다.
+- 매시 넷 기록(`/etc/cron.d/chainremote-netio`)에 `bplr-server|받음 / 보냄` 한 줄이 있다(systemd IP 셈,
+  바이트). 서비스를 다시 켜면 0 부터라 구간 차이로 읽는다.
+- 되돌리기: `systemctl disable --now bplr-server` · `ufw delete allow 8443/tcp` · compose 의 체인2 주석
+  아래 여덟 줄과 `/chain2` 두 줄을 지우고 `docker compose up -d admin`. `/opt/chainremote2/data` 는
+  지우지 않는다(서버 키 — 다시 올릴 때 같은 키여야 한다).

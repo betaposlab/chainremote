@@ -1,5 +1,5 @@
 #!/bin/bash
-# ChainRemote 클라우드 백업 — DB + hbbs 키 + 스택 설정을 묶어 서버 안에 만들어 둔다. 03:40 cron.
+# ChainRemote 클라우드 백업 — DB + hbbs 키 + 스택 설정 + 체인2 서버 폴더를 묶어 서버 안에 만들어 둔다. 03:40 cron.
 # 집 NAS 가 04:10 에 가져간다(cr-backup-serve.sh 가 내준다).
 #
 # 왜 NAS 에 두는가: iwinv 약관상 데이터 보존은 전적으로 고객 책임이고, 미결제가 9일 이어지면
@@ -33,12 +33,30 @@ ROWS=$(grep -c '^COPY ' "$WORK/chainremote.sql" || true)
 docker run --rm -v chainremote_hbbs-data:/d alpine \
   tar -cf - -C /d id_ed25519 id_ed25519.pub > "$WORK/hbbs-key.tar"
 
-# 3) 스택 설정(.env 포함 — DB 비번/AUTH_SECRET)
+# 3) 스택 설정(.env 포함 — DB 비번/AUTH_SECRET, 2026-11-26 부터 체인2 서명 seed·hub 열쇠도)
 tar -czf "$WORK/stack.tar.gz" -C "$STACK" docker-compose.yml .env 2>/dev/null || true
+
+# 3b) 체인2 서버 폴더(D-113, 2026-11-26~) — 서버 키·설정·새 판·VAN 이력·지원 기록 보관함·traffic.log.
+#     서버 키는 다시 만들 수 없다(깐 매장이 그 공개키를 믿는다). 서버가 도는 중에 묶으므로 tar 가
+#     "읽는 동안 바뀜"(종료 코드 1)을 낼 수 있어 1 까지는 받아들인다. 그보다 나쁘면 체인2 없이
+#     묶는다 — 체인1 DB 백업까지 같이 멈추지 않게. 폴더가 없으면(체인2 서버를 거뒀을 때) 건너뛴다.
+MEMBERS=(chainremote.sql hbbs-key.tar stack.tar.gz)
+C2NOTE="체인2 없음"
+if [ -d /opt/chainremote2/data ]; then
+  rc=0
+  tar -czf "$WORK/chain2-data.tar.gz" -C /opt/chainremote2 --warning=no-file-changed data || rc=$?
+  if [ "$rc" -le 1 ]; then
+    MEMBERS+=(chain2-data.tar.gz)
+    C2NOTE="체인2 포함"
+  else
+    log "WARN chain2 data tar rc=$rc — 체인2 폴더 없이 묶음"
+    C2NOTE="체인2 실패"
+  fi
+fi
 
 # 4) 묶어서 대기 폴더에 둔다. .part 로 쓰고 검사가 끝난 뒤에 이름을 바꾼다 —
 #    NAS 가 쓰는 도중의 파일을 받아 가지 않게.
-tar -czf "$WORK/bundle.tar.gz" -C "$WORK" chainremote.sql hbbs-key.tar stack.tar.gz
+tar -czf "$WORK/bundle.tar.gz" -C "$WORK" "${MEMBERS[@]}"
 install -d -m 700 "$DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
 OUT="$DIR/chainremote-cloud-$TS.tar.gz"
@@ -48,4 +66,4 @@ gzip -t "$OUT.part" || { rm -f "$OUT.part"; log "FAIL bundle corrupt"; exit 1; }
 mv "$OUT.part" "$OUT"
 SIZE=$(stat -c %s "$OUT")
 ls -1t "$DIR"/chainremote-cloud-*.tar.gz 2>/dev/null | tail -n +$((KEEP_LOCAL+1)) | xargs -r rm -f
-log "OK built $(basename "$OUT") ${SIZE}bytes (COPY blocks=$ROWS) — NAS 가 가져가기를 기다림"
+log "OK built $(basename "$OUT") ${SIZE}bytes (COPY blocks=$ROWS, $C2NOTE) — NAS 가 가져가기를 기다림"
