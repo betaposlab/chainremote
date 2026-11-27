@@ -40,11 +40,15 @@ tar -czf "$WORK/stack.tar.gz" -C "$STACK" docker-compose.yml .env 2>/dev/null ||
 #     서버 키는 다시 만들 수 없다(깐 매장이 그 공개키를 믿는다). 서버가 도는 중에 묶으므로 tar 가
 #     "읽는 동안 바뀜"(종료 코드 1)을 낼 수 있어 1 까지는 받아들인다. 그보다 나쁘면 체인2 없이
 #     묶는다 — 체인1 DB 백업까지 같이 멈추지 않게. 폴더가 없으면(체인2 서버를 거뒀을 때) 건너뛴다.
+#     새 판 실행파일(releases/*.exe·*.zip)은 뺀다 — 맥 빌드에서 다시 만들 수 있고, 판 하나가
+#     4MB 넘어 매일 묶음이 그만큼 커진다. 목록(.jws)·결과 기록·멈춤 표시는 작고 사고 때
+#     쓸모 있어 그대로 둔다(2026-11-27 체인2 요청).
 MEMBERS=(chainremote.sql hbbs-key.tar stack.tar.gz)
 C2NOTE="체인2 없음"
 if [ -d /opt/chainremote2/data ]; then
   rc=0
-  tar -czf "$WORK/chain2-data.tar.gz" -C /opt/chainremote2 --warning=no-file-changed data || rc=$?
+  tar -czf "$WORK/chain2-data.tar.gz" -C /opt/chainremote2 --warning=no-file-changed \
+    --exclude='data/releases/*.exe' --exclude='data/releases/*.zip' data || rc=$?
   if [ "$rc" -le 1 ]; then
     MEMBERS+=(chain2-data.tar.gz)
     C2NOTE="체인2 포함"
