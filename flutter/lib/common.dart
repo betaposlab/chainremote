@@ -65,7 +65,7 @@ var isMobile = isAndroid || isIOS;
 var version = ''; // RustDesk 코어 버전 (bind.mainGetVersion)
 // 우리 자체 버전. src/chainremote_version.rs 의 CHAINREMOTE_VERSION,
 // deploy/win-installer/{agent,hq}-installer.iss 의 APP_VERSION 과 늘 맞춰야 한다.
-const chainRemoteVersion = '1.4.169';
+const chainRemoteVersion = '1.4.170';
 int androidVersion = 0;
 
 // Only used on Linux.
@@ -1627,7 +1627,10 @@ Widget msgboxIcon(String type) {
 }
 
 // title should be null
-Widget msgboxContent(String type, String title, String text) {
+// rawTitle: 번역을 거치지 않고 그대로 보일 제목(거래처 이름 등). 번역기는 사전에 없는 글을
+//   돌려주긴 하지만 '{…}' 를 자리표시로 잘라 내므로, 사람이 지은 이름은 이 길로 넣는다.
+Widget msgboxContent(String type, String title, String text,
+    {String? rawTitle}) {
   String translateText(String text) {
     if (text.indexOf('Failed') == 0 && text.indexOf(': ') > 0) {
       List<String> words = text.split(': ');
@@ -1656,7 +1659,7 @@ Widget msgboxContent(String type, String title, String text) {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              translate(title),
+              rawTitle ?? translate(title),
               style: TextStyle(fontSize: 21),
             ).marginOnly(bottom: 10),
             createDialogContent(translateText(text)),

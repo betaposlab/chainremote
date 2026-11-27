@@ -898,7 +898,7 @@ impl Client {
             );
         }
         // Run all connection attempts concurrently, return the first successful one
-        let (mut conn, kcp, mut typ) = match select_ok(connect_futures).await {
+        let (mut conn, mut kcp, mut typ) = match select_ok(connect_futures).await {
             Ok(conn) => (Ok(conn.0 .0), conn.0 .1, conn.0 .2),
             Err(e) => (Err(e), None, ""),
         };
@@ -933,9 +933,51 @@ impl Client {
             start.elapsed(),
             punch_type
         );
-        let res = Self::secure_connection(peer_id, signed_id_pk, key, &mut conn).await;
+        let res = Self::secure_connection(peer_id, signed_id_pk.clone(), key, &mut conn).await;
         let pk: Option<Vec<u8>> = match res {
             Ok(pk) => pk,
+            // ChainRemote(2026-11-27): 직결 TCP 가 성립한 것처럼 보였는데 첫 인사(SignedId)에서 끊기면
+            //   릴레이로 한 번 다시 붙는다. 이동통신 핫스팟(NAT64·CGNAT) 뒤의 HQ 에서 실제로 났다 —
+            //   구멍뚫기는 실패했는데 망이 연결을 받아 준 것처럼 보였다가 0.05초 만에 끊겼고(상대
+            //   에이전트는 연결을 받은 적이 없다), 상류는 여기서 그대로 오류로 끝나 같은 직결만
+            //   되풀이했다. 릴레이로 붙으면 start() 의 x.2 처리가 direct=false 를 보고 직결 실패를
+            //   기록하므로 다음 접속은 짧은 직결 창으로 시작한다.
+            //   TCP 바퀴에서만 한다: UDP 바퀴와 동시에 돌아서, 둘 다 하면 릴레이 요청이 두 번 간다.
+            Err(e) if direct && punch_type == "TCP" && !relay_server.is_empty() => {
+                log::warn!("직결 인사 실패({e}) — 릴레이로 한 번 다시 붙는다");
+                let mut relay_conn = match Self::request_relay(
+                    peer_id,
+                    relay_server.to_owned(),
+                    rendezvous_server,
+                    !signed_id_pk.is_empty(),
+                    key,
+                    token,
+                    conn_type,
+                )
+                .await
+                {
+                    Ok(c) => c,
+                    Err(e2) => {
+                        log::warn!("릴레이로 다시 붙기도 실패: {e2}");
+                        interface.update_direct(Some(direct));
+                        bail!(e);
+                    }
+                };
+                match Self::secure_connection(peer_id, signed_id_pk, key, &mut relay_conn).await {
+                    Ok(pk) => {
+                        log::info!("직결 인사 실패 뒤 릴레이로 붙음");
+                        conn = relay_conn;
+                        kcp = None;
+                        typ = "Relay";
+                        direct = false;
+                        pk
+                    }
+                    Err(e2) => {
+                        interface.update_direct(Some(false));
+                        bail!(e2);
+                    }
+                }
+            }
             Err(e) => {
                 // this direct is mainly used by on_establish_connection_error, so we update it here before bail
                 interface.update_direct(Some(direct));
@@ -3938,10 +3980,18 @@ pub trait Interface: Send + Clone + 'static + Sized {
         // force relay
         let errno = errno::errno().0;
         log::error!("Connection closed: {err}({errno})");
+        // '연결 재설정(ECONNRESET)' 번호는 OS 마다 다르다 — 윈도우 10054, 리눅스·안드로이드 104,
+        //   맥·iOS 54. 상류는 앞의 둘만 봐서 맥 HQ 에는 [릴레이로 연결] 안내가 끝내 안 떴다
+        //   (2026-11-27 충장유통: 'os error 54' 로 여덟 번 끊기는 동안 버튼 없는 오류 창만).
+        #[cfg(windows)]
+        const ECONNRESET: i32 = 10054;
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        const ECONNRESET: i32 = 54;
+        #[cfg(not(any(windows, target_os = "macos", target_os = "ios")))]
+        const ECONNRESET: i32 = 104;
+        let conn_reset = errno == ECONNRESET || err.contains(&format!("os error {ECONNRESET}"));
         if direct == Some(true)
-            && ((cfg!(windows) && (errno == 10054 || err.contains("10054")))
-                || (!cfg!(windows) && (errno == 104 || err.contains("104")))
-                || (!err.contains("Failed") && err.contains("deadline")))
+            && (conn_reset || (!err.contains("Failed") && err.contains("deadline")))
         // deadline: https://github.com/rustdesk/rustdesk-server-pro/discussions/325, most likely comes from secure tcp timeout
         {
             relay_hint = true;

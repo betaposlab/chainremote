@@ -1314,7 +1314,8 @@ void showElevationError(SessionID sessionId, String type, String title,
 }
 
 void showWaitAcceptDialog(SessionID sessionId, String type, String title,
-    String text, OverlayDialogManager dialogManager) {
+    String text, OverlayDialogManager dialogManager,
+    {String? peerLabel}) {
   dialogManager.dismissAll();
   dialogManager.show((setState, close, context) {
     onCancel() {
@@ -1323,7 +1324,9 @@ void showWaitAcceptDialog(SessionID sessionId, String type, String title,
 
     return CustomAlertDialog(
       title: null,
-      content: msgboxContent(type, title, text),
+      // 제목 자리에 어느 거래처의 수락을 기다리는지 보인다(없으면 원래 제목).
+      content: msgboxContent(type, title, text,
+          rawTitle: (peerLabel ?? '').isEmpty ? null : peerLabel),
       actions: [
         dialogButton('Cancel', onPressed: onCancel, isOutline: true),
       ],

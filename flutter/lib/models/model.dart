@@ -938,6 +938,17 @@ class FfiModel with ChangeNotifier {
   }
 
   /// Handle the message box event based on [evt] and [id].
+  /// 수락 대기 창 제목에 쓸 거래처 이름 — 탭 제목과 같은 규칙(별칭, 없으면 ID@호스트명).
+  String _waitAcceptPeerLabel(String peerId) {
+    try {
+      final alias = bind.mainGetPeerOptionSync(id: peerId, key: 'alias');
+      return getDesktopTabLabel(peerId, alias);
+    } catch (e) {
+      debugPrint('wait-accept label: $e');
+      return '';
+    }
+  }
+
   handleMsgBox(Map<String, dynamic> evt, SessionID sessionId, String peerId) {
     if (parent.target == null) return;
     final dialogManager = parent.target!.dialogManager;
@@ -1002,7 +1013,11 @@ class FfiModel with ChangeNotifier {
       showMsgBox(sessionId, type, title, text, link, true, dialogManager,
           hasCancel: false);
     } else if (type == 'wait-remote-accept-nook') {
-      showWaitAcceptDialog(sessionId, type, title, text, dialogManager);
+      // ChainRemote(2026-11-27 충장유통): 한 매장에 '○○ 판매'·'○○ 대표'처럼 비슷한 이름이 여럿이면
+      //   이 창만으로는 어느 PC 의 수락을 기다리는지 알 수 없었다 — 판매 PC 에 붙어 놓고 대표 PC
+      //   앞에서 수락 창을 기다렸다. 의미 없는 제목 '프롬프트' 자리에 거래처 이름(탭 제목과 같은 값)을 둔다.
+      showWaitAcceptDialog(sessionId, type, title, text, dialogManager,
+          peerLabel: _waitAcceptPeerLabel(peerId));
     } else if (type == 'on-uac' || type == 'on-foreground-elevated') {
       showOnBlockDialog(sessionId, type, title, text, dialogManager);
     } else if (type == 'wait-uac') {
@@ -1165,7 +1180,10 @@ class FfiModel with ChangeNotifier {
       OverlayDialogManager dialogManager,
       String peerId) async {
     var hint = "\n\n${translate('relay_hint_tip')}";
-    if (text.contains("10054") || text.contains("104")) {
+    // 연결 재설정이면 안내 글은 빼고 버튼만 — 맥·iOS 번호(54)도 같이 본다(client.rs 와 짝).
+    if (text.contains("10054") ||
+        text.contains("104") ||
+        text.contains("os error 54")) {
       hint = "";
     }
     final text2 = "${translate(text)}$hint";
